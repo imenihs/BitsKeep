@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>部品詳細画面（モック）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body class="p-6 text-[var(--color-text)] bg-[var(--color-bg)]">
+  <div class="flex justify-between items-center border-b border-[var(--color-border)] pb-4 mb-6">
+    <h1 class="text-2xl font-bold">部品詳細</h1>
+    <button id="themeToggle"
+      class="px-4 py-2 rounded border border-[var(--color-accent)] bg-[var(--color-bg)] text-[var(--color-text)] font-bold text-xl">
+      🌙
+    </button>
+  </div>
+
+  <section class="grid md:grid-cols-2 gap-6">
+    <div><div class="font-semibold">型番</div><div>R10K-1/4W</div></div>
+    <div><div class="font-semibold">メーカ</div><div>Panasonic</div></div>
+    <div><div class="font-semibold">分類</div><div>抵抗, SMD</div></div>
+    <div><div class="font-semibold">購入先・単価・管理コード</div>
+      <ul class="list-disc list-inside text-sm">
+        <li>秋月：10円（2024-12-01） [A001] <a href="#">URL</a></li>
+        <li>RS：8円（2025-04-20） [R123] <a href="#">URL</a></li>
+      </ul>
+    </div>
+    <div><div class="font-semibold">値 / 単位</div><div>10kΩ</div></div>
+    <div><div class="font-semibold">定格電圧 / 電流 / 電力</div><div>100V / 20mA / 0.25W</div></div>
+    <div><div class="font-semibold">色</div><div>赤・茶・黒・金</div></div>
+    <div><div class="font-semibold">温度特性 / 許容差 / ランク</div><div>±100ppm / ±5% / G</div></div>
+    <div><div class="font-semibold">パッケージ</div><div>0402, 0603</div></div>
+    <div><div class="font-semibold">サイズ</div><div>3.2mm × 1.6mm × 1.2mm</div></div>
+    <div><div class="font-semibold">機能</div><div>プルアップ用</div></div>
+    <div><div class="font-semibold">新品/中古</div><div>新品</div></div>
+    <div><div class="font-semibold">在庫数</div><div>新品: 1000 / 中古: 200</div></div>
+    <div><div class="font-semibold">利用プロジェクト</div><div>共通基板2025, IoTセンサ</div></div>
+    <div><div class="font-semibold">入手可否</div><span class="tag tag-ok">量産中</span></div>
+    <div><div class="font-semibold">ロット番号</div><div>LOT-235678</div></div>
+    <div><div class="font-semibold">在庫区分 / リール番号</div><div>リール / QR12345678</div></div>
+    <div><div class="font-semibold">画像</div><div>c541b2bd-4095-453c-9c6e-7ddce84911d9.png</div></div>
+    <div><div class="font-semibold">保管場所</div><div>棚A-12, 棚B-04</div></div>
+    <div><div class="font-semibold">通称</div><div>標準抵抗</div></div>
+    <div><div class="font-semibold">部品データシート</div><div>resistor_datasheet.pdf</div></div>
+    <div><div class="font-semibold">入庫日 / 出庫日</div><div>2025-05-01 / 2025-06-15</div></div>
+    <div><div class="font-semibold">カスタムフィールド</div><div>備考: 試作用に多めに購入</div></div>
+  </section>
+
+  <script>
+    function toggleTheme() {
+      const root = document.documentElement;
+      const btn = document.getElementById("themeToggle");
+      const isLight = root.getAttribute("data-theme") === "light";
+      root.setAttribute("data-theme", isLight ? "dark" : "light");
+      btn.textContent = isLight ? "☀️" : "🌙";
+    }
+    window.addEventListener("DOMContentLoaded", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      document.getElementById("themeToggle").textContent = current === "dark" ? "☀️" : "🌙";
+      document.getElementById("themeToggle").onclick = toggleTheme;
+    });
+  </script>
+</body>
+</html>

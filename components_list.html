@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html data-theme="light" lang="ja">
+ <head>
+  <meta charset="utf-8">
+  <title>
+   部品一覧画面
+  </title>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <link href="theme.css" rel="stylesheet">
+ </head>
+ <body style="display: flex; height: 100vh;">
+  <!-- 左：フィルター -->
+  <aside class="sidebar w-64 bg-[var(--color-bg-alt)] p-4 overflow-y-auto">
+   <div class="filter-group mb-4">
+    <label class="block font-bold mb-1" for="category">
+     分類
+    </label>
+    <select class="w-full p-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]" id="category">
+     <option>
+      すべて
+     </option>
+     <option>
+      抵抗
+     </option>
+     <option>
+      コンデンサ
+     </option>
+     <option>
+      IC
+     </option>
+    </select>
+   </div>
+   <div class="filter-group mb-4">
+    <label class="block font-bold mb-1" for="supplier">
+     商社
+    </label>
+    <select class="w-full p-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]" id="supplier">
+     <option>
+      すべて
+     </option>
+     <option>
+      秋月
+     </option>
+     <option>
+      RS
+     </option>
+     <option>
+      Digikey
+     </option>
+    </select>
+   </div>
+   <div class="filter-group mb-4">
+    <label class="block font-bold mb-1" for="stockType">
+     在庫タイプ
+    </label>
+    <select class="w-full p-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]" id="stockType">
+     <option>
+      すべて
+     </option>
+     <option>
+      新品
+     </option>
+     <option>
+      中古
+     </option>
+    </select>
+   </div>
+   <div class="filter-group mb-4">
+    <label class="block font-bold mb-1" for="keyword">
+     キーワード
+    </label>
+    <input class="w-full p-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]" id="keyword" placeholder="型番・備考など" type="text">
+   </div>
+  </aside>
+  <!-- 右：部品一覧 -->
+  <main class="content flex-1 p-6 bg-[var(--color-bg)] text-[var(--color-text)] overflow-y-auto">
+   <div class="flex justify-between items-center mb-6">
+    <input class="input-text w-2/3 mr-4" placeholder="部品名・型番で検索..." type="text">
+     <div class="flex gap-2">
+      <button class="btn-accent px-6 py-2 rounded font-semibold whitespace-nowrap">
+       + 新規登録
+      </button>
+      <button class="px-4 py-2 rounded border border-[var(--color-accent)] bg-[var(--color-bg)] text-[var(--color-text)] font-bold text-xl" id="themeToggle" onclick="toggleTheme()">
+       🌙
+      </button>
+     </div>
+    </input>
+   </div>
+   <!-- カード表示（交互配色） -->
+   <div class="space-y-4">
+    <div class="card even">
+     <div>
+      <a class="text-lg font-bold underline hover:text-[var(--color-accent)]" href="/components/1">
+       SLG46826V DIP化モジュール
+      </a>
+      <br>
+      AE-SLG46826V-DIP20 ｜ 秋月電子通商 ｜ 1個 350円
+     </div>
+     <div class="flex gap-2">
+     </div>
+    </div>
+    <div class="card odd">
+     <div>
+      <a class="text-lg font-bold underline hover:text-[var(--color-accent)]" href="/components/2">
+       Tang Nano 9K
+      </a>
+      <br>
+      Tang Nano 9K ｜ 秋月電子通商 ｜ 1個 2980円
+     </div>
+     <div class="flex gap-2">
+     </div>
+    </div>
+    <div class="card even">
+     <div>
+      <a class="text-lg font-bold underline hover:text-[var(--color-accent)]" href="/components/3">
+       LED 赤色
+      </a>
+      <br>
+      LED-RED-5MM ｜ RS ｜ 1個 25円
+     </div>
+     <div class="flex gap-2">
+     </div>
+    </div>
+    <div class="card odd">
+     <div>
+      <a class="text-lg font-bold underline hover:text-[var(--color-accent)]" href="/components/4">
+       抵抗 10k&Omega;
+      </a>
+      <br>
+      R10K-1/4W ｜ Digikey ｜ 1個 5円
+     </div>
+     <div class="flex gap-2">
+     </div>
+    </div>
+   </div>
+  </main>
+  <script>
+   function toggleTheme() {
+      const root = document.documentElement;
+      const btn = document.getElementById("themeToggle");
+      const isLight = root.getAttribute("data-theme") === "light";
+      root.setAttribute("data-theme", isLight ? "dark" : "light");
+      btn.textContent = isLight ? "☀️" : "🌙";
+    }
+    // 初期状態に合わせてボタン表示をセット
+    window.addEventListener("DOMContentLoaded", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      document.getElementById("themeToggle").textContent = current === "dark" ? "☀️" : "🌙";
+    });
+  </script>
+ </body>
+</html>

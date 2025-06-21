@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>カラーテーマとサンプル</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="theme.css">
+</head>
+
+<body class="p-6">
+  <h1 class="text-2xl font-bold mb-4 text-[var(--color-text)]">カラーテーマ一覧</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+    <!-- Light Theme Side -->
+    <div data-theme="light" class="p-4 rounded shadow"
+      style="background-color: var(--color-bg); color: var(--color-text);">
+      <h2 class="text-xl font-semibold mb-2">ライトテーマ</h2>
+      <table class="table-auto border w-full text-sm">
+        <thead>
+          <tr style="background-color: var(--color-bg-alt);">
+            <th class="border px-2 py-1">項目</th>
+            <th class="border px-2 py-1">変数名</th>
+            <th class="border px-2 py-1">表示</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="border px-2 py-1">背景</td>
+            <td class="border px-2 py-1">--color-bg</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5 border" style="background-color: var(--color-bg);"></div> #ffffff
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">本文</td>
+            <td class="border px-2 py-1">--color-text</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-text);"></div> #212529
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">ボーダー</td>
+            <td class="border px-2 py-1">--color-border</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-border);"></div> #dee2e6
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">プライマリ</td>
+            <td class="border px-2 py-1">--color-primary
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-primary);"></div> #004080
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">アクセント</td>
+            <td class="border px-2 py-1">--color-accent</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-accent);"></div> #f4a000
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">強調</td>
+            <td class="border px-2 py-1">--color-highlight</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-highlight);"></div> #00a888
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">カード(奇数)</td>
+            <td class="border px-2 py-1">--color-card-even</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-card-even);"></div> #f3f4f6
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">カード(偶数)</td>
+            <td class="border px-2 py-1">--color-card-odd</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5 border" style="background-color: var(--color-card-odd);"></div> #ffffff
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="mt-4 space-y-4">
+        <div class="p-4 rounded shadow card even">カード(奇数)のサンプル</div>
+        <div class="p-4 rounded shadow card odd">カード(偶数)のサンプル</div>
+        <input type="text" class="w-full p-2 border rounded" placeholder="テキスト入力欄">
+        <div class="space-x-2">
+          <button class="px-4 py-2 rounded btn-primary">プライマリボタン</button>
+          <button class="px-4 py-2 rounded btn-accent">アクセントボタン</button>
+          <button class="px-4 py-2 rounded btn-highlight">強調ボタン</button>
+        </div>
+      </div>
+      <!-- チェックボックス -->
+      <label class="block mt-4">
+        <input type="checkbox" class="input-checkbox" checked> 中古を含む
+      </label>
+
+      <!-- ラベルタグ -->
+      <div class="space-x-2 mt-2">
+        <span class="tag tag-eol">EOL</span>
+        <span class="tag tag-warning">在庫限り</span>
+        <span class="tag tag-ok">量産中</span>
+      </div>
+
+      <!-- トグルスイッチ -->
+      <label class="inline-flex items-center mt-4">
+        <input type="checkbox" class="toggle" checked>
+        <span class="ml-2">在庫表示</span>
+      </label>
+    </div>
+
+    <!-- Dark Theme Side -->
+    <div data-theme="dark" class="p-4 rounded shadow"
+      style="background-color: var(--color-bg); color: var(--color-text);">
+      <h2 class="text-xl font-semibold mb-2">ダークテーマ</h2>
+      <table class="table-auto border w-full text-sm">
+        <thead>
+          <tr style="background-color: var(--color-bg-alt);">
+            <th class="border px-2 py-1">項目</th>
+            <th class="border px-2 py-1">変数名</th>
+            <th class="border px-2 py-1">表示</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="border px-2 py-1">背景</td>
+            <td class="border px-2 py-1">--color-bg</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-bg);"></div> #111827
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">本文</td>
+            <td class="border px-2 py-1">--color-text</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-text);"></div> #ffffff
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">ボーダー</td>
+            <td class="border px-2 py-1">--color-border</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-border);"></div> #2c2f33
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">プライマリ</td>
+            <td class="border px-2 py-1">--color-primary
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-primary);"></div> #004080
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">アクセント</td>
+            <td class="border px-2 py-1">--color-accent</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-accent);"></div> #d08000
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">強調</td>
+            <td class="border px-2 py-1">--color-highlight</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-highlight);"></div> #00614c
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">カード(奇数)</td>
+            <td class="border px-2 py-1">--color-card-even</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5" style="background-color: var(--color-card-even);"></div> #1f2937
+            </td>
+          </tr>
+          <tr>
+            <td class="border px-2 py-1">カード(偶数)</td>
+            <td class="border px-2 py-1">--color-card-odd</td>
+            <td class="border px-2 py-1">
+              <div class="w-5 h-5 border" style="background-color: var(--color-card-odd);"></div> #1e3a8a
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="mt-4 space-y-4">
+        <div class="p-4 rounded shadow card even">カード(奇数)のサンプル</div>
+        <div class="p-4 rounded shadow card odd">カード(偶数)のサンプル</div>
+        <input type="text" class="w-full p-2 border rounded" placeholder="テキスト入力欄">
+        <div class="space-x-2">
+          <button class="px-4 py-2 rounded btn-primary">プライマリボタン</button>
+          <button class="px-4 py-2 rounded btn-accent">アクセントボタン</button>
+          <button class="px-4 py-2 rounded btn-highlight">強調ボタン</button>
+        </div>
+        <!-- チェックボックス -->
+        <label class="block mt-4">
+          <input type="checkbox" class="input-checkbox" checked> 中古を含む
+        </label>
+
+        <!-- ラベルタグ -->
+        <div class="space-x-2 mt-2">
+          <span class="tag tag-eol">EOL</span>
+          <span class="tag tag-warning">在庫限り</span>
+          <span class="tag tag-ok">量産中</span>
+        </div>
+
+        <!-- トグルスイッチ -->
+        <label class="inline-flex items-center mt-4">
+          <input type="checkbox" class="toggle" checked>
+          <span class="ml-2">在庫表示</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
