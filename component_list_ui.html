@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>カラーテーマとサンプル</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-900 p-6">
+  <h1 class="text-2xl font-bold mb-4">カラーテーマ一覧</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+    <!-- Light Theme Table -->
+    <div>
+      <h2 class="text-xl font-semibold mb-2">ライトテーマ</h2>
+      <table class="table-auto border w-full text-sm">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="border px-2 py-1">項目</th>
+            <th class="border px-2 py-1">カラーコード</th>
+            <th class="border px-2 py-1">表示</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="border px-2 py-1">背景</td><td class="border px-2 py-1">#ffffff</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#ffffff;border:1px solid #ccc;"></div></td></tr>
+          <tr><td class="border px-2 py-1">本文</td><td class="border px-2 py-1">#111827</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#111827;"></div></td></tr>
+          <tr><td class="border px-2 py-1">強調</td><td class="border px-2 py-1">#F4A300</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#F4A300;"></div></td></tr>
+          <tr><td class="border px-2 py-1">アクセント</td><td class="border px-2 py-1">#23A08D</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#23A08D;"></div></td></tr>
+          <tr><td class="border px-2 py-1">カードA</td><td class="border px-2 py-1">#f3f4f6</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#f3f4f6;"></div></td></tr>
+          <tr><td class="border px-2 py-1">カードB</td><td class="border px-2 py-1">#ffffff</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#ffffff;border:1px solid #ccc;"></div></td></tr>
+        </tbody>
+      </table>
+
+      <div class="mt-4 space-y-4">
+        <div class="bg-[#f3f4f6] p-4 rounded shadow">カードAのサンプル</div>
+        <div class="bg-white p-4 rounded shadow">カードBのサンプル</div>
+        <input type="text" class="w-full p-2 border border-gray-300 rounded" placeholder="テキスト入力欄">
+        <div class="space-x-2">
+          <button class="bg-[#F4A300] text-white px-4 py-2 rounded">強調ボタン</button>
+          <button class="bg-gray-300 text-black px-4 py-2 rounded">通常ボタン</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dark Theme Table -->
+    <div class="bg-gray-900 text-white p-4 rounded">
+      <h2 class="text-xl font-semibold mb-2">ダークテーマ</h2>
+      <table class="table-auto border w-full text-sm">
+        <thead>
+          <tr class="bg-gray-700">
+            <th class="border px-2 py-1">項目</th>
+            <th class="border px-2 py-1">カラーコード</th>
+            <th class="border px-2 py-1">表示</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="border px-2 py-1">背景</td><td class="border px-2 py-1">#111827</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#111827;"></div></td></tr>
+          <tr><td class="border px-2 py-1">本文</td><td class="border px-2 py-1">#ffffff</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#ffffff;"></div></td></tr>
+          <tr><td class="border px-2 py-1">強調</td><td class="border px-2 py-1">#F4A300</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#F4A300;"></div></td></tr>
+          <tr><td class="border px-2 py-1">アクセント</td><td class="border px-2 py-1">#23A08D</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#23A08D;"></div></td></tr>
+          <tr><td class="border px-2 py-1">カードA</td><td class="border px-2 py-1">#1f2937</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#1f2937;"></div></td></tr>
+          <tr><td class="border px-2 py-1">カードB</td><td class="border px-2 py-1">#1e3a8a</td><td class="border px-2 py-1"><div style="width:20px;height:20px;background:#1e3a8a;"></div></td></tr>
+        </tbody>
+      </table>
+
+      <div class="mt-4 space-y-4">
+        <div class="bg-[#1f2937] p-4 rounded shadow">カードAのサンプル</div>
+        <div class="bg-[#1e3a8a] p-4 rounded shadow">カードBのサンプル</div>
+        <input type="text" class="w-full p-2 border border-gray-600 rounded bg-[#111827] text-white" placeholder="テキスト入力欄">
+        <div class="space-x-2">
+          <button class="bg-[#F4A300] text-black px-4 py-2 rounded">強調ボタン</button>
+          <button class="bg-gray-600 text-white px-4 py-2 rounded">通常ボタン</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
