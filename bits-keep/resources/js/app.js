@@ -1,7 +1,14 @@
 import './bootstrap';
+import { createApp } from 'vue';
 
-import Alpine from 'alpinejs';
+// 各ページのVueアプリを動的マウント
+// Bladeテンプレートが <div id="app" data-page="components-list"> を持つ
+const page = document.getElementById('app')?.dataset?.page;
 
-window.Alpine = Alpine;
-
-Alpine.start();
+if (page) {
+    import(`./pages/${page}.js`).then(({ default: setup }) => {
+        createApp({ setup }).mount('#app');
+    }).catch(() => {
+        console.error(`Page module not found: ${page}`);
+    });
+}

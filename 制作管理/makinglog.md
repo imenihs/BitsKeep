@@ -417,3 +417,20 @@ Phase 1-1 DBマイグレーション→1-2 認証拡張→1-3 共通基盤の順
 
 曹長(コード分隊)の心の声: ilike（PostgreSQL）でのフリーワード検索を採用。SQLiteに戻す場合はlikeに変更が必要。updateSectionのmatch式はsection名の追加が容易で拡張性が高い。在庫サマリ（quantity_new/used）はblockの集計ではなくincrementで更新する方式にした。集計クエリより高速で整合性も保ちやすい。
 
+
+---
+## [曹長(コード分隊)] 2026-04-08 00:10
+
+### Phase 2-2 部品一覧Vue画面実装
+
+**完了内容:**
+- resources/js/app.js: data-page属性による動的ページモジュールロード
+- resources/js/api.js: CSRF付きfetchラッパー（get/post/put/patch/delete/upload）
+- resources/js/composables/useToast.js: グローバルトースト管理
+- resources/js/pages/components-list.js: Vue setup（フィルタ/ページネーション/比較リスト/APIフェッチ）
+- resources/views/app/components-list.blade.php: Blade+Vueテンプレート
+- routes/web.php: 部品管理・比較・在庫警告ルート追加、アロー関数化
+- npm run build ✓（components-listチャンク分割確認）
+
+曹長(コード分隊)の心の声: data-page属性による動的import方式を採用。ページ増加しても app.js を書き換えず、各ページファイルを追加するだけで対応できる。
+
