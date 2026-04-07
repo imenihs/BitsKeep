@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AltiumLinkController;
+use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\CategoryController;
@@ -74,4 +75,13 @@ Route::middleware('auth')->group(function () {
 
     // ── 操作ログ（admin のみ） ────────────────────────────────
     Route::get('audit-logs', [AuditLogController::class, 'index']);
+
+    // ── 案件管理 ─────────────────────────────────────────────
+    Route::get('projects/options', [ProjectController::class, 'options']);
+    Route::apiResource('projects', ProjectController::class);
+    Route::get(   'projects/{project}/components',                   [ProjectController::class, 'listComponents']);
+    Route::post(  'projects/{project}/components',                   [ProjectController::class, 'addComponent']);
+    Route::patch( 'projects/{project}/components/{component}',       [ProjectController::class, 'updateComponent']);
+    Route::delete('projects/{project}/components/{component}',       [ProjectController::class, 'removeComponent']);
+    Route::get(   'projects/{project}/cost',                         [ProjectController::class, 'cost']);
 });

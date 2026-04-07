@@ -22,6 +22,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/stock-alert', fn() => view('app.stock-alert'))->name('stock.alert');
     Route::get('/suppliers',   fn() => view('app.supplier-list'))->name('suppliers.index');
 
+    // 案件管理
+    Route::get('/projects', fn() => view('app.project-list'))->name('projects.index');
+
     // 比較
     Route::get('/component-compare', fn() => view('app.component-compare'))->name('components.compare');
 
