@@ -119,6 +119,19 @@ export default function setup() {
         }
     };
 
+    // 類似部品
+    const similarParts = ref([]);
+    const similarLoading = ref(false);
+    const fetchSimilar = async () => {
+        if (similarLoading.value) return;
+        similarLoading.value = true;
+        try {
+            const r = await api.get(`/components/${componentId}/similar`);
+            similarParts.value = r.data;
+        } catch { /* 無視 */ }
+        finally { similarLoading.value = false; }
+    };
+
     // 論理削除
     const deletePart = async () => {
         if (!confirm('この部品を削除しますか？')) return;
@@ -140,5 +153,6 @@ export default function setup() {
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
         deletePart,
+        similarParts, similarLoading, fetchSimilar,
     };
 }

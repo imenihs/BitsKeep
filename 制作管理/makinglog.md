@@ -727,3 +727,29 @@ Bladeテンプレートが未作成のため、そこから再開。
 
 大佐の心の声: Phase 3とPhase 2-1が一気にクリアできた。次は残りの[ ]タスクを確認してPhase 4（案件管理）に入るが、Notion API連携が絡む複雑案件。まず独自案件CRUDから着手するのが堅実。
 
+
+---
+
+## [大佐] 2026-04-08 05:20
+
+04:11 の続き。Phase 4, 6, ダッシュボードの残タスクを処理。
+
+### 実施内容
+
+**Phase 4-3 類似部品Vue組み込み**
+- `component-detail.js` に `fetchSimilar()` / `similarParts` / `similarLoading` を追加
+- APIエンドポイント `/components/{id}/similar` と接続
+
+**Phase 2-0 ダッシュボード（SCR-000）**
+- `dashboard.js`: グローバル検索ランチャー（Ctrl+K, 部品/案件並列検索）、在庫警告件数カード、クイックアクション（roleベース）、最近の部品一覧
+- `dashboard.blade.php`: 独自Vueシェル（Breeze layoutから移行）
+- route変更: `/dashboard` → `app.dashboard`
+
+**Phase 6-2/6-3**
+- `engineering-calc.js/blade`: エンジニア電卓（式評価・進数・物理定数）完成
+- `design-tools.js/blade`: 8ツール統合設計解析ハブ完成
+
+**ビルド確認**: 全ページ正常
+
+大佐の心の声: 主要機能（Phase 1-6の実装可能部分）が概ね完成した。残りはNotion連携（外部依存）・E2Eテスト・本番デプロイ設定・Phase 6の一部未実装ツール。実業務で使える水準に達しつつある。
+

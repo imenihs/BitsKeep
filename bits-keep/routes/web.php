@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn() => redirect()->route('components.index'));
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', fn() => view('dashboard'))->name('dashboard');
+    Route::get('/dashboard', fn() => view('app.dashboard'))->name('dashboard');
 
     // 部品管理
     Route::get('/components',         fn() => view('app.components-list'))->name('components.index');
