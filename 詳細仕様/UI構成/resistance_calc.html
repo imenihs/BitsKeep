@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>合成抵抗計算ツール</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="calculator" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">合成抵抗計算</h1>
+      </div>
+    </div>
+    <button id="themeToggle" @click="toggleTheme"
+      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <div class="flex gap-6 flex-wrap" style="max-width: 1000px;">
+
+    <!-- 左ペイン: 入力・設定 -->
+    <div class="flex-1 min-w-[320px]">
+
+      <!-- 接続方式 -->
+      <div class="mb-5">
+        <label class="block text-sm font-semibold mb-2">接続方式</label>
+        <div class="flex gap-2">
+          <button @click="mode = 'series'"
+            class="flex-1 py-2 rounded border text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            :class="mode === 'series'
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)]'">
+            <i data-lucide="minus" class="w-4 h-4"></i>直列
+          </button>
+          <button @click="mode = 'parallel'"
+            class="flex-1 py-2 rounded border text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            :class="mode === 'parallel'
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)]'">
+            <i data-lucide="git-branch" class="w-4 h-4"></i>並列
+          </button>
+        </div>
+      </div>
+
+      <!-- 回路ビジュアル -->
+      <div class="mb-5 p-4 rounded-lg bg-[var(--color-card-even)] border border-[var(--color-border)]">
+        <!-- 直列回路図 -->
+        <svg v-if="mode === 'series'" viewBox="0 0 340 60" class="w-full h-14">
+          <line x1="10" y1="30" x2="40" y2="30" stroke="var(--color-primary)" stroke-width="2"/>
+          <template v-for="(r, idx) in resistors" :key="r.id">
+            <!-- 抵抗記号（矩形） -->
+            <rect :x="40 + idx * 80" y="18" width="50" height="24" rx="4"
+              fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+            <text :x="65 + idx * 80" y="34" text-anchor="middle"
+              font-size="9" fill="var(--color-text)" class="font-mono">
+              {{ formatOhm(parseFloat(r.value) * getUnitFactor(r.unit)) }}
+            </text>
+            <!-- 接続線 -->
+            <line v-if="idx < resistors.length - 1"
+              :x1="90 + idx * 80" y1="30" :x2="120 + idx * 80" y2="30"
+              stroke="var(--color-primary)" stroke-width="2"/>
+          </template>
+          <line :x1="90 + (resistors.length - 1) * 80" y1="30" :x2="330" y2="30"
+            stroke="var(--color-primary)" stroke-width="2"/>
+        </svg>
+
+        <!-- 並列回路図 -->
+        <svg v-if="mode === 'parallel'" viewBox="0 0 340 100" class="w-full h-24">
+          <!-- 左バス -->
+          <line x1="10" y1="50" x2="50" y2="50" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="50" y1="10" :x2="50" :y2="10 + (resistors.length - 1) * 30 + 20"
+            stroke="var(--color-primary)" stroke-width="2"/>
+          <!-- 右バス -->
+          <line x1="290" y1="50" x2="330" y2="50" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="290" y1="10" :x2="290" :y2="10 + (resistors.length - 1) * 30 + 20"
+            stroke="var(--color-primary)" stroke-width="2"/>
+          <!-- 各抵抗 -->
+          <template v-for="(r, idx) in resistors" :key="r.id">
+            <line x1="50" :y1="20 + idx * 30" x2="100" :y2="20 + idx * 30"
+              stroke="var(--color-primary)" stroke-width="2"/>
+            <rect x="100" :y="20 + idx * 30 - 9" width="90" height="18" rx="3"
+              fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+            <text x="145" :y="20 + idx * 30 + 5" text-anchor="middle"
+              font-size="9" fill="var(--color-text)" class="font-mono">
+              {{ formatOhm(parseFloat(r.value) * getUnitFactor(r.unit)) }}
+            </text>
+            <line x1="190" :y1="20 + idx * 30" x2="290" :y2="20 + idx * 30"
+              stroke="var(--color-primary)" stroke-width="2"/>
+          </template>
+        </svg>
+      </div>
+
+      <!-- 抵抗値入力リスト -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold mb-2">抵抗値</label>
+        <div class="space-y-2">
+          <div v-for="(r, idx) in resistors" :key="r.id"
+            class="flex items-center gap-2">
+            <span class="text-xs opacity-50 w-4">R{{ idx + 1 }}</span>
+            <input v-model="r.value" type="number" min="0" step="any"
+              class="input-text text-sm flex-1 font-mono"
+              :placeholder="`抵抗値 ${idx + 1}`"
+              @input="recalc" />
+            <select v-model="r.unit" @change="recalc" class="input-text text-sm py-1 w-20">
+              <option value="1">Ω</option>
+              <option value="1000">kΩ</option>
+              <option value="1000000">MΩ</option>
+            </select>
+            <!-- 在庫から選択ボタン -->
+            <button @click="openStockPicker(idx)"
+              class="p-2 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+              title="在庫から選択">
+              <i data-lucide="package-search" class="w-4 h-4"></i>
+            </button>
+            <button @click="removeResistor(idx)" v-if="resistors.length > 2"
+              class="p-2 rounded hover:text-[var(--color-tag-eol)] transition-colors opacity-50 hover:opacity-100">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+        <button @click="addResistor"
+          class="mt-2 flex items-center gap-1 text-sm link-text">
+          <i data-lucide="plus" class="w-4 h-4"></i>抵抗を追加
+        </button>
+      </div>
+    </div>
+
+    <!-- 右ペイン: 結果 -->
+    <div class="w-72 flex-shrink-0">
+
+      <!-- 計算結果カード -->
+      <div class="rounded-xl border-2 border-[var(--color-primary)] p-5 mb-4"
+        style="background: var(--color-card-even);">
+        <div class="text-sm font-semibold opacity-60 mb-1">
+          {{ mode === 'series' ? '直列合成抵抗' : '並列合成抵抗' }}
+        </div>
+        <div class="text-4xl font-bold font-mono text-[var(--color-primary)] mb-1">
+          {{ resultDisplay }}
+        </div>
+        <div class="text-xs opacity-50 font-mono">{{ resultExact }} Ω</div>
+      </div>
+
+      <!-- E系列誤差チェック -->
+      <div class="rounded-lg border border-[var(--color-border)] p-4 mb-4 bg-[var(--color-card-odd)]">
+        <div class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="target" class="w-4 h-4"></i>E系列マッチング
+        </div>
+        <div class="flex gap-2 mb-3">
+          <button v-for="s in ['E6', 'E12', 'E24', 'E96']" :key="s"
+            @click="eSeries = s"
+            class="flex-1 py-1 rounded text-xs font-semibold border transition-colors"
+            :class="eSeries === s
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)]'">
+            {{ s }}
+          </button>
+        </div>
+        <div v-if="nearestE" class="space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span class="opacity-60">最近値</span>
+            <span class="font-mono font-bold">{{ formatOhm(nearestE.value) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="opacity-60">誤差</span>
+            <span class="font-mono" :class="Math.abs(nearestE.error) < 1 ? 'text-[var(--color-tag-ok)]' : 'text-[var(--color-tag-warning)]'">
+              {{ nearestE.error > 0 ? '+' : '' }}{{ nearestE.error.toFixed(2) }}%
+            </span>
+          </div>
+        </div>
+        <div v-else class="text-xs opacity-40">計算値を入力してください</div>
+      </div>
+
+      <!-- 目標値から逆算 -->
+      <div class="rounded-lg border border-[var(--color-border)] p-4 bg-[var(--color-card-odd)]">
+        <div class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="crosshair" class="w-4 h-4"></i>目標値から逆算
+        </div>
+        <div class="flex gap-2 mb-3">
+          <input v-model="targetValue" type="number" min="0" step="any"
+            class="input-text text-sm flex-1 font-mono" placeholder="目標値"
+            @input="calcReverse" />
+          <select v-model="targetUnit" @change="calcReverse" class="input-text text-sm py-1 w-20">
+            <option value="1">Ω</option>
+            <option value="1000">kΩ</option>
+            <option value="1000000">MΩ</option>
+          </select>
+        </div>
+        <div v-if="reverseResult" class="text-sm space-y-1">
+          <div class="opacity-60 text-xs mb-2">
+            {{ mode === 'series' ? '直列' : '並列' }}合成で {{ formatOhm(targetValueOhm) }} に近い組み合わせ
+          </div>
+          <div v-for="combo in reverseResult" :key="combo.label"
+            class="flex justify-between items-center p-2 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
+            <div class="font-mono text-xs">{{ combo.label }}</div>
+            <div class="text-xs" :class="Math.abs(combo.error) < 2 ? 'text-[var(--color-tag-ok)]' : 'text-[var(--color-tag-warning)]'">
+              {{ combo.error > 0 ? '+' : '' }}{{ combo.error.toFixed(1) }}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 在庫から選択モーダル -->
+  <template v-if="stockPicker.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="stockPicker.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-[440px] shadow-xl">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <i data-lucide="package-search" class="w-5 h-5"></i>在庫から選択
+        </h2>
+        <input v-model="stockPicker.search" type="text" placeholder="抵抗値・品番で絞り込み..."
+          class="input-text text-sm mb-3" />
+        <div class="space-y-1 max-h-64 overflow-y-auto">
+          <button v-for="r in filteredStockResistors" :key="r.id"
+            @click="selectFromStock(r)"
+            class="w-full flex items-center justify-between px-3 py-2 rounded text-sm text-left hover:bg-[var(--color-primary)] hover:text-white transition-colors border border-[var(--color-border)]">
+            <div>
+              <span class="font-mono font-bold">{{ r.display }}</span>
+              <span class="ml-2 opacity-60 text-xs">{{ r.partNumber }}</span>
+            </div>
+            <span class="text-xs opacity-60">在庫 {{ r.stock }}個</span>
+          </button>
+        </div>
+        <button @click="stockPicker.open = false"
+          class="mt-4 w-full py-2 rounded border border-[var(--color-border)] text-sm">閉じる</button>
+      </div>
+    </div>
+  </template>
+
+</div>
+
+<script>
+  const { createApp, ref, computed, reactive, onMounted, watch } = Vue;
+
+  createApp({
+    setup() {
+      // E系列テーブル
+      const E_SERIES = {
+        E6:  [1.0, 1.5, 2.2, 3.3, 4.7, 6.8],
+        E12: [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2],
+        E24: [1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0,
+              3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1],
+        E96: [1.00,1.02,1.05,1.07,1.10,1.13,1.15,1.18,1.21,1.24,1.27,1.30,
+              1.33,1.37,1.40,1.43,1.47,1.50,1.54,1.58,1.62,1.65,1.69,1.74,
+              1.78,1.82,1.87,1.91,1.96,2.00,2.05,2.10,2.15,2.21,2.26,2.32,
+              2.37,2.43,2.49,2.55,2.61,2.67,2.74,2.80,2.87,2.94,3.01,3.09,
+              3.16,3.24,3.32,3.40,3.48,3.57,3.65,3.74,3.83,3.92,4.02,4.12,
+              4.22,4.32,4.42,4.53,4.64,4.75,4.87,4.99,5.11,5.23,5.36,5.49,
+              5.62,5.76,5.90,6.04,6.19,6.34,6.49,6.65,6.81,6.98,7.15,7.32,
+              7.50,7.68,7.87,8.06,8.25,8.45,8.66,8.87,9.09,9.31,9.53,9.76],
+      };
+
+      // E系列から全標準値を生成（10^0 ～ 10^6 の各デケード）
+      const getEValues = (series) => {
+        const base = E_SERIES[series];
+        const values = [];
+        for (let dec = 0; dec <= 6; dec++) {
+          const mult = Math.pow(10, dec);
+          base.forEach(v => values.push(Math.round(v * mult * 100) / 100));
+        }
+        return values;
+      };
+
+      const mode = ref('series');
+      const resistors = ref([
+        { id: 1, value: '10', unit: '1000' },
+        { id: 2, value: '10', unit: '1000' },
+      ]);
+
+      const getUnitFactor = (unit) => parseFloat(unit) || 1;
+
+      const calcResult = computed(() => {
+        const ohms = resistors.value
+          .map(r => parseFloat(r.value) * getUnitFactor(r.unit))
+          .filter(v => v > 0 && isFinite(v));
+        if (ohms.length === 0) return null;
+        if (mode.value === 'series') {
+          return ohms.reduce((a, b) => a + b, 0);
+        } else {
+          // 並列: 1 / (1/R1 + 1/R2 + ...)
+          const sum = ohms.reduce((a, b) => a + 1 / b, 0);
+          return sum === 0 ? null : 1 / sum;
+        }
+      });
+
+      const formatOhm = (v) => {
+        if (!v || !isFinite(v)) return '—';
+        if (v >= 1e6) return `${(v / 1e6).toPrecision(4)} MΩ`;
+        if (v >= 1e3) return `${(v / 1e3).toPrecision(4)} kΩ`;
+        return `${v.toPrecision(4)} Ω`;
+      };
+
+      const resultDisplay = computed(() => formatOhm(calcResult.value));
+      const resultExact = computed(() => calcResult.value ? calcResult.value.toPrecision(6) : '—');
+
+      // E系列マッチング
+      const eSeries = ref('E24');
+      const nearestE = computed(() => {
+        const v = calcResult.value;
+        if (!v) return null;
+        const candidates = getEValues(eSeries.value);
+        let best = null, bestErr = Infinity;
+        candidates.forEach(c => {
+          const err = Math.abs((c - v) / v) * 100;
+          if (err < bestErr) { bestErr = err; best = c; }
+        });
+        if (!best) return null;
+        return { value: best, error: (best - v) / v * 100 };
+      });
+
+      // 目標値逆算（2抵抗の組み合わせ）
+      const targetValue = ref('');
+      const targetUnit = ref('1000');
+      const reverseResult = ref(null);
+      const targetValueOhm = computed(() => parseFloat(targetValue.value) * getUnitFactor(targetUnit.value));
+
+      const E24_VALUES = [10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82,
+                          100, 120, 150, 180, 220, 270, 330, 390, 470, 560, 680, 820,
+                          1000, 1200, 1500, 1800, 2200, 2700, 3300, 3900, 4700, 5600, 6800, 8200,
+                          10000, 12000, 15000, 18000, 22000, 27000, 33000, 47000, 68000, 100000];
+
+      const calcReverse = () => {
+        const target = targetValueOhm.value;
+        if (!target || target <= 0) { reverseResult.value = null; return; }
+
+        const combos = [];
+        for (let i = 0; i < E24_VALUES.length; i++) {
+          for (let j = i; j < E24_VALUES.length; j++) {
+            const r1 = E24_VALUES[i], r2 = E24_VALUES[j];
+            let combined;
+            if (mode.value === 'series') combined = r1 + r2;
+            else combined = 1 / (1/r1 + 1/r2);
+            const err = (combined - target) / target * 100;
+            combos.push({ label: `${formatOhm(r1)} + ${formatOhm(r2)}`, combined, error: err });
+          }
+        }
+        combos.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
+        reverseResult.value = combos.slice(0, 4);
+      };
+
+      watch([mode, targetValue, targetUnit], calcReverse);
+
+      // 在庫ピッカー
+      const stockResistors = [
+        { id: 1, display: '10 kΩ', partNumber: 'RK73H2BTTD1002F', ohm: 10000, stock: 45 },
+        { id: 2, display: '1 kΩ', partNumber: 'RK73H2BTTD1001F', ohm: 1000, stock: 32 },
+        { id: 3, display: '100 Ω', partNumber: 'RK73H2BTTD1000F', ohm: 100, stock: 20 },
+        { id: 4, display: '4.7 kΩ', partNumber: 'RK73H2BTTD4701F', ohm: 4700, stock: 18 },
+        { id: 5, display: '47 kΩ', partNumber: 'RK73H2BTTD4702F', ohm: 47000, stock: 12 },
+        { id: 6, display: '220 Ω', partNumber: 'RK73H2BTTD2200F', ohm: 220, stock: 25 },
+        { id: 7, display: '1 MΩ', partNumber: 'RK73H2BTTD1004F', ohm: 1000000, stock: 5 },
+      ];
+
+      const stockPicker = reactive({ open: false, targetIdx: 0, search: '' });
+      const filteredStockResistors = computed(() => {
+        if (!stockPicker.search) return stockResistors;
+        const q = stockPicker.search.toLowerCase();
+        return stockResistors.filter(r =>
+          r.display.toLowerCase().includes(q) || r.partNumber.toLowerCase().includes(q)
+        );
+      });
+
+      const openStockPicker = (idx) => { stockPicker.targetIdx = idx; stockPicker.search = ''; stockPicker.open = true; };
+      const selectFromStock = (r) => {
+        const res = resistors.value[stockPicker.targetIdx];
+        if (r.ohm >= 1e6) { res.value = String(r.ohm / 1e6); res.unit = '1000000'; }
+        else if (r.ohm >= 1e3) { res.value = String(r.ohm / 1e3); res.unit = '1000'; }
+        else { res.value = String(r.ohm); res.unit = '1'; }
+        stockPicker.open = false;
+      };
+
+      // 抵抗の追加・削除
+      let nextId = 3;
+      const addResistor = () => { resistors.value.push({ id: nextId++, value: '', unit: '1000' }); };
+      const removeResistor = (idx) => { resistors.value.splice(idx, 1); };
+      const recalc = () => {}; // computed で自動再計算されるため不要
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        mode, resistors, getUnitFactor,
+        calcResult, resultDisplay, resultExact, formatOhm,
+        eSeries, nearestE,
+        targetValue, targetUnit, targetValueOhm, reverseResult, calcReverse,
+        stockPicker, filteredStockResistors, openStockPicker, selectFromStock,
+        addResistor, removeResistor, recalc,
+        toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

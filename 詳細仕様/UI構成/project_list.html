@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>プロジェクト管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>部品一覧
+      </a>
+      <h1 class="text-2xl font-bold">プロジェクト管理</h1>
+    </div>
+    <div class="flex gap-3 items-center">
+      <button @click="openCreateModal"
+        class="btn btn-primary px-4 py-2 rounded flex items-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i>新規プロジェクト
+      </button>
+      <button id="themeToggle" @click="toggleTheme"
+        class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+    </div>
+  </header>
+
+  <!-- ===== プロジェクト一覧 + 詳細 の2ペインレイアウト ===== -->
+  <div class="flex gap-6" style="min-height: 70vh;">
+
+    <!-- 左: プロジェクト一覧 -->
+    <div class="w-72 flex-shrink-0">
+      <input type="text" v-model="search" placeholder="プロジェクトを検索..."
+        class="input-text mb-3" />
+      <div class="space-y-2">
+        <div v-for="(proj, idx) in filteredProjects" :key="proj.id"
+          class="card p-3 cursor-pointer"
+          :class="[
+            idx % 2 === 0 ? 'card-even' : 'card-odd',
+            selectedId === proj.id ? 'ring-2 ring-[var(--color-primary)]' : ''
+          ]"
+          @click="selectProject(proj)">
+          <div class="flex justify-between items-start">
+            <div class="list list-title text-sm">{{ proj.name }}</div>
+            <div class="flex gap-1">
+              <button @click.stop="openEditModal(proj)"
+                class="text-[var(--color-text)] opacity-40 hover:opacity-100 p-1">
+                <i data-lucide="pencil" class="w-3 h-3"></i>
+              </button>
+              <button @click.stop="confirmDelete(proj)"
+                class="text-[var(--color-text)] opacity-40 hover:opacity-100 p-1">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-xs opacity-60 mt-1">{{ proj.description }}</div>
+          <div class="flex gap-3 mt-2 text-xs opacity-70">
+            <span class="flex items-center gap-1">
+              <i data-lucide="cpu" class="w-3 h-3"></i>{{ proj.partCount }}部品
+            </span>
+            <span class="flex items-center gap-1">
+              <i data-lucide="calendar" class="w-3 h-3"></i>{{ proj.updatedAt }}
+            </span>
+          </div>
+        </div>
+        <div v-if="filteredProjects.length === 0"
+          class="text-center py-8 opacity-40 text-sm">
+          プロジェクトが見つかりません
+        </div>
+      </div>
+    </div>
+
+    <!-- 右: プロジェクト詳細（部品リスト） -->
+    <div class="flex-1">
+      <!-- 未選択時 -->
+      <div v-if="!selectedProject"
+        class="flex items-center justify-center h-full opacity-30">
+        <div class="text-center">
+          <i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i>
+          <p>プロジェクトを選択してください</p>
+        </div>
+      </div>
+
+      <!-- 選択時: 詳細 -->
+      <div v-else>
+        <!-- プロジェクトヘッダ -->
+        <div class="bg-[var(--color-card-even)] rounded-lg p-4 mb-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl font-bold">{{ selectedProject.name }}</h2>
+              <p class="text-sm opacity-70 mt-1">{{ selectedProject.description }}</p>
+            </div>
+            <button @click="openEditModal(selectedProject)"
+              class="btn btn-primary text-sm px-3 py-1 rounded flex items-center gap-1">
+              <i data-lucide="edit" class="w-3 h-3"></i>編集
+            </button>
+          </div>
+          <!-- 合計金額計算 -->
+          <div class="mt-3 flex items-center gap-3 flex-wrap">
+            <span class="text-sm font-semibold">発注試算：</span>
+            <select v-model="selectedSupplier" class="input-text text-sm py-1 w-40">
+              <option value="">商社を選択</option>
+              <option v-for="s in suppliers" :key="s" :value="s">{{ s }}</option>
+            </select>
+            <span v-if="selectedSupplier" class="text-sm font-bold text-[var(--color-accent)]">
+              合計 ¥{{ totalPrice.toLocaleString() }}（税抜）
+            </span>
+          </div>
+        </div>
+
+        <!-- 部品一覧テーブル -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-[var(--color-border)]">
+            <thead>
+              <tr class="bg-[var(--color-bg-alt)]">
+                <th class="border px-3 py-2 text-left">部品名</th>
+                <th class="border px-3 py-2 text-left">型番</th>
+                <th class="border px-3 py-2 text-center">使用数</th>
+                <th class="border px-3 py-2 text-center">在庫（新品）</th>
+                <th class="border px-3 py-2 text-right" v-if="selectedSupplier">単価</th>
+                <th class="border px-3 py-2 text-right" v-if="selectedSupplier">小計</th>
+                <th class="border px-3 py-2 text-center">入手可否</th>
+                <th class="border px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(part, idx) in selectedProject.parts" :key="part.id"
+                :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+                <td class="border px-3 py-2">
+                  <a href="component_detail.html" class="link-text">{{ part.name }}</a>
+                </td>
+                <td class="border px-3 py-2 text-xs opacity-70">{{ part.partNumber }}</td>
+                <td class="border px-3 py-2 text-center">{{ part.usedQty }}</td>
+                <td class="border px-3 py-2 text-center"
+                  :class="part.quantityNew < part.usedQty ? 'text-[var(--color-tag-eol)] font-bold' : ''">
+                  {{ part.quantityNew }}
+                </td>
+                <td class="border px-3 py-2 text-right" v-if="selectedSupplier">
+                  {{ part.price ? `¥${part.price}` : '—' }}
+                </td>
+                <td class="border px-3 py-2 text-right font-semibold" v-if="selectedSupplier">
+                  {{ part.price ? `¥${(part.price * part.usedQty).toLocaleString()}` : '—' }}
+                </td>
+                <td class="border px-3 py-2 text-center">
+                  <span class="tag text-xs"
+                    :class="{
+                      'tag-ok': part.procurementStatus === 'active',
+                      'tag-eol': part.procurementStatus === 'eol',
+                      'tag-warning': part.procurementStatus === 'limited',
+                    }">
+                    {{ { active:'入手可', eol:'EOL', limited:'在庫限り' }[part.procurementStatus] }}
+                  </span>
+                </td>
+                <td class="border px-3 py-2 text-center">
+                  <button @click="removePart(part)"
+                    class="text-[var(--color-text)] opacity-30 hover:opacity-80">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 在庫不足警告 -->
+        <div v-if="shortageCount > 0"
+          class="mt-3 flex items-center gap-2 text-sm text-[var(--color-tag-eol)]">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          {{ shortageCount }}件の部品で在庫が使用数を下回っています
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== プロジェクト作成/編集モーダル ===== -->
+  <template v-if="modal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="modal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-4">
+          {{ modal.isEdit ? 'プロジェクト編集' : '新規プロジェクト作成' }}
+        </h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1">プロジェクト名 <span class="text-red-500">*</span></label>
+            <input type="text" v-model="modal.name" class="input-text" placeholder="プロジェクト名を入力">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">説明</label>
+            <textarea v-model="modal.description" class="input-text h-20 resize-none"
+              placeholder="プロジェクトの説明（任意）"></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="modal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="saveModal"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!modal.name.trim()">
+            {{ modal.isEdit ? '保存' : '作成' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ===== 削除確認モーダル ===== -->
+  <template v-if="deleteModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="deleteModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-80 shadow-xl">
+        <h2 class="font-bold text-lg mb-2">削除の確認</h2>
+        <p class="text-sm mb-4 opacity-70">
+          「{{ deleteModal.name }}」を削除しますか？<br>
+          紐づいている部品の使用記録は保持されます。
+        </p>
+        <div class="flex gap-3">
+          <button @click="deleteModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="executeDelete"
+            class="flex-1 py-2 rounded text-sm font-bold"
+            style="background-color: var(--color-tag-eol); color: #fff;">削除</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- トースト -->
+  <div v-if="toast.show"
+    class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+    {{ toast.message }}
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      // ===== サンプルデータ =====
+      const projects = ref([
+        {
+          id: 1, name: 'AI基板2025', description: 'AI処理ボードの試作・量産設計',
+          partCount: 48, updatedAt: '2025-03-10',
+          parts: [
+            { id: 1, name: '金属皮膜抵抗 10kΩ', partNumber: 'RK73H', usedQty: 20, quantityNew: 2, price: 10, procurementStatus: 'active' },
+            { id: 2, name: 'LM358', partNumber: 'LM358N', usedQty: 4, quantityNew: 12, price: 30, procurementStatus: 'active' },
+            { id: 3, name: 'ATmega328P', partNumber: 'ATmega328P-PU', usedQty: 2, quantityNew: 15, price: 480, procurementStatus: 'active' },
+          ]
+        },
+        {
+          id: 2, name: '共通センサ制御', description: '各種センサ共通インターフェース基板',
+          partCount: 23, updatedAt: '2025-02-20',
+          parts: [
+            { id: 4, name: '積層セラミックコンデンサ 0.1μF', partNumber: 'GRM188', usedQty: 30, quantityNew: 8, price: 5, procurementStatus: 'eol' },
+            { id: 5, name: '2SC1815-GR', partNumber: '2SC1815-GR', usedQty: 6, quantityNew: 3, price: 10, procurementStatus: 'limited' },
+          ]
+        },
+        {
+          id: 3, name: 'AD基板2024', description: 'アナログ-デジタル変換モジュール',
+          partCount: 67, updatedAt: '2024-12-15',
+          parts: [
+            { id: 6, name: '電解コンデンサ 100μF', partNumber: 'EEUFR1H101', usedQty: 10, quantityNew: 50, price: 15, procurementStatus: 'active' },
+          ]
+        },
+        {
+          id: 4, name: 'DA基板2024', description: 'デジタル-アナログ変換モジュール',
+          partCount: 31, updatedAt: '2024-11-01',
+          parts: []
+        },
+      ]);
+
+      const suppliers = ref(['秋月電子', 'RSコンポーネンツ', 'Digikey', 'Mouser', '千石電商']);
+
+      // 選択プロジェクト
+      const selectedId = ref(null);
+      const selectedProject = computed(() => projects.value.find(p => p.id === selectedId.value) || null);
+      const selectProject = (proj) => { selectedId.value = proj.id; };
+
+      // 検索
+      const search = ref('');
+      const filteredProjects = computed(() =>
+        projects.value.filter(p => p.name.includes(search.value) || p.description.includes(search.value))
+      );
+
+      // 商社選択・合計
+      const selectedSupplier = ref('');
+      const totalPrice = computed(() => {
+        if (!selectedProject.value || !selectedSupplier.value) return 0;
+        return selectedProject.value.parts.reduce((sum, p) => sum + (p.price || 0) * p.usedQty, 0);
+      });
+      const shortageCount = computed(() => {
+        if (!selectedProject.value) return 0;
+        return selectedProject.value.parts.filter(p => p.quantityNew < p.usedQty).length;
+      });
+
+      const removePart = (part) => {
+        if (!selectedProject.value) return;
+        const idx = selectedProject.value.parts.findIndex(p => p.id === part.id);
+        if (idx >= 0) selectedProject.value.parts.splice(idx, 1);
+      };
+
+      // 作成/編集モーダル
+      const modal = reactive({ open: false, isEdit: false, id: null, name: '', description: '' });
+      const openCreateModal = () => {
+        Object.assign(modal, { open: true, isEdit: false, id: null, name: '', description: '' });
+      };
+      const openEditModal = (proj) => {
+        Object.assign(modal, { open: true, isEdit: true, id: proj.id, name: proj.name, description: proj.description });
+      };
+      const saveModal = () => {
+        if (modal.isEdit) {
+          const proj = projects.value.find(p => p.id === modal.id);
+          if (proj) { proj.name = modal.name; proj.description = modal.description; }
+          showToast(`「${modal.name}」を更新しました`);
+        } else {
+          const newId = Math.max(...projects.value.map(p => p.id)) + 1;
+          projects.value.push({ id: newId, name: modal.name, description: modal.description, partCount: 0, updatedAt: new Date().toISOString().slice(0,10), parts: [] });
+          showToast(`「${modal.name}」を作成しました`);
+        }
+        modal.open = false;
+      };
+
+      // 削除モーダル
+      const deleteModal = reactive({ open: false, id: null, name: '' });
+      const confirmDelete = (proj) => {
+        Object.assign(deleteModal, { open: true, id: proj.id, name: proj.name });
+      };
+      const executeDelete = () => {
+        const idx = projects.value.findIndex(p => p.id === deleteModal.id);
+        if (idx >= 0) { projects.value.splice(idx, 1); }
+        if (selectedId.value === deleteModal.id) selectedId.value = null;
+        showToast(`「${deleteModal.name}」を削除しました`);
+        deleteModal.open = false;
+      };
+
+      // トースト
+      const toast = reactive({ show: false, message: '' });
+      const showToast = (msg) => {
+        toast.message = msg; toast.show = true;
+        setTimeout(() => { toast.show = false; }, 2500);
+      };
+
+      // テーマ
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        projects, filteredProjects, search,
+        selectedId, selectedProject, selectProject,
+        selectedSupplier, suppliers, totalPrice, shortageCount, removePart,
+        modal, openCreateModal, openEditModal, saveModal,
+        deleteModal, confirmDelete, executeDelete,
+        toast, toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

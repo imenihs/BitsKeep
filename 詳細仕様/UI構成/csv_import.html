@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>CSVインポート</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6 max-w-6xl mx-auto">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1 text-sm">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="upload" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">CSVインポート</h1>
+      </div>
+    </div>
+    <button @click="toggleTheme" class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <!-- ステップインジケーター -->
+  <div class="flex items-center gap-0 mb-8">
+    <template v-for="(s, i) in steps" :key="i">
+      <div class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+        :class="step === i+1 ? 'bg-[var(--color-primary)] text-white'
+               : step > i+1  ? 'bg-[var(--color-accent)] text-white'
+               :                'bg-[var(--color-card-even)] text-[var(--color-text)] opacity-60'">
+        <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2"
+          :class="step === i+1 ? 'border-white' : step > i+1 ? 'border-white' : 'border-current'">
+          <template v-if="step > i+1">✓</template>
+          <template v-else>{{ i+1 }}</template>
+        </span>
+        {{ s }}
+      </div>
+      <div v-if="i < steps.length-1" class="flex-1 h-0.5 bg-[var(--color-border)]"></div>
+    </template>
+  </div>
+
+  <!-- Step 1: ファイル選択 -->
+  <div v-if="step === 1">
+    <div class="card p-8 text-center mb-6"
+      :class="dragOver ? 'border-2 border-dashed border-[var(--color-primary)]' : 'border-2 border-dashed border-[var(--color-border)]'"
+      @dragover.prevent="dragOver = true"
+      @dragleave="dragOver = false"
+      @drop.prevent="onDrop">
+      <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-4 text-[var(--color-primary)] opacity-60"></i>
+      <p class="text-lg font-semibold mb-2">CSVファイルをドロップ</p>
+      <p class="text-sm opacity-60 mb-4">または</p>
+      <label class="btn btn-primary cursor-pointer inline-block">
+        ファイルを選択
+        <input type="file" accept=".csv" class="hidden" @change="onFileSelect" />
+      </label>
+      <p class="text-xs opacity-50 mt-4">対応形式: .csv（UTF-8 / Shift-JIS 自動判定）</p>
+    </div>
+
+    <!-- テンプレートDL -->
+    <div class="card p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i data-lucide="download" class="w-5 h-5 text-[var(--color-primary)]"></i>
+        <div>
+          <p class="font-semibold text-sm">インポート用テンプレートCSV</p>
+          <p class="text-xs opacity-60">ヘッダ行付きの空テンプレートをダウンロードできます</p>
+        </div>
+      </div>
+      <button @click="downloadTemplate" class="btn text-sm flex items-center gap-1.5">
+        <i data-lucide="download" class="w-4 h-4"></i>テンプレートDL
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 2: カラムマッピング -->
+  <div v-if="step === 2">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold">カラムマッピング</h2>
+      <span class="text-sm opacity-60">{{ parsedRows.length }}行を検出</span>
+    </div>
+
+    <!-- 検出ヘッダ一覧 -->
+    <div class="card p-4 mb-4">
+      <p class="text-xs font-semibold mb-3 opacity-60">CSVヘッダ（{{ csvHeaders.length }}列）</p>
+      <div class="flex flex-wrap gap-2">
+        <span v-for="h in csvHeaders" :key="h"
+          class="px-2 py-0.5 rounded text-xs bg-[var(--color-card-odd)] border border-[var(--color-border)]">
+          {{ h }}
+        </span>
+      </div>
+    </div>
+
+    <!-- マッピングテーブル -->
+    <div class="card overflow-hidden mb-4">
+      <table class="w-full text-sm">
+        <thead class="bg-[var(--color-card-even)]">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold w-1/3">システム項目</th>
+            <th class="text-left px-4 py-3 font-semibold w-12">必須</th>
+            <th class="text-left px-4 py-3 font-semibold">CSVカラムを選択</th>
+            <th class="text-left px-4 py-3 font-semibold w-32">プレビュー（1行目）</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(field, i) in systemFields" :key="field.key"
+            class="border-t border-[var(--color-border)]"
+            :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+            <td class="px-4 py-2.5 font-medium">{{ field.label }}</td>
+            <td class="px-4 py-2.5">
+              <span v-if="field.required" class="tag tag-warning text-xs px-1.5 py-0.5">必須</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <select v-model="mapping[field.key]" class="input-text text-sm py-1 w-full max-w-xs"
+                :class="field.required && !mapping[field.key] ? 'border-[var(--color-tag-warning)]' : ''">
+                <option value="">-- スキップ --</option>
+                <option v-for="h in csvHeaders" :key="h" :value="h">{{ h }}</option>
+              </select>
+            </td>
+            <td class="px-4 py-2.5 text-xs opacity-60 truncate max-w-xs">
+              {{ mapping[field.key] && parsedRows[0] ? parsedRows[0][mapping[field.key]] : '' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- バリデーション -->
+    <div v-if="mappingErrors.length" class="card p-3 mb-4 border border-[var(--color-tag-warning)] bg-[var(--color-tag-warning)]/10">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-[var(--color-tag-warning)]"></i>
+        <span class="font-semibold text-sm text-[var(--color-tag-warning)]">マッピングエラー</span>
+      </div>
+      <ul class="list-disc list-inside text-sm space-y-0.5">
+        <li v-for="e in mappingErrors" :key="e" class="opacity-80">{{ e }}</li>
+      </ul>
+    </div>
+
+    <div class="flex gap-3">
+      <button @click="step = 1" class="btn text-sm">← 戻る</button>
+      <button @click="goToPreview" class="btn btn-primary text-sm" :disabled="mappingErrors.length > 0">
+        プレビューへ →
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 3: バリデーション & プレビュー -->
+  <div v-if="step === 3">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold">インポートプレビュー</h2>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="flex items-center gap-1 text-[var(--color-tag-ok)]">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>正常: {{ validRows.length }}件
+        </span>
+        <span v-if="errorRows.length" class="flex items-center gap-1 text-[var(--color-tag-warning)]">
+          <i data-lucide="x-circle" class="w-4 h-4"></i>エラー: {{ errorRows.length }}件
+        </span>
+      </div>
+    </div>
+
+    <!-- フィルタ -->
+    <div class="flex gap-2 mb-4">
+      <button @click="previewFilter = 'all'"
+        class="px-3 py-1 rounded text-sm font-medium"
+        :class="previewFilter === 'all' ? 'bg-[var(--color-primary)] text-white' : 'btn'">
+        全件 ({{ previewRows.length }})
+      </button>
+      <button @click="previewFilter = 'error'"
+        class="px-3 py-1 rounded text-sm font-medium"
+        :class="previewFilter === 'error' ? 'bg-[var(--color-tag-warning)] text-white' : 'btn'">
+        エラーのみ ({{ errorRows.length }})
+      </button>
+    </div>
+
+    <!-- プレビューテーブル -->
+    <div class="card overflow-auto mb-4" style="max-height: 420px;">
+      <table class="w-full text-sm min-w-max">
+        <thead class="bg-[var(--color-card-even)] sticky top-0">
+          <tr>
+            <th class="text-left px-3 py-2.5 font-semibold w-10">行</th>
+            <th class="text-left px-3 py-2.5 font-semibold w-24">状態</th>
+            <th v-for="f in mappedFields" :key="f.key" class="text-left px-3 py-2.5 font-semibold whitespace-nowrap">
+              {{ f.label }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in filteredPreviewRows" :key="row._rowNum"
+            class="border-t border-[var(--color-border)]"
+            :class="row._errors.length ? 'bg-red-50 dark:bg-red-900/10' : (row._rowNum % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]')">
+            <td class="px-3 py-2 text-xs opacity-60">{{ row._rowNum }}</td>
+            <td class="px-3 py-2">
+              <template v-if="row._errors.length">
+                <span class="tag tag-warning text-xs px-1.5 py-0.5" :title="row._errors.join('\n')">
+                  ✗ エラー
+                </span>
+              </template>
+              <template v-else>
+                <span class="tag tag-ok text-xs px-1.5 py-0.5">✓ OK</span>
+              </template>
+            </td>
+            <td v-for="f in mappedFields" :key="f.key" class="px-3 py-2 max-w-xs truncate"
+              :class="row._fieldErrors[f.key] ? 'text-[var(--color-tag-warning)] font-medium' : ''"
+              :title="row._fieldErrors[f.key] || ''">
+              {{ row[f.key] || '' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- エラーサマリ -->
+    <div v-if="errorRows.length" class="card p-4 mb-4 border border-[var(--color-tag-warning)] bg-[var(--color-tag-warning)]/10">
+      <p class="font-semibold text-sm text-[var(--color-tag-warning)] mb-2">エラー行はインポートされません。</p>
+      <div class="max-h-32 overflow-y-auto text-xs space-y-1">
+        <div v-for="row in errorRows" :key="row._rowNum" class="opacity-80">
+          <span class="font-medium">行{{ row._rowNum }}:</span> {{ row._errors.join(' / ') }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 重複オプション -->
+    <div class="card p-4 mb-4">
+      <p class="font-semibold text-sm mb-3 flex items-center gap-2">
+        <i data-lucide="copy" class="w-4 h-4 text-[var(--color-primary)]"></i>
+        重複部品番号の処理
+      </p>
+      <div class="flex flex-col gap-2 text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" v-model="duplicatePolicy" value="skip" />
+          <span>スキップ（既存データを保持）</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" v-model="duplicatePolicy" value="overwrite" />
+          <span>上書き（既存データを更新）</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" v-model="duplicatePolicy" value="append" />
+          <span>追記（在庫数を加算）</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button @click="step = 2" class="btn text-sm">← 戻る</button>
+      <button @click="step = 4; runImport()" class="btn btn-primary text-sm" :disabled="validRows.length === 0">
+        {{ validRows.length }}件をインポート
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 4: 完了 -->
+  <div v-if="step === 4" class="text-center py-12">
+    <div v-if="importing" class="flex flex-col items-center gap-4">
+      <div class="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-lg font-semibold">インポート中... {{ importProgress }}/{{ validRows.length }}</p>
+    </div>
+    <div v-else class="flex flex-col items-center gap-4">
+      <div class="w-20 h-20 rounded-full bg-[var(--color-tag-ok)]/20 flex items-center justify-center">
+        <i data-lucide="check-circle" class="w-12 h-12 text-[var(--color-tag-ok)]"></i>
+      </div>
+      <h2 class="text-2xl font-bold">インポート完了</h2>
+      <div class="flex gap-6 text-sm">
+        <div class="text-center">
+          <p class="text-3xl font-bold text-[var(--color-tag-ok)]">{{ importResult.success }}</p>
+          <p class="opacity-60">成功</p>
+        </div>
+        <div class="text-center" v-if="importResult.skipped">
+          <p class="text-3xl font-bold opacity-60">{{ importResult.skipped }}</p>
+          <p class="opacity-60">スキップ</p>
+        </div>
+        <div class="text-center" v-if="importResult.errors">
+          <p class="text-3xl font-bold text-[var(--color-tag-warning)]">{{ importResult.errors }}</p>
+          <p class="opacity-60">エラー</p>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <a href="components_list.html" class="btn btn-primary text-sm flex items-center gap-1.5">
+          <i data-lucide="list" class="w-4 h-4"></i>部品一覧を見る
+        </a>
+        <button @click="resetImport" class="btn text-sm flex items-center gap-1.5">
+          <i data-lucide="upload" class="w-4 h-4"></i>続けてインポート
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<script>
+const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+
+createApp({
+  setup() {
+
+    /* ── テーマ ── */
+    const toggleTheme = () => {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    };
+
+    /* ── ステップ ── */
+    const steps = ['ファイル選択', 'カラムマッピング', 'プレビュー', '完了'];
+    const step = ref(1);
+
+    /* ── システム項目定義 ── */
+    const systemFields = [
+      { key: 'name',        label: '部品名',       required: true  },
+      { key: 'partNumber',  label: '部品番号',      required: true  },
+      { key: 'category',    label: '分類',          required: false },
+      { key: 'package',     label: 'パッケージ',    required: false },
+      { key: 'maker',       label: 'メーカー',      required: false },
+      { key: 'description', label: '説明',          required: false },
+      { key: 'quantity',    label: '在庫数',        required: false },
+      { key: 'threshold',   label: '発注点',        required: false },
+      { key: 'location',    label: '保管場所',      required: false },
+      { key: 'unitPrice',   label: '単価',          required: false },
+      { key: 'supplier',    label: 'サプライヤー',  required: false },
+      { key: 'datasheet',   label: 'データシートURL', required: false },
+    ];
+
+    /* ── ファイル読み込み ── */
+    const dragOver = ref(false);
+    const csvHeaders = ref([]);
+    const parsedRows = ref([]);
+
+    const parseCSV = (text) => {
+      // 改行正規化
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+      if (lines.length < 2) return;
+      // ヘッダ解析（引用符対応）
+      const parseRow = (line) => {
+        const cols = [];
+        let cur = '', inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') { inQ = !inQ; continue; }
+          if (line[i] === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+          cur += line[i];
+        }
+        cols.push(cur.trim());
+        return cols;
+      };
+      csvHeaders.value = parseRow(lines[0]);
+      parsedRows.value = lines.slice(1).map((line, i) => {
+        const cols = parseRow(line);
+        const row = { _rowNum: i + 2 };
+        csvHeaders.value.forEach((h, j) => { row[h] = cols[j] ?? ''; });
+        return row;
+      });
+      // 自動マッピング: ヘッダ名が一致する項目を自動設定
+      systemFields.forEach(f => {
+        const match = csvHeaders.value.find(h =>
+          h === f.label || h.toLowerCase() === f.key.toLowerCase()
+        );
+        if (match) mapping[f.key] = match;
+      });
+    };
+
+    const onFileSelect = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => { parseCSV(ev.target.result); step.value = 2; };
+      reader.readAsText(file, 'UTF-8');
+    };
+
+    const onDrop = (e) => {
+      dragOver.value = false;
+      const file = e.dataTransfer.files[0];
+      if (!file || !file.name.endsWith('.csv')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => { parseCSV(ev.target.result); step.value = 2; };
+      reader.readAsText(file, 'UTF-8');
+    };
+
+    const downloadTemplate = () => {
+      const headers = systemFields.map(f => f.label).join(',');
+      const sample = '抵抗 10kΩ,RES-10K-0402,抵抗,0402,Yageo,汎用チップ抵抗,100,20,棚A-1,1,秋月電子,';
+      const blob = new Blob(['\uFEFF' + headers + '\n' + sample], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'bitskeep_import_template.csv';
+      a.click(); URL.revokeObjectURL(url);
+    };
+
+    /* ── マッピング ── */
+    const mapping = reactive({});
+    systemFields.forEach(f => { mapping[f.key] = ''; });
+
+    const mappingErrors = computed(() => {
+      const errs = [];
+      systemFields.filter(f => f.required).forEach(f => {
+        if (!mapping[f.key]) errs.push(`「${f.label}」は必須です。CSVカラムを選択してください。`);
+      });
+      return errs;
+    });
+
+    /* マッピング済みフィールド（スキップ以外） */
+    const mappedFields = computed(() =>
+      systemFields.filter(f => mapping[f.key])
+    );
+
+    /* ── バリデーション済みプレビュー行 ── */
+    const previewRows = computed(() =>
+      parsedRows.value.map(raw => {
+        const row = { _rowNum: raw._rowNum, _errors: [], _fieldErrors: {} };
+        mappedFields.value.forEach(f => {
+          row[f.key] = raw[mapping[f.key]] ?? '';
+        });
+        // 必須チェック
+        systemFields.filter(f => f.required && mapping[f.key]).forEach(f => {
+          if (!row[f.key]) {
+            row._errors.push(`${f.label}が空です`);
+            row._fieldErrors[f.key] = `${f.label}は必須です`;
+          }
+        });
+        // 数値チェック
+        ['quantity','threshold','unitPrice'].forEach(k => {
+          if (row[k] !== undefined && row[k] !== '' && isNaN(Number(row[k]))) {
+            row._errors.push(`${k}が数値ではありません`);
+            row._fieldErrors[k] = '数値を入力してください';
+          }
+        });
+        return row;
+      })
+    );
+
+    const validRows = computed(() => previewRows.value.filter(r => r._errors.length === 0));
+    const errorRows = computed(() => previewRows.value.filter(r => r._errors.length > 0));
+
+    const previewFilter = ref('all');
+    const filteredPreviewRows = computed(() =>
+      previewFilter.value === 'error' ? errorRows.value : previewRows.value
+    );
+
+    const goToPreview = () => {
+      if (mappingErrors.value.length === 0) step.value = 3;
+    };
+
+    /* ── インポート実行 ── */
+    const duplicatePolicy = ref('skip');
+    const importing = ref(false);
+    const importProgress = ref(0);
+    const importResult = reactive({ success: 0, skipped: 0, errors: 0 });
+
+    const runImport = async () => {
+      importing.value = true;
+      importProgress.value = 0;
+      importResult.success = 0; importResult.skipped = 0; importResult.errors = 0;
+      // モック: 1件ずつ50ms遅延でシミュレーション
+      for (let i = 0; i < validRows.value.length; i++) {
+        await new Promise(r => setTimeout(r, 40));
+        importProgress.value = i + 1;
+        // モック: partNumberが "DUP-" 始まりを重複扱い
+        if (validRows.value[i].partNumber?.startsWith('DUP-') && duplicatePolicy.value === 'skip') {
+          importResult.skipped++;
+        } else {
+          importResult.success++;
+        }
+      }
+      importing.value = false;
+    };
+
+    const resetImport = () => {
+      step.value = 1;
+      csvHeaders.value = [];
+      parsedRows.value = [];
+      systemFields.forEach(f => { mapping[f.key] = ''; });
+      previewFilter.value = 'all';
+      importProgress.value = 0;
+    };
+
+    onMounted(() => { lucide.createIcons(); });
+    watch(step, () => { setTimeout(() => lucide.createIcons(), 50); });
+
+    return {
+      toggleTheme, steps, step,
+      systemFields, mappedFields,
+      dragOver, csvHeaders, parsedRows,
+      onFileSelect, onDrop, downloadTemplate,
+      mapping, mappingErrors,
+      previewRows, validRows, errorRows, previewFilter, filteredPreviewRows,
+      goToPreview,
+      duplicatePolicy, importing, importProgress, importResult,
+      runImport, resetImport,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

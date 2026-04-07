@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>部品詳細</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    section { max-width: 900px; }
+  </style>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <h1 class="text-2xl font-bold">部品詳細</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- 出庫ボタン -->
+      <button @click="stockOutModal.open = true"
+        class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+        <i data-lucide="package-minus" class="w-4 h-4"></i>出庫する
+      </button>
+      <!-- 類似部品を探す -->
+      <a href="component_compare.html"
+        class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+        <i data-lucide="git-compare" class="w-4 h-4"></i>類似部品を探す
+      </a>
+      <!-- 全体編集ボタン -->
+      <button @click="editModal.section = 'ALL'; editModal.open = true"
+        class="btn btn-primary flex items-center gap-1 px-4 py-2 rounded text-sm">
+        <i data-lucide="edit" class="w-4 h-4"></i>全体編集
+      </button>
+      <button id="themeToggle" @click="toggleTheme"
+        class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+    </div>
+  </header>
+
+  <!-- ===== セクションA: 基本情報 ===== -->
+  <section class="mb-6 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center gap-2 cursor-pointer select-none" @click="sections.A = !sections.A">
+        <i :data-lucide="sections.A ? 'chevron-down' : 'chevron-right'" class="w-5 h-5"></i>
+        <h2 class="text-xl font-bold border-l-4 border-[var(--color-primary)] pl-2">基本情報</h2>
+      </div>
+      <button @click="editModal.section = 'A'; editModal.open = true"
+        class="flex items-center px-3 py-1 text-sm rounded btn btn-primary gap-1">
+        <i data-lucide="edit" class="w-4 h-4"></i>編集
+      </button>
+    </div>
+    <div v-show="sections.A" class="grid grid-cols-1 md:grid-cols-2 gap-6 ml-2">
+      <div class="col-span-2">
+        <span class="list list-title text-lg">標準10kΩ抵抗</span>
+        <span class="list list-value ml-2 text-sm opacity-60">R10K-1/4W</span>
+      </div>
+      <!-- 左: 画像・入手可否・在庫 -->
+      <div class="space-y-3">
+        <img src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=150&q=80"
+          alt="部品画像" class="thumbnail rounded" />
+        <div class="grid grid-cols-[auto_1fr] gap-y-2 gap-x-3 text-sm">
+          <span class="list list-label text-right">入手</span>
+          <div><span class="tag tag-ok">入手可</span></div>
+          <span class="list list-label text-right">データシート</span>
+          <div>
+            <a href="#" class="link-text flex items-center gap-1">
+              <i data-lucide="file-text" class="w-4 h-4"></i>PDFを開く
+            </a>
+          </div>
+          <span class="list list-label text-right">最安</span>
+          <div>
+            <span class="list list-value">123円</span>
+            <a href="#" class="link-text ml-2">秋月電子</a>
+          </div>
+        </div>
+
+        <!-- 棚別在庫（新品/中古 棚ごとに表示） -->
+        <div>
+          <p class="text-xs font-semibold opacity-60 mb-1">在庫内訳</p>
+          <div class="space-y-1 text-xs">
+            <div v-for="inv in inventory" :key="inv.id"
+              class="px-2 py-1.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] space-y-0.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="archive" class="w-3 h-3 opacity-50"></i>
+                  <span>{{ inv.location }}</span>
+                  <span class="opacity-50">{{ inv.condition === 'new' ? '新品' : '中古' }}</span>
+                  <span class="px-1.5 py-0 rounded text-[10px] border border-[var(--color-border)] opacity-70">
+                    {{ stockTypeLabel[inv.stockType] || inv.stockType }}
+                  </span>
+                </div>
+                <strong>{{ inv.quantity }}個</strong>
+              </div>
+              <!-- ロット・リール番号（あれば表示） -->
+              <div v-if="inv.lotNumber || inv.reelCode" class="flex gap-3 pl-5 text-[10px] opacity-50">
+                <span v-if="inv.lotNumber">ロット: {{ inv.lotNumber }}</span>
+                <span v-if="inv.reelCode">リール: {{ inv.reelCode }}</span>
+              </div>
+            </div>
+            <div class="flex justify-end text-xs font-bold pt-1 border-t border-[var(--color-border)] opacity-70">
+              合計: 新品 {{ totalNew }}個 / 中古 {{ totalUsed }}個
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 右: 基本スペック -->
+      <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm items-start">
+        <span class="list list-label text-right">通称</span>
+        <span class="list list-value">標準10kΩ抵抗</span>
+        <span class="list list-label text-right">メーカー</span>
+        <span class="list list-value">Panasonic</span>
+        <span class="list list-label text-right">値</span>
+        <span class="list list-value">10kΩ</span>
+        <span class="list list-label text-right">許容差</span>
+        <span class="list list-value">±5%</span>
+        <span class="list list-label text-right">定格電圧</span>
+        <span class="list list-value">100V</span>
+        <span class="list list-label text-right">定格電力</span>
+        <span class="list list-value">0.25W</span>
+        <span class="list list-label text-right">パッケージ</span>
+        <span class="list list-value">1608</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== セクションB: 詳細情報 ===== -->
+  <section class="mb-6 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center gap-2 cursor-pointer select-none" @click="sections.B = !sections.B">
+        <i :data-lucide="sections.B ? 'chevron-down' : 'chevron-right'" class="w-5 h-5"></i>
+        <h2 class="text-xl font-bold border-l-4 border-[var(--color-primary)] pl-2">詳細情報</h2>
+      </div>
+      <button @click="editModal.section = 'B'; editModal.open = true"
+        class="flex items-center px-3 py-1 text-sm rounded btn btn-primary gap-1">
+        <i data-lucide="edit" class="w-4 h-4"></i>編集
+      </button>
+    </div>
+    <div v-show="sections.B" class="grid grid-cols-1 md:grid-cols-2 gap-6 ml-2">
+      <!-- 仕入れ先一覧 -->
+      <div>
+        <p class="text-xs font-semibold opacity-60 mb-2">仕入れ先・価格</p>
+        <div class="border border-[var(--color-border)] rounded overflow-hidden text-sm">
+          <div v-for="sup in suppliers" :key="sup.id">
+            <!-- 商社ヘッダ行 -->
+            <div class="flex items-center justify-between px-3 py-2 cursor-pointer hover:opacity-80"
+              :class="sup.expanded ? 'bg-[var(--color-card-odd)]' : ''"
+              @click="sup.expanded = !sup.expanded">
+              <div class="flex items-center gap-2">
+                <i :data-lucide="sup.expanded ? 'chevron-down' : 'chevron-right'" class="w-4 h-4 opacity-50"></i>
+                <span class="font-medium">{{ sup.name }}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span>{{ sup.basePrice }}円</span>
+                <a :href="sup.url" class="link-text text-xs">商品ページ</a>
+              </div>
+            </div>
+            <!-- 展開: 詳細 -->
+            <div v-if="sup.expanded" class="px-4 pb-3 bg-[var(--color-bg)] text-xs space-y-1.5">
+              <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                <span class="opacity-60">品番</span><span class="font-mono">{{ sup.sku }}</span>
+                <span class="opacity-60">更新日</span><span>{{ sup.updatedAt }}</span>
+                <span class="opacity-60">備考</span><span>{{ sup.note }}</span>
+              </div>
+              <!-- 数量別価格 -->
+              <div v-if="sup.priceTiers.length > 0" class="mt-2">
+                <p class="opacity-60 mb-1">数量別価格</p>
+                <table class="text-xs border border-[var(--color-border)] rounded overflow-hidden">
+                  <tbody>
+                    <tr v-for="t in sup.priceTiers" :key="t.qty"
+                      class="border-t border-[var(--color-border)]">
+                      <td class="px-2 py-1">{{ t.qty }}個〜</td>
+                      <td class="px-2 py-1 font-mono">{{ t.price }}円</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- スペック詳細 + プロジェクト + 入出庫履歴 -->
+      <div class="space-y-4">
+        <!-- スペック詳細 -->
+        <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <span class="list list-label text-right">温度特性</span>
+          <span class="list list-value">±100ppm/℃</span>
+          <span class="list list-label text-right">ランク</span>
+          <span class="list list-value">F</span>
+        </div>
+
+        <!-- 使用プロジェクト -->
+        <div>
+          <p class="text-xs font-semibold opacity-60 mb-2">使用プロジェクト</p>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="tag tag-ok text-xs">AI基板2025</span>
+            <span class="tag tag-warning text-xs">共通センサ制御</span>
+            <span class="tag tag-ok text-xs">AD基板2024</span>
+          </div>
+        </div>
+
+        <!-- 入出庫履歴 -->
+        <div>
+          <p class="text-xs font-semibold opacity-60 mb-2">直近の入出庫</p>
+          <div class="space-y-1 text-xs">
+            <div class="flex items-center gap-2">
+              <i data-lucide="arrow-up-circle" class="w-4 h-4 text-[var(--color-tag-ok)]"></i>
+              <span>入庫</span><span class="opacity-60">2025-01-23</span>
+              <span>100個</span><span class="opacity-40">棚A-1</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="arrow-down-circle" class="w-4 h-4 text-[var(--color-tag-warning)]"></i>
+              <span>出庫</span><span class="opacity-60">2025-02-03</span>
+              <span>5個</span><span class="opacity-40">AI基板2025</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== セクションC: カスタムフィールド ===== -->
+  <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center gap-2 cursor-pointer select-none" @click="sections.C = !sections.C">
+        <i :data-lucide="sections.C ? 'chevron-down' : 'chevron-right'" class="w-5 h-5"></i>
+        <h2 class="text-xl font-bold border-l-4 border-[var(--color-primary)] pl-2">カスタムフィールド</h2>
+      </div>
+      <button @click="editModal.section = 'C'; editModal.open = true"
+        class="flex items-center px-3 py-1 text-sm rounded btn btn-primary gap-1">
+        <i data-lucide="edit" class="w-4 h-4"></i>編集
+      </button>
+    </div>
+    <div v-show="sections.C" class="grid grid-cols-1 md:grid-cols-2 gap-4 ml-2 text-sm">
+      <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <span class="list list-label text-right">用途</span>
+        <span class="list list-value">試作</span>
+        <span class="list list-label text-right">発注者</span>
+        <span class="list list-value">imenihs</span>
+      </div>
+      <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <span class="list list-label text-right">注意点</span>
+        <span class="list list-value">高温時抵抗値が変化</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 出庫モーダル ===== -->
+  <template v-if="stockOutModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="stockOutModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-1 flex items-center gap-2">
+          <i data-lucide="package-minus" class="w-5 h-5"></i>出庫登録
+        </h2>
+        <p class="text-sm opacity-60 mb-4">標準10kΩ抵抗</p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-semibold mb-1">在庫区分</label>
+            <div class="flex gap-2">
+              <button v-for="opt in ['new', 'used']" :key="opt"
+                @click="stockOutModal.condition = opt"
+                class="flex-1 py-1.5 rounded border text-sm transition-colors"
+                :class="stockOutModal.condition === opt
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                  : 'border-[var(--color-border)]'">
+                {{ opt === 'new' ? '新品' : '中古' }}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">
+              保管場所
+              <span class="text-xs opacity-50 font-normal ml-1">
+                ({{ stockOutModal.condition === 'new' ? '新品' : '中古' }}
+                在庫: {{ stockOutModal.condition === 'new' ? totalNew : totalUsed }}個)
+              </span>
+            </label>
+            <select v-model="stockOutModal.location" class="input-text text-sm">
+              <option value="">場所を選択</option>
+              <option v-for="inv in inventory.filter(i => i.condition === stockOutModal.condition)"
+                :key="inv.id" :value="inv.location">
+                {{ inv.location }}（{{ inv.quantity }}個）
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">数量 <span class="text-red-500">*</span></label>
+            <input type="number" v-model.number="stockOutModal.quantity" min="1"
+              class="input-text text-sm font-mono" placeholder="出庫数を入力" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">用途・備考</label>
+            <input type="text" v-model="stockOutModal.note" class="input-text text-sm"
+              placeholder="例: AI基板2025 投入" />
+          </div>
+        </div>
+        <!-- 不足警告 -->
+        <div v-if="stockOutModal.quantity > 0 && stockOutExceedsStock"
+          class="mt-3 flex items-center gap-2 text-xs text-[var(--color-tag-eol)] font-semibold">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          在庫数を超えています
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button @click="stockOutModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitStockOut"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!stockOutModal.quantity || stockOutModal.quantity < 1 || stockOutExceedsStock">
+            出庫を登録
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ===== セクション編集モーダル（簡易表示） ===== -->
+  <template v-if="editModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="editModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-[520px] shadow-xl">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <i data-lucide="edit" class="w-5 h-5"></i>
+          <span v-if="editModal.section === 'ALL'">全体編集</span>
+          <span v-else>{{ editModal.section === 'A' ? '基本情報' : editModal.section === 'B' ? '詳細情報' : 'カスタムフィールド' }}の編集</span>
+        </h2>
+        <p class="text-sm opacity-60 mb-2">
+          <span v-if="editModal.section === 'ALL'">
+            全フィールドを一括編集します。<br>
+            ※ 実装時は PUT /api/v1/components/:id に全項目を送信します。
+          </span>
+          <span v-else>
+            このセクションのフィールドのみ編集します。<br>
+            ※ 実装時は PATCH /api/v1/components/:id に対象フィールドのみ送信します。
+          </span>
+        </p>
+        <!-- 全体編集時のみ: SCR-003へのリンクも提示 -->
+        <div v-if="editModal.section === 'ALL'"
+          class="mb-4 p-3 rounded bg-[var(--color-card-even)] border border-[var(--color-border)] text-xs">
+          全フィールドの編集は
+          <a href="component_create.html" class="link-text">部品登録/編集画面 (SCR-003)</a>
+          でも行えます。
+        </div>
+        <div class="flex gap-3">
+          <button @click="editModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">閉じる</button>
+          <button @click="editModal.open = false; showToast('保存しました（モック）')"
+            class="flex-1 py-2 rounded btn btn-primary text-sm">保存する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- トースト -->
+  <div v-if="toast.show"
+    class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+    {{ toast.message }}
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, computed, reactive, onMounted, nextTick } = Vue;
+
+  createApp({
+    setup() {
+      // アコーディオン状態
+      const sections = reactive({ A: true, B: true, C: false });
+
+      // 在庫データ（棚別・区分・ロット付き）
+      const inventory = ref([
+        { id: 1, location: '棚A-1', condition: 'new', quantity: 100, stockType: 'reel',  lotNumber: 'LOT-2025-001', reelCode: 'R-001' },
+        { id: 2, location: '棚A-2', condition: 'new', quantity: 23,  stockType: 'loose', lotNumber: 'LOT-2025-002', reelCode: '' },
+        { id: 3, location: '棚B-1', condition: 'used', quantity: 3,  stockType: 'loose', lotNumber: '',             reelCode: '' },
+      ]);
+      const stockTypeLabel = { reel: 'リール', tape: 'テープ', tray: 'トレイ', loose: 'バラ', box: '箱' };
+
+      const totalNew = computed(() => inventory.value.filter(i => i.condition === 'new').reduce((s, i) => s + i.quantity, 0));
+      const totalUsed = computed(() => inventory.value.filter(i => i.condition === 'used').reduce((s, i) => s + i.quantity, 0));
+
+      // 仕入れ先データ
+      const suppliers = ref([
+        {
+          id: 1, name: '秋月電子', basePrice: 123, url: '#',
+          sku: 'AKZ-12345', updatedAt: '2024-12-01', note: '1パック10個',
+          expanded: false,
+          priceTiers: [{ qty: 1, price: 123 }, { qty: 10, price: 115 }],
+        },
+        {
+          id: 2, name: 'Digikey', basePrice: 118, url: '#',
+          sku: 'RK73H1JTTD1002F-ND', updatedAt: '2024-11-15', note: '',
+          expanded: false,
+          priceTiers: [{ qty: 1, price: 118 }, { qty: 100, price: 98 }],
+        },
+      ]);
+
+      // 出庫モーダル
+      const stockOutModal = reactive({
+        open: false, condition: 'new', location: '', quantity: null, note: '',
+      });
+
+      const stockOutExceedsStock = computed(() => {
+        if (!stockOutModal.quantity || !stockOutModal.location) return false;
+        const inv = inventory.value.find(i => i.location === stockOutModal.location);
+        return inv ? stockOutModal.quantity > inv.quantity : false;
+      });
+
+      const submitStockOut = () => {
+        const inv = inventory.value.find(i => i.location === stockOutModal.location);
+        if (inv) inv.quantity -= stockOutModal.quantity;
+        stockOutModal.open = false;
+        showToast(`出庫を登録しました（${stockOutModal.quantity}個）`);
+        stockOutModal.quantity = null;
+        stockOutModal.note = '';
+      };
+
+      // 編集モーダル
+      const editModal = reactive({ open: false, section: 'A' });
+
+      // トースト
+      const toast = reactive({ show: false, message: '' });
+      const showToast = (msg) => {
+        toast.message = msg; toast.show = true;
+        setTimeout(() => { toast.show = false; }, 2500);
+      };
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        sections, inventory, totalNew, totalUsed, stockTypeLabel, suppliers,
+        stockOutModal, stockOutExceedsStock, submitStockOut,
+        editModal, toast, showToast, toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

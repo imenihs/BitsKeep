@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>操作ログ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="clock" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">操作ログ</h1>
+      </div>
+    </div>
+    <button id="themeToggle" @click="toggleTheme"
+      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <!-- フィルターバー -->
+  <div class="flex flex-wrap gap-3 mb-5 p-3 rounded-lg bg-[var(--color-card-even)]" style="max-width: 900px;">
+    <div>
+      <label class="block text-xs font-semibold mb-1">操作種別</label>
+      <select v-model="filterAction" class="input-text text-sm py-1">
+        <option value="">すべて</option>
+        <option value="create">作成</option>
+        <option value="update">更新</option>
+        <option value="delete">削除</option>
+        <option value="stock_in">入庫</option>
+        <option value="stock_out">出庫</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold mb-1">対象リソース</label>
+      <select v-model="filterResource" class="input-text text-sm py-1">
+        <option value="">すべて</option>
+        <option value="component">部品</option>
+        <option value="inventory">在庫</option>
+        <option value="project">プロジェクト</option>
+        <option value="supplier">商社</option>
+        <option value="master">マスタ</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold mb-1">ユーザー</label>
+      <select v-model="filterUser" class="input-text text-sm py-1">
+        <option value="">すべて</option>
+        <option value="山田 太郎">山田 太郎</option>
+        <option value="鈴木 花子">鈴木 花子</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold mb-1">キーワード</label>
+      <input v-model="filterKeyword" type="text" placeholder="部品名・メモで絞り込み..."
+        class="input-text text-sm py-1" />
+    </div>
+  </div>
+
+  <!-- ログカウント -->
+  <div class="mb-3 text-xs opacity-50" style="max-width: 900px;">
+    {{ filteredLogs.length }} 件 / 全 {{ logs.length }} 件
+  </div>
+
+  <!-- ログ一覧 -->
+  <div class="space-y-1" style="max-width: 900px;">
+    <div v-for="(log, idx) in paginatedLogs" :key="log.id"
+      class="rounded-lg px-4 py-3 flex items-start gap-3 cursor-pointer transition-opacity hover:opacity-80"
+      :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+      @click="toggleDetail(log)">
+
+      <!-- アクションアイコン -->
+      <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-white"
+        :style="{ backgroundColor: getActionColor(log.action) }">
+        <i :data-lucide="getActionIcon(log.action)" class="w-4 h-4"></i>
+      </div>
+
+      <!-- メインコンテンツ -->
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs px-2 py-0.5 rounded font-semibold text-white"
+              :style="{ backgroundColor: getActionColor(log.action) }">
+              {{ getActionLabel(log.action) }}
+            </span>
+            <span class="text-xs opacity-50 px-2 py-0.5 rounded border border-[var(--color-border)]">
+              {{ getResourceLabel(log.resource) }}
+            </span>
+            <span class="font-medium text-sm">{{ log.targetName }}</span>
+          </div>
+          <div class="text-xs opacity-50 flex-shrink-0">{{ log.createdAt }}</div>
+        </div>
+        <div class="text-xs opacity-60 mt-1">{{ log.userName }}</div>
+
+        <!-- 差分詳細（展開時） -->
+        <div v-if="expandedLogId === log.id && log.diff" class="mt-3 rounded border border-[var(--color-border)] overflow-hidden text-xs">
+          <div class="bg-[var(--color-bg)] px-3 py-1.5 font-semibold border-b border-[var(--color-border)]">
+            変更内容
+          </div>
+          <table class="w-full">
+            <thead>
+              <tr class="bg-[var(--color-card-even)]">
+                <th class="px-3 py-1.5 text-left font-semibold w-32">フィールド</th>
+                <th class="px-3 py-1.5 text-left font-semibold">変更前</th>
+                <th class="px-3 py-1.5 text-left font-semibold">変更後</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(change, field) in log.diff" :key="field"
+                class="border-t border-[var(--color-border)]">
+                <td class="px-3 py-1.5 font-mono opacity-70">{{ field }}</td>
+                <td class="px-3 py-1.5 line-through opacity-50">{{ change.before ?? '—' }}</td>
+                <td class="px-3 py-1.5 font-semibold text-[var(--color-primary)]">{{ change.after ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 在庫変動詳細（展開時） -->
+        <div v-if="expandedLogId === log.id && log.stockChange" class="mt-3 text-xs rounded border border-[var(--color-border)] p-3">
+          <div class="flex gap-6">
+            <div><span class="opacity-60">数量: </span><strong>{{ log.stockChange.quantity }}個</strong></div>
+            <div v-if="log.stockChange.location"><span class="opacity-60">場所: </span>{{ log.stockChange.location }}</div>
+            <div v-if="log.stockChange.note"><span class="opacity-60">備考: </span>{{ log.stockChange.note }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 展開インジケータ -->
+      <i v-if="log.diff || log.stockChange"
+        :data-lucide="expandedLogId === log.id ? 'chevron-up' : 'chevron-down'"
+        class="w-4 h-4 opacity-40 flex-shrink-0 mt-1"></i>
+    </div>
+  </div>
+
+  <!-- ページネーション -->
+  <div class="flex justify-center gap-2 mt-6" style="max-width: 900px;">
+    <button @click="page--" :disabled="page === 1"
+      class="px-3 py-1.5 rounded border border-[var(--color-border)] text-sm disabled:opacity-30">
+      <i data-lucide="chevron-left" class="w-4 h-4"></i>
+    </button>
+    <span class="px-3 py-1.5 text-sm">{{ page }} / {{ totalPages }}</span>
+    <button @click="page++" :disabled="page === totalPages"
+      class="px-3 py-1.5 rounded border border-[var(--color-border)] text-sm disabled:opacity-30">
+      <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, computed, reactive, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const actionMeta = {
+        create:    { label: '作成', icon: 'plus-circle', color: '#27ae60' },
+        update:    { label: '更新', icon: 'pencil',      color: '#2980b9' },
+        delete:    { label: '削除', icon: 'trash-2',     color: '#e84c3d' },
+        stock_in:  { label: '入庫', icon: 'package-plus', color: '#8e44ad' },
+        stock_out: { label: '出庫', icon: 'package-minus', color: '#e67e22' },
+      };
+      const resourceMeta = {
+        component: '部品', inventory: '在庫', project: 'プロジェクト',
+        supplier: '商社', master: 'マスタ',
+      };
+
+      const getActionColor = (a) => actionMeta[a]?.color || '#888';
+      const getActionIcon = (a) => actionMeta[a]?.icon || 'circle';
+      const getActionLabel = (a) => actionMeta[a]?.label || a;
+      const getResourceLabel = (r) => resourceMeta[r] || r;
+
+      const logs = ref([
+        { id: 1, action: 'update', resource: 'component', targetName: '金属皮膜抵抗 10kΩ', userName: '山田 太郎', createdAt: '2026-04-07 10:45', diff: { quantity_threshold_new: { before: 10, after: 20 }, note: { before: null, after: '在庫増やした' } } },
+        { id: 2, action: 'stock_in', resource: 'inventory', targetName: 'LM358 オペアンプ', userName: '鈴木 花子', createdAt: '2026-04-07 09:30', stockChange: { quantity: 10, location: '棚B-1', note: '秋月電子より入荷' } },
+        { id: 3, action: 'create', resource: 'component', targetName: '2SC1815-GR', userName: '山田 太郎', createdAt: '2026-04-06 16:22', diff: null },
+        { id: 4, action: 'delete', resource: 'supplier', targetName: 'テスト商社（削除済み）', userName: '山田 太郎', createdAt: '2026-04-06 14:10', diff: null },
+        { id: 5, action: 'update', resource: 'project', targetName: 'センサーモジュール基板 v2', userName: '鈴木 花子', createdAt: '2026-04-06 11:55', diff: { status: { before: 'planning', after: 'in_progress' } } },
+        { id: 6, action: 'stock_out', resource: 'inventory', targetName: '積層セラミックコンデンサ 0.1μF', userName: '山田 太郎', createdAt: '2026-04-05 17:00', stockChange: { quantity: 5, location: '棚A-3', note: 'プロジェクト投入' } },
+        { id: 7, action: 'create', resource: 'master', targetName: 'パッケージ: 0402', userName: '山田 太郎', createdAt: '2026-04-05 10:30', diff: null },
+        { id: 8, action: 'update', resource: 'component', targetName: '積層セラミックコンデンサ 0.1μF', userName: '鈴木 花子', createdAt: '2026-04-04 15:20', diff: { procurement_status: { before: 'active', after: 'eol' } } },
+        { id: 9, action: 'stock_in', resource: 'inventory', targetName: '金属皮膜抵抗 10kΩ', userName: '山田 太郎', createdAt: '2026-04-04 13:00', stockChange: { quantity: 100, location: '棚A-1', note: '' } },
+        { id: 10, action: 'create', resource: 'project', targetName: 'モータードライバ基板', userName: '山田 太郎', createdAt: '2026-04-03 09:15', diff: null },
+      ]);
+
+      const filterAction = ref('');
+      const filterResource = ref('');
+      const filterUser = ref('');
+      const filterKeyword = ref('');
+      const page = ref(1);
+      const perPage = 8;
+
+      const filteredLogs = computed(() => {
+        return logs.value.filter(log => {
+          if (filterAction.value && log.action !== filterAction.value) return false;
+          if (filterResource.value && log.resource !== filterResource.value) return false;
+          if (filterUser.value && log.userName !== filterUser.value) return false;
+          if (filterKeyword.value && !log.targetName.includes(filterKeyword.value)) return false;
+          return true;
+        });
+      });
+
+      const totalPages = computed(() => Math.max(1, Math.ceil(filteredLogs.value.length / perPage)));
+      const paginatedLogs = computed(() => {
+        const start = (page.value - 1) * perPage;
+        return filteredLogs.value.slice(start, start + perPage);
+      });
+
+      const expandedLogId = ref(null);
+      const toggleDetail = (log) => {
+        expandedLogId.value = expandedLogId.value === log.id ? null : log.id;
+      };
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        logs, filteredLogs, paginatedLogs, page, totalPages,
+        filterAction, filterResource, filterUser, filterKeyword,
+        expandedLogId, toggleDetail,
+        getActionColor, getActionIcon, getActionLabel, getResourceLabel,
+        toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

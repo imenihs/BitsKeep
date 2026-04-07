@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>部品登録/編集</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    .grid-cols-spec {
+      grid-template-columns: 1fr minmax(80px, 140px) minmax(80px, 110px) auto;
+    }
+    .grid-cols-supplier {
+      grid-template-columns: 1.5fr 1fr auto;
+    }
+  </style>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="component_detail.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>詳細に戻る
+      </a>
+      <h1 class="text-2xl font-bold">部品新規登録</h1>
+    </div>
+    <button id="themeToggle" @click="toggleTheme"
+      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <form @submit.prevent="submitForm" class="space-y-5 max-w-[800px]">
+
+    <!-- ===== 基本情報 ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2 mb-4">基本情報</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 左: 画像・データシート -->
+        <div class="flex flex-col items-center gap-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1">部品画像</label>
+            <div class="w-36 h-36 flex items-center justify-center border border-[var(--color-border)] rounded bg-[var(--color-bg)] overflow-hidden mb-2">
+              <img :src="previewImageSrc" alt="プレビュー" class="object-contain w-36 h-36" />
+            </div>
+            <input type="file" @change="handleImageUpload" accept="image/*" class="input-text text-xs" />
+          </div>
+          <div class="w-full">
+            <label class="block text-sm font-semibold mb-1">データシート (PDF)</label>
+            <input type="file" accept=".pdf" class="input-text text-xs w-full" />
+          </div>
+        </div>
+        <!-- 右: テキストフィールド -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-semibold mb-1">部品名 <span class="text-red-500">*</span></label>
+            <input type="text" v-model="form.partName" placeholder="部品名を入力" class="input-text text-sm" required />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">型番 <span class="text-red-500">*</span></label>
+            <input type="text" v-model="form.partNumber" placeholder="型番を入力" class="input-text text-sm" required />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">通称</label>
+            <input type="text" v-model="form.commonName" placeholder="例: チップコン" class="input-text text-sm" />
+          </div>
+          <!-- メーカー（インライン追加付き） -->
+          <div>
+            <label class="block text-sm font-semibold mb-1">メーカー <span class="text-red-500">*</span></label>
+            <div class="flex gap-2">
+              <select v-model="form.manufacturer" class="input-text text-sm flex-1" required>
+                <option value="" disabled>— 選択 —</option>
+                <option v-for="m in masters.manufacturers" :key="m" :value="m">{{ m }}</option>
+              </select>
+              <button type="button" @click="openAddMaster('manufacturer')"
+                class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)] transition-colors whitespace-nowrap">
+                + 追加
+              </button>
+            </div>
+          </div>
+          <!-- 分類（複数選択 + インライン追加） -->
+          <div>
+            <label class="block text-sm font-semibold mb-1">
+              分類 <span class="text-red-500">*</span>
+              <span class="text-xs font-normal opacity-50 ml-1">（複数選択可）</span>
+            </label>
+            <div class="border border-[var(--color-border)] rounded p-2 max-h-32 overflow-y-auto bg-[var(--color-bg)] mb-1">
+              <label v-for="c in masters.categories" :key="c"
+                class="flex items-center gap-2 py-0.5 cursor-pointer hover:opacity-80 text-sm">
+                <input type="checkbox" :value="c" v-model="form.categories" class="rounded" />
+                {{ c }}
+              </label>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs opacity-50">
+                {{ form.categories.length > 0 ? form.categories.join('、') : '未選択' }}
+              </span>
+              <button type="button" @click="openAddMaster('category')"
+                class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)] transition-colors whitespace-nowrap">
+                + 追加
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== パッケージ情報 ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2 mb-4">パッケージ</h2>
+      <div class="flex gap-2">
+        <select v-model="form.packageType" class="input-text text-sm flex-1 max-w-sm" required>
+          <option value="" disabled>— 選択 —</option>
+          <option v-for="p in masters.packages" :key="p" :value="p">{{ p }}</option>
+        </select>
+        <button type="button" @click="openAddMaster('package')"
+          class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)] transition-colors whitespace-nowrap">
+          + 追加
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== スペック情報 ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2">スペック情報</h2>
+        <button type="button" @click="addSpec" class="btn btn-primary text-xs px-3 py-1.5 rounded flex items-center gap-1">
+          <i data-lucide="plus" class="w-3 h-3"></i>スペック追加
+        </button>
+      </div>
+      <!-- ヘッダ行 -->
+      <div v-if="form.specs.length > 0" class="grid grid-cols-spec gap-2 mb-1 text-xs font-semibold opacity-60 px-1">
+        <span>種別</span><span>値</span><span>単位</span><span></span>
+      </div>
+      <div class="space-y-2">
+        <div v-for="(spec, idx) in form.specs" :key="idx"
+          class="grid grid-cols-spec gap-2 items-center">
+          <!-- 種別セレクト（マスタから） -->
+          <select v-model="spec.typeId" @change="onSpecTypeChange(spec)" class="input-text text-sm">
+            <option value="" disabled>— 種別選択 —</option>
+            <option v-for="st in masters.specTypes" :key="st.id" :value="st.id">{{ st.name }}</option>
+          </select>
+          <!-- 値入力 -->
+          <input type="number" v-model="spec.value" step="any" placeholder="値"
+            class="input-text text-sm font-mono" />
+          <!-- 単位セレクト（選んだ種別の単位） -->
+          <select v-model="spec.unit" class="input-text text-sm" :disabled="!spec.typeId">
+            <option value="" disabled>— 単位 —</option>
+            <option v-for="u in getSpecUnits(spec.typeId)" :key="u" :value="u">{{ u }}</option>
+          </select>
+          <!-- 削除 -->
+          <button type="button" @click="confirmRemove('spec', idx)"
+            class="p-1.5 rounded hover:text-[var(--color-tag-eol)] transition-colors opacity-60 hover:opacity-100">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <p v-if="form.specs.length === 0" class="text-xs opacity-40 text-center py-4">スペックを追加してください</p>
+    </section>
+
+    <!-- ===== 在庫情報 ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2 mb-4">在庫情報</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">新品在庫数</label>
+          <input type="number" v-model.number="form.newStock" min="0" class="input-text text-sm font-mono" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">中古在庫数</label>
+          <input type="number" v-model.number="form.usedStock" min="0" class="input-text text-sm font-mono" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">保管場所</label>
+          <select v-model="form.location" class="input-text text-sm">
+            <option value="">未指定</option>
+            <option v-for="loc in masters.locations" :key="loc" :value="loc">{{ loc }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+        <div>
+          <label class="block text-sm font-semibold mb-1">新品 在庫下限アラート</label>
+          <input type="number" v-model.number="form.thresholdNew" min="0" class="input-text text-sm font-mono" placeholder="0" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">中古 在庫下限アラート</label>
+          <input type="number" v-model.number="form.thresholdUsed" min="0" class="input-text text-sm font-mono" placeholder="0" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 価格情報 ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2">価格情報</h2>
+        <button type="button" @click="addSupplier" class="btn btn-primary text-xs px-3 py-1.5 rounded flex items-center gap-1">
+          <i data-lucide="plus" class="w-3 h-3"></i>仕入れ先追加
+        </button>
+      </div>
+      <!-- ヘッダ行 -->
+      <div v-if="form.suppliers.length > 0" class="grid grid-cols-supplier gap-2 mb-1 text-xs font-semibold opacity-60 px-1">
+        <span>商社</span><span>基本価格 (円)</span><span></span>
+      </div>
+      <div class="space-y-2">
+        <div v-for="(sup, idx) in form.suppliers" :key="idx">
+          <!-- 商社行 -->
+          <div class="grid grid-cols-supplier gap-2 items-center">
+            <div class="flex gap-2">
+              <select v-model="sup.shopId" class="input-text text-sm flex-1">
+                <option value="" disabled>— 商社選択 —</option>
+                <option v-for="s in masters.shops" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+              <button type="button" @click="openAddMaster('shop')"
+                class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)] transition-colors whitespace-nowrap">
+                + 追加
+              </button>
+            </div>
+            <input type="number" v-model.number="sup.price" placeholder="価格"
+              class="input-text text-sm font-mono" min="0" />
+            <button type="button" @click="confirmRemove('supplier', idx)"
+              class="p-1.5 rounded hover:text-[var(--color-tag-eol)] transition-colors opacity-60 hover:opacity-100">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <!-- 数量別価格 -->
+          <div class="ml-4 mt-1 space-y-1">
+            <div v-for="(tier, tIdx) in sup.priceTiers" :key="tIdx"
+              class="flex items-center gap-2 text-xs">
+              <span class="opacity-50 w-16 text-right">{{ tier.qty }}個〜</span>
+              <input type="number" v-model.number="tier.price" class="input-text text-xs font-mono w-24 py-1" />
+              <span class="opacity-50">円</span>
+              <button type="button" @click="sup.priceTiers.splice(tIdx, 1)"
+                class="opacity-40 hover:opacity-100 hover:text-[var(--color-tag-eol)]">
+                <i data-lucide="x" class="w-3 h-3"></i>
+              </button>
+            </div>
+            <button type="button" @click="sup.priceTiers.push({ qty: '', price: '' })"
+              class="text-xs link-text flex items-center gap-1 ml-16">
+              <i data-lucide="plus" class="w-3 h-3"></i>数量別価格を追加
+            </button>
+          </div>
+        </div>
+      </div>
+      <p v-if="form.suppliers.length === 0" class="text-xs opacity-40 text-center py-4">仕入れ先を追加してください</p>
+    </section>
+
+    <!-- ===== カスタムフィールド ===== -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold border-l-4 border-[var(--color-primary)] pl-2">カスタムフィールド</h2>
+        <button type="button" @click="addCustomField"
+          class="btn btn-primary text-xs px-3 py-1.5 rounded flex items-center gap-1">
+          <i data-lucide="plus" class="w-3 h-3"></i>フィールド追加
+        </button>
+      </div>
+      <div class="space-y-2">
+        <div v-for="(cf, idx) in form.customFields" :key="idx"
+          class="flex gap-2 items-center">
+          <div class="flex gap-2 flex-1">
+            <select v-model="cf.typeKey" class="input-text text-sm w-36">
+              <option value="" disabled>— 項目選択 —</option>
+              <option v-for="t in masters.customFieldTypes" :key="t.key" :value="t.key">{{ t.label }}</option>
+            </select>
+            <button type="button" @click="openAddMaster('customField')"
+              class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)] transition-colors whitespace-nowrap">
+              + 追加
+            </button>
+          </div>
+          <input type="text" v-model="cf.value" placeholder="値" class="input-text text-sm flex-1" />
+          <button type="button" @click="confirmRemove('customField', idx)"
+            class="p-1.5 rounded hover:text-[var(--color-tag-eol)] transition-colors opacity-60 hover:opacity-100">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <p v-if="form.customFields.length === 0" class="text-xs opacity-40 text-center py-4">任意のカスタム項目を追加できます</p>
+    </section>
+
+    <!-- 送信 -->
+    <div class="flex justify-end gap-3 pt-2">
+      <a href="component_detail.html" class="px-6 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</a>
+      <button type="submit" class="btn btn-primary px-6 py-2 rounded text-sm">部品を登録</button>
+    </div>
+  </form>
+
+  <!-- ===== マスタ追加ミニモーダル ===== -->
+  <template v-if="addMasterModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="addMasterModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-5 w-80 shadow-xl">
+        <h3 class="font-bold mb-3">{{ addMasterModal.title }}</h3>
+        <input v-model="addMasterModal.value" type="text"
+          class="input-text text-sm w-full mb-4" :placeholder="addMasterModal.placeholder"
+          @keydown.enter.prevent="submitAddMaster" ref="addMasterInput" />
+        <div class="flex gap-2">
+          <button @click="addMasterModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitAddMaster"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!addMasterModal.value.trim()">追加する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ===== 削除確認モーダル ===== -->
+  <template v-if="removeModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="removeModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-5 w-80 shadow-xl">
+        <h3 class="font-bold mb-2 flex items-center gap-2 text-[var(--color-tag-eol)]">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>削除の確認
+        </h3>
+        <p class="text-sm mb-4 opacity-70">{{ removeModal.message }}</p>
+        <div class="flex gap-2">
+          <button @click="removeModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="executeRemove"
+            class="flex-1 py-2 rounded text-sm text-white"
+            style="background-color: var(--color-tag-eol);">削除</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- トースト -->
+  <div v-if="toast.show"
+    class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+    {{ toast.message }}
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, reactive, onMounted, nextTick } = Vue;
+
+  createApp({
+    setup() {
+      // ===== マスタデータ（実装時はAPIから取得） =====
+      const masters = reactive({
+        manufacturers: ['村田製作所', 'TDK', 'KOA', 'Rohm', 'TI', 'Microchip', 'Panasonic'],
+        categories: ['抵抗', 'コンデンサ', 'IC', 'トランジスタ', 'ダイオード', 'LED', 'コネクタ'],
+        packages: ['DIP-8', 'DIP-14', 'SOP-8', 'TSSOP-20', '0402', '0603', '1206', 'TO-92', 'TO-220'],
+        locations: ['棚A-1', '棚A-2', '棚A-3', '棚B-1', '棚B-2'],
+        shops: [
+          { id: 1, name: '秋月電子通商' }, { id: 2, name: '千石電商' },
+          { id: 3, name: 'Digikey' }, { id: 4, name: 'Mouser' },
+        ],
+        // スペック種別（master_list.htmlと同じ構造）
+        specTypes: [
+          { id: 1, name: '抵抗値', units: ['Ω', 'kΩ', 'MΩ'] },
+          { id: 2, name: '容量',   units: ['F', 'μF', 'nF', 'pF'] },
+          { id: 3, name: '電圧',   units: ['V', 'mV'] },
+          { id: 4, name: '電流',   units: ['A', 'mA', 'μA'] },
+          { id: 5, name: '電力',   units: ['W', 'mW'] },
+          { id: 6, name: '周波数', units: ['Hz', 'kHz', 'MHz', 'GHz'] },
+          { id: 7, name: '寸法（幅）', units: ['mm', 'cm'] },
+          { id: 8, name: '寸法（高さ）', units: ['mm', 'cm'] },
+          { id: 9, name: '許容差', units: ['%'] },
+          { id: 10, name: '温度（最小）', units: ['℃'] },
+          { id: 11, name: '温度（最大）', units: ['℃'] },
+        ],
+        customFieldTypes: [
+          { key: 'note', label: '備考' },
+          { key: 'application', label: '用途' },
+          { key: 'caution', label: '注意点' },
+          { key: 'orderer', label: '発注者' },
+        ],
+      });
+
+      // ===== フォームデータ =====
+      const form = reactive({
+        partName: '', partNumber: '', commonName: '',
+        manufacturer: '', categories: [], packageType: '',
+        newStock: 0, usedStock: 0, location: '', thresholdNew: 0, thresholdUsed: 0,
+        specs: [],
+        suppliers: [],
+        customFields: [],
+      });
+
+      const previewImageSrc = ref('https://placehold.co/150x150?text=No+Image');
+
+      // ===== スペック操作 =====
+      const getSpecUnits = (typeId) => {
+        return masters.specTypes.find(s => s.id === typeId)?.units || [];
+      };
+      const onSpecTypeChange = (spec) => {
+        spec.value = '';
+        spec.unit = '';
+      };
+      const addSpec = () => form.specs.push({ typeId: '', value: '', unit: '' });
+
+      // ===== 仕入れ先操作 =====
+      const addSupplier = () => form.suppliers.push({ shopId: '', price: null, priceTiers: [] });
+
+      // ===== カスタムフィールド操作 =====
+      const addCustomField = () => form.customFields.push({ typeKey: '', value: '' });
+
+      // ===== 画像プレビュー =====
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => { previewImageSrc.value = ev.target.result; };
+          reader.readAsDataURL(file);
+        } else {
+          previewImageSrc.value = 'https://placehold.co/150x150?text=No+Image';
+        }
+      };
+
+      // ===== マスタ追加ミニモーダル =====
+      const masterLabels = {
+        manufacturer: { title: 'メーカーを追加', placeholder: '例: 新日本無線', list: 'manufacturers' },
+        category:     { title: '分類を追加',     placeholder: '例: リレー',      list: 'categories' },
+        package:      { title: 'パッケージを追加', placeholder: '例: SOT-23',    list: 'packages' },
+        shop:         { title: '商社を追加',      placeholder: '例: RSオンライン', list: null },
+        customField:  { title: 'カスタム項目を追加', placeholder: '例: 色',       list: null },
+      };
+
+      const addMasterModal = reactive({ open: false, type: '', title: '', placeholder: '', value: '' });
+      const addMasterInput = ref(null);
+
+      const openAddMaster = (type) => {
+        const meta = masterLabels[type];
+        addMasterModal.type = type;
+        addMasterModal.title = meta.title;
+        addMasterModal.placeholder = meta.placeholder;
+        addMasterModal.value = '';
+        addMasterModal.open = true;
+        nextTick(() => addMasterInput.value?.focus());
+      };
+
+      const submitAddMaster = () => {
+        const v = addMasterModal.value.trim();
+        if (!v) return;
+        const type = addMasterModal.type;
+        if (type === 'manufacturer') { if (!masters.manufacturers.includes(v)) { masters.manufacturers.push(v); form.manufacturer = v; } }
+        else if (type === 'category') { if (!masters.categories.includes(v)) { masters.categories.push(v); form.categories.push(v); } }
+        else if (type === 'package')  { if (!masters.packages.includes(v)) { masters.packages.push(v); form.packageType = v; } }
+        else if (type === 'shop') {
+          const newId = Math.max(0, ...masters.shops.map(s => s.id)) + 1;
+          masters.shops.push({ id: newId, name: v });
+          // 最後に追加した仕入れ先行に自動選択
+          if (form.suppliers.length > 0) form.suppliers[form.suppliers.length - 1].shopId = newId;
+        }
+        else if (type === 'customField') {
+          const key = v.toLowerCase().replace(/\s+/g, '_');
+          if (!masters.customFieldTypes.find(t => t.key === key)) {
+            masters.customFieldTypes.push({ key, label: v });
+          }
+          if (form.customFields.length > 0) form.customFields[form.customFields.length - 1].typeKey = key;
+        }
+        addMasterModal.open = false;
+        showToast(`「${v}」を追加しました`);
+      };
+
+      // ===== 削除確認モーダル =====
+      const removeModal = reactive({ open: false, type: '', idx: null, message: '' });
+
+      const confirmRemove = (type, idx) => {
+        const labels = { spec: 'スペック行', supplier: '仕入れ先', customField: 'カスタムフィールド' };
+        removeModal.type = type;
+        removeModal.idx = idx;
+        removeModal.message = `${labels[type]}（No.${idx + 1}）を削除しますか？`;
+        removeModal.open = true;
+      };
+
+      const executeRemove = () => {
+        const { type, idx } = removeModal;
+        if (type === 'spec') form.specs.splice(idx, 1);
+        else if (type === 'supplier') form.suppliers.splice(idx, 1);
+        else if (type === 'customField') form.customFields.splice(idx, 1);
+        removeModal.open = false;
+      };
+
+      // ===== 送信 =====
+      const submitForm = () => {
+        showToast('部品を登録しました（モック）');
+      };
+
+      // ===== トースト =====
+      const toast = reactive({ show: false, message: '' });
+      const showToast = (msg) => {
+        toast.message = msg; toast.show = true;
+        setTimeout(() => { toast.show = false; }, 2500);
+      };
+
+      // ===== テーマ =====
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        // 初期行
+        addSpec();
+        addSupplier();
+        lucide.createIcons();
+      });
+
+      return {
+        form, masters, previewImageSrc,
+        getSpecUnits, onSpecTypeChange, addSpec, addSupplier, addCustomField,
+        handleImageUpload,
+        addMasterModal, addMasterInput, openAddMaster, submitAddMaster,
+        removeModal, confirmRemove, executeRemove,
+        submitForm, toast, toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

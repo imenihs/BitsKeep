@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>商社管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="truck" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">商社管理</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button @click="openCreate"
+        class="btn btn-primary flex items-center gap-1 px-4 py-2 rounded text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>商社を追加
+      </button>
+      <button id="themeToggle" @click="toggleTheme"
+        class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+    </div>
+  </header>
+
+  <!-- 検索バー -->
+  <div class="flex gap-3 mb-4">
+    <div class="relative flex-1 max-w-sm">
+      <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50"></i>
+      <input v-model="searchQuery" type="text" placeholder="商社名・メモで検索..."
+        class="input-text pl-9 text-sm w-full" />
+    </div>
+  </div>
+
+  <!-- テーブル -->
+  <div class="overflow-x-auto rounded-lg border border-[var(--color-border)]" style="max-width: 900px;">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-[var(--color-card-even)] text-left">
+          <th class="px-4 py-3 font-semibold">商社名</th>
+          <th class="px-4 py-3 font-semibold">URL</th>
+          <th class="px-4 py-3 font-semibold">最短納期</th>
+          <th class="px-4 py-3 font-semibold">送料無料条件</th>
+          <th class="px-4 py-3 font-semibold">メモ</th>
+          <th class="px-4 py-3 font-semibold w-24">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-if="filteredSuppliers.length === 0">
+          <td colspan="6" class="text-center py-12 opacity-40">商社が登録されていません</td>
+        </tr>
+        <tr v-for="(s, idx) in filteredSuppliers" :key="s.id"
+          :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+          <td class="px-4 py-3 font-medium">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full flex-shrink-0"
+                :style="{ backgroundColor: s.color }"></span>
+              {{ s.name }}
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <a v-if="s.url" :href="s.url" target="_blank"
+              class="link-text flex items-center gap-1 text-xs">
+              <i data-lucide="external-link" class="w-3 h-3"></i>{{ s.url }}
+            </a>
+            <span v-else class="opacity-40">—</span>
+          </td>
+          <td class="px-4 py-3">
+            <span v-if="s.leadDays !== null">{{ s.leadDays }}日</span>
+            <span v-else class="opacity-40">—</span>
+          </td>
+          <td class="px-4 py-3">
+            <span v-if="s.freeShippingThreshold !== null">
+              {{ s.freeShippingThreshold.toLocaleString() }}円以上
+            </span>
+            <span v-else class="opacity-40">—</span>
+          </td>
+          <td class="px-4 py-3 text-xs opacity-70 max-w-[200px] truncate">{{ s.note || '—' }}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1">
+              <button @click="openEdit(s)"
+                class="p-1.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+                title="編集">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
+              </button>
+              <button @click="openDelete(s)"
+                class="p-1.5 rounded hover:bg-[var(--color-tag-eol)] hover:text-white transition-colors"
+                title="削除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 部品数サマリ -->
+  <div class="mt-3 text-xs opacity-50">{{ filteredSuppliers.length }} 件表示</div>
+
+  <!-- 作成/編集モーダル -->
+  <template v-if="modal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="modal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-[480px] shadow-xl">
+        <h2 class="font-bold text-lg mb-5 flex items-center gap-2">
+          <i :data-lucide="modal.mode === 'create' ? 'plus-circle' : 'pencil'" class="w-5 h-5"></i>
+          {{ modal.mode === 'create' ? '商社を追加' : '商社を編集' }}
+        </h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1">商社名 <span class="text-red-500">*</span></label>
+            <input v-model="modal.form.name" type="text" class="input-text text-sm" placeholder="例: 秋月電子" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">URL</label>
+            <input v-model="modal.form.url" type="url" class="input-text text-sm" placeholder="https://..." />
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label class="block text-sm font-semibold mb-1">最短納期（日）</label>
+              <input v-model.number="modal.form.leadDays" type="number" min="0"
+                class="input-text text-sm" placeholder="例: 2" />
+            </div>
+            <div class="flex-1">
+              <label class="block text-sm font-semibold mb-1">送料無料条件（円以上）</label>
+              <input v-model.number="modal.form.freeShippingThreshold" type="number" min="0"
+                class="input-text text-sm" placeholder="例: 3000" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">識別カラー</label>
+            <div class="flex gap-2 flex-wrap">
+              <button v-for="c in colorOptions" :key="c"
+                @click="modal.form.color = c"
+                class="w-7 h-7 rounded-full border-2 transition-all"
+                :style="{ backgroundColor: c }"
+                :class="modal.form.color === c ? 'border-[var(--color-primary)] scale-110' : 'border-transparent'">
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">メモ</label>
+            <textarea v-model="modal.form.note" rows="2"
+              class="input-text text-sm resize-none" placeholder="備考など..."></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="modal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitModal"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!modal.form.name.trim()">
+            {{ modal.mode === 'create' ? '追加する' : '保存する' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- 削除確認モーダル -->
+  <template v-if="deleteModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="deleteModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-3 flex items-center gap-2 text-[var(--color-tag-eol)]">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>削除の確認
+        </h2>
+        <p class="text-sm mb-2">「<strong>{{ deleteModal.target?.name }}</strong>」を削除しますか？</p>
+        <p class="text-xs opacity-60 mb-5">この商社に紐づく部品の価格情報からも除外されます。</p>
+        <div class="flex gap-3">
+          <button @click="deleteModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="confirmDelete"
+            class="flex-1 py-2 rounded text-sm text-white"
+            style="background-color: var(--color-tag-eol);">削除する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- トースト -->
+  <div v-if="toast.show"
+    class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+    {{ toast.message }}
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, computed, reactive, onMounted, nextTick } = Vue;
+
+  createApp({
+    setup() {
+      const suppliers = ref([
+        { id: 1, name: '秋月電子通商', url: 'https://akizukidenshi.com', leadDays: 2, freeShippingThreshold: 3000, color: '#e84c3d', note: '到着はポスト投函' },
+        { id: 2, name: '千石電商', url: 'https://www.sengoku.co.jp', leadDays: 2, freeShippingThreshold: 3000, color: '#e67e22', note: '' },
+        { id: 3, name: 'Digikey', url: 'https://www.digikey.jp', leadDays: 4, freeShippingThreshold: 6600, color: '#2980b9', note: '海外在庫も豊富' },
+        { id: 4, name: 'Mouser', url: 'https://www.mouser.jp', leadDays: 5, freeShippingThreshold: 5000, color: '#27ae60', note: '' },
+        { id: 5, name: 'RS Components', url: 'https://jp.rs-online.com', leadDays: 3, freeShippingThreshold: null, color: '#8e44ad', note: '業務用途向け' },
+      ]);
+
+      const colorOptions = [
+        '#e84c3d', '#e67e22', '#f1c40f', '#27ae60', '#2980b9',
+        '#8e44ad', '#1abc9c', '#34495e', '#95a5a6', '#d35400',
+      ];
+
+      const searchQuery = ref('');
+      const filteredSuppliers = computed(() => {
+        if (!searchQuery.value) return suppliers.value;
+        const q = searchQuery.value.toLowerCase();
+        return suppliers.value.filter(s =>
+          s.name.toLowerCase().includes(q) || (s.note || '').toLowerCase().includes(q)
+        );
+      });
+
+      // モーダル
+      const modal = reactive({
+        open: false, mode: 'create',
+        form: { id: null, name: '', url: '', leadDays: null, freeShippingThreshold: null, color: '#2980b9', note: '' },
+        editTarget: null,
+      });
+
+      const openCreate = () => {
+        modal.mode = 'create';
+        modal.form = { id: null, name: '', url: '', leadDays: null, freeShippingThreshold: null, color: '#2980b9', note: '' };
+        modal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+
+      const openEdit = (s) => {
+        modal.mode = 'edit';
+        modal.form = { ...s };
+        modal.editTarget = s;
+        modal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+
+      const submitModal = () => {
+        if (modal.mode === 'create') {
+          const newId = Math.max(0, ...suppliers.value.map(s => s.id)) + 1;
+          suppliers.value.push({ ...modal.form, id: newId });
+          showToast('商社を追加しました');
+        } else {
+          const idx = suppliers.value.findIndex(s => s.id === modal.form.id);
+          if (idx !== -1) suppliers.value[idx] = { ...modal.form };
+          showToast('商社を更新しました');
+        }
+        modal.open = false;
+      };
+
+      // 削除
+      const deleteModal = reactive({ open: false, target: null });
+      const openDelete = (s) => { deleteModal.target = s; deleteModal.open = true; };
+      const confirmDelete = () => {
+        suppliers.value = suppliers.value.filter(s => s.id !== deleteModal.target.id);
+        deleteModal.open = false;
+        showToast('削除しました');
+      };
+
+      // トースト
+      const toast = reactive({ show: false, message: '' });
+      const showToast = (msg) => {
+        toast.message = msg; toast.show = true;
+        setTimeout(() => { toast.show = false; }, 2500);
+      };
+
+      // テーマ
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        suppliers, filteredSuppliers, searchQuery, colorOptions,
+        modal, openCreate, openEdit, submitModal,
+        deleteModal, openDelete, confirmDelete,
+        toast, toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Altium連携</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6 max-w-5xl mx-auto">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="link-text flex items-center gap-1 text-sm">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>メニューに戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="cpu" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">Altium連携</h1>
+      </div>
+    </div>
+    <button @click="toggleTheme" class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <!-- 概要説明バナー -->
+  <div class="card p-4 mb-6 flex items-start gap-3 bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30">
+    <i data-lucide="info" class="w-5 h-5 mt-0.5 text-[var(--color-primary)] flex-shrink-0"></i>
+    <div class="text-sm">
+      <p class="font-semibold mb-1">Altium Designerライブラリとの連携設定</p>
+      <p class="opacity-70">
+        SchLib / PcbLib のパスと部品番号マッピングを登録すると、部品詳細画面から Altium ライブラリ内のシンボル・フットプリントを参照できます。
+        BitsKeep の部品番号と Altium のコメント/説明フィールドで突き合わせます。
+      </p>
+    </div>
+  </div>
+
+  <!-- タブ -->
+  <div class="flex gap-0 mb-6 border-b border-[var(--color-border)]">
+    <button v-for="t in tabs" :key="t.key" @click="activeTab = t.key"
+      class="px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px"
+      :class="activeTab === t.key
+        ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+        : 'border-transparent opacity-60 hover:opacity-80'">
+      <span class="flex items-center gap-1.5">
+        <i :data-lucide="t.icon" class="w-4 h-4"></i>{{ t.label }}
+      </span>
+    </button>
+  </div>
+
+  <!-- ── Tab: ライブラリパス ── -->
+  <div v-if="activeTab === 'libraries'">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold">登録ライブラリ</h2>
+      <button @click="openLibModal(null)" class="btn btn-primary text-sm flex items-center gap-1.5">
+        <i data-lucide="plus" class="w-4 h-4"></i>ライブラリを追加
+      </button>
+    </div>
+
+    <!-- ライブラリ一覧 -->
+    <div v-if="libraries.length === 0" class="card p-10 text-center opacity-50">
+      <i data-lucide="folder-open" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+      <p>ライブラリが登録されていません</p>
+    </div>
+    <div v-else class="space-y-3">
+      <div v-for="(lib, i) in libraries" :key="lib.id"
+        class="card p-4 flex items-start gap-4"
+        :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+        <!-- タイプバッジ -->
+        <div class="mt-0.5">
+          <span class="px-2 py-0.5 rounded text-xs font-bold"
+            :class="lib.type === 'SchLib' ? 'bg-blue-500/20 text-blue-600' : 'bg-green-500/20 text-green-600'">
+            {{ lib.type }}
+          </span>
+        </div>
+        <!-- 詳細 -->
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm">{{ lib.name }}</p>
+          <p class="text-xs opacity-60 mt-0.5 font-mono truncate">{{ lib.path }}</p>
+          <div class="flex gap-3 mt-2 text-xs opacity-60">
+            <span class="flex items-center gap-1">
+              <i data-lucide="layers" class="w-3 h-3"></i>{{ lib.componentCount }}コンポーネント
+            </span>
+            <span class="flex items-center gap-1">
+              <i data-lucide="clock" class="w-3 h-3"></i>最終同期: {{ lib.lastSync }}
+            </span>
+          </div>
+        </div>
+        <!-- ステータス -->
+        <div class="flex flex-col items-end gap-2">
+          <span class="flex items-center gap-1 text-xs"
+            :class="lib.status === 'ok' ? 'text-[var(--color-tag-ok)]' : lib.status === 'warn' ? 'text-[var(--color-tag-warning)]' : 'text-[var(--color-tag-eol)]'">
+            <i :data-lucide="lib.status === 'ok' ? 'check-circle' : lib.status === 'warn' ? 'alert-circle' : 'x-circle'" class="w-4 h-4"></i>
+            {{ lib.status === 'ok' ? '正常' : lib.status === 'warn' ? '要確認' : 'エラー' }}
+          </span>
+          <div class="flex gap-1">
+            <button @click="syncLib(lib)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors" title="同期">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            <button @click="openLibModal(lib)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors" title="編集">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </button>
+            <button @click="deleteLib(lib.id)" class="p-1.5 rounded hover:bg-red-100 transition-colors text-[var(--color-tag-eol)]" title="削除">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: 部品マッピング ── -->
+  <div v-if="activeTab === 'mapping'">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold">部品番号マッピング</h2>
+      <div class="flex gap-2">
+        <input v-model="mapSearch" type="text" class="input-text text-sm py-1 w-48" placeholder="部品名・番号で検索" />
+        <button @click="autoMap" class="btn text-sm flex items-center gap-1.5">
+          <i data-lucide="wand-2" class="w-4 h-4"></i>自動マッピング
+        </button>
+        <button @click="openAddMapModal" class="btn btn-primary text-sm flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-4 h-4"></i>追加
+        </button>
+      </div>
+    </div>
+
+    <!-- マッピング率サマリ -->
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-bold text-[var(--color-tag-ok)]">{{ mappedCount }}</p>
+        <p class="text-xs opacity-60">マッピング済み</p>
+      </div>
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-bold opacity-60">{{ unmappedCount }}</p>
+        <p class="text-xs opacity-60">未マッピング</p>
+      </div>
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-bold text-[var(--color-primary)]">{{ Math.round(mappedCount / (mappedCount + unmappedCount) * 100) }}%</p>
+        <p class="text-xs opacity-60">カバレッジ</p>
+      </div>
+    </div>
+
+    <!-- マッピングテーブル -->
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-[var(--color-card-even)]">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold">BitsKeep部品</th>
+            <th class="text-left px-4 py-3 font-semibold w-8"></th>
+            <th class="text-left px-4 py-3 font-semibold">Altiumシンボル</th>
+            <th class="text-left px-4 py-3 font-semibold">Altiumフットプリント</th>
+            <th class="text-left px-4 py-3 font-semibold w-28">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(m, i) in filteredMappings" :key="m.id"
+            class="border-t border-[var(--color-border)]"
+            :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+            <td class="px-4 py-2.5">
+              <p class="font-medium">{{ m.bitsName }}</p>
+              <p class="text-xs opacity-60 font-mono">{{ m.bitsPartNumber }}</p>
+            </td>
+            <td class="px-2 py-2.5 text-center opacity-40">
+              <i data-lucide="arrow-right" class="w-4 h-4 inline"></i>
+            </td>
+            <td class="px-4 py-2.5">
+              <template v-if="m.schSymbol">
+                <p class="font-medium">{{ m.schSymbol }}</p>
+                <p class="text-xs opacity-60">{{ m.schLib }}</p>
+              </template>
+              <span v-else class="text-xs opacity-40">未設定</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <template v-if="m.pcbFootprint">
+                <p class="font-medium">{{ m.pcbFootprint }}</p>
+                <p class="text-xs opacity-60">{{ m.pcbLib }}</p>
+              </template>
+              <span v-else class="text-xs opacity-40">未設定</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <div class="flex gap-1">
+                <button @click="openEditMapModal(m)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                <button @click="deleteMap(m.id)" class="p-1.5 rounded hover:bg-red-100 transition-colors text-[var(--color-tag-eol)]">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Tab: 設定 ── -->
+  <div v-if="activeTab === 'settings'">
+    <h2 class="text-base font-bold mb-4">Altium連携設定</h2>
+    <div class="space-y-4">
+      <!-- マッピングフィールド選択 -->
+      <div class="card p-4">
+        <p class="font-semibold text-sm mb-3">BitsKeep部品番号との突き合わせフィールド</p>
+        <div class="flex flex-col gap-2 text-sm">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" v-model="settings.matchField" value="Comment" />
+            <span>Altium <code class="bg-[var(--color-card-odd)] px-1 rounded">Comment</code> フィールド</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" v-model="settings.matchField" value="Description" />
+            <span>Altium <code class="bg-[var(--color-card-odd)] px-1 rounded">Description</code> フィールド</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" v-model="settings.matchField" value="ManufacturerPN" />
+            <span>Altium <code class="bg-[var(--color-card-odd)] px-1 rounded">Manufacturer Part Number</code> フィールド</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 自動同期 -->
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="font-semibold text-sm">自動同期</p>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" v-model="settings.autoSync" class="sr-only peer" />
+            <div class="w-10 h-5 bg-gray-300 peer-checked:bg-[var(--color-primary)] rounded-full
+              after:absolute after:top-0.5 after:left-0.5 after:bg-white after:w-4 after:h-4
+              after:rounded-full after:transition-all peer-checked:after:translate-x-5"></div>
+          </label>
+        </div>
+        <div v-if="settings.autoSync" class="text-sm">
+          <label class="block text-xs opacity-60 mb-1">同期間隔</label>
+          <select v-model="settings.syncInterval" class="input-text text-sm py-1">
+            <option value="hourly">1時間ごと</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 部品詳細画面への表示 -->
+      <div class="card p-4">
+        <p class="font-semibold text-sm mb-3">部品詳細画面への表示オプション</p>
+        <div class="flex flex-col gap-2 text-sm">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" v-model="settings.showSchSymbol" />
+            <span>回路図シンボルのプレビューを表示</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" v-model="settings.showPcbFootprint" />
+            <span>PCBフットプリントのプレビューを表示</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" v-model="settings.showAltiumLink" />
+            <span>「Altiumで開く」ボタンを表示</span>
+          </label>
+        </div>
+      </div>
+
+      <button @click="saveSettings" class="btn btn-primary text-sm flex items-center gap-1.5">
+        <i data-lucide="save" class="w-4 h-4"></i>設定を保存
+      </button>
+    </div>
+  </div>
+
+  <!-- ── ライブラリ追加/編集モーダル ── -->
+  <div v-if="libModal.open" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+    @click.self="libModal.open = false">
+    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl p-6 w-full max-w-lg border border-[var(--color-border)]">
+      <h3 class="text-lg font-bold mb-4">{{ libModal.isEdit ? 'ライブラリを編集' : 'ライブラリを追加' }}</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">ライブラリ名 <span class="text-[var(--color-tag-warning)]">*</span></label>
+          <input v-model="libModal.form.name" type="text" class="input-text w-full" placeholder="例: アナログデバイスライブラリ" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">種別</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+              <input type="radio" v-model="libModal.form.type" value="SchLib" />
+              <span>SchLib（回路図シンボル）</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+              <input type="radio" v-model="libModal.form.type" value="PcbLib" />
+              <span>PcbLib（フットプリント）</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">ファイルパス <span class="text-[var(--color-tag-warning)]">*</span></label>
+          <input v-model="libModal.form.path" type="text" class="input-text w-full font-mono text-sm"
+            placeholder="例: C:\Altium\Libraries\MySchLib.SchLib" />
+          <p class="text-xs opacity-50 mt-1">サーバーからアクセス可能なパス、またはUNCパスを入力</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">メモ</label>
+          <input v-model="libModal.form.note" type="text" class="input-text w-full" placeholder="任意のメモ" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="libModal.open = false" class="btn text-sm">キャンセル</button>
+        <button @click="saveLib" class="btn btn-primary text-sm"
+          :disabled="!libModal.form.name || !libModal.form.path">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── マッピング編集モーダル ── -->
+  <div v-if="mapModal.open" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+    @click.self="mapModal.open = false">
+    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl p-6 w-full max-w-lg border border-[var(--color-border)]">
+      <h3 class="text-lg font-bold mb-4">マッピングを編集</h3>
+      <div class="card p-3 mb-4 text-sm">
+        <p class="opacity-60 text-xs mb-1">BitsKeep部品</p>
+        <p class="font-semibold">{{ mapModal.form.bitsName }}</p>
+        <p class="text-xs opacity-60 font-mono">{{ mapModal.form.bitsPartNumber }}</p>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">SchLib（回路図シンボル）</label>
+          <select v-model="mapModal.form.schLib" class="input-text w-full text-sm mb-1.5">
+            <option value="">-- なし --</option>
+            <option v-for="lib in schLibs" :key="lib.id" :value="lib.name">{{ lib.name }}</option>
+          </select>
+          <input v-if="mapModal.form.schLib" v-model="mapModal.form.schSymbol" type="text"
+            class="input-text w-full text-sm" placeholder="シンボル名（例: R_0402）" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">PcbLib（フットプリント）</label>
+          <select v-model="mapModal.form.pcbLib" class="input-text w-full text-sm mb-1.5">
+            <option value="">-- なし --</option>
+            <option v-for="lib in pcbLibs" :key="lib.id" :value="lib.name">{{ lib.name }}</option>
+          </select>
+          <input v-if="mapModal.form.pcbLib" v-model="mapModal.form.pcbFootprint" type="text"
+            class="input-text w-full text-sm" placeholder="フットプリント名（例: Resistor_SMD:R_0402）" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="mapModal.open = false" class="btn text-sm">キャンセル</button>
+        <button @click="saveMap" class="btn btn-primary text-sm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト -->
+  <div v-if="toast.show" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50
+    bg-[var(--color-text)] text-[var(--color-bg)] px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
+    {{ toast.msg }}
+  </div>
+
+</div><!-- /#app -->
+
+<script>
+const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+
+createApp({
+  setup() {
+
+    const toggleTheme = () => {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    };
+
+    /* ── タブ ── */
+    const tabs = [
+      { key: 'libraries', label: 'ライブラリパス', icon: 'folder' },
+      { key: 'mapping',   label: '部品マッピング', icon: 'git-merge' },
+      { key: 'settings',  label: '設定',           icon: 'settings' },
+    ];
+    const activeTab = ref('libraries');
+
+    /* ── ライブラリ一覧 ── */
+    const libraries = ref([
+      { id: 1, name: '汎用抵抗・コンデンサ', type: 'SchLib', path: 'C:\\Altium\\Libs\\Passives.SchLib', componentCount: 348, lastSync: '2026-04-06 10:22', status: 'ok', note: '' },
+      { id: 2, name: '汎用抵抗・コンデンサFP', type: 'PcbLib', path: 'C:\\Altium\\Libs\\Passives.PcbLib', componentCount: 348, lastSync: '2026-04-06 10:22', status: 'ok', note: '' },
+      { id: 3, name: 'MCU・IC', type: 'SchLib', path: 'C:\\Altium\\Libs\\ICs.SchLib', componentCount: 92, lastSync: '2026-03-15 09:00', status: 'warn', note: 'パスが変更された可能性あり' },
+    ]);
+
+    const schLibs = computed(() => libraries.value.filter(l => l.type === 'SchLib'));
+    const pcbLibs = computed(() => libraries.value.filter(l => l.type === 'PcbLib'));
+
+    const libModal = reactive({ open: false, isEdit: false, editId: null,
+      form: { name: '', type: 'SchLib', path: '', note: '' } });
+
+    const openLibModal = (lib) => {
+      if (lib) {
+        libModal.isEdit = true; libModal.editId = lib.id;
+        Object.assign(libModal.form, { name: lib.name, type: lib.type, path: lib.path, note: lib.note });
+      } else {
+        libModal.isEdit = false; libModal.editId = null;
+        Object.assign(libModal.form, { name: '', type: 'SchLib', path: '', note: '' });
+      }
+      libModal.open = true;
+      setTimeout(() => lucide.createIcons(), 50);
+    };
+
+    const saveLib = () => {
+      if (libModal.isEdit) {
+        const lib = libraries.value.find(l => l.id === libModal.editId);
+        if (lib) Object.assign(lib, { name: libModal.form.name, type: libModal.form.type, path: libModal.form.path, note: libModal.form.note });
+      } else {
+        libraries.value.push({
+          id: Date.now(), name: libModal.form.name, type: libModal.form.type,
+          path: libModal.form.path, componentCount: 0,
+          lastSync: '未同期', status: 'warn', note: libModal.form.note,
+        });
+      }
+      libModal.open = false;
+      showToast('ライブラリを保存しました');
+      setTimeout(() => lucide.createIcons(), 50);
+    };
+
+    const syncLib = (lib) => {
+      lib.lastSync = new Date().toLocaleString('ja-JP');
+      lib.status = 'ok';
+      showToast(`「${lib.name}」の同期を完了しました`);
+      setTimeout(() => lucide.createIcons(), 50);
+    };
+
+    const deleteLib = (id) => {
+      if (!confirm('このライブラリを削除しますか？')) return;
+      libraries.value = libraries.value.filter(l => l.id !== id);
+    };
+
+    /* ── マッピング ── */
+    const mappings = ref([
+      { id: 1, bitsName: '抵抗 10kΩ 0402', bitsPartNumber: 'RES-10K-0402', schLib: '汎用抵抗・コンデンサ', schSymbol: 'R_0402', pcbLib: '汎用抵抗・コンデンサFP', pcbFootprint: 'R_0402' },
+      { id: 2, bitsName: 'コンデンサ 100nF 0402', bitsPartNumber: 'CAP-100N-0402', schLib: '汎用抵抗・コンデンサ', schSymbol: 'C_0402', pcbLib: '汎用抵抗・コンデンサFP', pcbFootprint: 'C_0402' },
+      { id: 3, bitsName: 'STM32F103C8T6', bitsPartNumber: 'MCU-STM32F103C8T6', schLib: 'MCU・IC', schSymbol: 'STM32F103C8T6', pcbLib: '', pcbFootprint: '' },
+      { id: 4, bitsName: 'LED 赤 0603', bitsPartNumber: 'LED-RED-0603', schLib: '', schSymbol: '', pcbLib: '', pcbFootprint: '' },
+    ]);
+
+    const mapSearch = ref('');
+    const filteredMappings = computed(() => {
+      const q = mapSearch.value.toLowerCase();
+      if (!q) return mappings.value;
+      return mappings.value.filter(m =>
+        m.bitsName.toLowerCase().includes(q) || m.bitsPartNumber.toLowerCase().includes(q)
+      );
+    });
+
+    const mappedCount = computed(() => mappings.value.filter(m => m.schLib || m.pcbLib).length);
+    const unmappedCount = computed(() => mappings.value.filter(m => !m.schLib && !m.pcbLib).length);
+
+    const mapModal = reactive({ open: false,
+      form: { id: null, bitsName: '', bitsPartNumber: '', schLib: '', schSymbol: '', pcbLib: '', pcbFootprint: '' } });
+
+    const openAddMapModal = () => {
+      Object.assign(mapModal.form, { id: null, bitsName: '（部品を選択）', bitsPartNumber: '', schLib: '', schSymbol: '', pcbLib: '', pcbFootprint: '' });
+      mapModal.open = true; setTimeout(() => lucide.createIcons(), 50);
+    };
+    const openEditMapModal = (m) => {
+      Object.assign(mapModal.form, { ...m }); mapModal.open = true;
+      setTimeout(() => lucide.createIcons(), 50);
+    };
+    const saveMap = () => {
+      const m = mappings.value.find(x => x.id === mapModal.form.id);
+      if (m) Object.assign(m, { ...mapModal.form });
+      mapModal.open = false;
+      showToast('マッピングを保存しました');
+      setTimeout(() => lucide.createIcons(), 50);
+    };
+    const deleteMap = (id) => {
+      if (!confirm('このマッピングを削除しますか？')) return;
+      mappings.value = mappings.value.filter(m => m.id !== id);
+    };
+    const autoMap = () => {
+      let count = 0;
+      mappings.value.forEach(m => {
+        if (!m.schLib && schLibs.value.length) { m.schLib = schLibs.value[0].name; m.schSymbol = m.bitsPartNumber; count++; }
+      });
+      showToast(`${count}件を自動マッピングしました（要確認）`);
+    };
+
+    /* ── 設定 ── */
+    const settings = reactive({
+      matchField: 'Comment',
+      autoSync: false,
+      syncInterval: 'daily',
+      showSchSymbol: true,
+      showPcbFootprint: true,
+      showAltiumLink: true,
+    });
+    const saveSettings = () => showToast('設定を保存しました');
+
+    /* ── トースト ── */
+    const toast = reactive({ show: false, msg: '' });
+    let toastTimer = null;
+    const showToast = (msg) => {
+      toast.msg = msg; toast.show = true;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.show = false; }, 2500);
+    };
+
+    onMounted(() => { lucide.createIcons(); });
+    watch(activeTab, () => { setTimeout(() => lucide.createIcons(), 50); });
+
+    return {
+      toggleTheme, tabs, activeTab,
+      libraries, schLibs, pcbLibs,
+      libModal, openLibModal, saveLib, syncLib, deleteLib,
+      mappings, mapSearch, filteredMappings, mappedCount, unmappedCount,
+      mapModal, openAddMapModal, openEditMapModal, saveMap, deleteMap, autoMap,
+      settings, saveSettings,
+      toast,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

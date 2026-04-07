@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html data-theme="light" lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <title>部品一覧</title>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <link href="theme.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 220px; flex-shrink: 0; }
+    .filter-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 9999px; font-size: 0.75rem;
+      cursor: pointer; border: 1px solid var(--color-border);
+      background: var(--color-bg); transition: all 0.15s;
+    }
+    .filter-pill.active {
+      background: var(--color-primary); color: white; border-color: var(--color-primary);
+    }
+  </style>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="flex w-full h-full">
+
+  <!-- ===== 左サイドバー: フィルター ===== -->
+  <aside class="sidebar bg-[var(--color-bg-alt)] border-r border-[var(--color-border)] p-4 overflow-y-auto flex-shrink-0">
+    <div class="flex justify-between items-center mb-4">
+      <span class="font-bold text-sm">絞り込み</span>
+      <button @click="clearFilters" v-if="hasFilter"
+        class="text-xs link-text flex items-center gap-1">
+        <i data-lucide="x" class="w-3 h-3"></i>クリア
+      </button>
+    </div>
+
+    <!-- 分類 -->
+    <div class="mb-5">
+      <p class="text-xs font-semibold opacity-60 mb-2 uppercase tracking-wide">分類</p>
+      <div class="flex flex-col gap-1">
+        <label v-for="cat in allCategories" :key="cat.name"
+          class="flex items-center justify-between cursor-pointer hover:opacity-80 py-0.5">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" :value="cat.name" v-model="filterCategories" class="rounded" />
+            <span class="text-sm">{{ cat.name }}</span>
+          </div>
+          <span class="text-xs opacity-40">{{ cat.count }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 入手状況 -->
+    <div class="mb-5">
+      <p class="text-xs font-semibold opacity-60 mb-2 uppercase tracking-wide">入手状況</p>
+      <div class="flex flex-col gap-1">
+        <label v-for="opt in procurementOptions" :key="opt.value"
+          class="flex items-center gap-2 cursor-pointer hover:opacity-80 py-0.5">
+          <input type="radio" :value="opt.value" v-model="filterProcurement" />
+          <span class="text-sm">{{ opt.label }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 在庫状態 -->
+    <div class="mb-5">
+      <p class="text-xs font-semibold opacity-60 mb-2 uppercase tracking-wide">在庫状態</p>
+      <div class="flex flex-col gap-1">
+        <label v-for="opt in stockOptions" :key="opt.value"
+          class="flex items-center gap-2 cursor-pointer hover:opacity-80 py-0.5">
+          <input type="radio" :value="opt.value" v-model="filterStock" />
+          <span class="text-sm">{{ opt.label }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 在庫警告のみ toggle -->
+    <div class="mb-5">
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-sm font-semibold">在庫警告のみ</span>
+        <div class="relative w-10 h-5 rounded-full transition-colors"
+          :class="filterAlertOnly ? 'bg-[var(--color-tag-warning)]' : 'bg-[var(--color-border)]'"
+          @click="filterAlertOnly = !filterAlertOnly">
+          <div class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+            :class="filterAlertOnly ? 'translate-x-5' : 'translate-x-0.5'"></div>
+        </div>
+      </label>
+    </div>
+
+    <!-- 高度検索（数値範囲） -->
+    <div class="mb-2">
+      <button @click="advancedOpen = !advancedOpen"
+        class="flex items-center justify-between w-full text-sm font-semibold mb-2 hover:opacity-80">
+        <span>高度な検索</span>
+        <i :data-lucide="advancedOpen ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 opacity-50"></i>
+      </button>
+      <div v-show="advancedOpen" class="space-y-3">
+        <!-- スペック種別 -->
+        <div>
+          <label class="block text-xs opacity-60 mb-1">スペック種別</label>
+          <select v-model="advSpecType" class="input-text text-xs w-full py-1">
+            <option value="">選択…</option>
+            <option value="resistance">抵抗値</option>
+            <option value="voltage">電圧</option>
+            <option value="current">電流</option>
+            <option value="power">電力</option>
+            <option value="capacitance">容量</option>
+            <option value="frequency">周波数</option>
+          </select>
+        </div>
+        <!-- 最小値・最大値 -->
+        <div v-if="advSpecType" class="flex gap-1 items-center">
+          <input v-model="advMin" type="number" step="any" placeholder="Min"
+            class="input-text text-xs flex-1 font-mono py-1" />
+          <span class="text-xs opacity-40">〜</span>
+          <input v-model="advMax" type="number" step="any" placeholder="Max"
+            class="input-text text-xs flex-1 font-mono py-1" />
+          <span class="text-xs opacity-60 w-8">{{ advUnit }}</span>
+        </div>
+        <!-- 単位選択 -->
+        <div v-if="advSpecType">
+          <label class="block text-xs opacity-60 mb-1">単位</label>
+          <select v-model="advUnit" class="input-text text-xs w-full py-1">
+            <option v-for="u in advUnitOptions" :key="u" :value="u">{{ u }}</option>
+          </select>
+        </div>
+        <!-- 購入日範囲 -->
+        <div>
+          <label class="block text-xs opacity-60 mb-1">購入日（From）</label>
+          <input v-model="advDateFrom" type="date" class="input-text text-xs w-full py-1" />
+        </div>
+        <div>
+          <label class="block text-xs opacity-60 mb-1">購入日（To）</label>
+          <input v-model="advDateTo" type="date" class="input-text text-xs w-full py-1" />
+        </div>
+        <!-- 在庫数下限 -->
+        <div>
+          <label class="block text-xs opacity-60 mb-1">新品在庫数 ≥</label>
+          <input v-model.number="advMinStock" type="number" min="0"
+            class="input-text text-xs w-full font-mono py-1" placeholder="0" />
+        </div>
+        <!-- バリデーション警告 -->
+        <p v-if="advRangeError" class="text-xs text-[var(--color-tag-eol)]">
+          ⚠ 最小値 &gt; 最大値
+        </p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== 右メインエリア ===== -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- トップバー -->
+    <div class="p-4 border-b border-[var(--color-border)] flex items-center gap-3 flex-shrink-0">
+      <!-- 検索 -->
+      <div class="relative flex-1 max-w-sm">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50"></i>
+        <input v-model="searchQuery" type="text" placeholder="部品名・型番・メーカーで検索..."
+          class="input-text pl-9 text-sm w-full" />
+      </div>
+
+      <!-- ソート -->
+      <select v-model="sortOrder" class="input-text text-sm py-1">
+        <option value="name">名前順</option>
+        <option value="stock">在庫多い順</option>
+        <option value="price">価格安い順</option>
+        <option value="urgency">警告優先</option>
+      </select>
+
+      <div class="flex-1"></div>
+
+      <!-- 在庫警告バッジ -->
+      <a v-if="alertCount > 0" href="stock_alert.html"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white"
+        style="background-color: var(--color-tag-warning);">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+        在庫警告 {{ alertCount }}件
+      </a>
+
+      <!-- 比較バー -->
+      <div v-if="compareList.length > 0"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-primary)] text-xs">
+        <span class="font-semibold text-[var(--color-primary)]">比較: {{ compareList.length }}件</span>
+        <a href="component_compare.html"
+          class="btn btn-primary px-2 py-1 rounded text-xs">比較する</a>
+        <button @click="compareList = []" class="opacity-50 hover:opacity-100">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- 新規登録 -->
+      <a href="component_create.html" class="btn btn-primary px-4 py-2 rounded text-sm flex items-center gap-1">
+        <i data-lucide="plus" class="w-4 h-4"></i>新規登録
+      </a>
+
+      <!-- テーマ -->
+      <button id="themeToggle" @click="toggleTheme"
+        class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+    </div>
+
+    <!-- 件数 + ページネーション上 -->
+    <div class="px-4 py-2 text-xs flex-shrink-0 flex items-center justify-between">
+      <span class="opacity-50">{{ filteredParts.length }}件 / 全{{ parts.length }}件</span>
+      <div class="flex items-center gap-2">
+        <span class="opacity-50">表示件数:</span>
+        <select v-model.number="perPage" class="input-text text-xs py-0.5 px-2">
+          <option :value="20">20件</option>
+          <option :value="50">50件</option>
+          <option :value="100">100件</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- カードリスト -->
+    <div class="flex-1 overflow-y-auto px-4 pb-2">
+      <div class="space-y-2" style="max-width: 800px;">
+
+        <!-- 0件 -->
+        <div v-if="filteredParts.length === 0"
+          class="flex flex-col items-center py-20 gap-3 opacity-40">
+          <i data-lucide="search-x" class="w-12 h-12"></i>
+          <p>条件に一致する部品がありません</p>
+        </div>
+
+        <div v-for="(part, idx) in pagedParts" :key="part.id"
+          class="card flex justify-start gap-0 relative"
+          :class="idx % 2 === 0 ? 'card-even' : 'card-odd'">
+
+          <!-- サムネイル -->
+          <img :src="part.image" :alt="part.name" class="thumbnail rounded m-4 flex-shrink-0" />
+
+          <!-- 本体情報 -->
+          <div class="flex-1 py-3 pr-4 flex flex-col">
+            <!-- タイトル行 -->
+            <div class="flex items-start justify-between mb-1">
+              <div>
+                <a href="component_detail.html" class="list list-title link-text text-base font-bold">{{ part.name }}</a>
+                <span class="list list-value ml-2 text-xs opacity-60">{{ part.partNumber }}</span>
+              </div>
+              <span class="text-xs opacity-50 ml-2 flex-shrink-0">{{ part.category }}</span>
+            </div>
+
+            <!-- メーカー -->
+            <div class="text-xs opacity-60 mb-2">{{ part.manufacturer }}</div>
+
+            <!-- バッジ群 -->
+            <div class="flex flex-wrap gap-1.5 mb-2">
+              <span v-if="part.procurementStatus === 'active'" class="tag tag-ok text-xs">入手可</span>
+              <span v-else-if="part.procurementStatus === 'limited'" class="tag tag-warning text-xs">在庫限り</span>
+              <span v-else-if="part.procurementStatus === 'eol'" class="tag tag-eol text-xs">EOL</span>
+
+              <span v-if="part.alertNew || part.alertUsed"
+                class="flex items-center gap-1 text-xs px-2 py-0.5 rounded font-semibold text-white"
+                style="background-color: var(--color-tag-warning);">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i>在庫警告
+              </span>
+            </div>
+
+            <!-- 在庫 + 最安 -->
+            <div class="flex items-center gap-4 text-xs mb-2">
+              <div>
+                <span class="opacity-50">新品 </span><strong>{{ part.quantityNew }}個</strong>
+                <span class="opacity-30 mx-1">/</span>
+                <span class="opacity-50">中古 </span><strong>{{ part.quantityUsed }}個</strong>
+              </div>
+              <div v-if="part.cheapestSupplier" class="opacity-60">
+                最安:
+                <a :href="part.cheapestSupplier.url" class="link-text">{{ part.cheapestSupplier.name }}</a>
+                {{ part.cheapestSupplier.price }}円
+              </div>
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="flex gap-2 mt-auto">
+              <a href="component_detail.html"
+                class="btn btn-primary text-xs px-3 py-1 rounded flex items-center gap-1">
+                <i data-lucide="eye" class="w-3 h-3"></i>詳細
+              </a>
+              <button @click="toggleCompare(part)"
+                class="text-xs px-3 py-1 rounded border flex items-center gap-1 transition-colors"
+                :class="compareList.includes(part.id)
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                  : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'"
+                :disabled="!compareList.includes(part.id) && compareList.length >= 4"
+                :title="compareList.length >= 4 && !compareList.includes(part.id) ? '比較は最大4件' : ''">
+                <i :data-lucide="compareList.includes(part.id) ? 'check' : 'git-compare'" class="w-3 h-3"></i>
+                {{ compareList.includes(part.id) ? '比較中' : '比較に追加' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ページネーション下 -->
+    <div class="flex items-center justify-center gap-2 py-3 border-t border-[var(--color-border)] flex-shrink-0">
+      <button @click="page = 1" :disabled="page === 1"
+        class="p-1.5 rounded border border-[var(--color-border)] disabled:opacity-30">
+        <i data-lucide="chevrons-left" class="w-4 h-4"></i>
+      </button>
+      <button @click="page--" :disabled="page === 1"
+        class="p-1.5 rounded border border-[var(--color-border)] disabled:opacity-30">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+      </button>
+      <span class="text-sm px-2">{{ page }} / {{ totalPages }}</span>
+      <button @click="page++" :disabled="page === totalPages"
+        class="p-1.5 rounded border border-[var(--color-border)] disabled:opacity-30">
+        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </button>
+      <button @click="page = totalPages" :disabled="page === totalPages"
+        class="p-1.5 rounded border border-[var(--color-border)] disabled:opacity-30">
+        <i data-lucide="chevrons-right" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </main>
+</div>
+
+<script>
+  const { createApp, ref, computed, watch, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const parts = ref([
+        {
+          id: 1, name: '金属皮膜抵抗 1/4W 1kΩ', partNumber: 'RK73H1JTTD1001F',
+          manufacturer: 'KOA', category: '抵抗',
+          image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 500, quantityUsed: 0, thresholdNew: 50,
+          procurementStatus: 'active', alertNew: false, alertUsed: false,
+          cheapestSupplier: { name: '秋月電子', price: 10, url: '#' },
+        },
+        {
+          id: 2, name: '積層セラミックコンデンサ 0.1μF', partNumber: 'GRM188R71C104KA01D',
+          manufacturer: '村田製作所', category: 'コンデンサ',
+          image: 'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 8, quantityUsed: 5, thresholdNew: 50,
+          procurementStatus: 'eol', alertNew: true, alertUsed: false,
+          cheapestSupplier: { name: 'Digikey', price: 5, url: '#' },
+        },
+        {
+          id: 3, name: 'ATmega328P-PU', partNumber: 'ATMEGA328P-PU',
+          manufacturer: 'Microchip', category: 'IC',
+          image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 15, quantityUsed: 3, thresholdNew: 5,
+          procurementStatus: 'active', alertNew: false, alertUsed: false,
+          cheapestSupplier: { name: '秋月電子', price: 480, url: '#' },
+        },
+        {
+          id: 4, name: '2SC1815-GR', partNumber: '2SC1815-GR',
+          manufacturer: 'Rohm', category: 'トランジスタ',
+          image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 3, quantityUsed: 0, thresholdNew: 10,
+          procurementStatus: 'limited', alertNew: true, alertUsed: false,
+          cheapestSupplier: { name: '秋月電子', price: 10, url: '#' },
+        },
+        {
+          id: 5, name: '1N4007', partNumber: '1N4007',
+          manufacturer: 'Vishay', category: 'ダイオード',
+          image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 300, quantityUsed: 20, thresholdNew: 30,
+          procurementStatus: 'active', alertNew: false, alertUsed: false,
+          cheapestSupplier: { name: 'RS Components', price: 8, url: '#' },
+        },
+        {
+          id: 6, name: '5mm 赤色LED', partNumber: 'OSR5JA3Z74A',
+          manufacturer: 'OptoSupply', category: 'LED',
+          image: 'https://images.unsplash.com/photo-1468421870903-4df1664ac249?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 1000, quantityUsed: 50, thresholdNew: 100,
+          procurementStatus: 'active', alertNew: false, alertUsed: false,
+          cheapestSupplier: { name: '秋月電子', price: 5, url: '#' },
+        },
+        {
+          id: 7, name: 'LM358 オペアンプ', partNumber: 'LM358N',
+          manufacturer: 'TI', category: 'IC',
+          image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=150&q=80',
+          quantityNew: 0, quantityUsed: 1, thresholdNew: 5, thresholdUsed: 3,
+          procurementStatus: 'active', alertNew: true, alertUsed: true,
+          cheapestSupplier: { name: '秋月電子', price: 30, url: '#' },
+        },
+      ]);
+
+      // フィルター状態
+      const searchQuery = ref('');
+      const filterCategories = ref([]);
+      const filterProcurement = ref('all');
+      const filterStock = ref('all');
+      const filterAlertOnly = ref(false);
+      const sortOrder = ref('name');
+      const compareList = ref([]);
+
+      // 高度検索
+      const advancedOpen = ref(false);
+      const advSpecType = ref('');
+      const advMin = ref('');
+      const advMax = ref('');
+      const advUnit = ref('');
+      const advDateFrom = ref('');
+      const advDateTo = ref('');
+      const advMinStock = ref('');
+
+      const advUnitMap = {
+        resistance: ['Ω', 'kΩ', 'MΩ'],
+        voltage:    ['V', 'mV'],
+        current:    ['A', 'mA', 'μA'],
+        power:      ['W', 'mW'],
+        capacitance:['F', 'μF', 'nF', 'pF'],
+        frequency:  ['Hz', 'kHz', 'MHz', 'GHz'],
+      };
+      const advUnitOptions = computed(() => advUnitMap[advSpecType.value] || []);
+      // 種別変更時に単位を先頭にリセット
+      watch(advSpecType, (v) => { advUnit.value = advUnitMap[v]?.[0] || ''; });
+
+      const advRangeError = computed(() =>
+        advMin.value !== '' && advMax.value !== '' && parseFloat(advMin.value) > parseFloat(advMax.value)
+      );
+
+      // ページネーション
+      const perPage = ref(20);
+      const page = ref(1);
+
+      // フィルター選択肢
+      const allCategories = computed(() => {
+        const map = {};
+        parts.value.forEach(p => { map[p.category] = (map[p.category] || 0) + 1; });
+        return Object.entries(map).map(([name, count]) => ({ name, count }));
+      });
+
+      const procurementOptions = [
+        { value: 'all', label: 'すべて' },
+        { value: 'active', label: '入手可' },
+        { value: 'limited', label: '在庫限り' },
+        { value: 'eol', label: 'EOL' },
+      ];
+
+      const stockOptions = [
+        { value: 'all', label: 'すべて' },
+        { value: 'new', label: '新品あり' },
+        { value: 'used', label: '中古あり' },
+        { value: 'both', label: '両方あり' },
+      ];
+
+      // 在庫警告件数
+      const alertCount = computed(() =>
+        parts.value.filter(p => p.alertNew || p.alertUsed).length
+      );
+
+      // フィルターが有効かどうか
+      const hasFilter = computed(() =>
+        filterCategories.value.length > 0 ||
+        filterProcurement.value !== 'all' ||
+        filterStock.value !== 'all' ||
+        filterAlertOnly.value ||
+        searchQuery.value !== '' ||
+        advSpecType.value !== '' ||
+        advDateFrom.value !== '' ||
+        advDateTo.value !== '' ||
+        advMinStock.value !== ''
+      );
+
+      const clearFilters = () => {
+        filterCategories.value = [];
+        filterProcurement.value = 'all';
+        filterStock.value = 'all';
+        filterAlertOnly.value = false;
+        searchQuery.value = '';
+        advSpecType.value = ''; advMin.value = ''; advMax.value = ''; advUnit.value = '';
+        advDateFrom.value = ''; advDateTo.value = ''; advMinStock.value = '';
+        page.value = 1;
+      };
+
+      // フィルタ適用済みリスト
+      const filteredParts = computed(() => {
+        let list = parts.value.filter(p => {
+          // キーワード検索
+          if (searchQuery.value) {
+            const q = searchQuery.value.toLowerCase();
+            if (!p.name.toLowerCase().includes(q) &&
+                !p.partNumber.toLowerCase().includes(q) &&
+                !p.manufacturer.toLowerCase().includes(q)) return false;
+          }
+          // 分類
+          if (filterCategories.value.length > 0 && !filterCategories.value.includes(p.category)) return false;
+          // 入手状況
+          if (filterProcurement.value !== 'all' && p.procurementStatus !== filterProcurement.value) return false;
+          // 在庫
+          if (filterStock.value === 'new' && p.quantityNew <= 0) return false;
+          if (filterStock.value === 'used' && p.quantityUsed <= 0) return false;
+          if (filterStock.value === 'both' && (p.quantityNew <= 0 || p.quantityUsed <= 0)) return false;
+          // 警告のみ
+          if (filterAlertOnly.value && !p.alertNew && !p.alertUsed) return false;
+          // 高度検索: 新品在庫数下限
+          if (advMinStock.value !== '' && p.quantityNew < parseInt(advMinStock.value)) return false;
+          // 高度検索: スペック数値範囲（サンプルデータにvalue_numericがないため型番で近似）
+          // 実装時はvalue_numericでフィルタ。モックでは常にパス。
+          return true;
+        });
+
+        // ソート
+        if (sortOrder.value === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+        if (sortOrder.value === 'stock') list = [...list].sort((a, b) => (b.quantityNew + b.quantityUsed) - (a.quantityNew + a.quantityUsed));
+        if (sortOrder.value === 'price') list = [...list].sort((a, b) => (a.cheapestSupplier?.price || 9999) - (b.cheapestSupplier?.price || 9999));
+        if (sortOrder.value === 'urgency') list = [...list].sort((a, b) => (b.alertNew || b.alertUsed ? 1 : 0) - (a.alertNew || a.alertUsed ? 1 : 0));
+
+        return list;
+      });
+
+      // ページング
+      const totalPages = computed(() => Math.max(1, Math.ceil(filteredParts.value.length / perPage.value)));
+      const pagedParts = computed(() => {
+        const start = (page.value - 1) * perPage.value;
+        return filteredParts.value.slice(start, start + perPage.value);
+      });
+      // フィルタ変更時はページ1に戻す
+      watch(filteredParts, () => { page.value = 1; });
+
+      // 比較リスト
+      const toggleCompare = (part) => {
+        const idx = compareList.value.indexOf(part.id);
+        if (idx >= 0) compareList.value.splice(idx, 1);
+        else if (compareList.value.length < 4) compareList.value.push(part.id);
+      };
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        parts, filteredParts, alertCount,
+        searchQuery, filterCategories, filterProcurement, filterStock, filterAlertOnly,
+        sortOrder, compareList,
+        allCategories, procurementOptions, stockOptions,
+        hasFilter, clearFilters, toggleCompare, toggleTheme,
+        advancedOpen, advSpecType, advMin, advMax, advUnit, advUnitOptions,
+        advDateFrom, advDateTo, advMinStock, advRangeError,
+        perPage, page, totalPages, pagedParts,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

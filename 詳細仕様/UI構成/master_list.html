@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>マスタ管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <!-- ヘッダ -->
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <a href="components_list.html" class="link-text flex items-center gap-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+      </a>
+      <div class="flex items-center gap-2">
+        <i data-lucide="settings" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">マスタ管理</h1>
+      </div>
+    </div>
+    <button id="themeToggle" @click="toggleTheme"
+      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <!-- タブ -->
+  <div class="flex gap-1 mb-6 border-b border-[var(--color-border)]">
+    <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+      class="px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors"
+      :class="activeTab === tab.key
+        ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+        : 'border-transparent opacity-60 hover:opacity-100'">
+      <i :data-lucide="tab.icon" class="w-4 h-4 inline mr-1"></i>
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <!-- ===== タブ: 分類 ===== -->
+  <div v-if="activeTab === 'category'">
+    <div class="flex justify-between items-center mb-4" style="max-width: 600px;">
+      <p class="text-sm opacity-60">部品の分類カテゴリを管理します</p>
+      <button @click="openMasterCreate('category')"
+        class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>追加
+      </button>
+    </div>
+    <div class="space-y-1" style="max-width: 600px;">
+      <div v-for="(item, idx) in categories" :key="item.id"
+        class="flex items-center justify-between px-4 py-3 rounded-lg"
+        :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+        <div class="flex items-center gap-3">
+          <i data-lucide="tag" class="w-4 h-4 opacity-50"></i>
+          <span class="font-medium">{{ item.name }}</span>
+          <span class="text-xs opacity-50">{{ item.count }}部品</span>
+        </div>
+        <div class="flex gap-1">
+          <button @click="openMasterEdit('category', item)"
+            class="p-1.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-colors">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+          <button @click="openMasterDelete('category', item)"
+            class="p-1.5 rounded hover:bg-[var(--color-tag-eol)] hover:text-white transition-colors"
+            :class="item.count > 0 ? 'opacity-30 cursor-not-allowed' : ''"
+            :disabled="item.count > 0">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== タブ: パッケージ ===== -->
+  <div v-if="activeTab === 'package'">
+    <div class="flex justify-between items-center mb-4" style="max-width: 600px;">
+      <p class="text-sm opacity-60">部品のパッケージ種別を管理します</p>
+      <button @click="openMasterCreate('package')"
+        class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>追加
+      </button>
+    </div>
+    <div class="space-y-1" style="max-width: 600px;">
+      <div v-for="(item, idx) in packages" :key="item.id"
+        class="flex items-center justify-between px-4 py-3 rounded-lg"
+        :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+        <div class="flex items-center gap-3">
+          <i data-lucide="box" class="w-4 h-4 opacity-50"></i>
+          <span class="font-medium font-mono">{{ item.name }}</span>
+          <span v-if="item.description" class="text-xs opacity-50">{{ item.description }}</span>
+          <span class="text-xs opacity-50">{{ item.count }}部品</span>
+        </div>
+        <div class="flex gap-1">
+          <button @click="openMasterEdit('package', item)"
+            class="p-1.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-colors">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+          <button @click="openMasterDelete('package', item)"
+            class="p-1.5 rounded hover:bg-[var(--color-tag-eol)] hover:text-white transition-colors"
+            :class="item.count > 0 ? 'opacity-30 cursor-not-allowed' : ''"
+            :disabled="item.count > 0">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== タブ: スペック種別 ===== -->
+  <div v-if="activeTab === 'spec_type'">
+    <div class="flex justify-between items-center mb-4" style="max-width: 800px;">
+      <p class="text-sm opacity-60">スペック項目の種別と単位を管理します。単位には基準単位への換算倍率を設定します。</p>
+      <button @click="openSpecTypeCreate"
+        class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm flex-shrink-0 ml-4">
+        <i data-lucide="plus" class="w-4 h-4"></i>スペック種別を追加
+      </button>
+    </div>
+    <div class="space-y-3" style="max-width: 800px;">
+      <div v-for="(st, idx) in specTypes" :key="st.id"
+        class="rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <!-- スペック種別ヘッダ -->
+        <div class="flex items-center justify-between px-4 py-3"
+          :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+          <div class="flex items-center gap-3">
+            <i data-lucide="sliders" class="w-4 h-4 opacity-50"></i>
+            <span class="font-semibold">{{ st.name }}</span>
+            <span class="text-xs opacity-50">基準単位: {{ st.baseUnit }}</span>
+            <span class="text-xs opacity-50">{{ st.units.length }}単位</span>
+          </div>
+          <div class="flex gap-1">
+            <button @click="openSpecUnitAdd(st)"
+              class="p-1.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-colors text-xs flex items-center gap-1"
+              title="単位を追加">
+              <i data-lucide="plus" class="w-3 h-3"></i>単位追加
+            </button>
+            <button @click="openMasterDelete('spec_type', st)"
+              class="p-1.5 rounded hover:bg-[var(--color-tag-eol)] hover:text-white transition-colors">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+        <!-- 単位一覧 -->
+        <div class="divide-y divide-[var(--color-border)]">
+          <div v-for="unit in st.units" :key="unit.id"
+            class="flex items-center justify-between px-6 py-2 bg-[var(--color-bg)] text-sm">
+            <div class="flex items-center gap-4">
+              <span class="font-mono font-bold w-16">{{ unit.symbol }}</span>
+              <span class="opacity-60 text-xs">× {{ unit.factor }} → {{ st.baseUnit }}</span>
+              <span v-if="unit.isBase" class="tag tag-ok text-xs">基準</span>
+            </div>
+            <button @click="deleteSpecUnit(st, unit)"
+              class="p-1 rounded hover:text-[var(--color-tag-eol)] transition-colors opacity-50 hover:opacity-100">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 汎用 作成/編集モーダル -->
+  <template v-if="masterModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="masterModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-5 flex items-center gap-2">
+          <i :data-lucide="masterModal.mode === 'create' ? 'plus-circle' : 'pencil'" class="w-5 h-5"></i>
+          {{ masterModal.title }}
+        </h2>
+        <div>
+          <label class="block text-sm font-semibold mb-1">名前 <span class="text-red-500">*</span></label>
+          <input v-model="masterModal.name" type="text" class="input-text text-sm" placeholder="名前を入力" />
+        </div>
+        <div v-if="masterModal.showDesc" class="mt-3">
+          <label class="block text-sm font-semibold mb-1">説明</label>
+          <input v-model="masterModal.desc" type="text" class="input-text text-sm" placeholder="任意" />
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="masterModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitMasterModal"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!masterModal.name.trim()">
+            {{ masterModal.mode === 'create' ? '追加する' : '保存する' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- スペック種別作成モーダル -->
+  <template v-if="specTypeModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="specTypeModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-5 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5"></i>スペック種別を追加
+        </h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-semibold mb-1">種別名 <span class="text-red-500">*</span></label>
+            <input v-model="specTypeModal.name" type="text" class="input-text text-sm" placeholder="例: 抵抗値" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">基準単位 <span class="text-red-500">*</span></label>
+            <input v-model="specTypeModal.baseUnit" type="text" class="input-text text-sm font-mono" placeholder="例: Ω" />
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="specTypeModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitSpecType"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!specTypeModal.name.trim() || !specTypeModal.baseUnit.trim()">追加する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- 単位追加モーダル -->
+  <template v-if="unitModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="unitModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-1 flex items-center gap-2">
+          <i data-lucide="plus" class="w-5 h-5"></i>単位を追加
+        </h2>
+        <p class="text-sm opacity-60 mb-5">{{ unitModal.specTypeName }} の単位</p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-semibold mb-1">単位記号 <span class="text-red-500">*</span></label>
+            <input v-model="unitModal.symbol" type="text" class="input-text text-sm font-mono" placeholder="例: kΩ" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">基準単位への換算倍率 <span class="text-red-500">*</span></label>
+            <input v-model.number="unitModal.factor" type="number" step="any"
+              class="input-text text-sm font-mono" placeholder="例: 1000 (kΩ→Ω)" />
+            <p class="text-xs opacity-50 mt-1">入力値 × 倍率 = 基準単位での値</p>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button @click="unitModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="submitUnit"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!unitModal.symbol.trim() || !unitModal.factor">追加する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- 削除確認モーダル -->
+  <template v-if="deleteModal.open">
+    <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+      @click.self="deleteModal.open = false">
+      <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
+        <h2 class="font-bold text-lg mb-3 text-[var(--color-tag-eol)] flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>削除の確認
+        </h2>
+        <p class="text-sm mb-5">「<strong>{{ deleteModal.name }}</strong>」を削除しますか？</p>
+        <div class="flex gap-3">
+          <button @click="deleteModal.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="confirmMasterDelete"
+            class="flex-1 py-2 rounded text-sm text-white"
+            style="background-color: var(--color-tag-eol);">削除する</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- トースト -->
+  <div v-if="toast.show"
+    class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+    {{ toast.message }}
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, reactive, onMounted, nextTick } = Vue;
+
+  createApp({
+    setup() {
+      const tabs = [
+        { key: 'category', label: '分類', icon: 'tag' },
+        { key: 'package', label: 'パッケージ', icon: 'box' },
+        { key: 'spec_type', label: 'スペック種別', icon: 'sliders' },
+      ];
+      const activeTab = ref('category');
+
+      const categories = ref([
+        { id: 1, name: '抵抗', count: 32 },
+        { id: 2, name: 'コンデンサ', count: 28 },
+        { id: 3, name: 'IC', count: 45 },
+        { id: 4, name: 'トランジスタ', count: 12 },
+        { id: 5, name: 'ダイオード', count: 8 },
+        { id: 6, name: 'コネクタ', count: 15 },
+        { id: 7, name: 'LED', count: 6 },
+        { id: 8, name: 'その他', count: 3 },
+      ]);
+
+      const packages = ref([
+        { id: 1, name: 'DIP-8', description: 'Dual In-line Package 8pin', count: 12 },
+        { id: 2, name: 'DIP-14', description: '', count: 5 },
+        { id: 3, name: 'SOP-8', description: '', count: 8 },
+        { id: 4, name: 'TSSOP-20', description: '', count: 3 },
+        { id: 5, name: '0402', description: 'SMD 1005', count: 45 },
+        { id: 6, name: '0603', description: 'SMD 1608', count: 67 },
+        { id: 7, name: '1206', description: 'SMD 3216', count: 20 },
+        { id: 8, name: 'TO-92', description: '', count: 10 },
+        { id: 9, name: 'TO-220', description: '', count: 4 },
+      ]);
+
+      const specTypes = ref([
+        {
+          id: 1, name: '抵抗値', baseUnit: 'Ω', units: [
+            { id: 1, symbol: 'Ω', factor: 1, isBase: true },
+            { id: 2, symbol: 'kΩ', factor: 1000, isBase: false },
+            { id: 3, symbol: 'MΩ', factor: 1000000, isBase: false },
+          ]
+        },
+        {
+          id: 2, name: '容量', baseUnit: 'F', units: [
+            { id: 4, symbol: 'F', factor: 1, isBase: true },
+            { id: 5, symbol: 'μF', factor: 0.000001, isBase: false },
+            { id: 6, symbol: 'nF', factor: 0.000000001, isBase: false },
+            { id: 7, symbol: 'pF', factor: 0.000000000001, isBase: false },
+          ]
+        },
+        {
+          id: 3, name: '電圧', baseUnit: 'V', units: [
+            { id: 8, symbol: 'V', factor: 1, isBase: true },
+            { id: 9, symbol: 'mV', factor: 0.001, isBase: false },
+          ]
+        },
+        {
+          id: 4, name: '電流', baseUnit: 'A', units: [
+            { id: 10, symbol: 'A', factor: 1, isBase: true },
+            { id: 11, symbol: 'mA', factor: 0.001, isBase: false },
+            { id: 12, symbol: 'μA', factor: 0.000001, isBase: false },
+          ]
+        },
+      ]);
+
+      // 汎用マスタモーダル
+      const masterModal = reactive({
+        open: false, mode: 'create', type: '', title: '',
+        name: '', desc: '', showDesc: false, targetId: null,
+      });
+      const openMasterCreate = (type) => {
+        masterModal.type = type;
+        masterModal.mode = 'create';
+        masterModal.title = type === 'category' ? '分類を追加' : 'パッケージを追加';
+        masterModal.showDesc = type === 'package';
+        masterModal.name = ''; masterModal.desc = ''; masterModal.targetId = null;
+        masterModal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+      const openMasterEdit = (type, item) => {
+        masterModal.type = type;
+        masterModal.mode = 'edit';
+        masterModal.title = type === 'category' ? '分類を編集' : 'パッケージを編集';
+        masterModal.showDesc = type === 'package';
+        masterModal.name = item.name; masterModal.desc = item.description || '';
+        masterModal.targetId = item.id;
+        masterModal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+      const submitMasterModal = () => {
+        const list = masterModal.type === 'category' ? categories : packages;
+        if (masterModal.mode === 'create') {
+          const newId = Math.max(0, ...list.value.map(i => i.id)) + 1;
+          list.value.push({ id: newId, name: masterModal.name, description: masterModal.desc, count: 0 });
+          showToast('追加しました');
+        } else {
+          const item = list.value.find(i => i.id === masterModal.targetId);
+          if (item) { item.name = masterModal.name; item.description = masterModal.desc; }
+          showToast('更新しました');
+        }
+        masterModal.open = false;
+      };
+
+      // スペック種別モーダル
+      const specTypeModal = reactive({ open: false, name: '', baseUnit: '' });
+      const openSpecTypeCreate = () => {
+        specTypeModal.name = ''; specTypeModal.baseUnit = '';
+        specTypeModal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+      const submitSpecType = () => {
+        const newId = Math.max(0, ...specTypes.value.map(s => s.id)) + 1;
+        specTypes.value.push({
+          id: newId, name: specTypeModal.name, baseUnit: specTypeModal.baseUnit,
+          units: [{ id: Date.now(), symbol: specTypeModal.baseUnit, factor: 1, isBase: true }],
+        });
+        specTypeModal.open = false;
+        showToast('スペック種別を追加しました');
+      };
+
+      // 単位追加モーダル
+      const unitModal = reactive({ open: false, specTypeId: null, specTypeName: '', symbol: '', factor: null });
+      const openSpecUnitAdd = (st) => {
+        unitModal.specTypeId = st.id; unitModal.specTypeName = st.name;
+        unitModal.symbol = ''; unitModal.factor = null;
+        unitModal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+      const submitUnit = () => {
+        const st = specTypes.value.find(s => s.id === unitModal.specTypeId);
+        if (st) {
+          st.units.push({ id: Date.now(), symbol: unitModal.symbol, factor: unitModal.factor, isBase: false });
+        }
+        unitModal.open = false;
+        showToast('単位を追加しました');
+      };
+      const deleteSpecUnit = (st, unit) => {
+        if (unit.isBase) { showToast('基準単位は削除できません'); return; }
+        st.units = st.units.filter(u => u.id !== unit.id);
+        showToast('単位を削除しました');
+      };
+
+      // 削除確認
+      const deleteModal = reactive({ open: false, type: '', name: '', targetId: null });
+      const openMasterDelete = (type, item) => {
+        deleteModal.type = type; deleteModal.name = item.name; deleteModal.targetId = item.id;
+        deleteModal.open = true;
+        nextTick(() => lucide.createIcons());
+      };
+      const confirmMasterDelete = () => {
+        if (deleteModal.type === 'category') categories.value = categories.value.filter(i => i.id !== deleteModal.targetId);
+        else if (deleteModal.type === 'package') packages.value = packages.value.filter(i => i.id !== deleteModal.targetId);
+        else if (deleteModal.type === 'spec_type') specTypes.value = specTypes.value.filter(i => i.id !== deleteModal.targetId);
+        deleteModal.open = false;
+        showToast('削除しました');
+      };
+
+      const toast = reactive({ show: false, message: '' });
+      const showToast = (msg) => {
+        toast.message = msg; toast.show = true;
+        setTimeout(() => { toast.show = false; }, 2500);
+      };
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        tabs, activeTab, categories, packages, specTypes,
+        masterModal, openMasterCreate, openMasterEdit, submitMasterModal,
+        specTypeModal, openSpecTypeCreate, submitSpecType,
+        unitModal, openSpecUnitAdd, submitUnit, deleteSpecUnit,
+        deleteModal, openMasterDelete, confirmMasterDelete,
+        toast, toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>部品比較画面</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    /* 比較テーブル: 行ヘッダ固定・列スクロール */
+    .compare-table {
+      display: grid;
+      /* 行ヘッダ列(固定) + 部品列(最大4) */
+      grid-template-columns: 160px repeat(var(--col-count, 2), minmax(180px, 1fr));
+    }
+    .compare-cell {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--color-border);
+      border-right: 1px solid var(--color-border);
+    }
+    .compare-header-col {
+      background-color: var(--color-bg-alt);
+      font-weight: bold;
+      font-size: 0.8rem;
+      color: var(--color-text);
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+    .compare-part-header {
+      background-color: var(--color-card-even);
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    /* 差異行のハイライト */
+    .row-diff .compare-header-col {
+      background-color: var(--color-highlight);
+      color: #fff;
+    }
+    /* サイドドロワー */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 100;
+    }
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: 320px;
+      background: var(--color-bg);
+      border-left: 1px solid var(--color-border);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+      box-shadow: -4px 0 16px rgba(0,0,0,0.15);
+    }
+    /* 部品追加モーダル */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-window {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 480px;
+      max-height: 70vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+
+  <div id="app" class="p-6">
+
+    <!-- ヘッダ -->
+    <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+      <div class="flex items-center gap-3">
+        <a href="components_list.html" class="link-text flex items-center gap-1">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>一覧に戻る
+        </a>
+        <h1 class="text-2xl font-bold">部品比較</h1>
+        <span class="text-sm text-[var(--color-text)] opacity-60">{{ parts.length }}件比較中</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- 差異のみ表示トグル -->
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" v-model="diffOnly" class="w-4 h-4">
+          差異のある行のみ表示
+        </label>
+        <!-- 部品追加 -->
+        <button @click="showAddModal = true"
+          class="btn btn-primary px-4 py-2 rounded flex items-center gap-2"
+          :disabled="parts.length >= 4">
+          <i data-lucide="plus" class="w-4 h-4"></i>部品を追加
+        </button>
+        <button id="themeToggle" @click="toggleTheme"
+          class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+      </div>
+    </header>
+
+    <!-- 比較テーブル本体 -->
+    <div class="overflow-x-auto">
+      <div class="compare-table" :style="`--col-count: ${parts.length}`">
+
+        <!-- ===== 行: 部品ヘッダ ===== -->
+        <!-- 左上角 -->
+        <div class="compare-cell compare-header-col compare-part-header text-center">スペック項目</div>
+        <!-- 部品列ヘッダ -->
+        <div v-for="(part, pi) in parts" :key="'h'+pi"
+          class="compare-cell compare-part-header">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <img :src="part.image" class="thumbnail w-16 h-16 object-contain mx-auto mb-2 rounded" />
+              <div class="list list-title text-center text-sm">
+                <a :href="'component_detail.html'" class="link-text">{{ part.name }}</a>
+              </div>
+              <div class="text-xs text-center opacity-70">{{ part.partNumber }}</div>
+            </div>
+            <button @click="removePart(pi)"
+              class="text-[var(--color-text)] opacity-40 hover:opacity-100 ml-1">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <!-- 列移動ボタン -->
+          <div class="flex justify-center gap-1 mt-2">
+            <button @click="movePart(pi, -1)" :disabled="pi === 0"
+              class="px-2 py-0.5 text-xs rounded border border-[var(--color-border)] disabled:opacity-30">←</button>
+            <button @click="movePart(pi, 1)" :disabled="pi === parts.length - 1"
+              class="px-2 py-0.5 text-xs rounded border border-[var(--color-border)] disabled:opacity-30">→</button>
+          </div>
+        </div>
+
+        <!-- ===== 各スペック行 ===== -->
+        <template v-for="row in visibleRows" :key="row.key">
+          <!-- 行ヘッダ -->
+          <div class="compare-cell compare-header-col"
+            :class="{ 'row-diff': row.hasDiff }">
+            <span class="text-xs">{{ row.label }}</span>
+            <i v-if="row.hasDiff" data-lucide="alert-circle" class="w-3 h-3 inline ml-1"></i>
+          </div>
+          <!-- 各部品の値 -->
+          <div v-for="(part, pi) in parts" :key="'r'+row.key+pi"
+            class="compare-cell text-sm"
+            :class="[
+              pi % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+              row.hasDiff ? 'font-semibold' : ''
+            ]">
+            <span v-if="part.specs[row.key] !== undefined">{{ part.specs[row.key] }}</span>
+            <span v-else class="opacity-30">—</span>
+          </div>
+        </template>
+
+        <!-- ===== 行: フッタ（アクション） ===== -->
+        <div class="compare-cell compare-header-col bg-[var(--color-bg-alt)]">操作</div>
+        <div v-for="(part, pi) in parts" :key="'f'+pi"
+          class="compare-cell"
+          :class="pi % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+          <div class="flex flex-col gap-2">
+            <a href="component_detail.html" class="link-text text-sm flex items-center gap-1">
+              <i data-lucide="external-link" class="w-3 h-3"></i>詳細へ
+            </a>
+            <button @click="openDrawer(part)"
+              class="btn btn-primary text-xs px-2 py-1 rounded flex items-center gap-1">
+              <i data-lucide="folder-plus" class="w-3 h-3"></i>プロジェクトに追加
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== サイドドロワー: プロジェクト紐づけ ===== -->
+    <template v-if="drawer.open">
+      <div class="drawer-overlay" @click="drawer.open = false"></div>
+      <div class="drawer">
+        <div class="flex justify-between items-center">
+          <h2 class="font-bold text-base">プロジェクトに追加</h2>
+          <button @click="drawer.open = false">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <p class="text-sm opacity-70">「{{ drawer.part?.name }}」を追加するプロジェクトを選択</p>
+        <!-- 検索 -->
+        <input type="text" v-model="drawer.search" placeholder="プロジェクトを検索..."
+          class="input-text text-sm" />
+        <!-- プロジェクト一覧 -->
+        <div class="flex-1 overflow-y-auto space-y-2">
+          <label v-for="p in filteredProjects" :key="p.id"
+            class="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-[var(--color-card-even)]">
+            <input type="radio" :value="p.id" v-model="drawer.selected" class="w-4 h-4">
+            <div>
+              <div class="text-sm font-semibold">{{ p.name }}</div>
+              <div class="text-xs opacity-60">{{ p.partCount }}部品使用中</div>
+            </div>
+          </label>
+        </div>
+        <!-- ボタン -->
+        <div class="flex gap-3 pt-2 border-t border-[var(--color-border)]">
+          <button @click="drawer.open = false"
+            class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+          <button @click="addToProject"
+            class="flex-1 py-2 rounded btn btn-primary text-sm"
+            :disabled="!drawer.selected">追加する</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===== 部品追加モーダル ===== -->
+    <template v-if="showAddModal">
+      <div class="modal-overlay" @click.self="showAddModal = false">
+        <div class="modal-window">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="font-bold">比較する部品を追加</h2>
+            <button @click="showAddModal = false">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <input type="text" v-model="addSearch" placeholder="部品名・型番で検索..."
+            class="input-text mb-4" />
+          <div class="space-y-2">
+            <div v-for="p in searchResults" :key="p.id"
+              class="card card-even flex items-center gap-3 p-3 cursor-pointer hover:bg-[var(--color-card-odd)]"
+              @click="addPart(p)">
+              <img :src="p.image" class="w-12 h-12 object-contain rounded" />
+              <div>
+                <div class="list list-title text-sm">{{ p.name }}</div>
+                <div class="text-xs opacity-60">{{ p.partNumber }} / {{ p.manufacturer }}</div>
+              </div>
+              <i data-lucide="plus-circle" class="w-5 h-5 ml-auto text-[var(--color-primary)]"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- トースト通知 -->
+    <div v-if="toast.show"
+      class="fixed bottom-6 right-6 bg-[var(--color-accent)] text-white px-5 py-3 rounded shadow-lg text-sm z-50">
+      {{ toast.message }}
+    </div>
+
+  </div><!-- /#app -->
+
+  <script>
+    const { createApp, reactive, ref, computed, onMounted, nextTick } = Vue;
+
+    createApp({
+      setup() {
+
+        // ===== サンプルデータ =====
+        const sampleParts = [
+          {
+            id: 1, name: 'LM358', partNumber: 'LM358N', manufacturer: 'TI',
+            image: 'https://placehold.co/64x64?text=LM358',
+            procurement_status: 'active',
+            quantity_new: 12, quantity_used: 3,
+            cheapest: { name: '秋月電子', price: 30 },
+            specs: {
+              'パッケージ': 'DIP-8', '電源電圧': '3〜32V', 'GBW': '1MHz',
+              'スルーレート': '0.6V/μs', '入力オフセット': '±7mV', '消費電流': '0.5mA',
+            }
+          },
+          {
+            id: 2, name: 'NJM4580', partNumber: 'NJM4580D', manufacturer: 'JRC',
+            image: 'https://placehold.co/64x64?text=4580',
+            procurement_status: 'active',
+            quantity_new: 0, quantity_used: 5,
+            cheapest: { name: '秋月電子', price: 45 },
+            specs: {
+              'パッケージ': 'DIP-8', '電源電圧': '6〜18V', 'GBW': '10MHz',
+              'スルーレート': '10V/μs', '入力オフセット': '±1mV', '消費電流': '5mA',
+            }
+          },
+        ];
+
+        // 追加可能な部品候補
+        const candidateParts = [
+          {
+            id: 3, name: 'TL072', partNumber: 'TL072CP', manufacturer: 'TI',
+            image: 'https://placehold.co/64x64?text=TL072',
+            procurement_status: 'active',
+            quantity_new: 8, quantity_used: 0,
+            cheapest: { name: 'RS', price: 35 },
+            specs: {
+              'パッケージ': 'DIP-8', '電源電圧': '6〜36V', 'GBW': '3MHz',
+              'スルーレート': '13V/μs', '入力オフセット': '±3mV', '消費電流': '2.5mA',
+            }
+          },
+          {
+            id: 4, name: 'MCP6002', partNumber: 'MCP6002-I/P', manufacturer: 'Microchip',
+            image: 'https://placehold.co/64x64?text=MCP',
+            procurement_status: 'active',
+            quantity_new: 20, quantity_used: 0,
+            cheapest: { name: 'Digikey', price: 55 },
+            specs: {
+              'パッケージ': 'DIP-8', '電源電圧': '1.8〜6V', 'GBW': '1MHz',
+              'スルーレート': '0.6V/μs', '入力オフセット': '±4.5mV', '消費電流': '0.1mA',
+            }
+          },
+        ];
+
+        // プロジェクト一覧
+        const projects = ref([
+          { id: 1, name: 'AI基板2025', partCount: 48 },
+          { id: 2, name: '共通センサ制御', partCount: 23 },
+          { id: 3, name: 'AD基板2024', partCount: 67 },
+          { id: 4, name: 'DA基板2024', partCount: 31 },
+        ]);
+
+        // ===== 比較対象 =====
+        const parts = ref([...sampleParts]);
+
+        // ===== スペック行定義（全部品の specs キーの和集合） =====
+        const allRows = computed(() => {
+          // 全部品のspecsキーを収集
+          const keySet = new Set();
+          // 固定行（常に表示）
+          ['パッケージ', '電源電圧', 'GBW', 'スルーレート', '入力オフセット', '消費電流'].forEach(k => keySet.add(k));
+          parts.value.forEach(p => Object.keys(p.specs).forEach(k => keySet.add(k)));
+
+          // 固定行 + 価格・在庫
+          const rows = [];
+          rows.push({ key: '__price', label: '最安価格', hasDiff: false, isSpecial: true });
+          rows.push({ key: '__stock', label: '在庫（新品/中古）', hasDiff: false, isSpecial: true });
+          rows.push({ key: '__status', label: '入手可否', hasDiff: false, isSpecial: true });
+
+          keySet.forEach(key => {
+            const vals = parts.value.map(p => p.specs[key]);
+            const defined = vals.filter(v => v !== undefined);
+            const hasDiff = defined.length > 1 && new Set(defined).size > 1;
+            rows.push({ key, label: key, hasDiff, isSpecial: false });
+          });
+          return rows;
+        });
+
+        // 差異のみ表示フィルタ
+        const diffOnly = ref(false);
+        const visibleRows = computed(() => {
+          if (!diffOnly.value) return allRows.value;
+          return allRows.value.filter(r => r.hasDiff || r.isSpecial);
+        });
+
+        // スペシャル行の値取得をオーバーライド（テンプレートでは specs[key] を使うので、
+        // 特殊キーはあらかじめ specs に入れておく方式でも可。ここはタタキなので固定表示）
+
+        // ===== 列操作 =====
+        const removePart = (idx) => {
+          parts.value.splice(idx, 1);
+        };
+
+        const movePart = (idx, dir) => {
+          const arr = parts.value;
+          const newIdx = idx + dir;
+          if (newIdx < 0 || newIdx >= arr.length) return;
+          [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+        };
+
+        // ===== 部品追加モーダル =====
+        const showAddModal = ref(false);
+        const addSearch = ref('');
+        const searchResults = computed(() => {
+          const ids = new Set(parts.value.map(p => p.id));
+          return candidateParts.filter(p =>
+            !ids.has(p.id) &&
+            (p.name.includes(addSearch.value) || p.partNumber.includes(addSearch.value) || addSearch.value === '')
+          );
+        });
+        const addPart = (p) => {
+          if (parts.value.length >= 4) return;
+          parts.value.push(p);
+          showAddModal.value = false;
+          addSearch.value = '';
+        };
+
+        // ===== サイドドロワー =====
+        const drawer = reactive({ open: false, part: null, search: '', selected: null });
+        const filteredProjects = computed(() =>
+          projects.value.filter(p => p.name.includes(drawer.search))
+        );
+        const openDrawer = (part) => {
+          drawer.part = part;
+          drawer.search = '';
+          drawer.selected = null;
+          drawer.open = true;
+        };
+
+        // ===== トースト =====
+        const toast = reactive({ show: false, message: '' });
+        const showToast = (msg) => {
+          toast.message = msg;
+          toast.show = true;
+          setTimeout(() => { toast.show = false; }, 2500);
+        };
+
+        const addToProject = () => {
+          const proj = projects.value.find(p => p.id === drawer.selected);
+          if (!proj) return;
+          drawer.open = false;
+          showToast(`「${drawer.part.name}」を「${proj.name}」に追加しました`);
+        };
+
+        // ===== テーマ =====
+        const toggleTheme = () => {
+          const root = document.documentElement;
+          const isLight = root.getAttribute('data-theme') === 'light';
+          root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+          localStorage.setItem('theme', isLight ? 'dark' : 'light');
+          document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+        };
+
+        onMounted(() => {
+          const saved = localStorage.getItem('theme') || 'light';
+          document.documentElement.setAttribute('data-theme', saved);
+          document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+          lucide.createIcons();
+        });
+
+        return {
+          parts, allRows, visibleRows, diffOnly,
+          removePart, movePart,
+          showAddModal, addSearch, searchResults, addPart,
+          drawer, filteredProjects, openDrawer, addToProject,
+          toast, toggleTheme,
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
