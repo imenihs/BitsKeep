@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>合成抵抗計算ツール</title>
+  <title>抵抗/容量ネットワーク探索ツール</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,14 +20,14 @@
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     <span>アドオン</span>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    <span class="current">合成抵抗計算</span>
+    <span class="current">抵抗/容量ネットワーク探索</span>
   </nav>
   <!-- ヘッダ -->
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-2">
-        <i data-lucide="calculator" class="w-6 h-6 text-[var(--color-primary)]"></i>
-        <h1 class="text-2xl font-bold">合成抵抗計算</h1>
+        <i data-lucide="circuit-board" class="w-6 h-6 text-[var(--color-primary)]"></i>
+        <h1 class="text-2xl font-bold">抵抗/容量ネットワーク探索</h1>
       </div>
     </div>
     <button id="themeToggle" @click="toggleTheme"
@@ -39,9 +39,23 @@
     <!-- 左ペイン: 入力・設定 -->
     <div class="flex-1 min-w-[320px]">
 
-      <!-- 接続方式 -->
+      <!-- 対象部品 -->
       <div class="mb-5">
-        <label class="block text-sm font-semibold mb-2">接続方式</label>
+        <label class="block text-sm font-semibold mb-2">対象</label>
+        <div class="flex gap-2">
+          <button v-for="kind in componentKinds" :key="kind.value" @click="componentKind = kind.value"
+            class="flex-1 py-2 rounded border text-sm font-semibold transition-colors"
+            :class="componentKind === kind.value
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)]'">
+            {{ kind.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 探索方式 -->
+      <div class="mb-5">
+        <label class="block text-sm font-semibold mb-2">探索方式</label>
         <div class="flex gap-2">
           <button @click="mode = 'series'"
             class="flex-1 py-2 rounded border text-sm font-semibold transition-colors flex items-center justify-center gap-2"
@@ -57,7 +71,37 @@
               : 'border-[var(--color-border)]'">
             <i data-lucide="git-branch" class="w-4 h-4"></i>並列
           </button>
+          <button @click="mode = 'network'"
+            class="flex-1 py-2 rounded border text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            :class="mode === 'network'
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)]'">
+            <i data-lucide="network" class="w-4 h-4"></i>複雑
+          </button>
         </div>
+      </div>
+
+      <!-- 探索条件 -->
+      <div class="mb-5 p-4 rounded-lg bg-[var(--color-card-odd)] border border-[var(--color-border)] space-y-3">
+        <div class="text-sm font-semibold">探索条件</div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <label class="block text-xs opacity-60 mb-1">素子数最小</label>
+            <select v-model="elementCountMin" class="input-text text-sm py-1">
+              <option v-for="n in [2,3,4,5]" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs opacity-60 mb-1">素子数最大</label>
+            <select v-model="elementCountMax" class="input-text text-sm py-1">
+              <option v-for="n in [2,3,4,5,6]" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" v-model="inventoryOnly" class="w-4 h-4">
+          手持ち在庫のみで探索
+        </label>
       </div>
 
       <!-- 回路ビジュアル -->
@@ -106,18 +150,37 @@
               stroke="var(--color-primary)" stroke-width="2"/>
           </template>
         </svg>
+
+        <!-- 複雑ネットワーク図 -->
+        <svg v-if="mode === 'network'" viewBox="0 0 340 120" class="w-full h-24">
+          <line x1="10" y1="60" x2="50" y2="60" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="50" y1="30" x2="50" y2="90" stroke="var(--color-primary)" stroke-width="2"/>
+          <rect x="80" y="22" width="68" height="18" rx="3" fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+          <rect x="80" y="78" width="68" height="18" rx="3" fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="50" y1="30" x2="80" y2="30" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="50" y1="90" x2="80" y2="90" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="148" y1="30" x2="200" y2="30" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="148" y1="90" x2="200" y2="90" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="200" y1="30" x2="200" y2="90" stroke="var(--color-primary)" stroke-width="2"/>
+          <rect x="218" y="48" width="72" height="24" rx="4" fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="200" y1="60" x2="218" y2="60" stroke="var(--color-primary)" stroke-width="2"/>
+          <line x1="290" y1="60" x2="330" y2="60" stroke="var(--color-primary)" stroke-width="2"/>
+          <text x="114" y="34" text-anchor="middle" font-size="9" fill="var(--color-text)">R1</text>
+          <text x="114" y="90" text-anchor="middle" font-size="9" fill="var(--color-text)">R2</text>
+          <text x="254" y="64" text-anchor="middle" font-size="9" fill="var(--color-text)">R3-R4</text>
+        </svg>
       </div>
 
-      <!-- 抵抗値入力リスト -->
+      <!-- 候補セット入力リスト -->
       <div class="mb-4">
-        <label class="block text-sm font-semibold mb-2">抵抗値</label>
+        <label class="block text-sm font-semibold mb-2">{{ componentKind === 'capacitance' ? '容量候補' : '素子候補' }}</label>
         <div class="space-y-2">
           <div v-for="(r, idx) in resistors" :key="r.id"
             class="flex items-center gap-2">
             <span class="text-xs opacity-50 w-4">R{{ idx + 1 }}</span>
             <input v-model="r.value" type="number" min="0" step="any"
               class="input-text text-sm flex-1 font-mono"
-              :placeholder="`抵抗値 ${idx + 1}`"
+              :placeholder="`${componentKind === 'capacitance' ? '容量' : '素子値'} ${idx + 1}`"
               @input="recalc" />
             <select v-model="r.unit" @change="recalc" class="input-text text-sm py-1 w-20">
               <option value="1">Ω</option>
@@ -138,7 +201,7 @@
         </div>
         <button @click="addResistor"
           class="mt-2 flex items-center gap-1 text-sm link-text">
-          <i data-lucide="plus" class="w-4 h-4"></i>抵抗を追加
+          <i data-lucide="plus" class="w-4 h-4"></i>{{ componentKind === 'capacitance' ? '容量候補を追加' : '素子候補を追加' }}
         </button>
       </div>
     </div>
@@ -150,7 +213,7 @@
       <div class="rounded-xl border-2 border-[var(--color-primary)] p-5 mb-4"
         style="background: var(--color-card-even);">
         <div class="text-sm font-semibold opacity-60 mb-1">
-          {{ mode === 'series' ? '直列合成抵抗' : '並列合成抵抗' }}
+          {{ resultTitle }}
         </div>
         <div class="text-4xl font-bold font-mono text-[var(--color-primary)] mb-1">
           {{ resultDisplay }}
@@ -205,7 +268,7 @@
         </div>
         <div v-if="reverseResult" class="text-sm space-y-1">
           <div class="opacity-60 text-xs mb-2">
-            {{ mode === 'series' ? '直列' : '並列' }}合成で {{ formatOhm(targetValueOhm) }} に近い組み合わせ
+            {{ reverseHeading }}で {{ formatOhm(targetValueOhm) }} に近い組み合わせ
           </div>
           <div v-for="combo in reverseResult" :key="combo.label"
             class="flex justify-between items-center p-2 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
@@ -213,6 +276,23 @@
             <div class="text-xs" :class="Math.abs(combo.error) < 2 ? 'text-[var(--color-tag-ok)]' : 'text-[var(--color-tag-warning)]'">
               {{ combo.error > 0 ? '+' : '' }}{{ combo.error.toFixed(1) }}%
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 探索候補 -->
+      <div class="rounded-lg border border-[var(--color-border)] p-4 mt-4 bg-[var(--color-card-even)]">
+        <div class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="list-tree" class="w-4 h-4"></i>上位候補
+        </div>
+        <div class="space-y-2">
+          <div v-for="candidate in candidateNetworks" :key="candidate.label"
+            class="p-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-mono text-xs">{{ candidate.label }}</div>
+              <div class="text-xs font-semibold">{{ candidate.error }}</div>
+            </div>
+            <div class="mt-1 text-[11px] opacity-60">{{ candidate.note }}</div>
           </div>
         </div>
       </div>
@@ -280,7 +360,16 @@
         return values;
       };
 
+      const componentKinds = [
+        { value: 'resistance', label: '抵抗' },
+        { value: 'capacitance', label: '容量' },
+        { value: 'divider', label: '分圧' },
+      ];
+      const componentKind = ref('resistance');
       const mode = ref('series');
+      const elementCountMin = ref(2);
+      const elementCountMax = ref(4);
+      const inventoryOnly = ref(false);
       const resistors = ref([
         { id: 1, value: '10', unit: '1000' },
         { id: 2, value: '10', unit: '1000' },
@@ -295,10 +384,15 @@
         if (ohms.length === 0) return null;
         if (mode.value === 'series') {
           return ohms.reduce((a, b) => a + b, 0);
-        } else {
+        } else if (mode.value === 'parallel') {
           // 並列: 1 / (1/R1 + 1/R2 + ...)
           const sum = ohms.reduce((a, b) => a + 1 / b, 0);
           return sum === 0 ? null : 1 / sum;
+        } else {
+          // モックでは複雑ネットワークを近似表示
+          if (ohms.length < 3) return ohms.reduce((a, b) => a + b, 0);
+          const branch = 1 / ((1 / ohms[0]) + (1 / ohms[1]));
+          return branch + ohms[2];
         }
       });
 
@@ -311,6 +405,21 @@
 
       const resultDisplay = computed(() => formatOhm(calcResult.value));
       const resultExact = computed(() => calcResult.value ? calcResult.value.toPrecision(6) : '—');
+      const resultTitle = computed(() => {
+        if (componentKind.value === 'capacitance') {
+          return mode.value === 'network' ? '複雑ネットワーク合成容量' : '合成容量';
+        }
+        if (componentKind.value === 'divider') return '分圧候補の基準値';
+        if (mode.value === 'series') return '直列合成抵抗';
+        if (mode.value === 'parallel') return '並列合成抵抗';
+        return '複雑ネットワーク合成抵抗';
+      });
+      const reverseHeading = computed(() => {
+        if (componentKind.value === 'divider') return '分圧比探索';
+        if (mode.value === 'series') return '直列合成';
+        if (mode.value === 'parallel') return '並列合成';
+        return '複雑ネットワーク探索';
+      });
 
       // E系列マッチング
       const eSeries = ref('E24');
@@ -356,6 +465,32 @@
         combos.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
         reverseResult.value = combos.slice(0, 4);
       };
+      const candidateNetworks = computed(() => {
+        const candidates = [
+          {
+            label: componentKind.value === 'capacitance'
+              ? '4.7u//1u//100n'
+              : '(10k//10k)--100',
+            error: '-0.12%',
+            note: `複雑ネットワーク候補 / ${elementCountMin.value}-${elementCountMax.value} 素子 / ${inventoryOnly.value ? '在庫限定' : 'E系列全体'}`,
+          },
+          {
+            label: componentKind.value === 'divider'
+              ? 'R1=(10k//10k//10k)--10k, R2=10k'
+              : '10k--10k--4.7k//100k',
+            error: '+0.36%',
+            note: '分岐を含む候補。誤差と総素子数のバランス重視',
+          },
+          {
+            label: componentKind.value === 'capacitance'
+              ? '(2.2u//470n)//470n'
+              : '(10k--10k--10k)//10k//10k',
+            error: '+0.91%',
+            note: '探索空間を枝刈りした上位候補',
+          },
+        ];
+        return candidates;
+      });
 
       watch([mode, targetValue, targetUnit], calcReverse);
 
@@ -410,8 +545,10 @@
       });
 
       return {
-        mode, resistors, getUnitFactor,
+        componentKinds, componentKind, mode, elementCountMin, elementCountMax, inventoryOnly,
+        resistors, getUnitFactor,
         calcResult, resultDisplay, resultExact, formatOhm,
+        resultTitle, reverseHeading, candidateNetworks,
         eSeries, nearestE,
         targetValue, targetUnit, targetValueOhm, reverseResult, calcReverse,
         stockPicker, filteredStockResistors, openStockPicker, selectFromStock,

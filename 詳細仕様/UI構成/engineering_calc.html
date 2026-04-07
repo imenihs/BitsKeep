@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>エンジニア電卓</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="p-6">
+
+  <nav class="breadcrumb">
+    <a href="index.html">🏠 BitsKeep</a>
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span>アドオン</span>
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <span class="current">エンジニア電卓</span>
+  </nav>
+
+  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="flex items-center gap-3">
+      <i data-lucide="calculator" class="w-6 h-6 text-[var(--color-primary)]"></i>
+      <div>
+        <h1 class="text-2xl font-bold">エンジニア電卓</h1>
+        <p class="text-sm opacity-60 mt-1">進数混在・SI接頭辞・履歴再計算・定数/関数・数値解法に対応</p>
+      </div>
+    </div>
+    <button id="themeToggle" @click="toggleTheme"
+      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
+  </header>
+
+  <div class="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6">
+
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold">履歴</h2>
+        <button class="text-xs link-text">固定式</button>
+      </div>
+      <div class="space-y-2 max-h-[70vh] overflow-y-auto">
+        <button v-for="item in history" :key="item.id" @click="selectHistory(item)"
+          class="w-full text-left rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 hover:border-[var(--color-primary)]">
+          <div class="font-mono text-xs opacity-70">{{ item.expr }}</div>
+          <div class="mt-1 text-sm font-semibold">{{ item.result }}</div>
+          <div class="mt-1 text-[11px] opacity-50">{{ item.meta }}</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="text-sm font-bold">式エディタ</span>
+        <span class="tag tag-ok text-xs">syntax highlight</span>
+        <span class="tag tag-warning text-xs">auto complete</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
+        <div>
+          <textarea v-model="editor"
+            class="input-text min-h-[280px] font-mono text-sm leading-6 resize-none"
+            placeholder="例:
+0xff + 25k
+esRound('E24', 4.83k)
+solve(x => x^2 - 2, 1.4)"></textarea>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button v-for="snippet in snippets" :key="snippet.label" @click="editor = snippet.value"
+              class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-primary)] hover:text-white transition-colors">
+              {{ snippet.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs font-semibold opacity-60 mb-2">定数 / 関数</div>
+          <div class="space-y-2 text-xs">
+            <div v-for="item in presets" :key="item.name" class="rounded border border-[var(--color-border)] p-2">
+              <div class="font-mono font-semibold">{{ item.name }}</div>
+              <div class="opacity-60 mt-1">{{ item.desc }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-3">
+        <button @click="runExpression" class="btn btn-primary px-4 py-2 rounded text-sm flex items-center gap-2">
+          <i data-lucide="play" class="w-4 h-4"></i>評価
+        </button>
+        <button class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">履歴へ保存</button>
+        <button class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">結果をコピー</button>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+      <h2 class="text-sm font-bold mb-3">結果</h2>
+
+      <div class="rounded-xl border-2 border-[var(--color-primary)] p-4 bg-[var(--color-bg)]">
+        <div class="text-xs opacity-60 mb-1">評価結果</div>
+        <div class="font-mono text-3xl font-bold text-[var(--color-primary)]">{{ current.result }}</div>
+        <div class="text-xs opacity-60 mt-2">{{ current.type }}</div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mt-4">
+        <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+          <div class="text-[11px] opacity-60">DEC</div>
+          <div class="font-mono text-sm mt-1">{{ current.dec }}</div>
+        </div>
+        <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+          <div class="text-[11px] opacity-60">HEX</div>
+          <div class="font-mono text-sm mt-1">{{ current.hex }}</div>
+        </div>
+        <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+          <div class="text-[11px] opacity-60">BIN</div>
+          <div class="font-mono text-sm mt-1">{{ current.bin }}</div>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+        <div class="text-xs font-semibold opacity-60 mb-2">補足</div>
+        <div class="space-y-2 text-xs">
+          <div>単位: {{ current.unit }}</div>
+          <div>近似: {{ current.note }}</div>
+          <div>履歴更新: 編集時に即時再計算</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+</div>
+
+<script>
+  const { createApp, ref, reactive, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const history = ref([
+        { id: 1, expr: "0xff + 25", result: "280", meta: "hex + dec / Int64" },
+        { id: 2, expr: "esRound('E24', 4.83k)", result: "4.7k", meta: "E-series" },
+        { id: 3, expr: "solve(x => x^2 - 2, 1.4)", result: "1.41421356", meta: "Newton" },
+        { id: 4, expr: "rgb(255,128,0)", result: "#ff8000", meta: "color" },
+      ]);
+
+      const editor = ref(history.value[0].expr);
+      const current = reactive({
+        result: "280",
+        type: "Int64",
+        dec: "280",
+        hex: "0x118",
+        bin: "0b100011000",
+        unit: "dimensionless",
+        note: "hex/dec 混在評価",
+      });
+
+      const presets = [
+        { name: "PI", desc: "円周率" },
+        { name: "esRound()", desc: "E系列丸め" },
+        { name: "solve()", desc: "数値解法" },
+        { name: "rgb()", desc: "色変換" },
+      ];
+
+      const snippets = [
+        { label: "進数混在", value: "0xff + 25" },
+        { label: "E系列", value: "esRound('E24', 4.83k)" },
+        { label: "数値解法", value: "solve(x => x^2 - 2, 1.4)" },
+      ];
+
+      const selectHistory = (item) => {
+        editor.value = item.expr;
+        runExpression(item);
+      };
+
+      const runExpression = (item = null) => {
+        const expr = item?.expr || editor.value;
+        if (expr.includes("solve")) {
+          Object.assign(current, {
+            result: "1.41421356",
+            type: "Double",
+            dec: "1.41421356",
+            hex: "0x1.6a09e6",
+            bin: "0b1.0110101000",
+            unit: "dimensionless",
+            note: "Newton法による近似解",
+          });
+        } else if (expr.includes("esRound")) {
+          Object.assign(current, {
+            result: "4.7k",
+            type: "Resistance",
+            dec: "4700",
+            hex: "0x125c",
+            bin: "0b1001001011100",
+            unit: "ohm",
+            note: "E24 最近傍値",
+          });
+        } else {
+          Object.assign(current, {
+            result: "280",
+            type: "Int64",
+            dec: "280",
+            hex: "0x118",
+            bin: "0b100011000",
+            unit: "dimensionless",
+            note: "hex/dec 混在評価",
+          });
+        }
+      };
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        history,
+        editor,
+        current,
+        presets,
+        snippets,
+        selectHistory,
+        runExpression,
+        toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

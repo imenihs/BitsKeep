@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>BitsKeep — UI構成一覧</title>
+  <title>BitsKeep — ホーム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -12,172 +12,606 @@
 </head>
 
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" class="p-8">
+<div id="app" class="min-h-screen">
 
-  <!-- ヘッダ -->
-  <header class="flex justify-between items-center mb-8 pb-4 border-b border-[var(--color-border)]">
-    <div class="flex items-center gap-3">
-      <i data-lucide="cpu" class="w-8 h-8 text-[var(--color-primary)]"></i>
-      <div>
-        <h1 class="text-3xl font-bold">BitsKeep</h1>
-        <p class="text-sm opacity-50">UI構成タタキ — スクリーン一覧</p>
+  <header id="page-top" class="border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center shadow-sm">
+          <i data-lucide="cpu" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">BitsKeep Home</p>
+          <h1 class="text-2xl font-bold">使うべき部品へ最短で入る</h1>
+          <p class="text-sm opacity-60">検索を主導線にし、頻出作業だけを上段に固定したホームダッシュボード</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="ui_catalog.html"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors no-underline">
+          開発用画面一覧
+        </a>
+        <button id="themeToggle" @click="toggleTheme"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-xl">🌙</button>
       </div>
     </div>
-    <button id="themeToggle" @click="toggleTheme"
-      class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
   </header>
 
-  <!-- フィルタ -->
-  <div class="flex gap-2 mb-6 flex-wrap">
-    <button v-for="grp in groups" :key="grp"
-      @click="activeGroup = grp"
-      class="px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors"
-      :class="activeGroup === grp
-        ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-        : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
-      {{ grp }}
-    </button>
-  </div>
+  <nav class="sticky top-0 z-20 border-b border-[var(--color-border)] bg-[var(--color-bg)]/96 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-3">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Section Guide</p>
+          <div class="text-sm opacity-70">目次から目的のセクションへ直接移動できます。</div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a v-for="link in sectionLinks" :key="link.href" :href="link.href"
+            class="px-3 py-2 rounded-full border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors">
+            {{ link.label }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
 
-  <!-- スクリーンカードグリッド -->
-  <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
-    <a v-for="screen in filteredScreens" :key="screen.id"
-      :href="screen.href"
-      class="card card-even rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-primary)] transition-all hover:shadow-md group no-underline block">
-
-      <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0"
-            :style="{ backgroundColor: screen.color }">
-            <i :data-lucide="screen.icon" class="w-5 h-5"></i>
-          </div>
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <section id="launcher-section" class="scroll-mt-28 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+      <div class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm"
+        style="background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, var(--color-bg)) 0%, var(--color-bg) 58%, color-mix(in srgb, var(--color-highlight) 12%, var(--color-bg)) 100%);">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div class="text-xs font-mono opacity-50">{{ screen.id }}</div>
-            <div class="font-bold text-sm leading-tight">{{ screen.name }}</div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50 mb-2">Global Launcher</p>
+            <h2 class="text-3xl font-bold mb-2">まず検索するか、すぐ使うか</h2>
+            <p class="text-sm opacity-70 leading-relaxed">
+              部品・案件・棚・機能を横断検索し、見つからなければ上段の主要アクションから入る。
+              トップ画面で迷わせないための二択構成。
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="mode in focusModes" :key="mode" type="button" @click="setFocus(mode)"
+              class="px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors"
+              :class="activeFocus === mode
+                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
+              {{ mode }}
+            </button>
           </div>
         </div>
-        <!-- ステータスバッジ -->
-        <span class="text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-          :class="{
-            'bg-[var(--color-tag-ok)] text-white': screen.status === 'done',
-            'bg-[var(--color-tag-warning)] text-white': screen.status === 'wip',
-            'bg-[var(--color-card-odd)] opacity-60': screen.status === 'todo',
-          }">
-          {{ screen.status === 'done' ? '✓ 完成' : screen.status === 'wip' ? '制作中' : '未着手' }}
-        </span>
+
+        <div class="mt-6">
+          <label for="launcher" class="text-sm font-semibold">グローバル検索</label>
+          <div class="relative mt-2">
+            <input id="launcher" v-model="commandQuery" @keydown.enter="openFirstResult"
+              class="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4 text-base outline-none focus:border-[var(--color-primary)]"
+              placeholder="型番・部品名・案件・棚・機能名を検索" />
+            <span class="absolute right-4 top-4 text-xs opacity-40">Enter</span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs opacity-70">
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">部品</span>
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">案件</span>
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">棚</span>
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">機能</span>
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
+            <button v-for="item in launcherResults" :key="`${item.type}-${item.name}`" type="button"
+              @click="openItem(item)"
+              class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-card-even)] transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0">
+                  <i :data-lucide="item.icon" class="w-5 h-5"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)]">{{ item.type }}</span>
+                    <span class="font-semibold">{{ item.name }}</span>
+                  </div>
+                  <div class="text-sm opacity-60">{{ item.meta }}</div>
+                </div>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 opacity-40 flex-shrink-0"></i>
+              </div>
+            </button>
+            <div v-if="!launcherResults.length" class="px-4 py-5 text-sm opacity-60">
+              一致候補はありません。部品一覧または案件管理から新規登録を検討してください。
+            </div>
+          </div>
+
+          <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+            <a href="#today-section"
+              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+              今日の確認事項へ
+              <i data-lucide="arrow-down" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
       </div>
 
-      <p class="text-xs opacity-60 leading-relaxed mb-3">{{ screen.desc }}</p>
+      <aside class="space-y-4">
+        <section id="today-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-5 card-even shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] opacity-50">Today</p>
+              <h2 class="text-lg font-bold">今日の確認事項</h2>
+            </div>
+            <span class="text-xs opacity-50">先に見るべきもの</span>
+          </div>
+          <div class="space-y-3">
+            <button v-for="card in statusCards" :key="card.title" type="button" @click="openItem(card)"
+              class="w-full rounded-2xl border border-[var(--color-border)] p-4 text-left hover:border-[var(--color-primary)] transition-colors bg-[var(--color-bg)]">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                  :style="{ backgroundColor: card.color }">
+                  <i :data-lucide="card.icon" class="w-5 h-5"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs opacity-50">{{ card.title }}</div>
+                  <div class="font-bold text-lg leading-tight mt-0.5">{{ card.value }}</div>
+                  <div class="text-sm opacity-65 mt-1">{{ card.desc }}</div>
+                </div>
+              </div>
+            </button>
+          </div>
 
-      <div class="flex items-center justify-between">
-        <span class="text-xs opacity-40 px-2 py-0.5 rounded border border-[var(--color-border)]">
-          {{ screen.group }}
-        </span>
-        <span class="text-xs link-text flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          開く <i data-lucide="arrow-right" class="w-3 h-3"></i>
-        </span>
+          <div class="mt-4 pt-4 border-t border-[var(--color-border)] flex justify-end">
+            <a href="#recent-section"
+              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+              最近使った機能へ
+              <i data-lucide="arrow-down" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </section>
+
+        <section id="recent-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-5 card-odd shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] opacity-50">Recent</p>
+              <h2 class="text-lg font-bold">最近使った機能</h2>
+            </div>
+            <span class="text-xs opacity-50">直前の再開用</span>
+          </div>
+          <div class="space-y-2">
+            <button v-for="item in recentItems" :key="`recent-${item.href}`" type="button" @click="openItem(item)"
+              class="w-full flex items-center justify-between gap-3 rounded-2xl px-3 py-3 hover:bg-[var(--color-bg)] transition-colors">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-[var(--color-bg)] flex items-center justify-center flex-shrink-0">
+                  <i :data-lucide="item.icon" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0 text-left">
+                  <div class="font-semibold text-sm truncate">{{ item.name }}</div>
+                  <div class="text-xs opacity-50 truncate">{{ item.group }}</div>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-4 h-4 opacity-35 flex-shrink-0"></i>
+            </button>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-[var(--color-border)] flex justify-end">
+            <a href="#quick-actions-section"
+              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+              主要アクションへ
+              <i data-lucide="arrow-down" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="quick-actions-section" class="scroll-mt-28">
+      <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Quick Actions</p>
+          <h2 class="text-2xl font-bold">主要アクション</h2>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="text-sm opacity-60">上段は頻出操作だけに絞る。迷いそうな低頻度機能はここに置かない。</p>
+          <button v-if="!isReorderMode" type="button" @click="isReorderMode = true"
+            class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+            並び替え
+          </button>
+          <button v-if="isReorderMode" type="button" @click="resetQuickActions"
+            class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+            リセット
+          </button>
+          <button v-if="isReorderMode" type="button" @click="isReorderMode = false"
+            class="px-3 py-2 rounded-xl border border-[var(--color-primary)] bg-[var(--color-primary)] text-white text-sm">
+            完了
+          </button>
+        </div>
       </div>
-    </a>
-  </div>
+      <div v-if="isReorderMode" class="mb-4 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-75 bg-[var(--color-bg)]">
+        カードをドラッグして並び替えます。通常時はクリック起動、並び替え中だけドラッグを有効にします。
+      </div>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <button v-for="action in quickActions" :key="action.title" type="button"
+          :draggable="isReorderMode"
+          @dragstart="startQuickActionDrag(action.href)"
+          @dragover.prevent="allowQuickActionDrop"
+          @drop.prevent="dropQuickAction(action.href)"
+          @click="handleQuickActionClick(action)"
+          class="rounded-3xl border border-[var(--color-border)] p-5 text-left hover:border-[var(--color-primary)] hover:shadow-sm transition-all bg-[var(--color-bg)]"
+          :class="isReorderMode ? 'cursor-grab ring-1 ring-transparent hover:ring-[var(--color-primary)]' : ''">
+          <div v-if="isReorderMode" class="flex items-center justify-between text-xs opacity-50 mb-3">
+            <span>ドラッグで並び替え</span>
+            <i data-lucide="grip-horizontal" class="w-4 h-4"></i>
+          </div>
+          <div class="w-11 h-11 rounded-2xl text-white flex items-center justify-center mb-4"
+            :style="{ backgroundColor: action.color }">
+            <i :data-lucide="action.icon" class="w-5 h-5"></i>
+          </div>
+          <div class="text-sm opacity-50 mb-1">{{ action.kicker }}</div>
+          <div class="font-bold text-lg leading-tight mb-2">{{ action.title }}</div>
+          <div class="text-sm opacity-65 leading-relaxed">{{ action.desc }}</div>
+        </button>
+      </div>
 
-  <!-- 凡例 -->
-  <div class="mt-8 pt-4 border-t border-[var(--color-border)] flex gap-4 text-xs opacity-50">
-    <span class="flex items-center gap-1">
-      <span class="w-3 h-3 rounded-full bg-[var(--color-tag-ok)]"></span> 完成
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-3 h-3 rounded-full bg-[var(--color-tag-warning)]"></span> 制作中
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-3 h-3 rounded-full border border-current"></span> 未着手
-    </span>
-  </div>
+      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+        <a href="#task-menu-section"
+          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+          業務別メニューへ
+          <i data-lucide="arrow-down" class="w-4 h-4"></i>
+        </a>
+      </div>
+    </section>
 
+    <section id="task-menu-section" class="scroll-mt-28 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <div class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50">Task Menu</p>
+            <h2 class="text-2xl font-bold">業務別メニュー</h2>
+          </div>
+          <p class="text-sm opacity-60">テーブルや権限ではなく、利用目的で束ねて探しやすくする。</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 mt-5">
+          <section v-for="group in menuGroups" :key="group.title"
+            class="rounded-2xl border border-[var(--color-border)] p-4 card-even">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl text-white flex items-center justify-center flex-shrink-0"
+                :style="{ backgroundColor: group.color }">
+                <i :data-lucide="group.icon" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold">{{ group.title }}</h3>
+                <p class="text-sm opacity-60 mt-1">{{ group.desc }}</p>
+              </div>
+            </div>
+            <div class="mt-4 space-y-2">
+              <button v-for="item in group.items" :key="`${group.title}-${item.href}`" type="button" @click="openItem(item)"
+                class="w-full flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-[var(--color-bg)] transition-colors">
+                <div class="min-w-0">
+                  <div class="font-semibold text-sm">{{ item.name }}</div>
+                  <div class="text-xs opacity-50">{{ item.desc }}</div>
+                </div>
+                <i data-lucide="arrow-right" class="w-4 h-4 opacity-35 flex-shrink-0"></i>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+          <a href="#full-shortcuts-section"
+            class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+            全機能ショートカットへ
+            <i data-lucide="arrow-down" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </div>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Why This Works</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">ユーザビリティ判断</h2>
+        <div class="space-y-3 text-sm leading-relaxed opacity-80">
+          <p>1. 初手を `検索` と `主要アクション` に絞り、選択肢過多を避ける。</p>
+          <p>2. 在庫警告や案件同期を見せ、単なるリンク集ではなく判断画面にする。</p>
+          <p>3. 業務別メニューで「何をしたいか」から辿れるようにする。</p>
+          <p>4. 全機能一覧は残すが最下段へ下げ、発見性と迷いにくさを両立する。</p>
+          <p>5. 最近使った機能を右側に置き、再開時間を短縮する。</p>
+        </div>
+      </section>
+    </section>
+
+    <section id="full-shortcuts-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Full Shortcuts</p>
+          <h2 class="text-2xl font-bold">全機能ショートカット</h2>
+          <p class="text-sm opacity-60 mt-1">低頻度機能もここから到達可能。発見性は維持する。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button v-for="grp in allGroups" :key="grp" type="button" @click="activeGroup = grp"
+            class="px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors"
+            :class="activeGroup === grp
+              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+              : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
+            {{ grp }}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid gap-3 mt-5" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+        <button v-for="screen in filteredScreens" :key="screen.id" type="button" @click="openItem(screen)"
+          class="rounded-2xl border border-[var(--color-border)] p-4 text-left hover:border-[var(--color-primary)] transition-colors bg-[var(--color-bg)]">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl text-white flex items-center justify-center flex-shrink-0"
+                :style="{ backgroundColor: screen.color }">
+                <i :data-lucide="screen.icon" class="w-5 h-5"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-mono opacity-50">{{ screen.id }}</div>
+                <div class="font-semibold text-sm leading-tight">{{ screen.name }}</div>
+              </div>
+            </div>
+            <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)] whitespace-nowrap">{{ screen.group }}</span>
+          </div>
+          <p class="text-xs opacity-60 leading-relaxed">{{ screen.desc }}</p>
+        </button>
+      </div>
+
+      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+        <a href="#page-top"
+          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+          目次へ戻る
+          <i data-lucide="arrow-up" class="w-4 h-4"></i>
+        </a>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script>
-  const { createApp, ref, computed, onMounted } = Vue;
+  const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
   createApp({
     setup() {
       const screens = [
+        { id: 'SCR-001', name: '部品一覧', href: 'components_list.html', icon: 'list', color: '#2980b9', group: '設計判断', desc: 'スペック・在庫・入手性から部品候補を探す。' },
+        { id: 'SCR-002', name: '部品詳細', href: 'component_detail.html', icon: 'info', color: '#2980b9', group: '設計判断', desc: '画像・主要スペック・価格・在庫を一画面で確認。' },
+        { id: 'SCR-003', name: '部品登録/編集', href: 'component_create.html', icon: 'plus-circle', color: '#27ae60', group: '在庫運用', desc: '部品・スペック・仕入先・案件紐付けを登録。' },
+        { id: 'SCR-004', name: '部品比較', href: 'component_compare.html', icon: 'git-compare', color: '#8e44ad', group: '設計判断', desc: '候補部品の差分を比較し、案件へ紐付ける。' },
+        { id: 'SCR-005', name: '案件管理', href: 'project_list.html', icon: 'folder', color: '#e67e22', group: '案件・調達', desc: '事業別の Notion案件と独自案件を横断管理。' },
+        { id: 'SCR-006', name: '商社管理', href: 'supplier_list.html', icon: 'truck', color: '#16a085', group: '案件・調達', desc: '商社情報・送料条件・URL を管理。' },
+        { id: 'SCR-007', name: '保管棚管理', href: 'location_list.html', icon: 'archive', color: '#d35400', group: '在庫運用', desc: '棚マップと部品配置を確認・編集。' },
+        { id: 'SCR-008', name: 'ユーザー管理', href: 'user_list.html', icon: 'users', color: '#c0392b', group: '管理・監査', desc: '招待、ロール変更、有効化状態を管理。' },
+        { id: 'SCR-009', name: 'マスタ管理', href: 'master_list.html', icon: 'settings', color: '#7f8c8d', group: '管理・監査', desc: '分類・パッケージ・スペック種別を更新。' },
+        { id: 'SCR-010', name: '操作ログ', href: 'audit_log.html', icon: 'clock', color: '#2c3e50', group: '管理・監査', desc: '変更履歴と在庫差分を追跡。' },
+        { id: 'SCR-011', name: '抵抗/容量ネットワーク探索', href: 'resistance_calc.html', icon: 'circuit-board', color: '#8e44ad', group: '設計判断', desc: '複雑ネットワーク候補を探索して比較する。' },
+        { id: 'SCR-012', name: '在庫警告一覧', href: 'stock_alert.html', icon: 'alert-triangle', color: '#e84c3d', group: '在庫運用', desc: '逼迫在庫の確認と発注判断を行う。' },
+        { id: 'SCR-013', name: 'CSVインポート', href: 'csv_import.html', icon: 'upload', color: '#27ae60', group: '案件・調達', desc: 'CSV を検証しながら一括登録する。' },
+        { id: 'SCR-014', name: 'Altium連携', href: 'altium_link.html', icon: 'cpu', color: '#8e44ad', group: '管理・監査', desc: 'ライブラリパスとマッピングを管理する。' },
+        { id: 'SCR-015', name: 'エンジニア電卓', href: 'engineering_calc.html', icon: 'calculator', color: '#16a085', group: '設計判断', desc: '進数混在・履歴再計算対応の高機能電卓。' },
+        { id: 'SCR-016', name: '設計解析ツールハブ', href: 'design_tools.html', icon: 'flask-conical', color: '#d35400', group: '設計判断', desc: 'ADC、寿命、誤差、通信余裕、電源余裕などの設計解析ツール群。' },
+      ];
+
+      const byHref = Object.fromEntries(screens.map((screen) => [screen.href, screen]));
+      const focusModes = ['設計', '在庫', '管理'];
+      const sectionLinks = [
+        { href: '#launcher-section', label: '検索ランチャー' },
+        { href: '#today-section', label: '今日の確認事項' },
+        { href: '#recent-section', label: '最近使った機能' },
+        { href: '#quick-actions-section', label: '主要アクション' },
+        { href: '#task-menu-section', label: '業務別メニュー' },
+        { href: '#full-shortcuts-section', label: '全機能ショートカット' },
+      ];
+      const activeFocus = ref(localStorage.getItem('bitskeep-home-focus') || '設計');
+      const activeGroup = ref('すべて');
+      const commandQuery = ref('');
+      const recentHrefs = ref(JSON.parse(localStorage.getItem('bitskeep-home-recent') || '[]'));
+      const isReorderMode = ref(false);
+      const draggedQuickActionHref = ref(null);
+
+      const quickActionBase = {
+        設計: [
+          { title: '部品を探す', kicker: 'Primary', desc: '型番・値・入手性から候補を絞る。', href: 'components_list.html', icon: 'search', color: '#2980b9' },
+          { title: '候補を比較する', kicker: 'Decision', desc: '候補差分を比較して案件へ紐付ける。', href: 'component_compare.html', icon: 'git-compare', color: '#8e44ad' },
+          { title: '案件を確認する', kicker: 'Project', desc: '事業と案件単位で使用部品やコストを確認。', href: 'project_list.html', icon: 'folder', color: '#e67e22' },
+          { title: '解析ツールを開く', kicker: 'Analysis', desc: 'ADC、寿命、誤差、余裕解析をまとめて開く。', href: 'design_tools.html', icon: 'flask-conical', color: '#d35400' },
+          { title: 'ネットワーク探索', kicker: 'Addon', desc: '抵抗/容量/分圧の候補を探索する。', href: 'resistance_calc.html', icon: 'circuit-board', color: '#8e44ad' },
+        ],
+        在庫: [
+          { title: '在庫警告を見る', kicker: 'Alert', desc: '不足部品から先に確認して対処する。', href: 'stock_alert.html', icon: 'alert-triangle', color: '#e84c3d' },
+          { title: '部品を登録する', kicker: 'Input', desc: '新規部品・仕入先・案件情報を追加する。', href: 'component_create.html', icon: 'plus-circle', color: '#27ae60' },
+          { title: '部品一覧を開く', kicker: 'Search', desc: '対象部品を検索して入出庫対象を見つける。', href: 'components_list.html', icon: 'list', color: '#2980b9' },
+          { title: '保管棚を確認する', kicker: 'Location', desc: '棚マップから格納位置と空き状況を見る。', href: 'location_list.html', icon: 'archive', color: '#d35400' },
+          { title: '案件を確認する', kicker: 'Project', desc: '出庫先案件や利用状況を把握する。', href: 'project_list.html', icon: 'folder', color: '#e67e22' },
+        ],
+        管理: [
+          { title: 'マスタを更新する', kicker: 'Master', desc: '分類・パッケージ・スペック種別を整備する。', href: 'master_list.html', icon: 'settings', color: '#7f8c8d' },
+          { title: '商社情報を整える', kicker: 'Supplier', desc: '送料条件や取引URLを更新する。', href: 'supplier_list.html', icon: 'truck', color: '#16a085' },
+          { title: 'ユーザーを管理する', kicker: 'Users', desc: '権限と利用状態を管理する。', href: 'user_list.html', icon: 'users', color: '#c0392b' },
+          { title: '操作ログを追う', kicker: 'Audit', desc: '誰が何を変更したかを確認する。', href: 'audit_log.html', icon: 'clock', color: '#2c3e50' },
+          { title: 'CSV を流し込む', kicker: 'Data', desc: '外部データをまとめて投入する。', href: 'csv_import.html', icon: 'upload', color: '#27ae60' },
+        ],
+      };
+
+      const quickActionOrders = ref(JSON.parse(localStorage.getItem('bitskeep-home-quick-orders') || '{}'));
+
+      const getQuickActions = (mode) => {
+        const base = quickActionBase[mode] || [];
+        const order = quickActionOrders.value[mode];
+        if (!order || !order.length) return base;
+        const baseMap = Object.fromEntries(base.map((item) => [item.href, item]));
+        const ordered = order.map((href) => baseMap[href]).filter(Boolean);
+        const remaining = base.filter((item) => !order.includes(item.href));
+        return [...ordered, ...remaining];
+      };
+
+      const quickActions = computed(() => getQuickActions(activeFocus.value));
+
+      const statusCards = [
+        { title: '在庫警告', value: '12件', desc: '新品 8件 / 中古 4件。逼迫度順に確認。', href: 'stock_alert.html', icon: 'alert-triangle', color: '#e84c3d' },
+        { title: '案件同期', value: '2事業', desc: 'Notion の `01_案件管理` に更新あり。', href: 'project_list.html', icon: 'refresh-cw', color: '#e67e22' },
+        { title: '比較待ち候補', value: '3件', desc: '最近見た部品から比較を再開。', href: 'component_compare.html', icon: 'git-compare', color: '#8e44ad' },
+      ];
+
+      const menuGroups = [
         {
-          id: 'SCR-001', name: '部品一覧', href: 'components_list.html',
-          icon: 'list', color: '#2980b9', group: '部品管理', status: 'done',
-          desc: 'サイドバーフィルタ＋カードリスト。在庫・EOL・警告バッジ、サムネイル表示。',
+          title: '設計判断',
+          desc: '設計可否や候補比較を行う導線。',
+          icon: 'compass',
+          color: '#2980b9',
+          items: [
+            byHref['components_list.html'],
+            byHref['component_compare.html'],
+            byHref['design_tools.html'],
+            byHref['resistance_calc.html'],
+            byHref['engineering_calc.html'],
+          ],
         },
         {
-          id: 'SCR-002', name: '部品詳細', href: 'component_detail.html',
-          icon: 'info', color: '#2980b9', group: '部品管理', status: 'done',
-          desc: '3セクションアコーディオン。基本情報・仕入れ先価格表・カスタムスペック。',
+          title: '在庫運用',
+          desc: '入出庫や棚・不足部品の確認。',
+          icon: 'boxes',
+          color: '#d35400',
+          items: [
+            byHref['stock_alert.html'],
+            byHref['component_create.html'],
+            byHref['location_list.html'],
+            byHref['components_list.html'],
+          ],
         },
         {
-          id: 'SCR-003', name: '部品登録/編集', href: 'component_create.html',
-          icon: 'plus-circle', color: '#27ae60', group: '部品管理', status: 'done',
-          desc: 'スペック {種別,値,単位} の動的追加。仕入れ先・価格ブレイク管理。',
+          title: '案件・調達',
+          desc: '案件参照、商社管理、データ投入。',
+          icon: 'briefcase-business',
+          color: '#e67e22',
+          items: [
+            byHref['project_list.html'],
+            byHref['supplier_list.html'],
+            byHref['csv_import.html'],
+            byHref['altium_link.html'],
+          ],
         },
         {
-          id: 'SCR-004', name: '部品比較', href: 'component_compare.html',
-          icon: 'git-compare', color: '#8e44ad', group: '部品管理', status: 'done',
-          desc: 'グリッドテーブル比較（最大4部品）。差分ハイライト、プロジェクト紐づけドロワー。',
-        },
-        {
-          id: 'SCR-005', name: 'プロジェクト一覧', href: 'project_list.html',
-          icon: 'folder', color: '#e67e22', group: 'プロジェクト', status: 'done',
-          desc: '二ペインレイアウト。プロジェクトサイドバー＋部品テーブル。コスト積算・不足警告。',
-        },
-        {
-          id: 'SCR-006', name: '商社管理', href: 'supplier_list.html',
-          icon: 'truck', color: '#16a085', group: 'マスタ管理', status: 'done',
-          desc: '商社CRUD。識別カラー、URL、納期、送料無料条件を管理。',
-        },
-        {
-          id: 'SCR-007', name: '保管棚管理', href: 'location_list.html',
-          icon: 'archive', color: '#d35400', group: 'マスタ管理', status: 'done',
-          desc: '棚マップビジュアル（グループ別グリッド）＋テーブル二ペイン。格納部品表示。',
-        },
-        {
-          id: 'SCR-008', name: 'ユーザー管理', href: 'user_list.html',
-          icon: 'users', color: '#c0392b', group: '設定', status: 'done',
-          desc: 'ロール管理（admin/editor/viewer）。招待メール送信、有効化/無効化。',
-        },
-        {
-          id: 'SCR-009', name: 'マスタ管理', href: 'master_list.html',
-          icon: 'settings', color: '#7f8c8d', group: 'マスタ管理', status: 'done',
-          desc: 'タブ切り替え。分類・パッケージ・スペック種別（単位倍率管理を含む）。',
-        },
-        {
-          id: 'SCR-010', name: '操作ログ', href: 'audit_log.html',
-          icon: 'clock', color: '#2c3e50', group: '設定', status: 'done',
-          desc: 'アクション別フィルタ。diff/在庫変動の展開表示。ページネーション。',
-        },
-        {
-          id: 'SCR-011', name: '合成抵抗計算', href: 'resistance_calc.html',
-          icon: 'calculator', color: '#8e44ad', group: 'アドオン', status: 'done',
-          desc: '直列/並列計算、SVG回路図。E系列マッチング、目標値逆算、在庫ピッカー。',
-        },
-        {
-          id: 'SCR-012', name: '在庫警告一覧', href: 'stock_alert.html',
-          icon: 'alert-triangle', color: '#e84c3d', group: '在庫管理', status: 'done',
-          desc: '逼迫度ソート。新品/中古別警告バッジ（warning/eol二段階）。入庫モーダル。発注リスト生成・CSV出力。',
-        },
-        {
-          id: 'SCR-013', name: 'CSVインポート', href: 'csv_import.html',
-          icon: 'upload', color: '#27ae60', group: 'データ管理', status: 'done',
-          desc: 'ファイル選択→カラムマッピング→バリデーション&プレビュー→完了の4ステップ。重複ポリシー選択・テンプレートDL。',
-        },
-        {
-          id: 'SCR-014', name: 'Altium連携', href: 'altium_link.html',
-          icon: 'cpu', color: '#8e44ad', group: 'データ管理', status: 'done',
-          desc: 'SchLib/PcbLibパス登録・同期。部品番号マッピング管理（自動マッピング付き）。連携設定。',
+          title: '管理・監査',
+          desc: '設定や履歴確認などの低頻度管理機能。',
+          icon: 'shield-check',
+          color: '#2c3e50',
+          items: [
+            byHref['master_list.html'],
+            byHref['user_list.html'],
+            byHref['audit_log.html'],
+            byHref['ui_catalog.html'] || { name: '開発用画面一覧', desc: '画面カタログを確認する。', href: 'ui_catalog.html', icon: 'layout-grid', group: '開発' },
+          ],
         },
       ];
 
-      const groups = computed(() => ['すべて', ...new Set(screens.map(s => s.group))]);
-      const activeGroup = ref('すべて');
+      const featureSearchItems = screens.map((screen) => ({
+        type: '機能',
+        name: screen.name,
+        meta: `${screen.id} / ${screen.group}`,
+        href: screen.href,
+        icon: screen.icon,
+      }));
+
+      const recordSearchItems = [
+        { type: '部品', name: 'OPA197IDBVR', meta: 'オペアンプ / Active / 在庫 12', href: 'components_list.html', icon: 'microchip' },
+        { type: '部品', name: 'TPS5430DDAR', meta: 'DC-DC / 在庫警告対象', href: 'components_list.html', icon: 'microchip' },
+        { type: '案件', name: '010_綾電クリエイト / 温調基板 Rev.B', meta: 'Notion同期案件 / 使用部品 24', href: 'project_list.html', icon: 'folder-kanban' },
+        { type: '案件', name: '011_eleXlink / PoEボード試作', meta: 'Notion同期案件 / 追加見積あり', href: 'project_list.html', icon: 'folder-kanban' },
+        { type: '棚', name: 'A-03-2 電源IC棚', meta: '在庫偏在あり / 棚マップへ移動', href: 'location_list.html', icon: 'archive' },
+        { type: '棚', name: 'B-01-1 受動部品棚', meta: '抵抗・コンデンサ中心', href: 'location_list.html', icon: 'archive' },
+        { type: '機能', name: '開発用画面一覧', meta: 'UIモック確認用', href: 'ui_catalog.html', icon: 'layout-grid' },
+      ];
+
+      const searchItems = [...recordSearchItems, ...featureSearchItems];
+
+      const allGroups = computed(() => ['すべて', ...new Set(screens.map((screen) => screen.group))]);
       const filteredScreens = computed(() =>
-        activeGroup.value === 'すべて' ? screens : screens.filter(s => s.group === activeGroup.value)
+        activeGroup.value === 'すべて' ? screens : screens.filter((screen) => screen.group === activeGroup.value)
       );
+
+      const normalize = (text) => text.toLowerCase().replace(/\s+/g, '');
+
+      const recentItems = computed(() => {
+        const recent = recentHrefs.value
+          .map((href) => byHref[href] || (href === 'ui_catalog.html' ? { name: '開発用画面一覧', href, icon: 'layout-grid', group: '開発' } : null))
+          .filter(Boolean);
+        return recent.length ? recent.slice(0, 4) : [
+          byHref['components_list.html'],
+          byHref['project_list.html'],
+          byHref['stock_alert.html'],
+          { name: '開発用画面一覧', href: 'ui_catalog.html', icon: 'layout-grid', group: '開発' },
+        ];
+      });
+
+      const launcherResults = computed(() => {
+        const query = normalize(commandQuery.value || '');
+        if (!query) {
+          const recents = recentItems.value.map((item) => ({
+            type: '最近',
+            name: item.name,
+            meta: item.group || '最近使った機能',
+            href: item.href,
+            icon: item.icon || 'clock-3',
+          }));
+          return [...recents, ...searchItems].slice(0, 8);
+        }
+        return searchItems.filter((item) =>
+          normalize(`${item.type} ${item.name} ${item.meta}`).includes(query)
+        ).slice(0, 8);
+      });
+
+      const saveRecent = (href) => {
+        const next = [href, ...recentHrefs.value.filter((item) => item !== href)].slice(0, 6);
+        recentHrefs.value = next;
+        localStorage.setItem('bitskeep-home-recent', JSON.stringify(next));
+      };
+
+      const saveQuickActionOrders = () => {
+        localStorage.setItem('bitskeep-home-quick-orders', JSON.stringify(quickActionOrders.value));
+      };
+
+      const openItem = (item) => {
+        if (!item || !item.href) return;
+        saveRecent(item.href);
+        window.location.href = item.href;
+      };
+
+      const handleQuickActionClick = (action) => {
+        if (isReorderMode.value) return;
+        openItem(action);
+      };
+
+      const openFirstResult = () => {
+        if (launcherResults.value.length) openItem(launcherResults.value[0]);
+      };
+
+      const setFocus = (mode) => {
+        activeFocus.value = mode;
+        localStorage.setItem('bitskeep-home-focus', mode);
+        isReorderMode.value = false;
+      };
+
+      const startQuickActionDrag = (href) => {
+        if (!isReorderMode.value) return;
+        draggedQuickActionHref.value = href;
+      };
+
+      const allowQuickActionDrop = (event) => {
+        if (!isReorderMode.value) return;
+        event.preventDefault();
+      };
+
+      const dropQuickAction = (targetHref) => {
+        if (!isReorderMode.value || !draggedQuickActionHref.value || draggedQuickActionHref.value === targetHref) return;
+        const current = quickActions.value.map((item) => item.href);
+        const fromIndex = current.indexOf(draggedQuickActionHref.value);
+        const toIndex = current.indexOf(targetHref);
+        if (fromIndex === -1 || toIndex === -1) return;
+        const [moved] = current.splice(fromIndex, 1);
+        current.splice(toIndex, 0, moved);
+        quickActionOrders.value = { ...quickActionOrders.value, [activeFocus.value]: current };
+        saveQuickActionOrders();
+        draggedQuickActionHref.value = null;
+      };
+
+      const resetQuickActions = () => {
+        const next = { ...quickActionOrders.value };
+        delete next[activeFocus.value];
+        quickActionOrders.value = next;
+        saveQuickActionOrders();
+      };
 
       const toggleTheme = () => {
         const root = document.documentElement;
@@ -187,14 +621,41 @@
         document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
       };
 
+      const renderIcons = () => nextTick(() => lucide.createIcons());
+
       onMounted(() => {
         const saved = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', saved);
         document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
-        lucide.createIcons();
+        renderIcons();
       });
 
-      return { screens, groups, activeGroup, filteredScreens, toggleTheme };
+      watch([commandQuery, activeFocus, activeGroup, recentHrefs, isReorderMode], renderIcons, { deep: true });
+
+      return {
+        activeFocus,
+        activeGroup,
+        allowQuickActionDrop,
+        allGroups,
+        commandQuery,
+        filteredScreens,
+        focusModes,
+        handleQuickActionClick,
+        isReorderMode,
+        launcherResults,
+        menuGroups,
+        openFirstResult,
+        openItem,
+        quickActions,
+        recentItems,
+        resetQuickActions,
+        sectionLinks,
+        setFocus,
+        startQuickActionDrag,
+        statusCards,
+        dropQuickAction,
+        toggleTheme,
+      };
     }
   }).mount('#app');
 </script>

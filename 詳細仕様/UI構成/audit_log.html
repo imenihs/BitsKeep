@@ -53,7 +53,7 @@
         <option value="">すべて</option>
         <option value="component">部品</option>
         <option value="inventory">在庫</option>
-        <option value="project">プロジェクト</option>
+        <option value="project">案件</option>
         <option value="supplier">商社</option>
         <option value="master">マスタ</option>
       </select>
@@ -177,7 +177,7 @@
         stock_out: { label: '出庫', icon: 'package-minus', color: '#e67e22' },
       };
       const resourceMeta = {
-        component: '部品', inventory: '在庫', project: 'プロジェクト',
+        component: '部品', inventory: '在庫', project: '案件',
         supplier: '商社', master: 'マスタ',
       };
 
@@ -192,7 +192,7 @@
         { id: 3, action: 'create', resource: 'component', targetName: '2SC1815-GR', userName: '山田 太郎', createdAt: '2026-04-06 16:22', diff: null },
         { id: 4, action: 'delete', resource: 'supplier', targetName: 'テスト商社（削除済み）', userName: '山田 太郎', createdAt: '2026-04-06 14:10', diff: null },
         { id: 5, action: 'update', resource: 'project', targetName: 'センサーモジュール基板 v2', userName: '鈴木 花子', createdAt: '2026-04-06 11:55', diff: { status: { before: 'planning', after: 'in_progress' } } },
-        { id: 6, action: 'stock_out', resource: 'inventory', targetName: '積層セラミックコンデンサ 0.1μF', userName: '山田 太郎', createdAt: '2026-04-05 17:00', stockChange: { quantity: 5, location: '棚A-3', note: 'プロジェクト投入' } },
+        { id: 6, action: 'stock_out', resource: 'inventory', targetName: '積層セラミックコンデンサ 0.1μF', userName: '山田 太郎', createdAt: '2026-04-05 17:00', stockChange: { quantity: 5, location: '棚A-3', note: '案件投入（010_綾電クリエイト / AI基板2025）' } },
         { id: 7, action: 'create', resource: 'master', targetName: 'パッケージ: 0402', userName: '山田 太郎', createdAt: '2026-04-05 10:30', diff: null },
         { id: 8, action: 'update', resource: 'component', targetName: '積層セラミックコンデンサ 0.1μF', userName: '鈴木 花子', createdAt: '2026-04-04 15:20', diff: { procurement_status: { before: 'active', after: 'eol' } } },
         { id: 9, action: 'stock_in', resource: 'inventory', targetName: '金属皮膜抵抗 10kΩ', userName: '山田 太郎', createdAt: '2026-04-04 13:00', stockChange: { quantity: 100, location: '棚A-1', note: '' } },

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>起動・停止/依存関係診断</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="min-h-screen">
+  <header class="border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-[#c0392b] text-white flex items-center justify-center">
+          <i data-lucide="workflow" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Draft Tool</p>
+          <h1 class="text-2xl font-bold">起動・停止 / リセット / 依存関係診断</h1>
+          <p class="text-sm opacity-60">起動できるか、停止で壊さないか、逆給電しないかを順序と依存関係で切る設計判断モック</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="design_tools.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">
+          解析ツールへ
+        </a>
+        <a href="ui_catalog.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">
+          画面一覧へ
+        </a>
+        <button id="themeToggle" @click="toggleTheme" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-xl">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm"
+      style="background: linear-gradient(135deg, rgba(192,57,43,0.14) 0%, var(--color-bg) 55%, rgba(22,160,133,0.14) 100%);">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Symptom Entry</p>
+          <h2 class="text-3xl font-bold">症状から入って、危険な順序を切る</h2>
+          <p class="text-sm opacity-70 mt-2 leading-relaxed">
+            このツールは電源タイミングを1本計算するものではない。`起動しない` `再起動だけ落ちる`
+            `電源OFF中に逆給電する` `停止時にハングする` のような症状から入り、
+            安全な起動順、禁止順序、危険な時間窓、最小修正案を返す。
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-[#c0392b] text-white">要注意</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">依存ノード 12</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">バックパワー候補 2</span>
+        </div>
+      </div>
+      <div class="grid gap-3 mt-5 md:grid-cols-2 xl:grid-cols-4">
+        <button v-for="symptom in symptomCards" :key="symptom.name"
+          class="text-left rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)] hover:border-[#c0392b] transition-colors">
+          <div class="font-semibold text-sm">{{ symptom.name }}</div>
+          <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ symptom.desc }}</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50">Input Model</p>
+            <h2 class="text-2xl font-bold">入力のまとまり</h2>
+          </div>
+          <div class="text-sm opacity-60">症状起点でも、内部では依存グラフに正規化する</div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div v-for="group in inputGroups" :key="group.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4">
+            <div class="font-semibold text-sm">{{ group.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ group.desc }}</div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span v-for="chip in group.chips" :key="chip" class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ chip }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Judge</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">最上段に出す結果</h2>
+        <div class="space-y-3">
+          <div v-for="result in topResults" :key="result.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ result.title }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full text-white" :style="{ backgroundColor: result.color }">{{ result.badge }}</span>
+            </div>
+            <div class="text-xs opacity-70 mt-2 leading-relaxed">{{ result.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50">Timeline</p>
+            <h2 class="text-2xl font-bold">起動タイムライン</h2>
+          </div>
+          <div class="text-sm opacity-60">赤帯が `危険な時間窓`、右端が `解放/有効`</div>
+        </div>
+        <div class="space-y-3">
+          <div v-for="lane in timelineLanes" :key="lane.name" class="grid grid-cols-[180px_1fr] gap-3 items-center">
+            <div>
+              <div class="font-semibold text-sm">{{ lane.name }}</div>
+              <div class="text-xs opacity-50">{{ lane.note }}</div>
+            </div>
+            <div class="relative h-10 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
+              <div class="absolute inset-y-0 left-0 opacity-20" :style="{ width: lane.warnWidth, backgroundColor: '#c0392b' }"></div>
+              <div class="absolute inset-y-0 left-0" :style="{ width: lane.okWidth, backgroundColor: lane.color, opacity: 0.82 }"></div>
+              <div class="absolute inset-0 flex items-center px-3 text-xs font-semibold">{{ lane.caption }}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Dependency Graph</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">依存関係ノード</h2>
+        <div class="space-y-3">
+          <div v-for="edge in dependencyEdges" :key="edge.from + edge.to" class="rounded-2xl border border-[var(--color-border)] px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ edge.from }} → {{ edge.to }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full" :class="edge.levelClass">{{ edge.level }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ edge.reason }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Danger Windows</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">危険な時間窓と逆給電経路</h2>
+        <div class="space-y-3">
+          <div v-for="item in dangerWindows" :key="item.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 card-even">
+            <div class="font-semibold text-sm">{{ item.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.desc }}</div>
+            <div class="text-[11px] mt-3 px-2 py-1 inline-flex rounded-full border border-[var(--color-border)]">{{ item.tag }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Minimal Fixes</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">次に直すべきこと</h2>
+        <div class="space-y-3">
+          <div v-for="fix in fixes" :key="fix.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ fix.title }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ fix.cost }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ fix.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Rules</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">判定ルール</h2>
+        <div class="space-y-3">
+          <div v-for="rule in rules" :key="rule.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4">
+            <div class="font-semibold text-sm">{{ rule.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ rule.desc }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Internal Model</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">内部モデル</h2>
+        <div class="space-y-3">
+          <div v-for="model in internalModel" :key="model.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4">
+            <div class="font-semibold text-sm">{{ model.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ model.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script>
+  const { createApp, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const symptomCards = [
+        { name: '起動しない', desc: '冷間起動でだけ失敗する、電源順が怪しい、PG待ちが循環していそう。' },
+        { name: '再起動だけ失敗', desc: 'warm reset でだけ立ち上がらない。保持時間や reset 解放順を疑う。' },
+        { name: '電源OFF中に逆給電', desc: 'USBやUARTが生きていると main rail が半端に上がる。' },
+        { name: '停止時にハング', desc: '電源断の途中で I/O だけ残り、部分給電や latch-up が疑わしい。' },
+      ];
+
+      const inputGroups = [
+        { title: '電源レール', desc: '立上り/立下り時間、valid 範囲、PG 成立条件を持つ。', chips: ['vin', '3v3_main', '1v0_core', '2v5_io'] },
+        { title: '制御信号', desc: 'EN/RESET/PG/CLK_OK/BOOT_OK の源と遅延を持つ。', chips: ['pmic_en', 'pg_3v3', 'reset_mcu', 'pll_lock'] },
+        { title: 'ブロック依存', desc: 'MCU/FPGA/ADC/外部機器が何を待つかを定義する。', chips: ['MCU waits 3v3', 'FPGA waits pll_lock', 'ADC waits reset'] },
+        { title: 'バックパワー経路', desc: 'OFF ドメインへ流れ込む保護ダイオードや pull-up を評価する。', chips: ['usb_uart_rx', 'i2c_pullup', 'level_shifter'] },
+      ];
+
+      const topResults = [
+        { title: '総合判定', badge: '要注意', color: '#d35400', desc: 'cold start は成立するが、warm reset と main off + USB alive で逆給電リスクが残る。' },
+        { title: '次に直す1項目', badge: '最優先', color: '#c0392b', desc: '`reset_mcu_release` を `pg_3v3` 依存に変え、80ms 遅延を追加する。' },
+        { title: '最初に疑うべき信号', badge: '観測対象', color: '#2980b9', desc: '`pg_3v3`, `reset_mcu`, `usb_uart_rx`, `1v0_core` の 4 点を優先して測る。' },
+      ];
+
+      const timelineLanes = [
+        { name: 'vin', note: '入力レール', warnWidth: '0%', okWidth: '100%', color: '#34495e', caption: '0ms で印加 -> 常時 valid' },
+        { name: '3v3_main', note: 'main rail', warnWidth: '18%', okWidth: '78%', color: '#16a085', caption: '20ms で valid / 立下り時に USB 経由逆給電窓あり' },
+        { name: '1v0_core', note: 'FPGA core', warnWidth: '30%', okWidth: '60%', color: '#2980b9', caption: '40ms で valid / PG 待ち依存あり' },
+        { name: 'reset_mcu', note: 'release signal', warnWidth: '56%', okWidth: '28%', color: '#8e44ad', caption: '現状 55ms で解放 -> 80ms 以降へ移動推奨' },
+        { name: 'usb_uart_rx', note: 'external alive', warnWidth: '100%', okWidth: '0%', color: '#c0392b', caption: 'main off 中も High になるため backpower 候補' },
+      ];
+
+      const dependencyEdges = [
+        { from: 'pg_3v3', to: 'reset_mcu_release', level: '未成立', levelClass: 'bg-[#c0392b] text-white', reason: '現状は timer 解放のみで PG 依存が無い。warm reset で race が発生する。' },
+        { from: '3v3_main', to: '1v0_core_en', level: '成立', levelClass: 'border border-[var(--color-border)]', reason: 'main valid 後に PMIC が core rail を起動。依存関係は妥当。' },
+        { from: 'usb_uart_rx', to: '3v3_main', level: '逆給電', levelClass: 'bg-[#d35400] text-white', reason: 'main off 中に ESD diode 経由で 3v3_main へ流入する可能性がある。' },
+      ];
+
+      const dangerWindows = [
+        { title: 'warm reset 55ms〜80ms', desc: '3v3_main は再安定前だが reset_mcu が先に解放される。cold start では隠れ、warm reset でだけ失敗する。', tag: 'reset_release_too_early' },
+        { title: 'main off + USB alive', desc: 'USB UART 側が生きていると RX 経由で main rail に部分給電し、停止時に MCU が中途半端に残る。', tag: 'backpower_risk' },
+      ];
+
+      const fixes = [
+        { title: 'reset 解放を 80ms 遅らせる', cost: '低コスト', desc: '`reset_mcu_release` を `pg_3v3 high + 80ms` 条件へ変更する。warm reset 不安定を最小変更で潰せる。' },
+        { title: 'USB UART RX に series 抵抗を追加', cost: '低コスト', desc: '1k〜4.7k の series 抵抗で backpower を弱め、必要なら enable 付きバッファへ昇格する。' },
+        { title: '停止順序を文書化', cost: '運用', desc: '`main off 前に USB side を idle 化` を停止手順へ加え、初回立ち上げトリアージにも記載する。' },
+      ];
+
+      const rules = [
+        { title: '必要レールが valid 前に reset を解放しない', desc: 'Block は required rail と required signal が成立するまで released 状態へ進めない。' },
+        { title: 'OFF ドメインへ High が入る経路は危険', desc: '対象 rail が off のまま入力だけ有効な場合、backpower / partial power と判定する。' },
+        { title: '循環依存は起動デッドロック', desc: 'PG 待ちと EN 待ちがループを作る場合、起動不可として即 fail を返す。' },
+        { title: '条件不足は判定保留', desc: 'rise/fall time や external device state が欠けていれば、数値をでっち上げず不足項目を返す。' },
+      ];
+
+      const internalModel = [
+        { title: 'Rail ノード', desc: 'start_delay, rise/fall, valid range, PG 条件を持つ。状態は off/ramping/valid/falling を取る。' },
+        { title: 'Signal ノード', desc: 'EN/RESET/PG/CLK_OK/BOOT_OK を表し、源・対象・極性・伝播遅延を持つ。' },
+        { title: 'Block ノード', desc: 'MCU/FPGA/ADC/外部機器など。required rails, required signals, min hold time を持つ。' },
+        { title: 'BackpowerPath', desc: 'ESD diode, pull-up, level shifter など、OFF ドメインへ流れ込む逆給電経路を独立評価する。' },
+      ];
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        symptomCards,
+        inputGroups,
+        topResults,
+        timelineLanes,
+        dependencyEdges,
+        dangerWindows,
+        fixes,
+        rules,
+        internalModel,
+        toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>熱設計 / 熱抵抗チェーン可視化</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="min-h-screen">
+  <header class="border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-[#d35400] text-white flex items-center justify-center">
+          <i data-lucide="thermometer" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Draft Tool</p>
+          <h1 class="text-2xl font-bold">熱設計 / 熱抵抗チェーン可視化</h1>
+          <p class="text-sm opacity-60">抵抗、Reg、Tr の熱抵抗ごとの温度上昇を段積みで見せる詳細ドラフト</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="design_tools.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">解析ツールへ</a>
+        <a href="ui_catalog.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">画面一覧へ</a>
+        <button id="themeToggle" @click="toggleTheme" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-xl">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm"
+      style="background: linear-gradient(135deg, rgba(211,84,0,0.16) 0%, var(--color-bg) 55%, rgba(41,128,185,0.14) 100%);">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Thermal Stack</p>
+          <h2 class="text-3xl font-bold">`熱い` を、どこで熱くなっているかに分解する</h2>
+          <p class="text-sm opacity-70 mt-2 leading-relaxed">
+            `Tj` だけを返して終わらせない。`junction` `case/tab/body` `TIM` `sink/pattern` `ambient`
+            の各段で何℃上がっているかを積み上げ表示し、支配的な熱抵抗段と必要な改善量を返す。
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-[#d35400] text-white">要注意</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">Tj 109.6℃</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">支配段 J-C</span>
+        </div>
+      </div>
+      <div class="grid gap-3 mt-5 md:grid-cols-3">
+        <button v-for="device in deviceTabs" :key="device.name"
+          class="text-left rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)] hover:border-[#d35400] transition-colors">
+          <div class="font-semibold text-sm">{{ device.name }}</div>
+          <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ device.desc }}</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50">Input Model</p>
+            <h2 class="text-2xl font-bold">入力のまとまり</h2>
+          </div>
+          <div class="text-sm opacity-60">device type を切り替えると熱経路テンプレートも変わる</div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div v-for="group in inputGroups" :key="group.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4">
+            <div class="font-semibold text-sm">{{ group.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ group.desc }}</div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span v-for="chip in group.chips" :key="chip" class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ chip }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Judge</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">最上段に出す結果</h2>
+        <div class="space-y-3">
+          <div v-for="result in topResults" :key="result.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ result.title }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full text-white" :style="{ backgroundColor: result.color }">{{ result.badge }}</span>
+            </div>
+            <div class="text-xs opacity-70 mt-2 leading-relaxed">{{ result.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50">Stack Graph</p>
+            <h2 class="text-2xl font-bold">熱抵抗段積みグラフ</h2>
+          </div>
+          <div class="text-sm opacity-60">各段の `ΔT = P × Rth` を積み上げて表示する</div>
+        </div>
+        <div class="space-y-3">
+          <div v-for="segment in thermalSegments" :key="segment.name" class="grid grid-cols-[190px_1fr] gap-3 items-center">
+            <div>
+              <div class="font-semibold text-sm">{{ segment.name }}</div>
+              <div class="text-xs opacity-50">{{ segment.note }}</div>
+            </div>
+            <div class="relative h-12 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
+              <div class="absolute inset-y-0 left-0" :style="{ width: segment.width, backgroundColor: segment.color, opacity: 0.84 }"></div>
+              <div class="absolute inset-0 flex items-center justify-between px-3 text-xs font-semibold">
+                <span>{{ segment.delta }}</span>
+                <span>{{ segment.temp }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Node Temps</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">節点温度</h2>
+        <div class="space-y-3">
+          <div v-for="node in nodeTemps" :key="node.name" class="rounded-2xl border border-[var(--color-border)] px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ node.name }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ node.temp }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ node.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Fixes</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">次に削るべき熱抵抗段</h2>
+        <div class="space-y-3">
+          <div v-for="fix in fixes" :key="fix.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 card-even">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ fix.title }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ fix.badge }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ fix.desc }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Compare</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">候補比較</h2>
+        <div class="space-y-3">
+          <div v-for="candidate in comparisons" :key="candidate.name" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)]">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ candidate.name }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full" :class="candidate.className">{{ candidate.status }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ candidate.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script>
+  const { createApp, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const deviceTabs = [
+        { name: '抵抗', desc: 'body -> terminal -> pad -> ambient の熱経路を使う。' },
+        { name: 'Reg', desc: 'junction -> case/tab -> TIM -> sink/board -> ambient を使う。' },
+        { name: 'Tr', desc: 'junction -> case -> sink -> ambient の放熱を比較する。' },
+      ];
+
+      const inputGroups = [
+        { title: 'デバイス条件', desc: 'device type, package, 定格温度を持つ。', chips: ['TO-220', 'SOT-223', '2512', 'DPAK'] },
+        { title: '発熱条件', desc: '平均損失、パルス/デューティ、周囲温度を入れる。', chips: ['2.0W', 'steady', '55℃', 'duty 40%'] },
+        { title: '熱抵抗チェーン', desc: '各段の Rth を並べ、足りない段はテンプレートから補う。', chips: ['J-C', 'C-TIM', 'TIM-Sink', 'Sink-Amb'] },
+        { title: '実装条件', desc: '銅面積、基板層数、ヒートシンク、絶縁材を反映する。', chips: ['2-layer', '500mm² Cu', 'mica', 'no sink'] },
+      ];
+
+      const topResults = [
+        { title: '総合判定', badge: '要注意', color: '#d35400', desc: 'TO-220 Reg で 2W 損失、55℃ ambient 条件では Tj が 109.6℃。定格までは残るが余裕が薄い。' },
+        { title: '支配段', badge: 'J-C', color: '#c0392b', desc: '`junction-case` が 31.2℃ を占めており、最も支配的。次点は `case-sink`。' },
+        { title: '次に削るべき量', badge: '8.0℃/W', color: '#2980b9', desc: '`case-sink` と `sink-ambient` を合計で 8.0℃/W 下げると、Tj を 95℃ 未満へ落とせる。' },
+      ];
+
+      const thermalSegments = [
+        { name: 'sink -> ambient', note: 'ヒートシンク/自然空冷', width: '24%', color: '#16a085', delta: 'ΔT 11.2℃', temp: '66.2℃' },
+        { name: 'case -> sink', note: '絶縁材/TIM', width: '26%', color: '#2980b9', delta: 'ΔT 12.2℃', temp: '78.4℃' },
+        { name: 'junction -> case', note: 'パッケージ内部', width: '50%', color: '#d35400', delta: 'ΔT 31.2℃', temp: '109.6℃' },
+      ];
+
+      const nodeTemps = [
+        { name: 'ambient', temp: '55.0℃', desc: '入力した周囲温度。' },
+        { name: 'sink', temp: '66.2℃', desc: 'sink-ambient の段で 11.2℃ 上昇。ヒートシンク無しならここが一気に増える。' },
+        { name: 'case', temp: '78.4℃', desc: 'TIM/絶縁材の熱抵抗がここへ効く。絶縁シートの選び方で大きく変わる。' },
+        { name: 'junction', temp: '109.6℃', desc: '最終判定点。定格とのマージンをここで見る。' },
+      ];
+
+      const fixes = [
+        { title: 'TIM を見直す', badge: '即効性', desc: '`case-sink` を 6.1 -> 3.5℃/W に落とせれば 5.2℃ 改善できる。グリス/絶縁材/締結を見直す。' },
+        { title: 'ヒートシンクを追加', badge: '中コスト', desc: '`sink-ambient` を 5.6 -> 2.0℃/W に落とすと 7.2℃ 改善できる。自然空冷の限界を超える時に有効。' },
+        { title: '部品候補を変える', badge: '構造変更', desc: '`junction-case` が支配的なら、パッケージ変更や放熱板一体型の部品へ切り替える。' },
+      ];
+
+      const comparisons = [
+        { name: 'TO-220 + mica + no sink', status: '要注意', className: 'border border-[var(--color-border)]', desc: 'Tj 109.6℃。成立はするが高温周囲では余裕が薄い。' },
+        { name: 'TO-220 + grease + small sink', status: '成立', className: 'bg-[var(--color-tag-ok)] text-white', desc: 'Tj 91.4℃。改善量とコストのバランスが良い。' },
+        { name: 'SOT-223 on 2layer board', status: '不成立', className: 'bg-[#c0392b] text-white', desc: '同じ 2W 条件では pad-ambient が支えきれず、Tj が定格超過する。' },
+      ];
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return {
+        deviceTabs,
+        inputGroups,
+        topResults,
+        thermalSegments,
+        nodeTemps,
+        fixes,
+        comparisons,
+        toggleTheme,
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

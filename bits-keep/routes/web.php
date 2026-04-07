@@ -14,9 +14,22 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/components/{id}',    fn($id) => view('app.component-detail', compact('id')))->name('components.show');
     Route::get('/components/{id}/edit', fn($id) => view('app.component-create', compact('id')))->name('components.edit');
 
-    // 比較・在庫警告
+    // マスタ管理
+    Route::get('/master', fn() => view('app.master-list'))->name('master.index');
+
+    // 在庫・棚・商社
+    Route::get('/locations',   fn() => view('app.location-list'))->name('locations.index');
+    Route::get('/stock-alert', fn() => view('app.stock-alert'))->name('stock.alert');
+    Route::get('/suppliers',   fn() => view('app.supplier-list'))->name('suppliers.index');
+
+    // 比較
     Route::get('/component-compare', fn() => view('app.component-compare'))->name('components.compare');
-    Route::get('/stock-alert',        fn() => view('app.stock-alert'))->name('stock.alert');
+
+    // 管理機能（admin）
+    Route::get('/users',       fn() => view('app.user-list'))->name('users.index');
+    Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
+    Route::get('/csv-import',  fn() => view('app.csv-import'))->name('csv.import');
+    Route::get('/altium',      fn() => view('app.altium-link'))->name('altium.index');
 });
 
 Route::middleware('auth')->group(function () {

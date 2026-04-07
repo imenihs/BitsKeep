@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>設計解析ツールハブ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="theme.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+
+<body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+<div id="app" class="min-h-screen">
+  <header class="border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center">
+          <i data-lucide="flask-conical" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">SCR-016</p>
+          <h1 class="text-2xl font-bold">設計解析ツールハブ</h1>
+          <p class="text-sm opacity-60">公式を解くだけでなく、余裕・ばらつき・寿命・成立性まで確認するツール群</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="index.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">
+          ホームへ
+        </a>
+        <a href="ui_catalog.html" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] transition-colors">
+          画面一覧へ
+        </a>
+        <button id="themeToggle" @click="toggleTheme"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-xl">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm"
+      style="background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, var(--color-bg)) 0%, var(--color-bg) 60%, color-mix(in srgb, var(--color-accent) 12%, var(--color-bg)) 100%);">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Direction</p>
+          <h2 class="text-3xl font-bold">採用基準は「回路の本質を確認できるか」</h2>
+          <p class="text-sm opacity-70 mt-2 leading-relaxed">
+            単純な公式電卓はここでは増やさない。BitsKeep では、ADCコード化、寿命推定、ばらつき、通信余裕、
+            電源成立性のような、設計根拠を短時間で確認できる解析を優先する。
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-[var(--color-primary)] text-white">採用 10本</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">初期優先 5本</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">詳細ドラフト 2本</span>
+          <span class="px-3 py-1.5 rounded-full text-sm font-semibold border border-[var(--color-border)]">見送り記録 5本</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Detailed Draft</p>
+          <h2 class="text-2xl font-bold mt-1">先行具体化した候補</h2>
+          <p class="text-sm opacity-60 mt-2">正式採用前に、`どう使うか` `どう実装するか` まで落としたドラフト。起動系と熱設計系の2本を先行で詰める。</p>
+        </div>
+      </div>
+      <div class="grid gap-4 mt-5 lg:grid-cols-2">
+        <a v-for="draft in draftCards" :key="draft.title" :href="draft.href"
+          class="rounded-2xl border border-[var(--color-border)] px-5 py-5 no-underline text-[var(--color-text)] card-even hover:border-[var(--color-primary)] transition-colors">
+          <div class="flex items-center justify-between gap-3">
+            <div class="font-semibold text-base">{{ draft.title }}</div>
+            <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ draft.badge }}</span>
+          </div>
+          <div class="text-xs opacity-60 mt-2 leading-relaxed">{{ draft.desc }}</div>
+          <div class="grid gap-2 mt-4">
+            <div v-for="point in draft.points" :key="point" class="text-xs opacity-75">{{ point }}</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Next Draft</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">次に掘る有力候補</h2>
+        <div class="space-y-3">
+          <div v-for="item in nextDraftCandidates" :key="item.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 card-even">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ item.title }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">{{ item.badge }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.desc }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Reference Aid</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">非計算だが欲しい参照系</h2>
+        <div class="space-y-3">
+          <div v-for="item in referenceAidCandidates" :key="item.title" class="rounded-2xl border border-[var(--color-border)] px-4 py-4 bg-[var(--color-bg)]">
+            <div class="font-semibold text-sm">{{ item.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Small Friction</p>
+          <h2 class="text-2xl font-bold mt-1">高頻度・小修正系の別軸</h2>
+          <p class="text-sm opacity-60 mt-2">起動不能のような大問題とは別に、`毎回ちょっと迷う` `毎回ネットで確認する` `毎回向きを見間違う` を潰すツール群も洗い出す。</p>
+        </div>
+        <div class="text-sm opacity-60">5秒で使えることを最優先にする</div>
+      </div>
+      <div class="grid gap-4 mt-5 md:grid-cols-2 xl:grid-cols-4">
+        <div v-for="item in smallFrictionCandidates" :key="item.title"
+          class="rounded-2xl border border-[var(--color-border)] px-4 py-4 card-even">
+          <div class="font-semibold text-sm">{{ item.title }}</div>
+          <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.desc }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Priority</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">初期実装優先帯</h2>
+        <div class="space-y-3">
+          <div v-for="item in priorityTracks" :key="item.name"
+            class="rounded-2xl border border-[var(--color-border)] px-4 py-3 flex items-start justify-between gap-4">
+            <div>
+              <div class="font-semibold text-sm">{{ item.name }}</div>
+              <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.reason }}</div>
+            </div>
+            <span class="text-[11px] px-2 py-1 rounded-full bg-[var(--color-primary)] text-white whitespace-nowrap">先行実装</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Quality Gate</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">価値が出る最低条件</h2>
+        <div class="space-y-3">
+          <div v-for="rule in qualityRules" :key="rule.title"
+            class="rounded-2xl border border-[var(--color-border)] px-4 py-3">
+            <div class="font-semibold text-sm">{{ rule.title }}</div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ rule.desc }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section>
+      <div class="flex items-end justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Adopted</p>
+          <h2 class="text-2xl font-bold">採用済みツール群</h2>
+        </div>
+        <div class="text-sm opacity-60">案件保存・在庫候補・部品候補への接続を前提とする</div>
+      </div>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <section v-for="group in adoptedGroups" :key="group.title"
+          class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-bg)] shadow-sm">
+          <div class="flex items-start gap-3">
+            <div class="w-11 h-11 rounded-2xl text-white flex items-center justify-center flex-shrink-0"
+              :style="{ backgroundColor: group.color }">
+              <i :data-lucide="group.icon" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-lg">{{ group.title }}</h3>
+              <p class="text-sm opacity-60 mt-1">{{ group.desc }}</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2">
+            <div v-for="tool in group.tools" :key="tool.name"
+              class="rounded-2xl border border-[var(--color-border)] px-4 py-3 card-even">
+              <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold text-sm">{{ tool.name }}</div>
+                <span class="text-[11px] px-2 py-1 rounded-full bg-[var(--color-tag-ok)] text-white">採用</span>
+              </div>
+              <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ tool.desc }}</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm bg-[var(--color-bg)]">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Migration Source</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">便利ツール由来の移植元</h2>
+        <div class="space-y-3">
+          <div v-for="item in sourceSheets" :key="item.file"
+            class="rounded-2xl border border-[var(--color-border)] px-4 py-3 flex items-start justify-between gap-4">
+            <div>
+              <div class="font-semibold text-sm">{{ item.file }}</div>
+              <div class="text-xs opacity-60 mt-1">{{ item.note }}</div>
+            </div>
+            <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)] whitespace-nowrap">{{ item.target }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm card-odd">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Deferred</p>
+        <h2 class="text-2xl font-bold mt-1 mb-4">記録のみの見送り候補</h2>
+        <div class="space-y-3">
+          <div v-for="item in deferredTools" :key="item.name"
+            class="rounded-2xl border border-dashed border-[var(--color-border)] px-4 py-3 opacity-80">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-sm">{{ item.name }}</div>
+              <span class="text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]">記録のみ</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1 leading-relaxed">{{ item.reason }}</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script>
+  const { createApp, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      const adoptedGroups = [
+        {
+          title: '信号変換/計測',
+          desc: 'ADC へ入る前後の値とコード化を短時間で詰める。',
+          icon: 'waves',
+          color: '#2980b9',
+          tools: [
+            { name: 'ADCコード/スケーリング設計', desc: 'ADC値、1LSB、固定小数点係数、C/C++式を同時に出す。' },
+            { name: 'センサ分圧/温度変換解析', desc: 'サーミスタの抵抗値、分圧、ADCコード、温度誤差をまとめて確認。' },
+            { name: '電流検出解析', desc: 'シャント損失、分解能、自己発熱、誤差を一括確認。' },
+          ],
+        },
+        {
+          title: '余裕/ばらつき',
+          desc: '成立条件、歩留まり、インタフェース余裕を掴む。',
+          icon: 'activity',
+          color: '#8e44ad',
+          tools: [
+            { name: '誤差/歩留まり解析', desc: '最悪値、3σ、外れ値率、E系列/在庫候補まで繋げる。' },
+            { name: '比較器しきい値/ヒステリシス解析', desc: 'Vth+/Vth- とヒステリシス幅をばらつき込みで確認。' },
+            { name: 'インタフェース余裕解析', desc: 'UART/I2C/ロジックレベルの成立余裕を横断で評価。' },
+          ],
+        },
+        {
+          title: '寿命/参照/可視化',
+          desc: '部品寿命、電源成立性、ファミリ参照、応答可視化を扱う。',
+          icon: 'shield-check',
+          color: '#16a085',
+          tools: [
+            { name: '電解コンデンサ寿命推定', desc: '温度・自己発熱から期待寿命と年換算を表示。' },
+            { name: '電源余裕解析', desc: '保護素子、dropout、負荷変動込みで各レールの余裕を確認。' },
+            { name: 'ロジックICリファレンス', desc: '74xx/40xx/45xx を機能別・型番別に検索する。' },
+            { name: '周波数応答/ボード線図解析', desc: '単純 fc ではなく、ボード線図と許容差込み応答を表示。' },
+          ],
+        },
+      ];
+
+      const priorityTracks = [
+        { name: '誤差/歩留まり解析', reason: '最悪値、3σ、歩留まり、感度まで見えないと実務判断が止まるため。' },
+        { name: '電源余裕解析', reason: '保護素子、dropout、負荷変動、温度で成立が簡単に崩れるため。' },
+        { name: 'ADCコード/スケーリング設計', reason: '生値、LSB、固定小数点係数、コード式が一度に必要になるため。' },
+        { name: 'インタフェース余裕解析', reason: 'UART/I2C/ロジックレベルは成立余裕を外すと不具合調査コストが大きいため。' },
+        { name: '電流検出解析', reason: '分解能、損失、自己発熱、オフセット誤差の兼ね合いが面倒なため。' },
+      ];
+
+      const draftCards = [
+        {
+          title: '起動・停止 / リセット / 依存関係診断',
+          badge: '依存グラフ',
+          href: 'startup_sequence_diag.html',
+          desc: '電源、EN/RESET、PG、クロック、バックパワー経路をまとめ、起動順と禁止順を切る。',
+          points: ['症状から入る', '危険な時間窓を返す', '最小修正案まで出す'],
+        },
+        {
+          title: '熱設計 / 熱抵抗チェーン可視化',
+          badge: '段積みグラフ',
+          href: 'thermal_chain_diag.html',
+          desc: '抵抗、Reg、Tr を対象に、熱抵抗ごとの温度上昇を段積みで見せる。',
+          points: ['junction->ambient を分解', '支配段を可視化', '必要な放熱改善量を返す'],
+        },
+      ];
+
+      const nextDraftCandidates = [
+        { title: '入力保護 / 注入電流 / 保護協調診断', badge: '次点最有力', desc: 'ヒューズ、TVS、ポリスイッチ、eFuse、逆接保護をまとめ、どの保護素子が先に動くかとどこが犠牲になるかを返す。' },
+        { title: '部分給電 / バックパワー診断', badge: '派生候補', desc: '電源OFF中の逆給電や部分給電を切り出して深掘りする。通信ポートが生きている時の実機不具合に効く。' },
+        { title: '熱設計 / 熱抵抗チェーン可視化', badge: '詳細ドラフト化', desc: '抵抗、Reg、Tr の熱経路を段積み表示し、どの熱抵抗段が支配的かを返す。' },
+      ];
+
+      const referenceAidCandidates = [
+        { title: '通信系コネクタピン配 / 視点補助リファレンス', desc: 'オス/メス、mating face/solder side、前面/背面の取り違えを減らす。毎回ネット検索して混乱するコストを削る。' },
+        { title: '誤接続例つき表示', desc: 'ストレート/クロス、front view/rear view を並べ、ありがちなミスを赤で示すと設計ミス防止に効く。' },
+      ];
+
+      const smallFrictionCandidates = [
+        { title: 'コネクタ視点補助', desc: 'male/female、front/rear、mating face/solder side を5秒で切り替えて確認する。' },
+        { title: '制約付き抵抗合わせ', desc: 'E系列、在庫、許容差、段数制約込みで候補を即表示する。' },
+        { title: 'DIP/ジャンパ逆引き', desc: '終端、アドレス、起動モードの設定表を逆引きし、禁止組み合わせも出す。' },
+        { title: 'ピン1/極性/向き照合', desc: 'IC、ダイオード、LED、電解コンの向きや pin1 を視点込みで確認する。' },
+      ];
+
+      const qualityRules = [
+        { title: '単発の答えで終わらない', desc: '少なくとも最悪/標準/最良、温度・ばらつき、pass/fail と margin のどれを返すかを明示する。' },
+        { title: '支配要因が見える', desc: 'どの誤差源や条件が効いているかを表示し、設計者が次に何を変えるべきか判断できるようにする。' },
+        { title: '実装や部品選定に繋がる', desc: '固定小数点係数、C/C++式、候補部品、在庫候補など、次の作業へ持ち出せる結果を返す。' },
+        { title: '条件不足は判定不能と出す', desc: 'データシート条件や負荷条件が足りない場合は無理に数値を確定せず、必要な入力を示す。' },
+      ];
+
+      const sourceSheets = [
+        { file: '設計シート.xlsm', target: 'ADC / E系列 / 調整系', note: 'R調整、VR基準電圧、E系列部品選定などを移植元として利用。' },
+        { file: '抵抗比率.xlsm', target: '誤差/比率系', note: '比率近似と誤差確認の基礎データとして利用。' },
+        { file: 'サーミスタ設計.xlsx', target: '温度変換系', note: '温度-抵抗-分圧の変換仕様を移植。' },
+        { file: 'ヒスコン設計.xlsx', target: 'しきい値系', note: '比較器しきい値とヒステリシス幅の解析元。' },
+        { file: 'ロジックIC一覧.xlsx', target: '参照DB', note: '74xx / 40xx / 45xx の機能別・型番順検索データの元。' },
+      ];
+
+      const deferredTools = [
+        { name: '単純OPアンプ増幅率計算', reason: '増幅率だけでは判断材料が不足する。誤差/歩留まり解析のテンプレートへ吸収する。' },
+        { name: '単純CRカットオフ周波数計算', reason: 'fc 単体では弱い。ボード線図と許容差込み応答を出す場合のみ採用。' },
+        { name: '単純LED直列抵抗計算', reason: '1回計算の価値が低い。熱・電流ばらつき・発光余裕まで扱うなら再検討。' },
+        { name: '単純LDO出力電圧算出', reason: '式だけでは意味が薄い。電源余裕解析へ統合する。' },
+        { name: 'コルピッツ発振周波数計算', reason: 'BitsKeep の日常業務頻度が低く、優先度が落ちる。' },
+      ];
+
+      const toggleTheme = () => {
+        const root = document.documentElement;
+        const isLight = root.getAttribute('data-theme') === 'light';
+        root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        document.getElementById('themeToggle').textContent = isLight ? '☀️' : '🌙';
+      };
+
+      onMounted(() => {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+        lucide.createIcons();
+      });
+
+      return { adoptedGroups, deferredTools, draftCards, nextDraftCandidates, priorityTracks, qualityRules, referenceAidCandidates, smallFrictionCandidates, sourceSheets, toggleTheme };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>

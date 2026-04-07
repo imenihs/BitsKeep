@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>プロジェクト管理</title>
+  <title>案件管理</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="theme.css" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,32 +18,43 @@
   <nav class="breadcrumb">
     <a href="index.html">🏠 BitsKeep</a>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    <span>プロジェクト</span>
+    <span>案件</span>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    <span class="current">プロジェクト一覧</span>
+    <span class="current">案件一覧</span>
   </nav>
   <!-- ヘッダ -->
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-bold">プロジェクト管理</h1>
+    <div>
+      <h1 class="text-2xl font-bold">案件管理</h1>
+      <p class="text-sm opacity-60 mt-1">010_〜099_ 事業配下の Notion案件を自動発見し、独自案件と統合表示</p>
     </div>
     <div class="flex gap-3 items-center">
+      <button @click="syncNotionProjects"
+        class="px-4 py-2 rounded border border-[var(--color-border)] flex items-center gap-2 text-sm">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>Notion同期
+      </button>
       <button @click="openCreateModal"
         class="btn btn-primary px-4 py-2 rounded flex items-center gap-2">
-        <i data-lucide="plus" class="w-4 h-4"></i>新規プロジェクト
+        <i data-lucide="plus" class="w-4 h-4"></i>独自案件を追加
       </button>
       <button id="themeToggle" @click="toggleTheme"
         class="px-3 py-2 rounded border border-[var(--color-border)] text-xl">🌙</button>
     </div>
   </header>
 
-  <!-- ===== プロジェクト一覧 + 詳細 の2ペインレイアウト ===== -->
+  <!-- ===== 案件一覧 + 詳細 の2ペインレイアウト ===== -->
   <div class="flex gap-6" style="min-height: 70vh;">
 
-    <!-- 左: プロジェクト一覧 -->
+    <!-- 左: 案件一覧 -->
     <div class="w-72 flex-shrink-0">
-      <input type="text" v-model="search" placeholder="プロジェクトを検索..."
+      <input type="text" v-model="search" placeholder="事業名・案件名・案件番号で検索..."
         class="input-text mb-3" />
+      <select v-model="selectedBusiness" class="input-text mb-3 text-sm">
+        <option value="all">全事業</option>
+        <option v-for="business in businessChoices" :key="business.code" :value="business.code">
+          {{ business.code }}_{{ business.name }}
+        </option>
+      </select>
       <div class="space-y-2">
         <div v-for="(proj, idx) in filteredProjects" :key="proj.id"
           class="card p-3 cursor-pointer"
@@ -53,59 +64,77 @@
           ]"
           @click="selectProject(proj)">
           <div class="flex justify-between items-start">
-            <div class="list list-title text-sm">{{ proj.name }}</div>
+            <div class="pr-2">
+              <div class="list list-title text-sm">{{ proj.name }}</div>
+              <div class="flex items-center gap-2 mt-1 flex-wrap">
+                <span class="tag text-[11px]" :class="businessTagClass(proj)">{{ proj.businessCode }}_{{ proj.businessName }}</span>
+                <span class="tag text-[11px]" :class="originTagClass(proj)">{{ proj.originLabel }}</span>
+                <span v-if="proj.externalCode" class="text-[11px] opacity-60">{{ proj.externalCode }}</span>
+              </div>
+            </div>
             <div class="flex gap-1">
-              <button @click.stop="openEditModal(proj)"
+              <button v-if="proj.isEditable" @click.stop="openEditModal(proj)"
                 class="text-[var(--color-text)] opacity-40 hover:opacity-100 p-1">
                 <i data-lucide="pencil" class="w-3 h-3"></i>
               </button>
-              <button @click.stop="confirmDelete(proj)"
+              <button v-if="proj.isEditable" @click.stop="confirmDelete(proj)"
                 class="text-[var(--color-text)] opacity-40 hover:opacity-100 p-1">
                 <i data-lucide="trash-2" class="w-3 h-3"></i>
               </button>
             </div>
           </div>
-          <div class="text-xs opacity-60 mt-1">{{ proj.description }}</div>
+          <div class="text-xs opacity-60 mt-1">{{ proj.description || 'Notion案件（参照専用）' }}</div>
           <div class="flex gap-3 mt-2 text-xs opacity-70">
             <span class="flex items-center gap-1">
               <i data-lucide="cpu" class="w-3 h-3"></i>{{ proj.partCount }}部品
             </span>
             <span class="flex items-center gap-1">
-              <i data-lucide="calendar" class="w-3 h-3"></i>{{ proj.updatedAt }}
+              <i data-lucide="calendar" class="w-3 h-3"></i>{{ proj.isEditable ? proj.updatedAt : `同期 ${proj.syncAt}` }}
             </span>
           </div>
         </div>
         <div v-if="filteredProjects.length === 0"
           class="text-center py-8 opacity-40 text-sm">
-          プロジェクトが見つかりません
+          案件が見つかりません
         </div>
       </div>
     </div>
 
-    <!-- 右: プロジェクト詳細（部品リスト） -->
+    <!-- 右: 案件詳細（部品リスト） -->
     <div class="flex-1">
       <!-- 未選択時 -->
       <div v-if="!selectedProject"
         class="flex items-center justify-center h-full opacity-30">
         <div class="text-center">
           <i data-lucide="folder-open" class="w-16 h-16 mx-auto mb-3"></i>
-          <p>プロジェクトを選択してください</p>
+          <p>案件を選択してください</p>
         </div>
       </div>
 
       <!-- 選択時: 詳細 -->
       <div v-else>
-        <!-- プロジェクトヘッダ -->
+        <!-- 案件ヘッダ -->
         <div class="bg-[var(--color-card-even)] rounded-lg p-4 mb-4">
           <div class="flex justify-between items-start">
             <div>
-              <h2 class="text-xl font-bold">{{ selectedProject.name }}</h2>
-              <p class="text-sm opacity-70 mt-1">{{ selectedProject.description }}</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-xl font-bold">{{ selectedProject.name }}</h2>
+                <span class="tag text-xs" :class="businessTagClass(selectedProject)">{{ selectedProject.businessCode }}_{{ selectedProject.businessName }}</span>
+                <span class="tag text-xs" :class="originTagClass(selectedProject)">{{ selectedProject.originLabel }}</span>
+                <span v-if="selectedProject.externalCode" class="text-xs opacity-60">案件番号: {{ selectedProject.externalCode }}</span>
+              </div>
+              <p class="text-sm opacity-70 mt-1">{{ selectedProject.description || 'Notion案件。名称変更や削除はNotion側で管理します。' }}</p>
+              <div class="mt-2 flex gap-4 flex-wrap text-xs opacity-70">
+                <span>最終更新: {{ selectedProject.updatedAt }}</span>
+                <span v-if="selectedProject.syncAt">最終同期: {{ selectedProject.syncAt }}</span>
+                <a v-if="selectedProject.externalUrl" :href="selectedProject.externalUrl" target="_blank" class="link-text">Notionで開く</a>
+              </div>
             </div>
-            <button @click="openEditModal(selectedProject)"
+            <button v-if="selectedProject.isEditable" @click="openEditModal(selectedProject)"
               class="btn btn-primary text-sm px-3 py-1 rounded flex items-center gap-1">
               <i data-lucide="edit" class="w-3 h-3"></i>編集
             </button>
+            <span v-else class="text-xs opacity-60 border border-[var(--color-border)] rounded px-2 py-1">参照専用</span>
           </div>
           <!-- 合計金額計算 -->
           <div class="mt-3 flex items-center gap-3 flex-wrap">
@@ -184,23 +213,32 @@
     </div>
   </div>
 
-  <!-- ===== プロジェクト作成/編集モーダル ===== -->
+  <!-- ===== 独自案件作成/編集モーダル ===== -->
   <template v-if="modal.open">
     <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
       @click.self="modal.open = false">
       <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
         <h2 class="font-bold text-lg mb-4">
-          {{ modal.isEdit ? 'プロジェクト編集' : '新規プロジェクト作成' }}
+          {{ modal.isEdit ? '独自案件編集' : '独自案件作成' }}
         </h2>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-semibold mb-1">プロジェクト名 <span class="text-red-500">*</span></label>
-            <input type="text" v-model="modal.name" class="input-text" placeholder="プロジェクト名を入力">
+            <label class="block text-sm font-semibold mb-1">所属事業 <span class="text-red-500">*</span></label>
+            <select v-model="modal.businessCode" class="input-text">
+              <option value="">事業を選択</option>
+              <option v-for="business in businessChoices" :key="business.code" :value="business.code">
+                {{ business.code }}_{{ business.name }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">案件名 <span class="text-red-500">*</span></label>
+            <input type="text" v-model="modal.name" class="input-text" placeholder="案件名を入力">
           </div>
           <div>
             <label class="block text-sm font-semibold mb-1">説明</label>
             <textarea v-model="modal.description" class="input-text h-20 resize-none"
-              placeholder="プロジェクトの説明（任意）"></textarea>
+              placeholder="案件の説明（任意）"></textarea>
           </div>
         </div>
         <div class="flex gap-3 mt-6">
@@ -208,7 +246,7 @@
             class="flex-1 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
           <button @click="saveModal"
             class="flex-1 py-2 rounded btn btn-primary text-sm"
-            :disabled="!modal.name.trim()">
+            :disabled="!modal.name.trim() || !modal.businessCode">
             {{ modal.isEdit ? '保存' : '作成' }}
           </button>
         </div>
@@ -254,6 +292,10 @@
       const projects = ref([
         {
           id: 1, name: 'AI基板2025', description: 'AI処理ボードの試作・量産設計',
+          businessCode: '010', businessName: '綾電クリエイト',
+          sourceType: 'notion', originLabel: 'Notion同期', externalCode: 'AYD-2025-014',
+          externalUrl: 'https://www.notion.so/32e33e7debd081c28998c6d5df6248a8?v=32e33e7debd0818d9ee7000cd067f9e2&source=copy_link',
+          isEditable: false, syncAt: '2026-04-07 23:10',
           partCount: 48, updatedAt: '2025-03-10',
           parts: [
             { id: 1, name: '金属皮膜抵抗 10kΩ', partNumber: 'RK73H', usedQty: 20, quantityNew: 2, price: 10, procurementStatus: 'active' },
@@ -263,6 +305,10 @@
         },
         {
           id: 2, name: '共通センサ制御', description: '各種センサ共通インターフェース基板',
+          businessCode: '011', businessName: 'eleXlink',
+          sourceType: 'notion', originLabel: 'Notion同期', externalCode: 'ELX-2025-003',
+          externalUrl: 'https://www.notion.so/32533e7debd080f3aab5f89d590497b8?v=32533e7debd080f6aa16000c4e26ccb0&source=copy_link',
+          isEditable: false, syncAt: '2026-04-07 23:10',
           partCount: 23, updatedAt: '2025-02-20',
           parts: [
             { id: 4, name: '積層セラミックコンデンサ 0.1μF', partNumber: 'GRM188', usedQty: 30, quantityNew: 8, price: 5, procurementStatus: 'eol' },
@@ -270,31 +316,79 @@
           ]
         },
         {
-          id: 3, name: 'AD基板2024', description: 'アナログ-デジタル変換モジュール',
+          id: 3, name: '評価ボード量産準備', description: '',
+          businessCode: '012', businessName: '新規事業サンプル',
+          sourceType: 'notion', originLabel: 'Notion同期', externalCode: 'NEW-2025-001',
+          externalUrl: '',
+          isEditable: false, syncAt: '2026-04-07 23:10',
+          partCount: 12, updatedAt: '2025-03-28',
+          parts: []
+        },
+        {
+          id: 4, name: '試作治具共通', description: 'BitsKeep内でのみ管理する治具・保守案件',
+          businessCode: '010', businessName: '綾電クリエイト',
+          sourceType: 'local', originLabel: 'BitsKeep独自', externalCode: '',
+          externalUrl: '', isEditable: true, syncAt: '',
           partCount: 67, updatedAt: '2024-12-15',
           parts: [
             { id: 6, name: '電解コンデンサ 100μF', partNumber: 'EEUFR1H101', usedQty: 10, quantityNew: 50, price: 15, procurementStatus: 'active' },
           ]
         },
         {
-          id: 4, name: 'DA基板2024', description: 'デジタル-アナログ変換モジュール',
+          id: 5, name: '展示機修理', description: '社内保守用に独自登録した案件',
+          businessCode: '011', businessName: 'eleXlink',
+          sourceType: 'local', originLabel: 'BitsKeep独自', externalCode: '',
+          externalUrl: '', isEditable: true, syncAt: '',
           partCount: 31, updatedAt: '2024-11-01',
           parts: []
         },
       ]);
 
       const suppliers = ref(['秋月電子', 'RSコンポーネンツ', 'Digikey', 'Mouser', '千石電商']);
+      const businessChoices = computed(() => {
+        const seen = new Set();
+        return projects.value
+          .map(project => ({ code: project.businessCode, name: project.businessName }))
+          .filter(business => {
+            const key = `${business.code}:${business.name}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => a.code.localeCompare(b.code));
+      });
 
-      // 選択プロジェクト
+      // 選択案件
       const selectedId = ref(null);
       const selectedProject = computed(() => projects.value.find(p => p.id === selectedId.value) || null);
       const selectProject = (proj) => { selectedId.value = proj.id; };
 
       // 検索
       const search = ref('');
+      const selectedBusiness = ref('all');
       const filteredProjects = computed(() =>
-        projects.value.filter(p => p.name.includes(search.value) || p.description.includes(search.value))
+        projects.value.filter(p => {
+          const keyword = search.value.trim();
+          const matchesKeyword = keyword === '' || [
+            p.name,
+            p.description || '',
+            p.externalCode || '',
+            p.businessCode || '',
+            p.businessName || '',
+          ].some(v => v.includes(keyword));
+          const matchesBusiness = selectedBusiness.value === 'all' || p.businessCode === selectedBusiness.value;
+          return matchesKeyword && matchesBusiness;
+        })
       );
+      const businessTagClass = (proj) => ({
+        'tag-ok': proj.businessCode === '010',
+        'tag-warning': proj.businessCode === '011',
+        'tag-eol': !['010', '011'].includes(proj.businessCode),
+      });
+      const originTagClass = (proj) => ({
+        'tag-ok': proj.sourceType === 'notion',
+        'tag-eol': proj.sourceType === 'local',
+      });
 
       // 商社選択・合計
       const selectedSupplier = ref('');
@@ -314,21 +408,59 @@
       };
 
       // 作成/編集モーダル
-      const modal = reactive({ open: false, isEdit: false, id: null, name: '', description: '' });
+      const modal = reactive({ open: false, isEdit: false, id: null, businessCode: '', name: '', description: '' });
       const openCreateModal = () => {
-        Object.assign(modal, { open: true, isEdit: false, id: null, name: '', description: '' });
+        Object.assign(modal, {
+          open: true,
+          isEdit: false,
+          id: null,
+          businessCode: selectedBusiness.value !== 'all' ? selectedBusiness.value : '',
+          name: '',
+          description: '',
+        });
       };
       const openEditModal = (proj) => {
-        Object.assign(modal, { open: true, isEdit: true, id: proj.id, name: proj.name, description: proj.description });
+        if (!proj.isEditable) return;
+        Object.assign(modal, {
+          open: true,
+          isEdit: true,
+          id: proj.id,
+          businessCode: proj.businessCode,
+          name: proj.name,
+          description: proj.description,
+        });
       };
       const saveModal = () => {
+        const business = businessChoices.value.find(item => item.code === modal.businessCode);
+        if (!business) return;
         if (modal.isEdit) {
           const proj = projects.value.find(p => p.id === modal.id);
-          if (proj) { proj.name = modal.name; proj.description = modal.description; }
+          if (proj && proj.isEditable) {
+            proj.businessCode = business.code;
+            proj.businessName = business.name;
+            proj.name = modal.name;
+            proj.description = modal.description;
+            proj.updatedAt = new Date().toISOString().slice(0,10);
+          }
           showToast(`「${modal.name}」を更新しました`);
         } else {
           const newId = Math.max(...projects.value.map(p => p.id)) + 1;
-          projects.value.push({ id: newId, name: modal.name, description: modal.description, partCount: 0, updatedAt: new Date().toISOString().slice(0,10), parts: [] });
+          projects.value.push({
+            id: newId,
+            businessCode: business.code,
+            businessName: business.name,
+            name: modal.name,
+            description: modal.description,
+            sourceType: 'local',
+            originLabel: 'BitsKeep独自',
+            externalCode: '',
+            externalUrl: '',
+            isEditable: true,
+            syncAt: '',
+            partCount: 0,
+            updatedAt: new Date().toISOString().slice(0,10),
+            parts: [],
+          });
           showToast(`「${modal.name}」を作成しました`);
         }
         modal.open = false;
@@ -337,6 +469,7 @@
       // 削除モーダル
       const deleteModal = reactive({ open: false, id: null, name: '' });
       const confirmDelete = (proj) => {
+        if (!proj.isEditable) return;
         Object.assign(deleteModal, { open: true, id: proj.id, name: proj.name });
       };
       const executeDelete = () => {
@@ -345,6 +478,16 @@
         if (selectedId.value === deleteModal.id) selectedId.value = null;
         showToast(`「${deleteModal.name}」を削除しました`);
         deleteModal.open = false;
+      };
+
+      const syncNotionProjects = () => {
+        const now = new Date().toISOString().slice(0,16).replace('T', ' ');
+        projects.value = projects.value.map(project =>
+          project.sourceType === 'notion'
+            ? { ...project, syncAt: now }
+            : project
+        );
+        showToast('対象事業の Notion案件を同期しました');
       };
 
       // トースト
@@ -372,6 +515,7 @@
 
       return {
         projects, filteredProjects, search,
+        selectedBusiness, businessChoices, businessTagClass, originTagClass, syncNotionProjects,
         selectedId, selectedProject, selectProject,
         selectedSupplier, suppliers, totalPrice, shortageCount, removePart,
         modal, openCreateModal, openEditModal, saveModal,
