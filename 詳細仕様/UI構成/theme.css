@@ -7,42 +7,42 @@
 /* ライトテーマのスタイル定義 */
 :root {
     /* スタンダードカラー */
-    --color-bg: #ffffff;
-    --color-text: #212529;
-    --color-border: #dee2e6;
-    --color-card-even: #f3f4f6;
+    --color-bg: #f8f9fa;
+    --color-text: #1a1d23;
+    --color-border: #d0d5dd;
+    --color-card-even: #f0f2f5;
     --color-card-odd: #ffffff;
-    --color-primary: #91bfff;
-    --color-accent: #00a888;
-    --color-highlight: #f4a000;
-    --color-link: #6633cc;
+    --color-primary: #2563eb;
+    --color-accent: #059669;
+    --color-highlight: #d97706;
+    --color-link: #2563eb;
     /* 特殊用途 以下はスタンダードカラーとは別 */
-    --color-tag-eol: #ff9393;
+    --color-tag-eol: #dc2626;
     /* 入手不可 */
-    --color-tag-warning: #ffc862;
+    --color-tag-warning: #d97706;
     /* 注意 */
-    --color-tag-ok: #74ffd1;
+    --color-tag-ok: #059669;
     /* 入手可 */
 }
 
 /* ダークテーマのスタイル定義 */
 [data-theme="dark"] {
     /* スタンダードカラー */
-    --color-bg: #111827;
-    --color-text: #ffffff;
-    --color-border: #2c2f33;
-    --color-card-even: #1f2040;
-    --color-card-odd: #1f3020;
-    --color-primary: #004080;
-    --color-accent: #00614c;
-    --color-highlight: #d08000;
-    --color-link: #bbaaff;
+    --color-bg: #0f1117;
+    --color-text: #e5e7eb;
+    --color-border: #2d3748;
+    --color-card-even: #1a1f2e;
+    --color-card-odd: #1e2639;
+    --color-primary: #3b82f6;
+    --color-accent: #10b981;
+    --color-highlight: #f59e0b;
+    --color-link: #60a5fa;
     /* 特殊用途 以下はスタンダードカラーとは別 */
-    --color-tag-eol: #6f0000;
+    --color-tag-eol: #ef4444;
     /* 入手不可 */
-    --color-tag-warning: #8c5b00;
+    --color-tag-warning: #f59e0b;
     /* 注意 */
-    --color-tag-ok: #006e4a;
+    --color-tag-ok: #10b981;
     /* 入手可 */
 }
 
@@ -107,7 +107,7 @@ input[type="text"] {
 /* ボタン（プライマリ）スタイル定義 */
 .btn-primary {
     background-color: var(--color-primary);
-
+    color: #ffffff;
 }
 
 /* ボタン（アクセント）スタイル定義 */
@@ -142,17 +142,17 @@ input[type="text"] {
 /* 入手可否タグ */
 .tag-eol {
     background-color: var(--color-tag-eol);
-    color: var(--color-text);
+    color: #ffffff;
 }
 
 .tag-warning {
     background-color: var(--color-tag-warning);
-    color: var(--color-text);
+    color: #ffffff;
 }
 
 .tag-ok {
     background-color: var(--color-tag-ok);
-    color: var(--color-text);
+    color: #ffffff;
 }
 
 /* トグルスイッチ */
@@ -221,4 +221,32 @@ img.thumbnail {
 
 .grid-4-center-spacing> :nth-child(3) {
     margin-left: 2rem;
+}
+
+/* パンくずナビ */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    opacity: 0.55;
+    margin-bottom: 1rem;
+}
+
+.breadcrumb a {
+    color: var(--color-text);
+    text-decoration: none;
+    transition: opacity 0.15s;
+}
+
+.breadcrumb a:hover {
+    opacity: 1;
+    text-decoration: underline;
+    color: var(--color-link);
+}
+
+.breadcrumb .current {
+    font-weight: 600;
+    opacity: 1;
+    color: var(--color-text);
 }
