@@ -28,6 +28,10 @@ Route::middleware(['auth'])->group(function () {
     // 比較
     Route::get('/component-compare', fn() => view('app.component-compare'))->name('components.compare');
 
+    // 設計ツール
+    Route::get('/tools/calc',    fn() => view('app.engineering-calc'))->name('tools.calc');
+    Route::get('/tools/design',  fn() => view('app.design-tools'))->name('tools.design');
+
     // 管理機能（admin）
     Route::get('/users',       fn() => view('app.user-list'))->name('users.index');
     Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
