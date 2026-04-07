@@ -375,3 +375,22 @@ Phase 1-1 DBマイグレーション→1-2 認証拡張→1-3 共通基盤の順
 
 曹長(コード分隊)の心の声: DBがPostgreSQLだった（SQLiteと思っていた）。マイグレーション順序エラーで一度rollbackを踏んだが、タイムスタンプリネームで確実に解決できた。Observerはcreated/updated/deletedの3つを薄く実装し、過剰ログを避けるためignored_keysで timestamps系を除外した。
 
+
+---
+## [曹長(コード分隊)] 2026-04-07 23:20
+
+### Phase 1 全完了
+
+**追加完了内容:**
+- Laravel Breeze (blade) 導入 → ログイン/登録/パスワードリセット画面一式
+- ApiResponse共通クラス（success/created/noContent/error/notFound/forbidden/validationError）
+- FileStorage ヘルパー（画像・PDF MIME検証付き、UUID命名、Storage::disk('public')管理）
+- vite.config.js に @vitejs/plugin-vue 追加・@エイリアス設定
+- resources/css/theme.css をUIモック最新版と同期（新配色）
+- npm run build ✓
+
+**Phase 1 チェックリスト: 全項目 [x] 完了**
+次: Phase 2-1 マスタ管理API→2-2 部品一覧API へ進む
+
+曹長(コード分隊)の心の声: Phase 1 が思いのほかスムーズに完走できた。DBはPostgreSQLで動いており、SQLiteを前提にした設定変更は不要だった。招待メール機能だけ未実装（BreezeのMailableカスタマイズが必要）だが、Phase 5ユーザー管理と合わせて実装する方が自然なので後回し。
+
