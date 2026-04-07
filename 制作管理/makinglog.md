@@ -342,3 +342,36 @@ SCR-007: 棚卸しモード追加
 
 曹長(コード分隊)の心の声: 前セッションからのキャリーオーバータスク3件を一気に完走。csv_importはステップウィザードのUXに注力した。Altium連携は実務直結機能なので、マッピングの自動化とカバレッジ率表示を優先した。Phase 0 UIモック全14画面がこれで出揃った。
 
+
+---
+## [大佐] 2026-04-07 22:05
+
+### Phase 1 実装開始
+
+Laravel既存構成確認完了。bits-keep/にLaravel 12骨格あり、usersテーブル・sessions・jobs・cacheマイグレーション既存。
+Phase 1-1 DBマイグレーション→1-2 認証拡張→1-3 共通基盤の順で進める。
+
+大佐の心の声: 既存のusersテーブルにroleカラムを追加する形で拡張する。マイグレーションは仕様書のテーブル定義に忠実に。一気に全テーブル作るとレビューしにくいのでPhase順に分割ファイルで作る。
+
+
+---
+## [曹長(コード分隊)] 2026-04-07 22:55
+
+### Phase 1-1 / 1-2 / 1-3一部 完了
+
+**完了内容:**
+- 全22テーブルマイグレーション作成・適用 (PostgreSQL確認済み)
+  - 依存順序問題（components→component_specsのFK）をタイムスタンプリネームで解決
+- 全19Eloquentモデル作成・リレーション定義
+  - Component: カテゴリ/パッケージ/スペック/在庫/商社/プロジェクト等 全リレーション
+  - SoftDeletes: Component, Project
+  - scopeNeedsReorder: 在庫警告クエリ用スコープ
+- AuditObserver実装（create/update/delete 自動記録、dirty比較付き）
+- AppServiceProviderでObserver登録（Component/InventoryBlock/Transaction）
+- CheckRoleミドルウェア実装 → bootstrap/app.phpでエイリアス登録
+- User モデル拡張（role/is_active/invited_at、isAdmin/isEditor ヘルパー）
+
+**次: 1-2 Breeze導入 → 1-3 ApiResponse/ファイルヘルパー → Vue設定確認**
+
+曹長(コード分隊)の心の声: DBがPostgreSQLだった（SQLiteと思っていた）。マイグレーション順序エラーで一度rollbackを踏んだが、タイムスタンプリネームで確実に解決できた。Observerはcreated/updated/deletedの3つを薄く実装し、過剰ログを避けるためignored_keysで timestamps系を除外した。
+

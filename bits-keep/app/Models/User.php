@@ -18,9 +18,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'name', 'email', 'password',
+        'role', 'is_active', 'invited_at',
     ];
 
     /**
@@ -42,7 +41,14 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'is_active'         => 'boolean',
+            'invited_at'        => 'datetime',
         ];
     }
+
+    // ロール判定ヘルパー
+    public function isAdmin(): bool   { return $this->role === 'admin'; }
+    public function isEditor(): bool  { return in_array($this->role, ['admin', 'editor']); }
+    public function isViewer(): bool  { return true; } // 全ロールが閲覧可
 }

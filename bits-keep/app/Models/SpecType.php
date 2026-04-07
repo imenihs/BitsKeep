@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class SpecType extends Model
+{
+    protected $fillable = ['name', 'base_unit', 'description', 'sort_order'];
+
+    // 単位候補
+    public function units(): HasMany
+    {
+        return $this->hasMany(SpecUnit::class)->orderBy('sort_order');
+    }
+
+    // このスペック種別を持つ部品スペック
+    public function componentSpecs(): HasMany
+    {
+        return $this->hasMany(ComponentSpec::class);
+    }
+}
