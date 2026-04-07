@@ -394,3 +394,26 @@ Phase 1-1 DBマイグレーション→1-2 認証拡張→1-3 共通基盤の順
 
 曹長(コード分隊)の心の声: Phase 1 が思いのほかスムーズに完走できた。DBはPostgreSQLで動いており、SQLiteを前提にした設定変更は不要だった。招待メール機能だけ未実装（BreezeのMailableカスタマイズが必要）だが、Phase 5ユーザー管理と合わせて実装する方が自然なので後回し。
 
+
+---
+## [曹長(コード分隊)] 2026-04-07 23:50
+
+### Phase 2-1〜2-5 API実装完了
+
+**完了内容:**
+- CategoryController / PackageController / SpecTypeController（CRUD + 使用中削除保護）
+- StoreComponentRequest（段階的入力対応、スペック/仕入先配列バリデーション）
+- UpdateComponentSectionRequest（section=basic/specs/suppliers で分岐）
+- ComponentController（index/store/show/update/updateSection/destroy）
+  - index: フリーワード/分類/入手可否/スペック範囲/発注点フィルタ + ページネーション
+  - store/update: ファイル保存・多対多sync・スペック・仕入先を一括処理
+  - updateSection: PATCH セクション別部分更新
+- TransactionController（stockIn/stockOut）
+  - stockIn: firstOrCreate でブロック加算、在庫サマリ更新、履歴記録
+  - stockOut: 在庫不足チェック付き減算
+- routes/api.php 定義 → 24ルート確認済み
+
+**次: Phase 2-2 Vue画面実装（部品一覧）**
+
+曹長(コード分隊)の心の声: ilike（PostgreSQL）でのフリーワード検索を採用。SQLiteに戻す場合はlikeに変更が必要。updateSectionのmatch式はsection名の追加が容易で拡張性が高い。在庫サマリ（quantity_new/used）はblockの集計ではなくincrementで更新する方式にした。集計クエリより高速で整合性も保ちやすい。
+
