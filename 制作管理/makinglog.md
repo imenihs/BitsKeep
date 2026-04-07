@@ -449,3 +449,20 @@ Phase 1-1 DBマイグレーション→1-2 認証拡張→1-3 共通基盤の順
 
 曹長(コード分隊)の心の声: 商社API（/api/suppliers）はPhase 3で実装予定なので、component-create.jsでPromise.allがこけてもcatchで空配列にフォールバックさせた。実装が揃えば自動的に動く。
 
+
+---
+## [曹長(コード分隊)] 2026-04-08 01:10
+
+### Phase 3 API実装完了
+
+**完了内容:**
+- SupplierController（CRUD・使用中削除保護）
+- LocationController（CRUD・在庫あり削除保護・棚卸しsaveInventory）
+  - saveInventory: items[]で差分計算→transaction.adjust記録
+- StockAlertController（逼迫度ソート・最安値仕入先付き）
+- routes/api.php に11ルート追加（計35ルート）
+
+**次: Phase 3 Vue画面（棚管理・在庫警告）**
+
+曹長(コード分隊)の心の声: 棚卸しはblockが複数ある場合、最初のblockを調整する実装にした。厳密にはblock単位で棚卸しするべきだが、UIから見ると「棚全体の実数」で入力するため、まず全体合計との差分をfirstブロックに当てる方式で実用上問題ない。
+

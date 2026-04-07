@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ComponentController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\SpecTypeController;
+use App\Http\Controllers\Api\StockAlertController;
+use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TransactionController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +21,12 @@ Route::middleware('auth')->group(function () {
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('packages',   PackageController::class);
     Route::apiResource('spec-types', SpecTypeController::class);
+
+    // ── 在庫・棚・商社管理 ──────────────────────────────────
+    Route::apiResource('suppliers', SupplierController::class);
+    Route::post('locations/inventory', [LocationController::class, 'saveInventory']);
+    Route::apiResource('locations', LocationController::class);
+    Route::get('stock-alerts', [StockAlertController::class, 'index']);
 
     // ── 部品管理 ────────────────────────────────────────────
     Route::apiResource('components', ComponentController::class);
