@@ -189,10 +189,7 @@ vin * r2 / (r1 + r2)"></textarea>
         <div v-else class="mt-4 space-y-2">
           <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
             <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="text-[11px] opacity-60">進数表示設定</div>
-                <div class="text-xs opacity-50 mt-1">整数結果の表示幅と符号を切り替え</div>
-              </div>
+              <div class="text-[11px] opacity-60">進数表示設定</div>
               <div class="flex items-center gap-2">
                 <select v-model.number="bitWidth" class="input-text px-2 py-1 text-xs min-w-20">
                   <option v-for="width in bitWidthOptions" :key="width" :value="width">@{{ width }}bit</option>

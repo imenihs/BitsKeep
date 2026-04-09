@@ -2,6 +2,112 @@
 
 BitsKeep は電子部品の在庫管理と、設計業務で使う案件参照をまとめて扱う Web アプリケーションです。
 
+## できること
+
+- 部品管理
+  - 部品一覧、部品詳細、部品登録/編集、部品比較
+  - 分類、パッケージ、スペック、商社、在庫情報を横断して管理
+- 在庫運用
+  - 棚一覧
+  - 在庫警告一覧
+  - 入庫/出庫履歴
+- 案件管理
+  - 案件一覧、案件詳細、案件別部品構成
+  - Notion の `01_案件管理` DB との同期
+- 設定/管理
+  - Notion 連携設定
+  - ホーム設定（主要アクション並び替え）
+  - マスタ管理、ユーザー管理、監査ログ、CSVインポート
+- 設計支援ツール
+  - エンジニア電卓
+  - 合成抵抗/容量ネットワーク探索
+  - 設計ツールハブ
+
+## 主要画面
+
+認証後の主な画面は以下です。
+
+- `/dashboard`
+  - トップ画面。グローバル検索、主要アクション、最近使った情報への入口
+- `/components`
+  - 部品一覧。探索画面として使い、詳細確認、比較、編集へつなぐ
+- `/components/create`
+  - 部品登録画面。新規登録と既存部品編集を兼用
+- `/components/{id}`
+  - 部品詳細。スペック、仕入先、在庫、案件利用、履歴の確認
+- `/projects`
+  - 案件一覧。Notion 同期結果と独自案件を統合表示
+- `/stock-alert`
+  - 在庫警告一覧。逼迫部品の確認と対処起点
+- `/locations`
+  - 棚管理。棚ごとの保管状況を確認・更新
+- `/settings/integrations`
+  - Notion 連携設定
+- `/settings/home`
+  - ホーム設定。主要アクションの表示/順序設定
+- `/tools/calc`
+  - エンジニア電卓
+- `/tools/network`
+  - 合成抵抗/容量ネットワーク探索
+- `/tools/design`
+  - 設計ツールハブ
+
+## API 概要
+
+API は `bits-keep/routes/api.php` で定義しており、基本的に `auth` 必須です。主な責務は以下です。
+
+- マスタ管理
+  - `GET/POST/PUT/DELETE /api/categories`
+  - `GET/POST/PUT/DELETE /api/packages`
+  - `GET/POST/PUT/DELETE /api/spec-types`
+- 部品管理
+  - `GET/POST/PUT/DELETE /api/components`
+  - `PATCH /api/components/{component}/{section}`
+  - `GET /api/components/compare`
+  - `GET /api/components/{component}/similar`
+  - `GET /api/components/{component}/transactions`
+  - `POST /api/components/{component}/stock-in`
+  - `POST /api/components/{component}/stock-out`
+- 在庫/棚/商社
+  - `GET/POST/PUT/DELETE /api/locations`
+  - `POST /api/locations/inventory`
+  - `GET /api/stock-alerts`
+  - `GET/POST/PUT/DELETE /api/suppliers`
+- 案件管理
+  - `GET /api/projects/options`
+  - `GET /api/project-businesses`
+  - `GET /api/projects/sync/status`
+  - `POST /api/projects/sync/notion`
+  - `GET /api/projects/sync-runs`
+  - `GET/POST/PUT/DELETE /api/projects`
+  - `GET/POST/PATCH/DELETE /api/projects/{project}/components...`
+- 設定
+  - `GET/PUT /api/settings/integrations/notion`
+  - `GET/PUT/DELETE /api/preferences/{key}`
+- 管理機能
+  - `GET /api/users`
+  - `POST /api/users/invite`
+  - `PATCH /api/users/{user}/role`
+  - `PATCH /api/users/{user}/active`
+  - `GET /api/audit-logs`
+- 計算
+  - `POST /api/calc/networks/search`
+
+詳細な入出力は `詳細仕様/仕様書.md` を正本とします。
+
+## 実装ディレクトリ
+
+- `bits-keep/app/Http/Controllers/Api/`
+  - API コントローラ
+- `bits-keep/resources/views/app/`
+  - 各画面の Blade テンプレート
+- `bits-keep/resources/js/pages/`
+  - 画面ごとの Vue ロジック
+- `bits-keep/routes/web.php`
+  - 画面ルーティング
+- `bits-keep/routes/api.php`
+  - API ルーティング
+
 ## 主な設計ドキュメント
 
 - `CLAUDE.md`: 作業方針、設計ドラフト、運用ルール

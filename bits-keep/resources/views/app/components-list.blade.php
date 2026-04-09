@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <div class="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_repeat(4,minmax(0,0.8fr))]">
+      <div class="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.9fr)_repeat(4,minmax(0,0.8fr))]">
         <div>
           <label class="block text-[11px] font-semibold opacity-60 mb-1">検索</label>
           <input v-model="searchQuery" type="text" placeholder="部品名・型番・メーカーで検索..."
@@ -54,7 +54,7 @@
         </div>
         <div>
           <label class="block text-[11px] font-semibold opacity-60 mb-1">分類</label>
-          <select v-model="filterCategories" multiple class="input-text w-full min-h-11">
+          <select v-model="filterCategories" multiple size="1" class="input-text h-11 w-full">
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">@{{ cat.name }}</option>
           </select>
         </div>
@@ -76,14 +76,9 @@
             <option value="part_number">型番順</option>
           </select>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="block text-[11px] font-semibold opacity-60">一覧操作</label>
-          <label class="flex items-center gap-2 cursor-pointer text-sm rounded-xl border border-[var(--color-border)] px-3 py-2 bg-[var(--color-bg)]">
-            <input type="checkbox" v-model="needsReorder" />
-            <span>在庫警告のみ</span>
-          </label>
+        <div class="flex flex-col gap-2 justify-end">
           <button @click="clearFilters" :disabled="!hasFilter"
-            class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm disabled:opacity-40">
+            class="h-11 px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm disabled:opacity-40">
             条件をクリア
           </button>
         </div>
@@ -105,7 +100,17 @@
       </div>
 
       <div v-if="advancedOpen" class="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
-        <div class="grid gap-3 md:grid-cols-3">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">メーカー</label>
+            <input v-model="advManufacturer" type="text" class="input-text w-full" placeholder="例: Murata" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">パッケージ</label>
+            <select v-model="advPackageIds" multiple size="1" class="input-text h-11 w-full">
+              <option v-for="pkg in packages" :key="pkg.id" :value="pkg.id">@{{ pkg.name }}</option>
+            </select>
+          </div>
           <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">スペック種別</label>
             <select v-model="advSpecTypeId" class="input-text w-full">
@@ -120,6 +125,10 @@
           <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">最大値</label>
             <input v-model="advMax" type="number" class="input-text w-full" placeholder="∞" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">在庫下限</label>
+            <input v-model="advMinStock" type="number" class="input-text w-full" placeholder="0" />
           </div>
         </div>
       </div>

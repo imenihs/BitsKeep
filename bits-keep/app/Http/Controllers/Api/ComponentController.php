@@ -21,6 +21,11 @@ class ComponentController extends Controller
     {
         $query = Component::with(['categories', 'packages', 'inventoryBlocks'])
             ->withCount('inventoryBlocks');
+        $sortMap = [
+            'updated_at' => ['updated_at', 'desc'],
+            'name' => ['common_name', 'asc'],
+            'part_number' => ['part_number', 'asc'],
+        ];
 
         // フリーワード検索（部品名・型番・メーカー・説明）
         if ($q = $request->input('q')) {
@@ -42,9 +47,14 @@ class ComponentController extends Controller
             $query->where('procurement_status', $status);
         }
 
-        // 在庫警告フィルタ
-        if ($request->boolean('needs_reorder')) {
-            $query->needsReorder();
+        // メーカーフィルタ
+        if ($manufacturer = $request->input('manufacturer')) {
+            $query->where('manufacturer', 'ilike', '%' . $manufacturer . '%');
+        }
+
+        // パッケージフィルタ（複数選択 OR）
+        if ($packageIds = $request->input('package_ids')) {
+            $query->whereHas('packages', fn ($q) => $q->whereIn('packages.id', (array) $packageIds));
         }
 
         // スペック数値範囲フィルタ（spec_type_id + min + max）
@@ -60,13 +70,17 @@ class ComponentController extends Controller
             });
         }
 
-        // 発注点フィルタ（在庫数が発注点以上）
+        // 在庫数下限フィルタ
         if ($minStock = $request->input('min_stock')) {
             $query->where('quantity_new', '>=', (int) $minStock);
         }
 
         $perPage = min((int) $request->input('per_page', 20), 100);
-        $result = $query->orderBy('part_number')->paginate($perPage);
+        [$sortColumn, $sortDirection] = $sortMap[$request->input('sort', 'updated_at')] ?? $sortMap['updated_at'];
+        $result = $query
+            ->orderBy($sortColumn, $sortDirection)
+            ->orderBy('part_number')
+            ->paginate($perPage);
         $result->getCollection()->transform(fn (Component $component) => $this->decorateComponent($component));
 
         return ApiResponse::success($result);

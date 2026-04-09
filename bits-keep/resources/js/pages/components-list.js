@@ -9,12 +9,13 @@ export default function setup() {
     const searchQuery      = ref('');
     const filterCategories = ref([]);
     const filterStatus     = ref('');
-    const needsReorder     = ref(false);
     const advancedOpen     = ref(false);
+    const advManufacturer  = ref('');
+    const advPackageIds    = ref([]);
     const advSpecTypeId    = ref('');
     const advMin           = ref('');
     const advMax           = ref('');
-    const advUnit          = ref('');
+    const advMinStock      = ref('');
     const sortOrder        = ref('updated_at');
 
     // ── ページネーション ──────────────────────────────────────
@@ -26,6 +27,7 @@ export default function setup() {
     // ── データ ────────────────────────────────────────────────
     const parts      = ref([]);
     const categories = ref([]);
+    const packages   = ref([]);
     const specTypes  = ref([]);
     const loading    = ref(false);
     const alertCount = ref(0);
@@ -53,31 +55,38 @@ export default function setup() {
     const activeFilterChips = computed(() => {
         const chips = [];
         if (searchQuery.value) chips.push({ key: 'q', label: `検索: ${searchQuery.value}` });
-        selectedCategoryNames.value.forEach((name, index) => {
-            chips.push({ key: `cat:${filterCategories.value[index] ?? name}`, label: `分類: ${name}` });
+        filterCategories.value.forEach((categoryId) => {
+            const categoryName = categories.value.find((item) => item.id == categoryId)?.name ?? `#${categoryId}`;
+            chips.push({ key: `cat:${categoryId}`, label: `分類: ${categoryName}` });
         });
         if (filterStatus.value) {
             chips.push({ key: 'status', label: `入手可否: ${procurementLabel[filterStatus.value] ?? filterStatus.value}` });
         }
-        if (needsReorder.value) chips.push({ key: 'reorder', label: '在庫警告のみ' });
+        if (advManufacturer.value) chips.push({ key: 'manufacturer', label: `メーカー: ${advManufacturer.value}` });
+        advPackageIds.value.forEach((packageId) => {
+            const packageName = packages.value.find((item) => item.id == packageId)?.name ?? `#${packageId}`;
+            chips.push({ key: `pkg:${packageId}`, label: `パッケージ: ${packageName}` });
+        });
         if (advSpecTypeId.value) {
             const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
             chips.push({ key: 'specType', label: `スペック: ${specName}` });
         }
         if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
         if (advMax.value) chips.push({ key: 'specMax', label: `最大: ${advMax.value}` });
+        if (advMinStock.value) chips.push({ key: 'minStock', label: `在庫下限: ${advMinStock.value}` });
         return chips;
     });
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
-        searchQuery.value || filterCategories.value.length || filterStatus.value || needsReorder.value || advSpecTypeId.value || advMin.value || advMax.value
+        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageIds.value.length || advSpecTypeId.value || advMin.value || advMax.value || advMinStock.value
     );
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
-        filterStatus.value = ''; needsReorder.value = false;
-        advancedOpen.value = false; advSpecTypeId.value = '';
-        advMin.value = ''; advMax.value = ''; advUnit.value = '';
+        filterStatus.value = ''; advancedOpen.value = false;
+        advManufacturer.value = ''; advPackageIds.value = [];
+        advSpecTypeId.value = ''; advMin.value = '';
+        advMax.value = ''; advMinStock.value = '';
     };
     const removeFilterChip = (key) => {
         if (key === 'q') searchQuery.value = '';
@@ -85,10 +94,15 @@ export default function setup() {
             const id = Number(key.split(':')[1]);
             filterCategories.value = filterCategories.value.filter((value) => value !== id);
         } else if (key === 'status') filterStatus.value = '';
-        else if (key === 'reorder') needsReorder.value = false;
+        else if (key === 'manufacturer') advManufacturer.value = '';
+        else if (key.startsWith('pkg:')) {
+            const id = Number(key.split(':')[1]);
+            advPackageIds.value = advPackageIds.value.filter((value) => value !== id);
+        }
         else if (key === 'specType') advSpecTypeId.value = '';
         else if (key === 'specMin') advMin.value = '';
         else if (key === 'specMax') advMax.value = '';
+        else if (key === 'minStock') advMinStock.value = '';
     };
 
     // ── APIフェッチ ───────────────────────────────────────────
@@ -100,10 +114,12 @@ export default function setup() {
             if (searchQuery.value)           params.set('q', searchQuery.value);
             if (filterCategories.value.length) filterCategories.value.forEach(id => params.append('category_ids[]', id));
             if (filterStatus.value)          params.set('procurement_status', filterStatus.value);
-            if (needsReorder.value)          params.set('needs_reorder', '1');
+            if (advManufacturer.value)       params.set('manufacturer', advManufacturer.value);
+            if (advPackageIds.value.length)  advPackageIds.value.forEach(id => params.append('package_ids[]', id));
             if (advSpecTypeId.value)         params.set('spec_type_id', advSpecTypeId.value);
             if (advMin.value)                params.set('spec_min', advMin.value);
             if (advMax.value)                params.set('spec_max', advMax.value);
+            if (advMinStock.value)           params.set('min_stock', advMinStock.value);
             params.set('sort', sortOrder.value);
             params.set('page', page.value);
             params.set('per_page', perPage.value);
@@ -123,17 +139,20 @@ export default function setup() {
     const fetchMasters = async () => {
         masterError.value = '';
         try {
-            const [catRes, stRes, alertRes] = await Promise.all([
+            const [catRes, pkgRes, stRes, alertRes] = await Promise.all([
                 api.get('/categories'),
+                api.get('/packages'),
                 api.get('/spec-types'),
                 api.get('/components?needs_reorder=1&per_page=1'),
             ]);
             categories.value = catRes.data;
+            packages.value   = pkgRes.data;
             specTypes.value  = stRes.data;
             alertCount.value = alertRes.data.total;
         } catch {
-            masterError.value = '分類・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
+            masterError.value = '分類・パッケージ・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
+            packages.value = [];
             specTypes.value = [];
             alertCount.value = 0;
             toastError('部品一覧の補助データ取得に失敗しました');
@@ -141,7 +160,7 @@ export default function setup() {
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, needsReorder, advSpecTypeId, advMin, advMax, sortOrder], () => {
+    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageIds, advSpecTypeId, advMin, advMax, advMinStock, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -156,11 +175,11 @@ export default function setup() {
     });
 
     return {
-        toasts, searchQuery, filterCategories, filterStatus, needsReorder,
-        advancedOpen, advSpecTypeId, advMin, advMax, advUnit,
+        toasts, searchQuery, filterCategories, filterStatus,
+        advancedOpen, advManufacturer, advPackageIds, advSpecTypeId, advMin, advMax, advMinStock,
         sortOrder,
         page, perPage, total, lastPage,
-        parts, categories, specTypes, loading, alertCount, listError, masterError, fetchMasters,
+        parts, categories, packages, specTypes, loading, alertCount, listError, masterError, fetchMasters,
         compareList, toggleCompare, inCompare,
         compareUrl,
         selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts,
