@@ -8,7 +8,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" class="p-6 max-w-3xl mx-auto">
+<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
 
   <nav class="breadcrumb mb-4">
     @include('partials.brand-home-link')
@@ -18,7 +18,7 @@
     <span class="current">{{ isset($id) ? '部品編集' : '部品登録' }}</span>
   </nav>
 
-  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+  <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">@{{ isEdit ? '部品編集' : '部品登録' }}</h1>
     <button @click="submit" :disabled="saving" class="btn btn-primary px-5 py-2 rounded text-sm">
       @{{ saving ? '保存中...' : (isEdit ? '更新' : '登録') }}
@@ -54,14 +54,28 @@
         </div>
       </div>
       <div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold mb-1">型番 <span class="text-[var(--color-tag-eol)]">*</span></label>
             <input v-model="form.part_number" type="text" class="input-text w-full" placeholder="例: RES-10K-0402" />
           </div>
           <div>
             <label class="block text-xs font-semibold mb-1">メーカー</label>
-            <input v-model="form.manufacturer" type="text" class="input-text w-full" placeholder="例: Yageo" />
+            <div class="relative">
+              <input v-model="manufacturerQuery" @blur="commitManufacturer" type="text" class="input-text w-full"
+                placeholder="入力して絞り込み。候補がなければ新規で使う" />
+              <div v-if="manufacturerQuery.trim()" class="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-2 shadow-lg">
+                <div v-if="filteredManufacturers.length" class="flex flex-wrap gap-2">
+                  <button v-for="name in filteredManufacturers" :key="name" @mousedown.prevent="selectManufacturer(name)"
+                    type="button" class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)]">
+                    @{{ name }}
+                  </button>
+                </div>
+                <p v-else-if="!manufacturerExactMatch" class="text-[11px] opacity-60">
+                  一致なし。このまま新規メーカー名として保存します。
+                </p>
+              </div>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-semibold mb-1">通称</label>
@@ -81,7 +95,7 @@
           <label class="block text-xs font-semibold mb-1">説明</label>
           <textarea v-model="form.description" class="input-text w-full h-20" placeholder="任意の説明"></textarea>
         </div>
-        <div class="grid grid-cols-2 gap-4 mt-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
           <div>
             <label class="block text-xs font-semibold mb-1">発注点（新品）</label>
             <input v-model.number="form.threshold_new" type="number" min="0" class="input-text w-full" />
@@ -98,31 +112,59 @@
   <!-- 分類・パッケージ -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <h2 class="font-bold mb-3">分類 / パッケージ</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-xs font-semibold">分類（複数選択可）</label>
-          <button @click="openMasterModal('category')" class="text-xs link-text">+ 追加</button>
-        </div>
-        <div class="border border-[var(--color-border)] rounded p-2 max-h-36 overflow-y-auto bg-[var(--color-bg)]">
-          <label v-for="cat in categories" :key="cat.id" class="flex items-center gap-2 py-0.5 cursor-pointer text-sm">
-            <input type="checkbox" :value="cat.id" v-model="form.category_ids" />
-            @{{ cat.name }}
-          </label>
-          <p v-if="!categories.length" class="text-xs opacity-40 p-1">分類がありません</p>
+        <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
+        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
+          <input v-model="categoryQuery" type="text" class="input-text w-full"
+            placeholder="分類名で絞り込み。なければ追加" />
+          <div v-if="form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
+            <span v-for="id in form.category_ids" :key="`selected-cat-${id}`"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+              @{{ categories.find((item) => item.id === id)?.name }}
+              <button type="button" @click="toggleCategory(id)">✕</button>
+            </span>
+          </div>
+          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
+            <button v-for="cat in filteredCategories" :key="cat.id" type="button" @click="toggleCategory(cat.id)"
+              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+              :class="form.category_ids.includes(cat.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+              <span>@{{ cat.name }}</span>
+              <span class="text-xs opacity-60">@{{ form.category_ids.includes(cat.id) ? '選択中' : '追加' }}</span>
+            </button>
+            <button v-if="canCreateCategory" type="button" @click="addCategoryFromQuery"
+              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
+              「@{{ categoryQuery.trim() }}」を新規追加
+            </button>
+            <p v-if="!filteredCategories.length && !canCreateCategory" class="text-xs opacity-40 p-1">分類がありません</p>
+          </div>
         </div>
       </div>
       <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-xs font-semibold">パッケージ</label>
-          <button @click="openMasterModal('package')" class="text-xs link-text">+ 追加</button>
-        </div>
-        <div class="border border-[var(--color-border)] rounded p-2 max-h-36 overflow-y-auto bg-[var(--color-bg)]">
-          <label v-for="pkg in packages" :key="pkg.id" class="flex items-center gap-2 py-0.5 cursor-pointer text-sm">
-            <input type="checkbox" :value="pkg.id" v-model="form.package_ids" />
-            @{{ pkg.name }}
-          </label>
-          <p v-if="!packages.length" class="text-xs opacity-40 p-1">パッケージがありません</p>
+        <label class="text-xs font-semibold block mb-2">パッケージ</label>
+        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
+          <input v-model="packageQuery" type="text" class="input-text w-full"
+            placeholder="パッケージ名で絞り込み。なければ追加" />
+          <div v-if="form.package_ids.length" class="mt-2 flex flex-wrap gap-2">
+            <span v-for="id in form.package_ids" :key="`selected-pkg-${id}`"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+              @{{ packages.find((item) => item.id === id)?.name }}
+              <button type="button" @click="togglePackage(id)">✕</button>
+            </span>
+          </div>
+          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
+            <button v-for="pkg in filteredPackages" :key="pkg.id" type="button" @click="togglePackage(pkg.id)"
+              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+              :class="form.package_ids.includes(pkg.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+              <span>@{{ pkg.name }}</span>
+              <span class="text-xs opacity-60">@{{ form.package_ids.includes(pkg.id) ? '選択中' : '追加' }}</span>
+            </button>
+            <button v-if="canCreatePackage" type="button" @click="addPackageFromQuery"
+              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
+              「@{{ packageQuery.trim() }}」を新規追加
+            </button>
+            <p v-if="!filteredPackages.length && !canCreatePackage" class="text-xs opacity-40 p-1">パッケージがありません</p>
+          </div>
         </div>
       </div>
     </div>
@@ -153,23 +195,32 @@
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <div class="flex justify-between items-center mb-3">
       <h2 class="font-bold">仕入先</h2>
-      <div class="flex gap-2">
-        <button @click="openMasterModal('supplier')" class="text-xs link-text">商社を追加</button>
-        <button @click="addSupplier" class="text-xs link-text">+ 行追加</button>
-      </div>
+      <button @click="addSupplier" class="text-xs link-text">+ 行追加</button>
     </div>
     <div v-for="(row, i) in form.supplierRows" :key="i" class="mb-4 p-3 rounded bg-[var(--color-card-odd)] border border-[var(--color-border)]">
       <div class="flex gap-2 mb-2 items-center">
-        <select v-model="row.supplier_id" class="input-text text-sm py-1 flex-1">
-          <option value="">-- 商社を選択 --</option>
-          <option v-for="s in suppliers" :key="s.id" :value="s.id">@{{ s.name }}</option>
-        </select>
+        <div class="flex-1">
+          <input v-model="row.supplier_name" @blur="commitSupplier(row)" type="text" class="input-text text-sm py-1 w-full"
+            placeholder="商社名を入力して絞り込み。なければ追加" />
+          <div class="mt-2 space-y-1 max-h-28 overflow-y-auto">
+            <button v-for="s in filteredSuppliersForRow(row)" :key="`${i}-${s.id}`" type="button" @mousedown.prevent="selectSupplier(row, s)"
+              class="w-full flex items-center justify-between rounded px-2 py-1 text-xs hover:bg-[var(--color-bg)]"
+              :class="row.supplier_id === s.id ? 'bg-[var(--color-bg)] border border-[var(--color-primary)]' : ''">
+              <span>@{{ s.name }}</span>
+              <span class="opacity-50">@{{ row.supplier_id === s.id ? '選択中' : '使う' }}</span>
+            </button>
+            <button v-if="canCreateSupplierForRow(row)" type="button" @mousedown.prevent="commitSupplier(row)"
+              class="w-full rounded px-2 py-1 text-left text-xs border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
+              「@{{ row.supplier_name.trim() }}」を新規追加
+            </button>
+          </div>
+        </div>
         <label class="flex items-center gap-1 text-xs cursor-pointer">
           <input type="checkbox" v-model="row.is_preferred" />優先
         </label>
         <button @click="removeSupplier(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
       </div>
-      <div class="grid grid-cols-3 gap-2 mb-2">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
         <input v-model="row.supplier_part_number" type="text" class="input-text text-xs py-1" placeholder="商社型番" />
         <input v-model="row.unit_price" type="number" class="input-text text-xs py-1" placeholder="単価 ¥" />
         <input v-model="row.product_url" type="url" class="input-text text-xs py-1" placeholder="商品URL" />
@@ -186,19 +237,6 @@
     </div>
     <p v-if="!form.supplierRows.length" class="text-xs opacity-40">仕入先を追加してください</p>
   </section>
-
-  <!-- マスタ追加ポップアップ -->
-  <div v-if="masterModal.open" class="modal-overlay" @click.self="masterModal.open = false">
-    <div class="modal-window modal-sm p-6">
-      <h3 class="font-bold mb-3">@{{ {category:'分類',package:'パッケージ',supplier:'商社'}[masterModal.type] }}を追加</h3>
-      <input v-model="masterModal.newName" type="text" class="input-text w-full mb-4"
-        placeholder="名前を入力" @keydown.enter.prevent="addMaster" autofocus />
-      <div class="flex justify-end gap-2">
-        <button @click="masterModal.open = false" class="btn text-sm">キャンセル</button>
-        <button @click="addMaster" class="btn btn-primary text-sm">追加</button>
-      </div>
-    </div>
-  </div>
 
   <!-- トースト -->
   <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">

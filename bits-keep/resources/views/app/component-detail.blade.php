@@ -8,7 +8,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="component-detail" data-id="{{ $id }}" class="p-6 max-w-4xl mx-auto">
+<div id="app" data-page="component-detail" data-id="{{ $id }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
 
   <!-- パンくず -->
   <nav class="breadcrumb mb-4">
@@ -81,7 +81,7 @@
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <div><span class="list-label">型番</span><span class="list-value ml-2 font-mono">@{{ part.part_number }}</span></div>
           <div><span class="list-label">メーカー</span><span class="list-value ml-2">@{{ part.manufacturer || '—' }}</span></div>
           <div><span class="list-label">分類</span>
@@ -117,7 +117,7 @@
       <div v-show="sections.detail" class="space-y-4">
         <div>
           <h3 class="text-sm font-semibold mb-2 opacity-80">スペック</h3>
-          <div v-if="part.specs.length" class="grid grid-cols-2 gap-2 text-sm">
+          <div v-if="part.specs.length" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             <div v-for="s in part.specs" :key="s.id" class="flex gap-2">
               <span class="list-label">@{{ s.spec_type?.name }}</span>
               <span class="list-value">@{{ s.value }} @{{ s.unit }}</span>
@@ -300,7 +300,7 @@
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-4">入庫</h3>
       <div class="space-y-3 text-sm">
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold mb-1">在庫区分</label>
             <select v-model="stockInModal.form.stock_type" class="input-text w-full text-sm">

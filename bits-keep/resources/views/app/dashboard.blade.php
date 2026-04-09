@@ -19,20 +19,9 @@
       <div class="flex items-center gap-3">
         <img src="{{ asset('brand/bitskeep-logo-mark.png') }}" alt="BitsKeep" class="h-12 w-12 rounded-2xl" />
         <div>
-          <p class="text-xs uppercase tracking-[0.2em] opacity-50">BitsKeep Home</p>
-          <h1 class="text-2xl font-bold">{{ auth()->user()->name }}</h1>
+          <p class="text-[10px] uppercase tracking-[0.18em] opacity-50">BitsKeep Home</p>
+          <p class="text-sm font-medium">ログイン: {{ auth()->user()->name }}</p>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="{{ route('components.index') }}"
-          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors no-underline">
-          部品一覧
-        </a>
-        <button @click="openSearch"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] text-sm hover:border-[var(--color-primary)] transition-colors">
-          <span>🔍 検索</span>
-          <kbd class="opacity-40 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5">Ctrl+K</kbd>
-        </button>
       </div>
     </div>
   </header>
@@ -152,44 +141,27 @@
           <p class="text-xs uppercase tracking-[0.2em] opacity-50">Quick Actions</p>
           <h2 class="text-2xl font-bold">主要アクション</h2>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button v-if="!sortMode" @click="sortMode = true"
-            class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
-            並び替え
-          </button>
-          <template v-else>
-            <button @click="saveOrder" :disabled="savingOrder"
-              class="px-3 py-2 rounded-xl border border-[var(--color-primary)] bg-[var(--color-primary)] text-white text-sm disabled:opacity-50">
-              @{{ savingOrder ? '保存中...' : '保存' }}
-            </button>
-            <button @click="sortMode = false"
-              class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
-              キャンセル
-            </button>
-          </template>
-        </div>
+        <a href="{{ route('settings.home') }}"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors no-underline text-inherit">
+          主要アクションを設定
+        </a>
       </div>
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <component :is="sortMode ? 'div' : 'a'"
-          v-for="(action, idx) in quickActions" :key="action.key"
-          :href="sortMode ? null : action.url"
-          :draggable="sortMode"
-          @dragstart="onDragStart(idx)"
-          @dragover="onDragOver"
-          @drop="onDrop(idx)"
-          class="relative rounded-3xl border border-[var(--color-border)] p-5 text-left hover:border-[var(--color-primary)] hover:shadow-sm transition-all bg-[var(--color-bg)] no-underline text-inherit"
-          :class="sortMode ? 'cursor-grab border-dashed border-2 border-[var(--color-primary)]' : ''">
-          <div v-if="sortMode" class="flex justify-end text-xs opacity-40 mb-2"><span>⠿</span></div>
-          <div class="w-11 h-11 rounded-2xl text-white flex items-center justify-center mb-4 text-xl"
-            style="background-color: var(--color-primary);">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <a v-for="action in quickActions" :key="action.key"
+          :href="action.url"
+          class="relative flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-left hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all bg-[var(--color-bg)] no-underline text-inherit">
+          <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">
             @{{ action.icon }}
           </div>
-          <div class="font-bold text-lg leading-tight">@{{ action.label }}</div>
+          <div class="min-w-0">
+            <div class="font-semibold text-sm">@{{ action.label }}</div>
+            <div class="text-xs opacity-50 truncate">@{{ action.desc }}</div>
+          </div>
           <span v-if="action.badge"
-            class="absolute top-4 right-4 bg-amber-500 text-white text-xs rounded-full min-w-6 h-6 px-1.5 flex items-center justify-center font-bold">
+            class="ml-auto bg-amber-500 text-white text-xs rounded-full min-w-6 h-6 px-1.5 flex items-center justify-center font-bold flex-shrink-0">
             @{{ action.badge > 9 ? '9+' : action.badge }}
           </span>
-        </component>
+        </a>
       </div>
 
     </section>
@@ -340,46 +312,6 @@
 
     </section>
   </main>
-
-  <!-- グローバル検索オーバーレイ -->
-  <div v-if="searchOpen" class="modal-overlay modal-top"
-    @click.self="closeSearch">
-    <div class="modal-window modal-lg">
-      <div class="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
-        <span class="opacity-50">🔍</span>
-        <input v-model="searchQuery" @input="onSearchInput" type="text"
-          placeholder="部品名・型番・案件名で検索..."
-          class="flex-1 bg-transparent text-base outline-none"
-          ref="searchInput" autofocus />
-        <button @click="closeSearch" class="opacity-40 hover:opacity-70 text-sm">Esc</button>
-      </div>
-
-      <!-- 検索結果 -->
-      <div class="max-h-72 overflow-y-auto">
-        <div v-if="searching" class="p-4 text-center opacity-50 text-sm">検索中...</div>
-        <div v-else-if="searchResults.length === 0 && searchQuery" class="p-4 text-center opacity-40 text-sm">
-          「@{{ searchQuery }}」は見つかりません
-        </div>
-        <div v-for="r in searchResults" :key="r.url + r.label"
-          @click="navigate(r.url)"
-          class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--color-card-odd)] transition-colors border-b border-[var(--color-border)] last:border-0">
-          <span class="text-xl flex-shrink-0">@{{ r.icon }}</span>
-          <div>
-            <div class="text-sm font-medium">@{{ r.label }}</div>
-            <div class="text-xs opacity-50">@{{ r.sub }}</div>
-          </div>
-          <span class="ml-auto text-xs opacity-40 bg-[var(--color-card-odd)] px-2 py-0.5 rounded">
-            @{{ r.type === 'component' ? '部品' : '案件' }}
-          </span>
-        </div>
-      </div>
-
-      <div class="p-3 border-t border-[var(--color-border)] flex gap-4 text-xs opacity-40">
-        <span>↵ 選択</span>
-        <span>Esc 閉じる</span>
-      </div>
-    </div>
-  </div>
 
 </div>
 </body>

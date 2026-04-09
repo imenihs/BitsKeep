@@ -1,11 +1,13 @@
 import { ref, onMounted } from 'vue';
 import { api } from '../api.js';
+import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 
 export default function setup() {
     const appEl = document.getElementById('app');
     const canEdit = appEl?.dataset?.canEdit === '1';
     const loading = ref(true);
     const saving = ref(false);
+    useNavigationConfirm(saving, '保存処理中です。このまま画面を離れてもよいですか？');
     const deletingToken = ref(false);
     const deletingRootPage = ref(false);
     const saveMessage = ref('');
@@ -121,7 +123,9 @@ export default function setup() {
         }
     };
 
-    onMounted(fetchStatus);
+    onMounted(() => {
+        fetchStatus();
+    });
 
     return {
         loading,

@@ -9,7 +9,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div class="p-6 max-w-6xl mx-auto">
+<div class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
   <nav class="breadcrumb mb-4">
     @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -56,6 +56,7 @@
       <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Account</div>
       <div class="space-y-2">
         <a href="{{ route('dashboard') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム</a>
+        <a href="{{ route('settings.home') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム設定</a>
         <a href="{{ route('profile.edit') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">プロフィール</a>
         <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
           現在の権限: {{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}

@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
     // 案件管理
     Route::get('/projects', fn() => view('app.project-list'))->name('projects.index');
     Route::get('/settings/integrations', fn() => view('app.integration-settings'))->name('settings.integrations');
+    Route::get('/settings/home', fn() => view('app.home-settings'))->name('settings.home');
     Route::get('/functions', fn() => view('app.function-catalog'))->name('functions.index');
 
     // 比較

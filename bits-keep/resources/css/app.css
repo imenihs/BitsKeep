@@ -258,6 +258,28 @@ img.thumbnail {
     color: var(--color-link);
 }
 
+@media (max-width: 767px) {
+    .card {
+        padding: 0.875rem;
+    }
+
+    img.thumbnail {
+        width: 84px;
+        max-width: 84px;
+        max-height: 84px;
+    }
+
+    .breadcrumb {
+        flex-wrap: wrap;
+        row-gap: 0.25rem;
+    }
+
+    .component-image-frame,
+    .component-image-frame-lg {
+        max-width: 100%;
+    }
+}
+
 .breadcrumb .current {
     font-weight: 600;
     opacity: 1;

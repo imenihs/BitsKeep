@@ -8,7 +8,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="component-compare" class="p-6 max-w-6xl mx-auto">
+<div id="app" data-page="component-compare" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
 
   <nav class="breadcrumb mb-4">
     @include('partials.brand-home-link')

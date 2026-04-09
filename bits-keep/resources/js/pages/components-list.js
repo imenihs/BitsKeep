@@ -45,16 +45,50 @@ export default function setup() {
         const ids = compareList.value.map((part) => part.id);
         return ids.length >= 2 ? `/component-compare?ids=${ids.join(',')}` : '/component-compare';
     });
+    const selectedCategoryNames = computed(() =>
+        categories.value
+            .filter((item) => filterCategories.value.includes(item.id))
+            .map((item) => item.name)
+    );
+    const activeFilterChips = computed(() => {
+        const chips = [];
+        if (searchQuery.value) chips.push({ key: 'q', label: `検索: ${searchQuery.value}` });
+        selectedCategoryNames.value.forEach((name, index) => {
+            chips.push({ key: `cat:${filterCategories.value[index] ?? name}`, label: `分類: ${name}` });
+        });
+        if (filterStatus.value) {
+            chips.push({ key: 'status', label: `入手可否: ${procurementLabel[filterStatus.value] ?? filterStatus.value}` });
+        }
+        if (needsReorder.value) chips.push({ key: 'reorder', label: '在庫警告のみ' });
+        if (advSpecTypeId.value) {
+            const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
+            chips.push({ key: 'specType', label: `スペック: ${specName}` });
+        }
+        if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
+        if (advMax.value) chips.push({ key: 'specMax', label: `最大: ${advMax.value}` });
+        return chips;
+    });
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
-        searchQuery.value || filterCategories.value.length || filterStatus.value || needsReorder.value
+        searchQuery.value || filterCategories.value.length || filterStatus.value || needsReorder.value || advSpecTypeId.value || advMin.value || advMax.value
     );
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
         filterStatus.value = ''; needsReorder.value = false;
         advancedOpen.value = false; advSpecTypeId.value = '';
         advMin.value = ''; advMax.value = ''; advUnit.value = '';
+    };
+    const removeFilterChip = (key) => {
+        if (key === 'q') searchQuery.value = '';
+        else if (key.startsWith('cat:')) {
+            const id = Number(key.split(':')[1]);
+            filterCategories.value = filterCategories.value.filter((value) => value !== id);
+        } else if (key === 'status') filterStatus.value = '';
+        else if (key === 'reorder') needsReorder.value = false;
+        else if (key === 'specType') advSpecTypeId.value = '';
+        else if (key === 'specMin') advMin.value = '';
+        else if (key === 'specMax') advMax.value = '';
     };
 
     // ── APIフェッチ ───────────────────────────────────────────
@@ -129,7 +163,7 @@ export default function setup() {
         parts, categories, specTypes, loading, alertCount, listError, masterError, fetchMasters,
         compareList, toggleCompare, inCompare,
         compareUrl,
-        hasFilter, clearFilters, fetchParts,
+        selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts,
         procurementLabel, procurementClass,
     };
 }

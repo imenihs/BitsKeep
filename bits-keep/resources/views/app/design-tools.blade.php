@@ -8,7 +8,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="design-tools" data-tool="adc" class="p-6 max-w-4xl mx-auto">
+<div id="app" data-page="design-tools" data-tool="adc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
 
   <nav class="breadcrumb mb-4">
     @include('partials.brand-home-link')
@@ -35,7 +35,7 @@
   <!-- ══════ ADCスケーリング ══════ -->
   <div v-if="activeToolId === 'adc'">
     <h2 class="font-bold text-lg mb-4">ADCコード/スケーリング設計</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <div class="flex items-center gap-3">
           <label class="w-28 text-sm">分解能 (bits)</label>
@@ -75,7 +75,7 @@
   <!-- ══════ コンデンサ寿命 ══════ -->
   <div v-if="activeToolId === 'cap-life'">
     <h2 class="font-bold text-lg mb-4">電解コンデンサ寿命推定（アレニウス則）</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <div v-for="[key, label, step] in [['L0','定格寿命 L₀ (h)',100],['T0','定格温度 T₀ (°C)',5],['T','動作温度 T (°C)',1],['Vr','定格電圧 Vr (V)',1],['V','動作電圧 V (V)',1]]" :key="key"
           class="flex items-center gap-3">
@@ -111,7 +111,7 @@
         <span class="text-sm">NTC温度計算</span>
       </label>
     </div>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div v-if="divider.mode === 'voltage'" class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-24 text-sm">Vin (V)</label>
           <input v-model.number="divider.vin" type="number" step="0.1"
@@ -167,7 +167,7 @@
         <span class="text-sm">電流 → Vout</span>
       </label>
     </div>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-28 text-sm">Rs (Ω)</label>
           <input v-model.number="shunt.Rs" type="number" step="0.001"
@@ -204,7 +204,7 @@
   <!-- ══════ 電源余裕 ══════ -->
   <div v-if="activeToolId === 'power'">
     <h2 class="font-bold text-lg mb-4">電源余裕解析</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center gap-3 mb-4">
           <label class="w-32 text-sm font-medium">供給電力 (W)</label>
@@ -247,7 +247,7 @@
   <!-- ══════ 比較器 ══════ -->
   <div v-if="activeToolId === 'comparator'">
     <h2 class="font-bold text-lg mb-4">比較器しきい値/ヒステリシス</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <div v-for="[key, label, step] in [['Vcc','Vcc (V)',0.1],['Vref','Vref入力 (V)',0.01],['R1','R1 (Ω)',1000],['R2','R2 (Ω)',1000],['R3','R3フィードバック (Ω, 0=なし)',1000]]" :key="key"
           class="flex items-center gap-3">
@@ -270,7 +270,7 @@
   <!-- ══════ 熱設計 ══════ -->
   <div v-if="activeToolId === 'thermal'">
     <h2 class="font-bold text-lg mb-4">熱設計 / 熱抵抗チェーン</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
         <div class="flex items-center gap-3 mb-3">
           <label class="w-32 text-sm font-medium">消費電力 (W)</label>
@@ -314,7 +314,7 @@
   <!-- ══════ インタフェース余裕 ══════ -->
   <div v-if="activeToolId === 'interface'">
     <h2 class="font-bold text-lg mb-4">インタフェース電圧余裕解析</h2>
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <p class="text-xs font-medium opacity-60">出力側（ドライバ）</p>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">VOH (V)</label>

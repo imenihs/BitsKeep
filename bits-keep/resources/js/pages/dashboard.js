@@ -1,28 +1,29 @@
 /**
  * ダッシュボード（SCR-000）
  * - 検索主導のホーム
- * - 主要アクション並び替え
+ * - 主要アクション表示
  * - 主要導線をセクション化
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { api } from '../api.js';
 
 // 全クイックアクション定義（keyで識別）
 const ACTION_DEFS = [
-    { key: 'components',    label: '部品一覧',     url: '/components',        icon: '🔩' },
-    { key: 'create',        label: '部品登録',     url: '/components/create', icon: '➕' },
-    { key: 'stock-alert',   label: '在庫警告',     url: '/stock-alert',       icon: '⚠️' },
-    { key: 'projects',      label: '案件管理',     url: '/projects',          icon: '📋' },
-    { key: 'master',        label: 'マスタ管理',   url: '/master',            icon: '⚙️' },
-    { key: 'design-tools',  label: '設計ツール',   url: '/tools/design',      icon: '🔬' },
-    { key: 'calc',          label: '電卓',         url: '/tools/calc',        icon: '🧮' },
-    { key: 'network',       label: 'ネットワーク探索', url: '/tools/network',  icon: '🔌' },
-    { key: 'users',         label: 'ユーザー管理', url: '/users',             icon: '👤', adminOnly: true },
-    { key: 'audit-logs',    label: '操作ログ',     url: '/audit-logs',        icon: '📝', adminOnly: true },
-    { key: 'csv-import',    label: 'CSVインポート',url: '/csv-import',        icon: '📥', adminOnly: true },
+    { key: 'components',    label: '部品一覧',     desc: '登録部品の検索・絞り込み', url: '/components',        icon: '🔩' },
+    { key: 'create',        label: '部品登録',     desc: '新規部品を登録する',       url: '/components/create', icon: '➕' },
+    { key: 'stock-alert',   label: '在庫警告',     desc: '発注点を下回る部品を確認', url: '/stock-alert',       icon: '⚠️' },
+    { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
+    { key: 'master',        label: 'マスタ管理',   desc: '分類・パッケージ・スペック種別', url: '/master',     icon: '⚙️' },
+    { key: 'design-tools',  label: '設計ツール',   desc: 'ADC/電源/誤差/熱など設計解析', url: '/tools/design', icon: '🔬' },
+    { key: 'calc',          label: '電卓',         desc: '式計算・進数変換・物理定数', url: '/tools/calc',   icon: '🧮' },
+    { key: 'network',       label: 'ネットワーク探索', desc: '抵抗/容量の直並列組み合わせ', url: '/tools/network', icon: '🔌' },
+    { key: 'users',         label: 'ユーザー管理', desc: 'ユーザーの招待・ロール変更', url: '/users',        icon: '👤', adminOnly: true },
+    { key: 'audit-logs',    label: '操作ログ',     desc: '変更履歴の監査ログ',         url: '/audit-logs',   icon: '📝', adminOnly: true },
+    { key: 'csv-import',    label: 'CSVインポート',desc: 'CSVで部品を一括登録',       url: '/csv-import',   icon: '📥', adminOnly: true },
 ];
 
-const PREF_KEY = 'home_card_order';
+const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
+const DEFAULT_QUICK_ACTION_KEYS = ['components', 'create', 'stock-alert', 'projects', 'design-tools'];
 
 export default function setup() {
     const userName  = document.getElementById('app')?.dataset?.userName ?? 'ユーザー';
@@ -37,15 +38,12 @@ export default function setup() {
     const activeFocus = ref('全部');
 
     // ── グローバル検索 ─────────────────────────────────────
-    const searchOpen    = ref(false);
     const searchQuery   = ref('');
     const searchResults = ref([]);
     const searching     = ref(false);
     const searchError   = ref('');
     let searchTimer     = null;
 
-    const openSearch  = () => { searchOpen.value = true; searchQuery.value = ''; searchResults.value = []; };
-    const closeSearch = () => { searchOpen.value = false; };
     const setFocus = (mode) => { activeFocus.value = mode; };
 
     const doSearch = async () => {
@@ -86,7 +84,7 @@ export default function setup() {
                         type: 'function',
                         icon: action.icon,
                         label: action.label,
-                        sub: '主要アクション',
+                        sub: action.desc,
                         url: action.url,
                     }));
             }
@@ -99,7 +97,7 @@ export default function setup() {
     };
 
     const onSearchInput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 300); };
-    const navigate = (url) => { closeSearch(); location.href = url; };
+    const navigate = (url) => { location.href = url; };
 
     // ── 今日の確認事項 ──────────────────────────────────────
     const alertCount  = ref(0);
@@ -128,36 +126,42 @@ export default function setup() {
         }
     };
 
-    // ── クイックアクション（並び替え対応） ─────────────────
-    const cardOrder       = ref([]);   // ユーザー保存順（keyの配列）
-    const sortMode        = ref(false);// 並び替えモード ON/OFF
-    const savingOrder     = ref(false);
-    const dragSrcIndex    = ref(null);
+    // ── クイックアクション ────────────────────────────────
+    const quickActionKeys = ref([]);
 
     // roleに応じた利用可能なアクションのみ返す
     const availableActions = computed(() =>
         ACTION_DEFS.filter(a => !a.adminOnly || userRole === 'admin')
     );
 
-    // 保存済み順序でソートしたアクション（未登録のキーは末尾に追加）
-    const sortedActions = computed(() => {
+    const orderedAvailableActions = computed(() => {
         const avail = availableActions.value;
-        if (!cardOrder.value.length) return avail;
+        if (!quickActionKeys.value.length) return avail;
         const ordered = [];
-        cardOrder.value.forEach(key => {
+        quickActionKeys.value.forEach((key) => {
             const a = avail.find(x => x.key === key);
             if (a) ordered.push(a);
         });
-        // 保存済み順序にないアクション（新規追加分）を末尾に追加
-        avail.forEach(a => { if (!cardOrder.value.includes(a.key)) ordered.push(a); });
+        avail.forEach((a) => {
+            if (!quickActionKeys.value.includes(a.key)) ordered.push(a);
+        });
         return ordered;
     });
 
-    // 在庫警告バッジを付与したアクション一覧
+    const visibleQuickActionKeys = computed(() => {
+        const fallback = DEFAULT_QUICK_ACTION_KEYS.filter((key) =>
+            availableActions.value.some((action) => action.key === key)
+        );
+
+        return quickActionKeys.value.length ? quickActionKeys.value : fallback;
+    });
+
     const quickActions = computed(() =>
-        sortedActions.value.map(a =>
+        orderedAvailableActions.value
+            .filter((action) => visibleQuickActionKeys.value.includes(action.key))
+            .map(a =>
             a.key === 'stock-alert' ? { ...a, badge: alertCount.value || null } : a
-        )
+            )
     );
     const statusCards = computed(() => ([
         {
@@ -198,7 +202,7 @@ export default function setup() {
                 type: 'function',
                 icon: action.icon,
                 label: action.label,
-                sub: '主要アクション',
+                sub: action.desc,
                 url: action.url,
             })),
             ...recentParts.value.slice(0, 3).map((part) => ({
@@ -214,43 +218,12 @@ export default function setup() {
     // ユーザー設定から並び順を取得
     const loadOrder = async () => {
         try {
-            const res = await api.get(`/preferences/${PREF_KEY}`);
+            const res = await api.get(`/preferences/${QUICK_ACTIONS_PREF_KEY}`);
             const val = res.data?.data?.value ?? res.data?.value;
-            if (Array.isArray(val)) cardOrder.value = val;
+            if (Array.isArray(val)) quickActionKeys.value = val;
         } catch { /* 未設定なら無視 */ }
     };
 
-    // 並び順を保存
-    const saveOrder = async () => {
-        savingOrder.value = true;
-        try {
-            const order = sortedActions.value.map(a => a.key);
-            await api.put(`/preferences/${PREF_KEY}`, { value: order });
-            cardOrder.value = order;
-            sortMode.value  = false;
-        } catch {
-            summaryError.value = 'クイックアクションの並び順保存に失敗しました。再試行してください。';
-        }
-        finally { savingOrder.value = false; }
-    };
-
-    // ドラッグ&ドロップで並び替え（並び替えモード時のみ有効）
-    const onDragStart = (index) => { dragSrcIndex.value = index; };
-    const onDragOver  = (e) => { e.preventDefault(); };
-    const onDrop      = (index) => {
-        if (dragSrcIndex.value === null || dragSrcIndex.value === index) return;
-        const arr  = [...sortedActions.value.map(a => a.key)];
-        const [removed] = arr.splice(dragSrcIndex.value, 1);
-        arr.splice(index, 0, removed);
-        cardOrder.value   = arr;
-        dragSrcIndex.value = null;
-    };
-
-    // Ctrl+K でランチャー起動
-    const onKeyDown = (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
-        if (e.key === 'Escape') closeSearch();
-    };
     const openItem = (item) => navigate(item.url || item.href);
     const openFirstResult = () => {
         const first = launcherResults.value[0];
@@ -260,17 +233,14 @@ export default function setup() {
     onMounted(() => {
         fetchSummary();
         loadOrder();
-        window.addEventListener('keydown', onKeyDown);
     });
-    onUnmounted(() => window.removeEventListener('keydown', onKeyDown));
 
     return {
         userName, userRole,
         sectionLinks, focusModes, activeFocus, setFocus,
-        searchOpen, searchQuery, searchResults, searching,
-        openSearch, closeSearch, onSearchInput, navigate, launcherResults, openItem, openFirstResult, doSearch,
+        searchQuery, searchResults, searching,
+        onSearchInput, navigate, launcherResults, openItem, openFirstResult, doSearch,
         alertCount, recentParts, statusCards, recentItems, searchError, summaryError, fetchSummary,
-        quickActions, sortMode, savingOrder,
-        saveOrder, onDragStart, onDragOver, onDrop,
+        quickActions,
     };
 }

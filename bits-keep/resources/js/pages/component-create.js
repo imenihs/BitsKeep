@@ -1,6 +1,7 @@
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -13,6 +14,7 @@ export default function setup() {
     const packages   = ref([]);
     const specTypes  = ref([]);
     const suppliers  = ref([]);
+    const manufacturerOptions = ref([]);
 
     // ── フォーム ──────────────────────────────────────────
     const form = reactive({
@@ -31,6 +33,48 @@ export default function setup() {
     const currentDatasheetName = ref('');
 
     const saving = ref(false);
+    useNavigationConfirm(saving, '登録処理中です。このまま画面を離れてもよいですか？');
+    const manufacturerQuery = ref('');
+    const categoryQuery = ref('');
+    const packageQuery = ref('');
+
+    const filteredManufacturers = computed(() => {
+        const q = manufacturerQuery.value.trim().toLowerCase();
+        if (!q) return manufacturerOptions.value.slice(0, 8);
+        return manufacturerOptions.value.filter((name) => name.toLowerCase().includes(q)).slice(0, 8);
+    });
+    const manufacturerExactMatch = computed(() =>
+        manufacturerOptions.value.some((name) => name.toLowerCase() === manufacturerQuery.value.trim().toLowerCase())
+    );
+    const filteredCategories = computed(() => {
+        const q = categoryQuery.value.trim().toLowerCase();
+        if (!q) return categories.value;
+        return categories.value.filter((item) => item.name.toLowerCase().includes(q));
+    });
+    const filteredPackages = computed(() => {
+        const q = packageQuery.value.trim().toLowerCase();
+        if (!q) return packages.value;
+        return packages.value.filter((item) => item.name.toLowerCase().includes(q));
+    });
+    const canCreateCategory = computed(() => {
+        const q = categoryQuery.value.trim();
+        if (!q) return false;
+        return !categories.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
+    });
+    const canCreatePackage = computed(() => {
+        const q = packageQuery.value.trim();
+        if (!q) return false;
+        return !packages.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
+    });
+
+    const syncManufacturerQuery = () => {
+        manufacturerQuery.value = form.manufacturer ?? '';
+    };
+    const normalizeUniqueNames = (values) => [...new Set(values.map((value) => String(value).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+    const ensureManufacturerOption = (name) => {
+        if (!name) return;
+        manufacturerOptions.value = normalizeUniqueNames([...manufacturerOptions.value, name]);
+    };
 
     // ── スペック操作 ──────────────────────────────────────
     const addSpec = () => form.specs.push({ spec_type_id: '', value: '', unit: '', value_numeric: null });
@@ -38,32 +82,101 @@ export default function setup() {
     const getUnits = (specTypeId) => specTypes.value.find(st => st.id == specTypeId)?.units ?? [];
 
     // ── 仕入先操作 ────────────────────────────────────────
-    const addSupplier = () => form.supplierRows.push({ supplier_id: '', supplier_part_number: '', product_url: '', unit_price: '', is_preferred: false, price_breaks: [] });
+    const createSupplierRow = () => ({
+        supplier_id: '',
+        supplier_name: '',
+        supplier_part_number: '',
+        product_url: '',
+        unit_price: '',
+        is_preferred: false,
+        price_breaks: [],
+    });
+    const addSupplier = () => form.supplierRows.push(createSupplierRow());
     const removeSupplier = (i) => form.supplierRows.splice(i, 1);
     const addPriceBreak = (row) => row.price_breaks.push({ min_qty: 1, unit_price: '' });
     const removePriceBreak = (row, i) => row.price_breaks.splice(i, 1);
 
-    // ── マスタ追加ポップアップ ────────────────────────────
-    const masterModal = ref({ open: false, type: '', newName: '' });
-    const openMasterModal = (type) => { masterModal.value = { open: true, type, newName: '' }; };
-    const addMaster = async () => {
-        const name = masterModal.value.newName.trim();
-        if (!name) return;
+    const createMaster = async (type, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
         try {
             const endpoints = { category: '/categories', package: '/packages', supplier: '/suppliers' };
-            const res = await api.post(endpoints[masterModal.value.type], { name });
-            if (masterModal.value.type === 'category')  { categories.value.push(res.data); form.category_ids.push(res.data.id); }
-            if (masterModal.value.type === 'package')   { packages.value.push(res.data);   form.package_ids.push(res.data.id); }
-            if (masterModal.value.type === 'supplier')  {
-                suppliers.value.push(res.data);
-                // 最後に追加した仕入先行に自動選択
-                if (form.supplierRows.length) form.supplierRows.at(-1).supplier_id = res.data.id;
-            }
-            masterModal.value.open = false;
-            toastSuccess(`追加しました: ${name}`);
+            const res = await api.post(endpoints[type], { name: trimmed });
+            toastSuccess(`追加しました: ${trimmed}`);
+            return res.data;
         } catch (e) {
             toastError(e.message);
+            return null;
         }
+    };
+
+    const selectManufacturer = (name) => {
+        form.manufacturer = name;
+        manufacturerQuery.value = name;
+        ensureManufacturerOption(name);
+    };
+    const commitManufacturer = () => {
+        const trimmed = manufacturerQuery.value.trim();
+        form.manufacturer = trimmed;
+        ensureManufacturerOption(trimmed);
+    };
+
+    const toggleCategory = (id) => {
+        const exists = form.category_ids.includes(id);
+        form.category_ids = exists
+            ? form.category_ids.filter((value) => value !== id)
+            : [...form.category_ids, id];
+    };
+    const togglePackage = (id) => {
+        const exists = form.package_ids.includes(id);
+        form.package_ids = exists
+            ? form.package_ids.filter((value) => value !== id)
+            : [...form.package_ids, id];
+    };
+    const addCategoryFromQuery = async () => {
+        const created = await createMaster('category', categoryQuery.value);
+        if (!created) return;
+        categories.value = [...categories.value, created].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+        toggleCategory(created.id);
+        categoryQuery.value = '';
+    };
+    const addPackageFromQuery = async () => {
+        const created = await createMaster('package', packageQuery.value);
+        if (!created) return;
+        packages.value = [...packages.value, created].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+        togglePackage(created.id);
+        packageQuery.value = '';
+    };
+
+    const filteredSuppliersForRow = (row) => {
+        const q = (row.supplier_name ?? '').trim().toLowerCase();
+        if (!q) return suppliers.value.slice(0, 8);
+        return suppliers.value.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 8);
+    };
+    const canCreateSupplierForRow = (row) => {
+        const q = (row.supplier_name ?? '').trim();
+        if (!q) return false;
+        return !suppliers.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
+    };
+    const selectSupplier = (row, supplier) => {
+        row.supplier_id = supplier.id;
+        row.supplier_name = supplier.name;
+    };
+    const commitSupplier = async (row) => {
+        const trimmed = (row.supplier_name ?? '').trim();
+        if (!trimmed) {
+            row.supplier_id = '';
+            return;
+        }
+        const existing = suppliers.value.find((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+        if (existing) {
+            selectSupplier(row, existing);
+            return;
+        }
+        const created = await createMaster('supplier', trimmed);
+        if (!created) return;
+        suppliers.value = [...suppliers.value, created].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+        selectSupplier(row, created);
     };
 
     const revokePreviewUrl = () => {
@@ -154,15 +267,17 @@ export default function setup() {
 
     // ── 初期ロード ────────────────────────────────────────
     onMounted(async () => {
-        const [catRes, pkgRes, stRes, supRes] = await Promise.all([
+        const [catRes, pkgRes, stRes, supRes, compRes] = await Promise.all([
             api.get('/categories'), api.get('/packages'),
-            api.get('/spec-types'), api.get('/suppliers'),  // suppliersAPIはPhase 3で実装
-        ]).catch(() => [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]);
+            api.get('/spec-types'), api.get('/suppliers'),
+            api.get('/components?per_page=100'),
+        ]).catch(() => [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: { data: [] } }]);
 
         categories.value = catRes.data ?? [];
         packages.value   = pkgRes.data ?? [];
         specTypes.value  = stRes.data  ?? [];
         suppliers.value  = supRes.data ?? [];
+        manufacturerOptions.value = normalizeUniqueNames((compRes.data?.data ?? []).map((item) => item.manufacturer));
 
         // 編集モードなら既存データをロード
         if (isEdit) {
@@ -178,16 +293,21 @@ export default function setup() {
                     package_ids:  p.packages.map(pk => pk.id),
                     specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric })),
                     supplierRows: p.component_suppliers.map(cs => ({
-                        supplier_id: cs.supplier_id, supplier_part_number: cs.supplier_part_number ?? '',
+                        supplier_id: cs.supplier_id, supplier_name: cs.supplier?.name ?? '',
+                        supplier_part_number: cs.supplier_part_number ?? '',
                         product_url: cs.product_url ?? '', unit_price: cs.unit_price ?? '',
                         is_preferred: cs.is_preferred, price_breaks: cs.price_breaks ?? [],
                     })),
                 });
+                syncManufacturerQuery();
+                ensureManufacturerOption(form.manufacturer);
                 currentImageUrl.value = p.image_url ?? '';
                 currentDatasheetUrl.value = p.datasheet_url ?? '';
                 currentDatasheetName.value = p.datasheet_path ? p.datasheet_path.split('/').pop() : '';
                 imagePreviewUrl.value = currentImageUrl.value;
             } catch { toastError('部品情報の取得に失敗しました'); }
+        } else {
+            syncManufacturerQuery();
         }
     });
 
@@ -195,9 +315,14 @@ export default function setup() {
         toasts, isEdit, form, saving,
         imagePreviewUrl, currentImageUrl, currentDatasheetUrl, currentDatasheetName, datasheetFile,
         categories, packages, specTypes, suppliers,
+        manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
+        categoryQuery, filteredCategories, canCreateCategory,
+        packageQuery, filteredPackages, canCreatePackage,
         addSpec, removeSpec, getUnits,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
-        masterModal, openMasterModal, addMaster,
+        selectManufacturer, commitManufacturer,
+        toggleCategory, togglePackage, addCategoryFromQuery, addPackageFromQuery,
+        filteredSuppliersForRow, canCreateSupplierForRow, selectSupplier, commitSupplier,
         onImageChange, onDatasheetChange,
         submit,
     };
