@@ -4,13 +4,14 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>商社管理 - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 <div id="app" data-page="supplier-list" class="p-6 max-w-4xl mx-auto">
 
   <nav class="breadcrumb mb-4">
-    <a href="{{ route('dashboard') }}">🏠 BitsKeep</a>
+    @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <span>マスタ管理</span>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -46,21 +47,21 @@
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full inline-block flex-shrink-0"
                 :style="{ backgroundColor: s.color || '#2563eb' }"></span>
-              <span class="font-medium">{{ s.name }}</span>
+              <span class="font-medium">@{{ s.name }}</span>
             </div>
           </td>
           <td class="py-2 pr-4">
             <a v-if="s.url" :href="s.url" target="_blank" rel="noopener"
               class="text-[var(--color-primary)] hover:underline text-xs truncate max-w-xs block">
-              {{ s.url }}
+              @{{ s.url }}
             </a>
             <span v-else class="opacity-40">-</span>
           </td>
-          <td class="py-2 pr-4 text-right">{{ s.lead_days != null ? s.lead_days + '日' : '-' }}</td>
+          <td class="py-2 pr-4 text-right">@{{ s.lead_days != null ? s.lead_days + '日' : '-' }}</td>
           <td class="py-2 pr-4 text-right">
-            {{ s.free_shipping_threshold != null ? '¥' + Number(s.free_shipping_threshold).toLocaleString() : '-' }}
+            @{{ s.free_shipping_threshold != null ? '¥' + Number(s.free_shipping_threshold).toLocaleString() : '-' }}
           </td>
-          <td class="py-2 pr-4 text-xs opacity-70 max-w-xs truncate">{{ s.note || '-' }}</td>
+          <td class="py-2 pr-4 text-xs opacity-70 max-w-xs truncate">@{{ s.note || '-' }}</td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openEdit(s)"
@@ -82,10 +83,10 @@
   </div>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="modal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl w-full max-w-lg mx-4">
+  <div v-if="modal.open" class="modal-overlay">
+    <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">{{ modal.isEdit ? '商社編集' : '商社追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ modal.isEdit ? '商社編集' : '商社追加' }}</h2>
         <button @click="modal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
@@ -116,7 +117,7 @@
           <div class="flex items-center gap-3">
             <input v-model="modal.form.color" type="color"
               class="w-10 h-10 rounded border border-[var(--color-border)] cursor-pointer" />
-            <span class="text-sm font-mono opacity-70">{{ modal.form.color }}</span>
+            <span class="text-sm font-mono opacity-70">@{{ modal.form.color }}</span>
           </div>
         </div>
         <div>
@@ -140,7 +141,7 @@
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
       class="text-white px-4 py-2 rounded shadow-lg text-sm">
-      {{ t.message }}
+      @{{ t.message }}
     </div>
   </div>
 

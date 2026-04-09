@@ -4,13 +4,14 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>部品登録/編集 - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 <div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" class="p-6 max-w-3xl mx-auto">
 
   <nav class="breadcrumb mb-4">
-    <a href="{{ route('dashboard') }}">🏠 BitsKeep</a>
+    @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <a href="{{ route('components.index') }}">部品管理</a>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -18,50 +19,78 @@
   </nav>
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <h1 class="text-2xl font-bold">{{ isEdit ? '部品編集' : '部品登録' }}</h1>
+    <h1 class="text-2xl font-bold">@{{ isEdit ? '部品編集' : '部品登録' }}</h1>
     <button @click="submit" :disabled="saving" class="btn btn-primary px-5 py-2 rounded text-sm">
-      {{ saving ? '保存中...' : (isEdit ? '更新' : '登録') }}
+      @{{ saving ? '保存中...' : (isEdit ? '更新' : '登録') }}
     </button>
   </header>
 
   <!-- 基本情報 -->
   <section class="card mb-4 p-5 flex-col items-start gap-4 block bg-[var(--color-card-even)]">
     <h2 class="font-bold mb-3">基本情報</h2>
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs font-semibold mb-1">型番 <span class="text-[var(--color-tag-eol)]">*</span></label>
-        <input v-model="form.part_number" type="text" class="input-text w-full" placeholder="例: RES-10K-0402" />
+    <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1">部品画像</label>
+          <div class="component-image-frame">
+            <img v-if="imagePreviewUrl" :src="imagePreviewUrl" alt="部品画像プレビュー" class="component-image-preview" />
+            <div v-else class="component-image-empty">
+              <span class="text-3xl opacity-30">□</span>
+              <span>未登録</span>
+            </div>
+          </div>
+          <input type="file" accept="image/*" class="input-text w-full mt-2 text-xs" @change="onImageChange" />
+          <p class="text-[11px] opacity-50 mt-1">jpg / png / webp、5MBまで</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">データシート（PDF）</label>
+          <input type="file" accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
+          <p v-if="datasheetFile" class="text-[11px] mt-1">@{{ datasheetFile.name }}</p>
+          <p v-else-if="currentDatasheetUrl" class="text-[11px] mt-1">
+            現在のファイル:
+            <a :href="currentDatasheetUrl" target="_blank" rel="noreferrer" class="link-text">@{{ currentDatasheetName || 'データシートを開く' }}</a>
+          </p>
+          <p class="text-[11px] opacity-50 mt-1">差し替え時のみ選択してください</p>
+        </div>
       </div>
       <div>
-        <label class="block text-xs font-semibold mb-1">メーカー</label>
-        <input v-model="form.manufacturer" type="text" class="input-text w-full" placeholder="例: Yageo" />
-      </div>
-      <div>
-        <label class="block text-xs font-semibold mb-1">通称</label>
-        <input v-model="form.common_name" type="text" class="input-text w-full" placeholder="例: 抵抗 10kΩ 0402" />
-      </div>
-      <div>
-        <label class="block text-xs font-semibold mb-1">入手可否</label>
-        <select v-model="form.procurement_status" class="input-text w-full">
-          <option value="active">量産中</option>
-          <option value="eol">EOL</option>
-          <option value="last_time">在庫限り</option>
-          <option value="nrnd">新規非推奨</option>
-        </select>
-      </div>
-    </div>
-    <div class="mt-3">
-      <label class="block text-xs font-semibold mb-1">説明</label>
-      <textarea v-model="form.description" class="input-text w-full h-20" placeholder="任意の説明"></textarea>
-    </div>
-    <div class="grid grid-cols-2 gap-4 mt-3">
-      <div>
-        <label class="block text-xs font-semibold mb-1">発注点（新品）</label>
-        <input v-model.number="form.threshold_new" type="number" min="0" class="input-text w-full" />
-      </div>
-      <div>
-        <label class="block text-xs font-semibold mb-1">発注点（中古）</label>
-        <input v-model.number="form.threshold_used" type="number" min="0" class="input-text w-full" />
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1">型番 <span class="text-[var(--color-tag-eol)]">*</span></label>
+            <input v-model="form.part_number" type="text" class="input-text w-full" placeholder="例: RES-10K-0402" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">メーカー</label>
+            <input v-model="form.manufacturer" type="text" class="input-text w-full" placeholder="例: Yageo" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">通称</label>
+            <input v-model="form.common_name" type="text" class="input-text w-full" placeholder="例: 抵抗 10kΩ 0402" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">入手可否</label>
+            <select v-model="form.procurement_status" class="input-text w-full">
+              <option value="active">量産中</option>
+              <option value="eol">EOL</option>
+              <option value="last_time">在庫限り</option>
+              <option value="nrnd">新規非推奨</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="block text-xs font-semibold mb-1">説明</label>
+          <textarea v-model="form.description" class="input-text w-full h-20" placeholder="任意の説明"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mt-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1">発注点（新品）</label>
+            <input v-model.number="form.threshold_new" type="number" min="0" class="input-text w-full" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">発注点（中古）</label>
+            <input v-model.number="form.threshold_used" type="number" min="0" class="input-text w-full" />
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -78,7 +107,7 @@
         <div class="border border-[var(--color-border)] rounded p-2 max-h-36 overflow-y-auto bg-[var(--color-bg)]">
           <label v-for="cat in categories" :key="cat.id" class="flex items-center gap-2 py-0.5 cursor-pointer text-sm">
             <input type="checkbox" :value="cat.id" v-model="form.category_ids" />
-            {{ cat.name }}
+            @{{ cat.name }}
           </label>
           <p v-if="!categories.length" class="text-xs opacity-40 p-1">分類がありません</p>
         </div>
@@ -91,7 +120,7 @@
         <div class="border border-[var(--color-border)] rounded p-2 max-h-36 overflow-y-auto bg-[var(--color-bg)]">
           <label v-for="pkg in packages" :key="pkg.id" class="flex items-center gap-2 py-0.5 cursor-pointer text-sm">
             <input type="checkbox" :value="pkg.id" v-model="form.package_ids" />
-            {{ pkg.name }}
+            @{{ pkg.name }}
           </label>
           <p v-if="!packages.length" class="text-xs opacity-40 p-1">パッケージがありません</p>
         </div>
@@ -108,12 +137,12 @@
     <div v-for="(spec, i) in form.specs" :key="i" class="flex gap-2 mb-2 items-center">
       <select v-model="spec.spec_type_id" class="input-text text-sm py-1 flex-1">
         <option value="">-- 種別 --</option>
-        <option v-for="st in specTypes" :key="st.id" :value="st.id">{{ st.name }}</option>
+        <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
       </select>
       <input v-model="spec.value" type="text" class="input-text text-sm py-1 w-28" placeholder="値" />
       <select v-model="spec.unit" class="input-text text-sm py-1 w-24">
         <option value="">単位</option>
-        <option v-for="u in getUnits(spec.spec_type_id)" :key="u.id" :value="u.unit">{{ u.unit }}</option>
+        <option v-for="u in getUnits(spec.spec_type_id)" :key="u.id" :value="u.unit">@{{ u.unit }}</option>
       </select>
       <button @click="removeSpec(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
     </div>
@@ -133,7 +162,7 @@
       <div class="flex gap-2 mb-2 items-center">
         <select v-model="row.supplier_id" class="input-text text-sm py-1 flex-1">
           <option value="">-- 商社を選択 --</option>
-          <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+          <option v-for="s in suppliers" :key="s.id" :value="s.id">@{{ s.name }}</option>
         </select>
         <label class="flex items-center gap-1 text-xs cursor-pointer">
           <input type="checkbox" v-model="row.is_preferred" />優先
@@ -159,9 +188,9 @@
   </section>
 
   <!-- マスタ追加ポップアップ -->
-  <div v-if="masterModal.open" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="masterModal.open = false">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl p-6 w-80 border border-[var(--color-border)]">
-      <h3 class="font-bold mb-3">{{ {category:'分類',package:'パッケージ',supplier:'商社'}[masterModal.type] }}を追加</h3>
+  <div v-if="masterModal.open" class="modal-overlay" @click.self="masterModal.open = false">
+    <div class="modal-window modal-sm p-6">
+      <h3 class="font-bold mb-3">@{{ {category:'分類',package:'パッケージ',supplier:'商社'}[masterModal.type] }}を追加</h3>
       <input v-model="masterModal.newName" type="text" class="input-text w-full mb-4"
         placeholder="名前を入力" @keydown.enter.prevent="addMaster" autofocus />
       <div class="flex justify-end gap-2">
@@ -175,7 +204,7 @@
   <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">
     <div v-for="t in toasts" :key="t.id"
       class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
-      :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">{{ t.msg }}</div>
+      :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">@{{ t.msg }}</div>
   </div>
 </div>
 </body>

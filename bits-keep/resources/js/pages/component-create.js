@@ -1,4 +1,4 @@
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 
@@ -23,6 +23,12 @@ export default function setup() {
         specs: [],       // [{ spec_type_id, value, unit, value_numeric }]
         supplierRows: [], // [{ supplier_id, supplier_part_number, product_url, unit_price, is_preferred, price_breaks:[] }]
     });
+    const imageFile = ref(null);
+    const datasheetFile = ref(null);
+    const imagePreviewUrl = ref('');
+    const currentImageUrl = ref('');
+    const currentDatasheetUrl = ref('');
+    const currentDatasheetName = ref('');
 
     const saving = ref(false);
 
@@ -60,29 +66,82 @@ export default function setup() {
         }
     };
 
+    const revokePreviewUrl = () => {
+        if (imagePreviewUrl.value?.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreviewUrl.value);
+        }
+    };
+
+    const onImageChange = (event) => {
+        const [file] = event.target.files ?? [];
+        imageFile.value = file ?? null;
+        revokePreviewUrl();
+        imagePreviewUrl.value = file ? URL.createObjectURL(file) : (currentImageUrl.value || '');
+    };
+
+    const onDatasheetChange = (event) => {
+        const [file] = event.target.files ?? [];
+        datasheetFile.value = file ?? null;
+    };
+
+    const buildPayload = () => {
+        const payload = new FormData();
+
+        payload.append('part_number', form.part_number ?? '');
+        payload.append('manufacturer', form.manufacturer ?? '');
+        payload.append('common_name', form.common_name ?? '');
+        payload.append('description', form.description ?? '');
+        payload.append('procurement_status', form.procurement_status ?? 'active');
+        payload.append('threshold_new', String(form.threshold_new ?? 0));
+        payload.append('threshold_used', String(form.threshold_used ?? 0));
+
+        form.category_ids.forEach((categoryId, index) => {
+            payload.append(`category_ids[${index}]`, String(categoryId));
+        });
+        form.package_ids.forEach((packageId, index) => {
+            payload.append(`package_ids[${index}]`, String(packageId));
+        });
+        form.specs.forEach((spec, index) => {
+            payload.append(`specs[${index}][spec_type_id]`, String(spec.spec_type_id ?? ''));
+            payload.append(`specs[${index}][value]`, spec.value ?? '');
+            payload.append(`specs[${index}][unit]`, spec.unit ?? '');
+            payload.append(`specs[${index}][value_numeric]`, spec.value_numeric === null || spec.value_numeric === '' ? '' : String(spec.value_numeric));
+        });
+        form.supplierRows.forEach((row, index) => {
+            payload.append(`suppliers[${index}][supplier_id]`, String(row.supplier_id ?? ''));
+            payload.append(`suppliers[${index}][supplier_part_number]`, row.supplier_part_number ?? '');
+            payload.append(`suppliers[${index}][product_url]`, row.product_url ?? '');
+            payload.append(`suppliers[${index}][unit_price]`, row.unit_price === '' || row.unit_price === null ? '' : String(row.unit_price));
+            payload.append(`suppliers[${index}][is_preferred]`, row.is_preferred ? '1' : '0');
+
+            row.price_breaks.forEach((priceBreak, priceBreakIndex) => {
+                payload.append(`suppliers[${index}][price_breaks][${priceBreakIndex}][min_qty]`, String(priceBreak.min_qty ?? 1));
+                payload.append(`suppliers[${index}][price_breaks][${priceBreakIndex}][unit_price]`, priceBreak.unit_price === '' || priceBreak.unit_price === null ? '' : String(priceBreak.unit_price));
+            });
+        });
+
+        if (imageFile.value) {
+            payload.append('image', imageFile.value);
+        }
+        if (datasheetFile.value) {
+            payload.append('datasheet', datasheetFile.value);
+        }
+
+        return payload;
+    };
+
     // ── 保存 ──────────────────────────────────────────────
     const submit = async () => {
         saving.value = true;
-        const payload = {
-            ...form,
-            suppliers: form.supplierRows.map(r => ({
-                supplier_id: r.supplier_id,
-                supplier_part_number: r.supplier_part_number,
-                product_url: r.product_url,
-                unit_price: r.unit_price || null,
-                is_preferred: r.is_preferred,
-                price_breaks: r.price_breaks,
-            })),
-        };
-        delete payload.supplierRows;
+        const payload = buildPayload();
 
         try {
             if (isEdit) {
-                await api.put(`/components/${editId}`, payload);
+                await api.uploadPut(`/components/${editId}`, payload);
                 toastSuccess('更新しました');
                 setTimeout(() => { location.href = `/components/${editId}`; }, 800);
             } else {
-                const res = await api.post('/components', payload);
+                const res = await api.upload('/components', payload);
                 toastSuccess('登録しました');
                 setTimeout(() => { location.href = `/components/${res.data.id}`; }, 800);
             }
@@ -124,16 +183,22 @@ export default function setup() {
                         is_preferred: cs.is_preferred, price_breaks: cs.price_breaks ?? [],
                     })),
                 });
+                currentImageUrl.value = p.image_url ?? '';
+                currentDatasheetUrl.value = p.datasheet_url ?? '';
+                currentDatasheetName.value = p.datasheet_path ? p.datasheet_path.split('/').pop() : '';
+                imagePreviewUrl.value = currentImageUrl.value;
             } catch { toastError('部品情報の取得に失敗しました'); }
         }
     });
 
     return {
         toasts, isEdit, form, saving,
+        imagePreviewUrl, currentImageUrl, currentDatasheetUrl, currentDatasheetName, datasheetFile,
         categories, packages, specTypes, suppliers,
         addSpec, removeSpec, getUnits,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         masterModal, openMasterModal, addMaster,
+        onImageChange, onDatasheetChange,
         submit,
     };
 }

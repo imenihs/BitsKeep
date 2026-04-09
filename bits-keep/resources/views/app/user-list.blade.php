@@ -4,13 +4,14 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>ユーザー管理 - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 <div id="app" data-page="user-list" class="p-6 max-w-4xl mx-auto">
 
   <nav class="breadcrumb mb-4">
-    <a href="{{ route('dashboard') }}">🏠 BitsKeep</a>
+    @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <span>管理</span>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -41,21 +42,21 @@
         :style="!u.is_active ? 'opacity: 0.5' : ''"
         class="border-b border-[var(--color-border)]">
         <td class="py-2 pr-4">
-          <div class="font-medium">{{ u.name }}</div>
-          <div class="text-xs opacity-60">{{ u.email }}</div>
+          <div class="font-medium">@{{ u.name }}</div>
+          <div class="text-xs opacity-60">@{{ u.email }}</div>
         </td>
         <td class="py-2 pr-4">
           <span :class="roleBadgeClass(u.role)" class="px-2 py-0.5 rounded text-xs font-medium">
-            {{ roleLabel(u.role) }}
+            @{{ roleLabel(u.role) }}
           </span>
         </td>
         <td class="py-2 pr-4">
           <span :class="u.is_active ? 'text-emerald-600' : 'text-red-500'" class="text-xs font-medium">
-            {{ u.is_active ? '有効' : '無効' }}
+            @{{ u.is_active ? '有効' : '無効' }}
           </span>
         </td>
         <td class="py-2 pr-4 text-xs opacity-60">
-          {{ u.invited_at ? new Date(u.invited_at).toLocaleDateString('ja-JP') : '-' }}
+          @{{ u.invited_at ? new Date(u.invited_at).toLocaleDateString('ja-JP') : '-' }}
         </td>
         <td class="py-2">
           <div class="flex gap-2 items-center">
@@ -68,7 +69,7 @@
             <button @click="toggleActive(u)"
               :class="u.is_active ? 'border-red-400 text-red-500 hover:bg-red-50' : 'border-emerald-500 text-emerald-600 hover:bg-emerald-50'"
               class="px-2 py-1 text-xs border rounded">
-              {{ u.is_active ? '無効化' : '有効化' }}
+              @{{ u.is_active ? '無効化' : '有効化' }}
             </button>
           </div>
         </td>
@@ -80,8 +81,8 @@
   </table>
 
   <!-- 招待モーダル -->
-  <div v-if="inviteModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl w-full max-w-md mx-4">
+  <div v-if="inviteModal.open" class="modal-overlay">
+    <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">ユーザー招待</h2>
         <button @click="inviteModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -92,7 +93,7 @@
         <p class="text-emerald-600 font-medium mb-3">✓ 招待ユーザーを作成しました</p>
         <p class="text-sm mb-2">以下の仮パスワードを本人に伝えてください（この画面を閉じると確認できません）:</p>
         <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-3 font-mono text-lg text-center tracking-widest">
-          {{ inviteModal.result }}
+          @{{ inviteModal.result }}
         </div>
         <div class="flex justify-end mt-4">
           <button @click="inviteModal.open = false" class="btn-primary px-4 py-2 rounded">閉じる</button>
@@ -132,7 +133,7 @@
   <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">{{ t.message }}</div>
+      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.message }}</div>
   </div>
 
 </div>

@@ -24,19 +24,24 @@ Route::middleware(['auth'])->group(function () {
 
     // 案件管理
     Route::get('/projects', fn() => view('app.project-list'))->name('projects.index');
+    Route::get('/settings/integrations', fn() => view('app.integration-settings'))->name('settings.integrations');
+    Route::get('/functions', fn() => view('app.function-catalog'))->name('functions.index');
 
     // 比較
     Route::get('/component-compare', fn() => view('app.component-compare'))->name('components.compare');
 
     // 設計ツール
-    Route::get('/tools/calc',    fn() => view('app.engineering-calc'))->name('tools.calc');
-    Route::get('/tools/design',  fn() => view('app.design-tools'))->name('tools.design');
+    Route::get('/tools/calc',     fn() => view('app.engineering-calc'))->name('tools.calc');
+    Route::get('/tools/design',   fn() => view('app.design-tools'))->name('tools.design');
+    Route::get('/tools/network',  fn() => view('app.resistance-calc'))->name('tools.network');
 
     // 管理機能（admin）
-    Route::get('/users',       fn() => view('app.user-list'))->name('users.index');
-    Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
-    Route::get('/csv-import',  fn() => view('app.csv-import'))->name('csv.import');
-    Route::get('/altium',      fn() => view('app.altium-link'))->name('altium.index');
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/users',       fn() => view('app.user-list'))->name('users.index');
+        Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
+        Route::get('/csv-import',  fn() => view('app.csv-import'))->name('csv.import');
+        Route::get('/altium',      fn() => view('app.altium-link'))->name('altium.index');
+    });
 });
 
 Route::middleware('auth')->group(function () {

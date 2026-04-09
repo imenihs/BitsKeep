@@ -6,7 +6,11 @@
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
+                        <img
+                            src="{{ asset('brand/bitskeep-logo-full.png') }}"
+                            alt="BitsKeep"
+                            class="block h-10 w-auto"
+                        >
                     </a>
                 </div>
 

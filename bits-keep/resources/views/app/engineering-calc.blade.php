@@ -4,13 +4,14 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>エンジニア電卓 - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="engineering-calc" class="p-6 max-w-3xl mx-auto">
+<div id="app" data-page="engineering-calc" class="p-6 max-w-7xl mx-auto">
 
   <nav class="breadcrumb mb-4">
-    <a href="{{ route('dashboard') }}">🏠 BitsKeep</a>
+    @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <span>ツール</span>
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -19,76 +20,132 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">エンジニア電卓</h1>
-    <p class="text-sm opacity-60 mt-1">式入力・多進数表示・物理定数プリセット</p>
+    <p class="text-sm opacity-60 mt-1">進数混在・SI接頭辞・複数行変数・E系列丸め・数値解法に対応</p>
   </header>
 
-  <div class="flex gap-6">
-    <!-- 電卓メイン -->
-    <div class="flex-1">
-      <!-- 式入力 -->
-      <div class="mb-4">
-        <textarea v-model="expr" @keydown.enter.prevent="evaluate" rows="3"
-          placeholder="例: 1/(2*pi*10e3*100e-9)"
-          class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg px-4 py-3 font-mono text-sm resize-none focus:ring-1 focus:ring-[var(--color-primary)]"></textarea>
-        <div class="flex gap-2 mt-2">
-          <button @click="evaluate" class="btn-primary px-4 py-2 rounded font-medium text-sm flex-1">= 計算</button>
-          <button @click="clearCalc" class="px-4 py-2 border border-[var(--color-border)] rounded text-sm">クリア</button>
-        </div>
+  <div class="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6">
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold">履歴</h2>
+        <button @click="clearHistory" class="text-xs link-text">クリア</button>
+      </div>
+      <div class="space-y-2 max-h-[70vh] overflow-y-auto">
+        <button v-for="item in history" :key="item.id" @click="useHistory(item)"
+          class="w-full text-left rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 hover:border-[var(--color-primary)]">
+          <div class="font-mono text-xs opacity-70 whitespace-pre-line">@{{ item.expr }}</div>
+          <div class="mt-1 text-sm font-semibold">@{{ item.result }}</div>
+          <div class="mt-1 text-[11px] opacity-50">@{{ item.meta }}</div>
+        </button>
+        <div v-if="history.length === 0" class="text-center py-6 opacity-30 text-xs">履歴なし</div>
       </div>
 
-      <!-- 結果 -->
-      <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 mb-4">
-        <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
-        <div v-else-if="result !== null">
-          <div class="text-3xl font-mono font-bold mb-2">{{ formatNum(result) }}</div>
-          <div v-if="hexResult" class="grid grid-cols-3 gap-2 text-xs font-mono">
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-2">
-              <div class="opacity-60 mb-1">HEX</div>
-              <div>{{ hexResult }}</div>
-            </div>
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-2">
-              <div class="opacity-60 mb-1">OCT</div>
-              <div>{{ octResult }}</div>
-            </div>
-            <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-2 overflow-hidden">
-              <div class="opacity-60 mb-1">BIN</div>
-              <div class="break-all">{{ binResult }}</div>
+      <div class="mt-5 pt-4 border-t border-[var(--color-border)]">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-bold">お気に入り</h2>
+          <button @click="saveFavorite" class="text-xs link-text">現在式を保存</button>
+        </div>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <button v-for="item in favorites" :key="item.id" @click="useFavorite(item)"
+            class="w-full text-left rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 hover:border-[var(--color-primary)]">
+            <div class="font-mono text-xs whitespace-pre-line">@{{ item.expr }}</div>
+          </button>
+          <div v-if="favorites.length === 0" class="text-center py-4 opacity-30 text-xs">お気に入りなし</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="text-sm font-bold">式エディタ</span>
+        <span class="tag tag-ok text-xs">SI接頭辞</span>
+        <span class="tag tag-warning text-xs">複数行変数</span>
+        <span class="tag text-xs">即時計算</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
+        <div>
+          <textarea v-model="expr" rows="14"
+            class="input-text min-h-[320px] w-full px-4 py-3 font-mono text-sm leading-6 resize-none"
+            placeholder="例:
+vin = 5
+r1 = 10k
+r2 = 3.3k
+vin * r2 / (r1 + r2)"></textarea>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button v-for="snippet in snippets" :key="snippet.label" @click="expr = snippet.value"
+              class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-primary)] hover:text-white transition-colors">
+              @{{ snippet.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs font-semibold opacity-60 mb-2">定数 / 関数</div>
+          <div class="space-y-2 text-xs">
+            <div v-for="item in presetItems" :key="item.name" class="rounded border border-[var(--color-border)] p-2">
+              <div class="font-mono font-semibold">@{{ item.name }}</div>
+              <div class="opacity-60 mt-1">@{{ item.desc }}</div>
             </div>
           </div>
         </div>
-        <div v-else class="text-center opacity-30 py-2 text-sm">結果がここに表示されます</div>
       </div>
 
-      <!-- 定数プリセット -->
-      <div>
-        <p class="text-xs font-medium opacity-60 mb-2">物理定数・定数プリセット</p>
-        <div class="flex flex-wrap gap-2">
-          <button v-for="c in PRESET_CONSTANTS" :key="c.key"
-            @click="insertConst(c.key)"
-            class="text-xs px-2 py-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded hover:bg-[var(--color-primary)] hover:text-white transition-colors"
-            :title="c.key + ' = ' + c.value">
-            {{ c.label }}
-          </button>
-        </div>
+      <div class="mt-4 flex gap-3">
+        <button @click="run(true)" class="btn btn-primary px-4 py-2 rounded text-sm">評価して履歴へ保存</button>
+        <button @click="copyResult" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">結果をコピー</button>
+        <button @click="clearCalc" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">クリア</button>
       </div>
-    </div>
+    </section>
 
-    <!-- 履歴 -->
-    <div class="w-56 flex-shrink-0">
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-sm font-medium">履歴</p>
-        <button @click="clearHistory" class="text-xs opacity-50 hover:opacity-100">クリア</button>
-      </div>
-      <div class="space-y-1 max-h-[60vh] overflow-y-auto">
-        <div v-for="h in history" :key="h.ts"
-          @click="useHistory(h)"
-          class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-2 cursor-pointer hover:opacity-90 text-xs">
-          <div class="font-mono opacity-70 truncate">{{ h.expr }}</div>
-          <div class="font-mono font-bold">= {{ formatNum(h.result) }}</div>
+    <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+      <h2 class="text-sm font-bold mb-3">結果</h2>
+
+      <div v-if="error" class="rounded-xl border border-red-400 bg-red-50 p-4 text-sm text-red-600">@{{ error }}</div>
+      <template v-else>
+        <div class="rounded-xl border-2 border-[var(--color-primary)] p-4 bg-[var(--color-bg)]">
+          <div class="text-xs opacity-60 mb-1">評価結果</div>
+          <div class="font-mono text-3xl font-bold text-[var(--color-primary)]">@{{ decResult }}</div>
+          <div class="text-xs opacity-60 mt-2">型: @{{ resultType }}</div>
+          <div class="text-xs opacity-60 mt-1">工学表記: @{{ engResult }}</div>
         </div>
-        <div v-if="history.length === 0" class="text-center py-4 opacity-30 text-xs">履歴なし</div>
-      </div>
-    </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+            <div class="text-[11px] opacity-60">DEC</div>
+            <div class="font-mono text-sm mt-1 break-all">@{{ decResult }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+            <div class="text-[11px] opacity-60">ENG</div>
+            <div class="font-mono text-sm mt-1 break-all">@{{ engResult }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+            <div class="text-[11px] opacity-60">HEX</div>
+            <div class="font-mono text-sm mt-1 break-all">@{{ hexResult }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+            <div class="text-[11px] opacity-60">BIN</div>
+            <div class="font-mono text-sm mt-1 break-all">@{{ binResult }}</div>
+          </div>
+        </div>
+
+        <div class="rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)] mt-4">
+          <div class="text-[11px] opacity-60">OCT</div>
+          <div class="font-mono text-sm mt-1 break-all">@{{ octResult }}</div>
+        </div>
+
+        <div class="mt-4 rounded border border-[var(--color-border)] p-3 bg-[var(--color-bg)]">
+          <div class="text-xs font-semibold opacity-60 mb-2">評価スコープ</div>
+          <div v-if="scopeEntries.length" class="space-y-1 text-xs font-mono">
+            <div v-for="[key, value] in scopeEntries" :key="key" class="flex justify-between gap-3">
+              <span>@{{ key }}</span>
+              <span class="break-all text-right">@{{ formatNum(value) }}</span>
+            </div>
+          </div>
+          <div v-else class="text-xs opacity-40">変数定義なし</div>
+        </div>
+      </template>
+    </section>
   </div>
 
 </div>

@@ -15,6 +15,7 @@ export default function setup() {
     const advMin           = ref('');
     const advMax           = ref('');
     const advUnit          = ref('');
+    const sortOrder        = ref('updated_at');
 
     // ── ページネーション ──────────────────────────────────────
     const page    = ref(1);
@@ -28,16 +29,22 @@ export default function setup() {
     const specTypes  = ref([]);
     const loading    = ref(false);
     const alertCount = ref(0);
+    const listError = ref('');
+    const masterError = ref('');
 
     // ── 比較リスト ────────────────────────────────────────────
     const compareList = ref([]);
     const toggleCompare = (part) => {
         const idx = compareList.value.findIndex(p => p.id === part.id);
         if (idx >= 0) compareList.value.splice(idx, 1);
-        else if (compareList.value.length < 4) compareList.value.push(part);
-        else toastError('比較は最大4件まです');
+        else if (compareList.value.length < 5) compareList.value.push(part);
+        else toastError('比較は最大5件までです');
     };
     const inCompare = (part) => compareList.value.some(p => p.id === part.id);
+    const compareUrl = computed(() => {
+        const ids = compareList.value.map((part) => part.id);
+        return ids.length >= 2 ? `/component-compare?ids=${ids.join(',')}` : '/component-compare';
+    });
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
@@ -53,6 +60,7 @@ export default function setup() {
     // ── APIフェッチ ───────────────────────────────────────────
     const fetchParts = async () => {
         loading.value = true;
+        listError.value = '';
         try {
             const params = new URLSearchParams();
             if (searchQuery.value)           params.set('q', searchQuery.value);
@@ -62,6 +70,7 @@ export default function setup() {
             if (advSpecTypeId.value)         params.set('spec_type_id', advSpecTypeId.value);
             if (advMin.value)                params.set('spec_min', advMin.value);
             if (advMax.value)                params.set('spec_max', advMax.value);
+            params.set('sort', sortOrder.value);
             params.set('page', page.value);
             params.set('per_page', perPage.value);
 
@@ -71,24 +80,34 @@ export default function setup() {
             lastPage.value = res.data.last_page;
         } catch (e) {
             toastError('部品一覧の取得に失敗しました');
+            listError.value = '部品一覧の取得に失敗しました。再試行するか、検索条件を見直してください。';
         } finally {
             loading.value = false;
         }
     };
 
     const fetchMasters = async () => {
-        const [catRes, stRes, alertRes] = await Promise.all([
-            api.get('/categories'),
-            api.get('/spec-types'),
-            api.get('/components?needs_reorder=1&per_page=1'),
-        ]);
-        categories.value = catRes.data;
-        specTypes.value  = stRes.data;
-        alertCount.value = alertRes.data.total;
+        masterError.value = '';
+        try {
+            const [catRes, stRes, alertRes] = await Promise.all([
+                api.get('/categories'),
+                api.get('/spec-types'),
+                api.get('/components?needs_reorder=1&per_page=1'),
+            ]);
+            categories.value = catRes.data;
+            specTypes.value  = stRes.data;
+            alertCount.value = alertRes.data.total;
+        } catch {
+            masterError.value = '分類・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
+            categories.value = [];
+            specTypes.value = [];
+            alertCount.value = 0;
+            toastError('部品一覧の補助データ取得に失敗しました');
+        }
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, needsReorder, advSpecTypeId, advMin, advMax], () => {
+    watch([searchQuery, filterCategories, filterStatus, needsReorder, advSpecTypeId, advMin, advMax, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -105,9 +124,11 @@ export default function setup() {
     return {
         toasts, searchQuery, filterCategories, filterStatus, needsReorder,
         advancedOpen, advSpecTypeId, advMin, advMax, advUnit,
+        sortOrder,
         page, perPage, total, lastPage,
-        parts, categories, specTypes, loading, alertCount,
+        parts, categories, specTypes, loading, alertCount, listError, masterError, fetchMasters,
         compareList, toggleCompare, inCompare,
+        compareUrl,
         hasFilter, clearFilters, fetchParts,
         procurementLabel, procurementClass,
     };

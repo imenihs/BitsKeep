@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AltiumLinkController;
+use App\Http\Controllers\Api\CalcController;
+use App\Http\Controllers\Api\IntegrationSettingsController;
+use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\AuditLogController;
@@ -21,7 +24,7 @@ use Illuminate\Support\Facades\Route;
  * 全エンドポイントに auth ミドルウェアを適用。
  * 書き込み系は各 FormRequest の authorize() またはコントローラ内でロール検証。
  */
-Route::middleware('auth')->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
 
     // ── マスタ管理 ──────────────────────────────────────────
     Route::apiResource('categories', CategoryController::class);
@@ -77,11 +80,25 @@ Route::middleware('auth')->group(function () {
     Route::get('audit-logs', [AuditLogController::class, 'index']);
 
     // ── 案件管理 ─────────────────────────────────────────────
-    Route::get('projects/options', [ProjectController::class, 'options']);
+    Route::get( 'projects/options',         [ProjectController::class, 'options']);
+    Route::get( 'project-businesses',       [ProjectController::class, 'businesses']);
+    Route::get( 'projects/sync/status',     [ProjectController::class, 'syncStatus']);
+    Route::post('projects/sync/notion',     [ProjectController::class, 'syncNotion']);
+    Route::get( 'projects/sync-runs',       [ProjectController::class, 'syncRuns']);
     Route::apiResource('projects', ProjectController::class);
-    Route::get(   'projects/{project}/components',                   [ProjectController::class, 'listComponents']);
-    Route::post(  'projects/{project}/components',                   [ProjectController::class, 'addComponent']);
-    Route::patch( 'projects/{project}/components/{component}',       [ProjectController::class, 'updateComponent']);
-    Route::delete('projects/{project}/components/{component}',       [ProjectController::class, 'removeComponent']);
-    Route::get(   'projects/{project}/cost',                         [ProjectController::class, 'cost']);
+    Route::get(   'projects/{project}/components',             [ProjectController::class, 'listComponents']);
+    Route::post(  'projects/{project}/components',             [ProjectController::class, 'addComponent']);
+    Route::patch( 'projects/{project}/components/{component}', [ProjectController::class, 'updateComponent']);
+    Route::delete('projects/{project}/components/{component}', [ProjectController::class, 'removeComponent']);
+    Route::get(   'projects/{project}/cost',                   [ProjectController::class, 'cost']);
+
+    // ── ユーザー設定 ─────────────────────────────────────────
+    Route::get(   'settings/integrations/notion', [IntegrationSettingsController::class, 'showNotion']);
+    Route::put(   'settings/integrations/notion', [IntegrationSettingsController::class, 'updateNotion']);
+    Route::get(   'preferences/{key}', [PreferenceController::class, 'show']);
+    Route::put(   'preferences/{key}', [PreferenceController::class, 'update']);
+    Route::delete('preferences/{key}', [PreferenceController::class, 'destroy']);
+
+    // ── 計算ツール ───────────────────────────────────────────
+    Route::post('calc/networks/search', [CalcController::class, 'networkSearch']);
 });

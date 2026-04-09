@@ -4,13 +4,14 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>マスタ管理 - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 <div id="app" data-page="master-list" data-tab="categories" class="p-6 max-w-4xl mx-auto">
 
   <nav class="breadcrumb mb-4">
-    <a href="{{ route('dashboard') }}">🏠 BitsKeep</a>
+    @include('partials.brand-home-link')
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     <span class="current">マスタ管理</span>
   </nav>
@@ -28,7 +29,7 @@
         ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)] font-medium'
         : 'opacity-60 hover:opacity-90'"
       class="px-4 py-2 text-sm transition-colors -mb-px">
-      {{ tab.label }}
+      @{{ tab.label }}
     </button>
   </div>
 
@@ -50,9 +51,9 @@
         <tr v-for="c in categories" :key="c.id"
           :class="c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">{{ c.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">{{ c.name }}</td>
-          <td class="py-2 pr-4 opacity-70 text-xs">{{ c.description || '-' }}</td>
+          <td class="py-2 pr-4 text-center opacity-50">@{{ c.sort_order }}</td>
+          <td class="py-2 pr-4 font-medium">@{{ c.name }}</td>
+          <td class="py-2 pr-4 opacity-70 text-xs">@{{ c.description || '-' }}</td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openCatEdit(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
@@ -85,9 +86,9 @@
         <tr v-for="p in packages" :key="p.id"
           :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">{{ p.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">{{ p.name }}</td>
-          <td class="py-2 pr-4 opacity-70 text-xs">{{ p.description || '-' }}</td>
+          <td class="py-2 pr-4 text-center opacity-50">@{{ p.sort_order }}</td>
+          <td class="py-2 pr-4 font-medium">@{{ p.name }}</td>
+          <td class="py-2 pr-4 opacity-70 text-xs">@{{ p.description || '-' }}</td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openPkgEdit(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
@@ -121,13 +122,13 @@
         <tr v-for="s in specTypes" :key="s.id"
           :class="s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">{{ s.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">{{ s.name }}</td>
-          <td class="py-2 pr-4 text-xs opacity-70">{{ s.value_type }}</td>
+          <td class="py-2 pr-4 text-center opacity-50">@{{ s.sort_order }}</td>
+          <td class="py-2 pr-4 font-medium">@{{ s.name }}</td>
+          <td class="py-2 pr-4 text-xs opacity-70">@{{ s.value_type }}</td>
           <td class="py-2 pr-4 text-xs">
             <span v-for="u in (s.units ?? [])" :key="u.id"
               class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5 mr-1 mb-1">
-              {{ u.unit }}
+              @{{ u.unit }}
             </span>
             <span v-if="!s.units?.length" class="opacity-40">-</span>
           </td>
@@ -146,10 +147,10 @@
   </div>
 
   <!-- ═══════════════ 分類モーダル ════════════════ -->
-  <div v-if="catModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl w-full max-w-md mx-4">
+  <div v-if="catModal.open" class="modal-overlay">
+    <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">{{ catModal.isEdit ? '分類編集' : '分類追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ catModal.isEdit ? '分類編集' : '分類追加' }}</h2>
         <button @click="catModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
@@ -177,10 +178,10 @@
   </div>
 
   <!-- ═══════════════ パッケージモーダル ════════════════ -->
-  <div v-if="pkgModal.open" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl w-full max-w-md mx-4">
+  <div v-if="pkgModal.open" class="modal-overlay">
+    <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">{{ pkgModal.isEdit ? 'パッケージ編集' : 'パッケージ追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ編集' : 'パッケージ追加' }}</h2>
         <button @click="pkgModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
@@ -208,10 +209,10 @@
   </div>
 
   <!-- ═══════════════ スペック種別モーダル ════════════════ -->
-  <div v-if="stModal.open" class="fixed inset-0 bg-black/50 flex items-start justify-center z-50 pt-10">
-    <div class="bg-[var(--color-bg)] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto">
+  <div v-if="stModal.open" class="modal-overlay modal-top">
+    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">{{ stModal.isEdit ? 'スペック種別編集' : 'スペック種別追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック種別編集' : 'スペック種別追加' }}</h2>
         <button @click="stModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
@@ -274,7 +275,7 @@
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
       class="text-white px-4 py-2 rounded shadow-lg text-sm">
-      {{ t.message }}
+      @{{ t.message }}
     </div>
   </div>
 

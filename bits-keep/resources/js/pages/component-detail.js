@@ -10,6 +10,7 @@ export default function setup() {
 
     const part       = ref(null);
     const loading    = ref(true);
+    const loadError  = ref('');
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -26,10 +27,14 @@ export default function setup() {
 
     const fetchPart = async () => {
         loading.value = true;
+        loadError.value = '';
         try {
             const res = await api.get(`/components/${componentId}`);
             part.value = res.data;
+            await fetchSimilar();
         } catch {
+            part.value = null;
+            loadError.value = '部品情報の取得に失敗しました。URLを確認するか、部品一覧から開き直してください。';
             toastError('部品情報の取得に失敗しました');
         } finally {
             loading.value = false;
@@ -122,13 +127,18 @@ export default function setup() {
     // 類似部品
     const similarParts = ref([]);
     const similarLoading = ref(false);
+    const similarError = ref('');
     const fetchSimilar = async () => {
         if (similarLoading.value) return;
         similarLoading.value = true;
+        similarError.value = '';
+        similarParts.value = [];
         try {
             const r = await api.get(`/components/${componentId}/similar`);
             similarParts.value = r.data;
-        } catch { /* 無視 */ }
+        } catch {
+            similarError.value = '類似部品の取得に失敗しました。比較画面へ進むか、再試行してください。';
+        }
         finally { similarLoading.value = false; }
     };
 
@@ -147,12 +157,12 @@ export default function setup() {
     onMounted(fetchPart);
 
     return {
-        toasts, part, loading, componentId,
+        toasts, part, loading, loadError, componentId,
         stockTypeLabel, procurementOptions,
         editModal, openEdit, saveSection, saveAll,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
         deletePart,
-        similarParts, similarLoading, fetchSimilar,
+        similarParts, similarLoading, similarError, fetchSimilar,
     };
 }

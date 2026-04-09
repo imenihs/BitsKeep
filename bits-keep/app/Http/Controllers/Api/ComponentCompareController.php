@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Component;
+use App\Support\FileStorage;
 use Illuminate\Http\Request;
 
 /**
@@ -69,6 +70,7 @@ class ComponentCompareController extends Controller
                 'part_number'        => $comp->part_number,
                 'common_name'        => $comp->common_name,
                 'manufacturer'       => $comp->manufacturer,
+                'image_url'          => FileStorage::url($comp->image_path),
                 'procurement_status' => $comp->procurement_status,
                 'quantity_new'       => $comp->quantity_new,
                 'quantity_used'      => $comp->quantity_used,

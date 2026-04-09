@@ -4,6 +4,7 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>ダッシュボード - BitsKeep</title>
+  @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
@@ -11,81 +12,402 @@
   data-page="dashboard"
   data-user-name="{{ auth()->user()->name }}"
   data-role="{{ auth()->user()->role }}"
-  class="p-6 max-w-5xl mx-auto">
+  class="min-h-screen">
 
-  <!-- ヘッダ -->
-  <header class="flex justify-between items-center mb-8">
-    <div>
-      <h1 class="text-2xl font-bold">🏠 BitsKeep</h1>
-      <p class="text-sm opacity-60 mt-1">おはようございます、{{ auth()->user()->name }} さん</p>
+  <header id="page-top" class="border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <img src="{{ asset('brand/bitskeep-logo-mark.png') }}" alt="BitsKeep" class="h-12 w-12 rounded-2xl" />
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">BitsKeep Home</p>
+          <h1 class="text-2xl font-bold">使うべき部品へ最短で入る</h1>
+          <p class="text-sm opacity-60">おはようございます、{{ auth()->user()->name }} さん。検索主導で主要導線へ迷わず入れます。</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">
+          権限:
+          {{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}
+        </span>
+        <a href="{{ route('components.index') }}"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors no-underline">
+          部品一覧へ
+        </a>
+        <button @click="openSearch"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] text-sm hover:border-[var(--color-primary)] transition-colors">
+          <span>🔍 検索</span>
+          <kbd class="opacity-40 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5">Ctrl+K</kbd>
+        </button>
+      </div>
     </div>
-    <button @click="openSearch"
-      class="flex items-center gap-2 px-4 py-2 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg text-sm hover:opacity-90 transition-opacity">
-      <span class="opacity-60">🔍 検索...</span>
-      <kbd class="opacity-40 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5">Ctrl+K</kbd>
-    </button>
   </header>
 
-  <!-- 今日の確認事項 -->
-  <section class="mb-8">
-    <h2 class="text-sm font-semibold opacity-60 uppercase tracking-wide mb-3">今日の確認事項</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <!-- 在庫警告カード -->
-      <a href="{{ route('stock.alert') }}"
-        :class="alertCount > 0 ? 'border-amber-400 bg-amber-50' : 'border-[var(--color-border)] bg-[var(--color-card-odd)]'"
-        class="rounded-xl border p-4 flex items-center gap-4 hover:opacity-90 transition-opacity no-underline text-inherit">
-        <span class="text-3xl">{{ alertCount > 0 ? '⚠️' : '✅' }}</span>
+  <nav class="sticky top-0 z-20 border-b border-[var(--color-border)] bg-[var(--color-bg)]/96 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-6 py-3">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div class="font-medium">在庫警告</div>
-          <div class="text-sm" :class="alertCount > 0 ? 'text-amber-700' : 'opacity-60'">
-            {{ alertCount > 0 ? alertCount + ' 件の部品が発注点を下回っています' : '全て問題ありません' }}
-          </div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Section Guide</p>
+          <div class="text-sm opacity-70">目次から目的のセクションへ直接移動できます。</div>
         </div>
-      </a>
+        <div class="flex flex-wrap gap-2">
+          <a v-for="link in sectionLinks" :key="link.href" :href="link.href"
+            class="px-3 py-2 rounded-full border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors">
+            @{{ link.label }}
+          </a>
+        </div>
+      </div>
     </div>
-  </section>
+  </nav>
 
-  <!-- クイックアクション -->
-  <section class="mb-8">
-    <h2 class="text-sm font-semibold opacity-60 uppercase tracking-wide mb-3">クイックアクション</h2>
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-      <a v-for="action in quickActions" :key="action.url"
-        :href="action.url"
-        class="relative bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center gap-2 hover:border-[var(--color-primary)] hover:shadow-md transition-all no-underline text-inherit">
-        <span class="text-2xl">{{ action.icon }}</span>
-        <span class="text-sm font-medium text-center">{{ action.label }}</span>
-        <span v-if="action.badge"
-          class="absolute top-2 right-2 bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-          {{ action.badge > 9 ? '9+' : action.badge }}
-        </span>
-      </a>
-    </div>
-  </section>
-
-  <!-- 最近の部品 -->
-  <section>
-    <h2 class="text-sm font-semibold opacity-60 uppercase tracking-wide mb-3">最近の部品</h2>
-    <div class="space-y-1">
-      <a v-for="p in recentParts" :key="p.id"
-        :href="`/components/${p.id}`"
-        class="flex items-center justify-between bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 hover:opacity-90 no-underline text-inherit transition-opacity">
-        <div class="flex items-center gap-3">
-          <span class="text-lg">🔩</span>
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <section id="launcher-section" class="scroll-mt-28 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+      <div class="rounded-3xl border border-[var(--color-border)] p-6 shadow-sm"
+        style="background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, var(--color-bg)) 0%, var(--color-bg) 58%, color-mix(in srgb, var(--color-highlight) 12%, var(--color-bg)) 100%);">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div class="text-sm font-medium">{{ p.common_name || p.part_number }}</div>
-            <div class="text-xs opacity-50">{{ p.part_number }}</div>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50 mb-2">Global Launcher</p>
+            <h2 class="text-3xl font-bold mb-2">まず検索するか、すぐ使うか</h2>
+            <p class="text-sm opacity-70 leading-relaxed">
+              部品・案件・機能を横断検索し、見つからなければ主要アクションから入る構成です。
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="mode in focusModes" :key="mode" type="button" @click="setFocus(mode)"
+              class="px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors"
+              :class="activeFocus === mode
+                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
+              @{{ mode }}
+            </button>
           </div>
         </div>
-        <div class="text-xs opacity-50">在庫 {{ p.quantity_new }}</div>
-      </a>
-      <div v-if="recentParts.length === 0" class="text-center py-4 opacity-30 text-sm">部品が登録されていません</div>
-    </div>
-  </section>
+
+        <div class="mt-6">
+          <label for="launcher" class="text-sm font-semibold">グローバル検索</label>
+          <div class="relative mt-2">
+            <input id="launcher" v-model="searchQuery" @input="onSearchInput" @keydown.enter="openFirstResult"
+              class="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4 text-base outline-none focus:border-[var(--color-primary)]"
+              placeholder="型番・部品名・案件・機能名を検索" />
+            <span class="absolute right-4 top-4 text-xs opacity-40">Enter</span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs opacity-70">
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">部品</span>
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">案件</span>
+            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">機能</span>
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
+            <div v-if="searchError" class="px-4 py-4 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]">
+              <div class="text-sm font-semibold text-[var(--color-tag-warning)]">@{{ searchError }}</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button @click="doSearch" class="px-3 py-2 rounded-xl border border-[var(--color-tag-warning)] text-sm">再試行</button>
+                <a href="{{ route('components.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">部品一覧へ</a>
+                <a href="{{ route('projects.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">案件管理へ</a>
+              </div>
+            </div>
+            <button v-for="item in launcherResults" :key="`${item.type}-${item.label}`" type="button"
+              @click="openItem(item)"
+              class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-card-even)] transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">
+                  @{{ item.icon }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)]">@{{ item.type }}</span>
+                    <span class="font-semibold">@{{ item.label }}</span>
+                  </div>
+                  <div class="text-sm opacity-60">@{{ item.sub }}</div>
+                </div>
+                <span class="opacity-40 flex-shrink-0">↗</span>
+              </div>
+            </button>
+            <div v-if="!launcherResults.length" class="px-4 py-5 text-sm opacity-60">
+              一致候補はありません。部品一覧または案件管理から新規登録を検討してください。
+            </div>
+          </div>
+
+          <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+            <a href="#today-section"
+              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+              今日の確認事項へ ↓
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <aside class="space-y-4">
+        <section v-if="summaryError" class="rounded-3xl border border-[var(--color-tag-warning)] p-5 bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))] shadow-sm">
+          <div class="font-semibold text-[var(--color-tag-warning)]">ホーム要約の一部取得に失敗しました</div>
+          <div class="text-sm opacity-80 mt-2">@{{ summaryError }}</div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button @click="fetchSummary" class="px-3 py-2 rounded-xl border border-[var(--color-tag-warning)] text-sm">再読込</button>
+            <a href="{{ route('components.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">部品一覧へ</a>
+            <a href="{{ route('projects.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">案件管理へ</a>
+          </div>
+        </section>
+        <section id="today-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-5 card-even shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] opacity-50">Today</p>
+              <h2 class="text-lg font-bold">今日の確認事項</h2>
+            </div>
+            <span class="text-xs opacity-50">先に見るべきもの</span>
+          </div>
+          <div class="space-y-3">
+            <button v-for="card in statusCards" :key="card.title" type="button" @click="openItem(card)"
+              class="w-full rounded-2xl border border-[var(--color-border)] p-4 text-left hover:border-[var(--color-primary)] transition-colors bg-[var(--color-bg)]">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 text-lg"
+                  :style="{ backgroundColor: card.color }">
+                  @{{ card.icon }}
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs opacity-50">@{{ card.title }}</div>
+                  <div class="font-bold text-lg leading-tight mt-0.5">@{{ card.value }}</div>
+                  <div class="text-sm opacity-65 mt-1">@{{ card.desc }}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-[var(--color-border)] flex justify-end">
+            <a href="#quick-actions-section"
+              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+              主要アクションへ ↓
+            </a>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="quick-actions-section" class="scroll-mt-28">
+      <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Quick Actions</p>
+          <h2 class="text-2xl font-bold">主要アクション</h2>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="text-sm opacity-60">頻出操作だけを上段に置き、並び順は個人ごとに保存します。</p>
+          <button v-if="!sortMode" @click="sortMode = true"
+            class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+            並び替え
+          </button>
+          <template v-else>
+            <button @click="saveOrder" :disabled="savingOrder"
+              class="px-3 py-2 rounded-xl border border-[var(--color-primary)] bg-[var(--color-primary)] text-white text-sm disabled:opacity-50">
+              @{{ savingOrder ? '保存中...' : '保存' }}
+            </button>
+            <button @click="sortMode = false"
+              class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+              キャンセル
+            </button>
+          </template>
+        </div>
+      </div>
+      <div v-if="sortMode" class="mb-4 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-75 bg-[var(--color-bg)]">
+        カードをドラッグして並び替えます。通常時はクリック起動、並び替え中だけドラッグを有効にします。
+      </div>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <component :is="sortMode ? 'div' : 'a'"
+          v-for="(action, idx) in quickActions" :key="action.key"
+          :href="sortMode ? null : action.url"
+          :draggable="sortMode"
+          @dragstart="onDragStart(idx)"
+          @dragover="onDragOver"
+          @drop="onDrop(idx)"
+          class="relative rounded-3xl border border-[var(--color-border)] p-5 text-left hover:border-[var(--color-primary)] hover:shadow-sm transition-all bg-[var(--color-bg)] no-underline text-inherit"
+          :class="sortMode ? 'cursor-grab border-dashed border-2 border-[var(--color-primary)]' : ''">
+          <div v-if="sortMode" class="flex items-center justify-between text-xs opacity-50 mb-3">
+            <span>ドラッグで並び替え</span>
+            <span>⠿</span>
+          </div>
+          <div class="w-11 h-11 rounded-2xl text-white flex items-center justify-center mb-4 text-xl"
+            style="background-color: var(--color-primary);">
+            @{{ action.icon }}
+          </div>
+          <div class="text-sm opacity-50 mb-1">Action</div>
+          <div class="font-bold text-lg leading-tight mb-2">@{{ action.label }}</div>
+          <div class="text-sm opacity-65 leading-relaxed">必要な画面へすぐ移動します。</div>
+          <span v-if="action.badge"
+            class="absolute top-4 right-4 bg-amber-500 text-white text-xs rounded-full min-w-6 h-6 px-1.5 flex items-center justify-center font-bold">
+            @{{ action.badge > 9 ? '9+' : action.badge }}
+          </span>
+        </component>
+      </div>
+
+      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+        <a href="#recent-section"
+          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+          最近の部品へ ↓
+        </a>
+      </div>
+    </section>
+
+    <section id="recent-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-bg)] shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Recent</p>
+          <h2 class="text-2xl font-bold">最近の部品</h2>
+        </div>
+        <a href="{{ route('components.index') }}" class="text-sm no-underline hover:text-[var(--color-primary)] transition-colors">部品一覧を見る</a>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        <a v-for="item in recentItems" :key="item.href"
+          :href="item.href"
+          class="flex items-center justify-between gap-3 rounded-2xl px-4 py-4 border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-colors no-underline text-inherit">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">@{{ item.icon }}</div>
+            <div class="min-w-0 text-left">
+              <div class="font-semibold text-sm truncate">@{{ item.name }}</div>
+              <div class="text-xs opacity-50 truncate">@{{ item.group }}</div>
+            </div>
+          </div>
+          <span class="opacity-35 flex-shrink-0">›</span>
+        </a>
+      </div>
+      <div v-if="recentItems.length === 0" class="text-center py-8 opacity-40 text-sm">部品が登録されていません</div>
+
+      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
+        <a href="#all-functions-section"
+          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+          全機能一覧へ ↓
+        </a>
+      </div>
+    </section>
+
+    <!-- 全機能一覧 -->
+    <section id="all-functions-section" class="scroll-mt-28">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-[0.2em] opacity-50">All Functions</p>
+        <h2 class="text-2xl font-bold">全機能一覧</h2>
+        <p class="text-sm opacity-60 mt-1">BitsKeep のすべての機能へのショートカットです。</p>
+      </div>
+
+      {{-- 部品管理 --}}
+      <div class="mb-6">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">部品管理</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          @foreach ([
+            ['icon'=>'🔩','label'=>'部品一覧','desc'=>'登録部品の検索・絞り込み','route'=>'components.index'],
+            ['icon'=>'➕','label'=>'部品登録','desc'=>'新規部品を登録する','route'=>'components.create'],
+            ['icon'=>'⚖️','label'=>'部品比較','desc'=>'複数部品のスペックを比較','route'=>'components.compare'],
+            ['icon'=>'📥','label'=>'CSVインポート','desc'=>'CSVで部品を一括登録','route'=>'csv.import'],
+          ] as $fn)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @endforeach
+        </div>
+      </div>
+
+      {{-- 在庫・棚管理 --}}
+      <div class="mb-6">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">在庫・棚管理</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          @foreach ([
+            ['icon'=>'⚠️','label'=>'在庫警告','desc'=>'発注点を下回る部品を確認','route'=>'stock.alert'],
+            ['icon'=>'🗄️','label'=>'保管棚管理','desc'=>'棚マップと棚卸し','route'=>'locations.index'],
+            ['icon'=>'🏪','label'=>'商社管理','desc'=>'仕入先・商社の管理','route'=>'suppliers.index'],
+          ] as $fn)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @endforeach
+        </div>
+      </div>
+
+      {{-- 案件・設計ツール --}}
+      <div class="mb-6">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">案件・設計ツール</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          @foreach ([
+            ['icon'=>'📋','label'=>'案件管理','desc'=>'案件ごとの部品・コスト管理','route'=>'projects.index'],
+            ['icon'=>'🧮','label'=>'エンジニア電卓','desc'=>'式計算・進数変換・物理定数','route'=>'tools.calc'],
+            ['icon'=>'🔬','label'=>'設計解析ツール','desc'=>'ADC/電源/誤差/熱など設計解析','route'=>'tools.design'],
+            ['icon'=>'🔌','label'=>'ネットワーク探索','desc'=>'抵抗/容量の直並列組み合わせ','route'=>'tools.network'],
+          ] as $fn)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @endforeach
+        </div>
+      </div>
+
+      {{-- マスタ・ログ --}}
+      <div class="mb-6">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">マスタ・ログ</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          @foreach ([
+            ['icon'=>'⚙️','label'=>'マスタ管理','desc'=>'分類・パッケージ・スペック種別','route'=>'master.index'],
+            ['icon'=>'📝','label'=>'操作ログ','desc'=>'変更履歴の監査ログ','route'=>'audit.index'],
+            ['icon'=>'🔗','label'=>'Altium連携','desc'=>'Altium Designerとの部品リンク','route'=>'altium.index'],
+          ] as $fn)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @endforeach
+        </div>
+      </div>
+
+      {{-- 管理・設定 --}}
+      <div class="mb-2">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">管理・設定</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <a href="{{ route('settings.integrations') }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">🔑</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">連携設定</div>
+              <div class="text-xs opacity-50 truncate">Notion APIトークン等の設定</div>
+            </div>
+          </a>
+          @if (auth()->user()->role === 'admin')
+          <a href="{{ route('users.index') }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">👤</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">ユーザー管理</div>
+              <div class="text-xs opacity-50 truncate">ユーザーの招待・ロール変更</div>
+            </div>
+          </a>
+          @endif
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-[var(--color-border)] flex justify-end">
+        <a href="#page-top"
+          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
+          ↑ ページ先頭へ
+        </a>
+      </div>
+    </section>
+  </main>
 
   <!-- グローバル検索オーバーレイ -->
-  <div v-if="searchOpen" class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20 px-4"
+  <div v-if="searchOpen" class="modal-overlay modal-top"
     @click.self="closeSearch">
-    <div class="bg-[var(--color-bg)] rounded-2xl shadow-2xl w-full max-w-lg">
+    <div class="modal-window modal-lg">
       <div class="flex items-center gap-3 p-4 border-b border-[var(--color-border)]">
         <span class="opacity-50">🔍</span>
         <input v-model="searchQuery" @input="onSearchInput" type="text"
@@ -99,18 +421,18 @@
       <div class="max-h-72 overflow-y-auto">
         <div v-if="searching" class="p-4 text-center opacity-50 text-sm">検索中...</div>
         <div v-else-if="searchResults.length === 0 && searchQuery" class="p-4 text-center opacity-40 text-sm">
-          「{{ searchQuery }}」は見つかりません
+          「@{{ searchQuery }}」は見つかりません
         </div>
         <div v-for="r in searchResults" :key="r.url + r.label"
           @click="navigate(r.url)"
           class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--color-card-odd)] transition-colors border-b border-[var(--color-border)] last:border-0">
-          <span class="text-xl flex-shrink-0">{{ r.icon }}</span>
+          <span class="text-xl flex-shrink-0">@{{ r.icon }}</span>
           <div>
-            <div class="text-sm font-medium">{{ r.label }}</div>
-            <div class="text-xs opacity-50">{{ r.sub }}</div>
+            <div class="text-sm font-medium">@{{ r.label }}</div>
+            <div class="text-xs opacity-50">@{{ r.sub }}</div>
           </div>
           <span class="ml-auto text-xs opacity-40 bg-[var(--color-card-odd)] px-2 py-0.5 rounded">
-            {{ r.type === 'component' ? '部品' : '案件' }}
+            @{{ r.type === 'component' ? '部品' : '案件' }}
           </span>
         </div>
       </div>

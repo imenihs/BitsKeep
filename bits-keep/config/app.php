@@ -123,4 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'bootstrap_admin_email' => env('APP_BOOTSTRAP_ADMIN_EMAIL'),
+    'bootstrap_admin_enabled' => (bool) env('APP_BOOTSTRAP_ADMIN_ENABLED', true),
+
 ];

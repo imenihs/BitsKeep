@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Component;
 use App\Models\Project;
+use App\Models\ProjectSyncRun;
+use App\Services\AppSettingService;
+use App\Services\NotionSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -17,21 +20,33 @@ use Illuminate\Support\Facades\DB;
 class ProjectController extends Controller
 {
     // GET /api/projects
+    // クエリパラメータ: q, status, source_type, business_code
     public function index(Request $request)
     {
         $query = Project::with(['creator:id,name'])
             ->withCount('components')
+            ->orderBy('business_code')
             ->orderByDesc('created_at');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
+        if ($request->filled('source_type')) {
+            $query->where('source_type', $request->source_type);
+        }
+
+        if ($request->filled('business_code')) {
+            $query->where('business_code', $request->business_code);
+        }
+
         if ($request->filled('q')) {
             $q = $request->q;
             $query->where(fn($sub) => $sub
-                ->where('name', 'ilike', "%{$q}%")
-                ->orWhere('description', 'ilike', "%{$q}%")
+                ->where('name',           'ilike', "%{$q}%")
+                ->orWhere('description',  'ilike', "%{$q}%")
+                ->orWhere('business_name','ilike', "%{$q}%")
+                ->orWhere('external_code','ilike', "%{$q}%")
             );
         }
 
@@ -40,12 +55,81 @@ class ProjectController extends Controller
     }
 
     // GET /api/projects/options  （案件選択コンボボックス用）
-    public function options()
+    // クエリパラメータ: q（横断検索）, business_code（事業絞り込み）, active_only（bool）
+    public function options(Request $request)
     {
-        $projects = Project::where('status', 'active')
-            ->orderBy('name')
-            ->get(['id', 'name', 'color', 'status']);
+        $query = Project::where('status', 'active')
+            ->orderBy('business_code')
+            ->orderBy('name');
+
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(fn($sub) => $sub
+                ->where('name',          'ilike', "%{$q}%")
+                ->orWhere('business_name', 'ilike', "%{$q}%")
+                ->orWhere('external_code', 'ilike', "%{$q}%")
+            );
+        }
+
+        if ($request->filled('business_code')) {
+            $query->where('business_code', $request->business_code);
+        }
+
+        $projects = $query->limit((int) $request->input('limit', 20))
+            ->get(['id', 'name', 'color', 'status', 'business_code', 'business_name',
+                   'source_type', 'external_code', 'is_editable']);
         return ApiResponse::success($projects);
+    }
+
+    // GET /api/project-businesses  （事業一覧 — コンボボックス事業フィルタ用）
+    public function businesses()
+    {
+        $businesses = Project::whereNotNull('business_code')
+            ->select('business_code', 'business_name')
+            ->distinct()
+            ->orderBy('business_code')
+            ->get();
+        return ApiResponse::success($businesses);
+    }
+
+    // POST /api/projects/sync/notion  （Notion同期実行）
+    public function syncStatus()
+    {
+        return ApiResponse::success(app(AppSettingService::class)->getNotionConfig());
+    }
+
+    // POST /api/projects/sync/notion  （Notion同期実行）
+    public function syncNotion(Request $request)
+    {
+        if (! $request->user()->isEditor()) {
+            return ApiResponse::forbidden();
+        }
+
+        $service = new NotionSyncService();
+
+        if (! $service->isConfigured()) {
+            $config = app(AppSettingService::class)->getNotionConfig();
+            return ApiResponse::error(
+                'Notion同期の設定が不足しています。連携設定から Notion API トークンを設定してください。ルートページURLは任意です。',
+                [
+                    'missing' => $config['missing'],
+                ],
+                503
+            );
+        }
+
+        $run = $service->discoverAndSync($request->user()->id);
+        return ApiResponse::success($run);
+    }
+
+    // GET /api/projects/sync-runs  （同期履歴一覧）
+    public function syncRuns()
+    {
+        $runs = ProjectSyncRun::with('triggeredBy:id,name')
+            ->orderByDesc('started_at')
+            ->limit(20)
+            ->get();
+        return ApiResponse::success($runs);
     }
 
     // POST /api/projects
@@ -60,9 +144,20 @@ class ProjectController extends Controller
             'description' => ['nullable', 'string'],
             'status'      => ['nullable', 'in:active,archived'],
             'color'       => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'business_code' => ['nullable', 'string', 'max:20'],
+            'business_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         $validated['created_by'] = $request->user()->id;
+        if (! empty($validated['business_code']) && empty($validated['business_name'])) {
+            $validated['business_name'] = Project::where('business_code', $validated['business_code'])
+                ->whereNotNull('business_name')
+                ->value('business_name');
+        }
+        // 独自案件は常に local・編集可・source_key はUUID
+        $validated['source_type']  = 'local';
+        $validated['is_editable']  = true;
+        $validated['source_key']   = (string) \Illuminate\Support\Str::uuid();
         $project = Project::create($validated);
 
         return ApiResponse::created($project->load('creator:id,name'));
@@ -91,13 +186,25 @@ class ProjectController extends Controller
         if (! $request->user()->isEditor()) {
             return ApiResponse::forbidden();
         }
+        // Notion由来案件は編集不可
+        if (! $project->is_editable) {
+            return response()->json(['message' => 'Notion由来の案件はBitsKeep側では編集できません。Notionで編集してください。'], 422);
+        }
 
         $validated = $request->validate([
             'name'        => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status'      => ['nullable', 'in:active,archived'],
             'color'       => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'business_code' => ['nullable', 'string', 'max:20'],
+            'business_name' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (! empty($validated['business_code']) && empty($validated['business_name'])) {
+            $validated['business_name'] = Project::where('business_code', $validated['business_code'])
+                ->whereNotNull('business_name')
+                ->value('business_name');
+        }
 
         $project->update($validated);
         return ApiResponse::success($project->load('creator:id,name'));
@@ -108,6 +215,10 @@ class ProjectController extends Controller
     {
         if (! $request->user()->isEditor()) {
             return ApiResponse::forbidden();
+        }
+        // Notion由来案件は削除不可
+        if (! $project->is_editable) {
+            return response()->json(['message' => 'Notion由来の案件はBitsKeep側では削除できません。'], 422);
         }
 
         $project->delete();

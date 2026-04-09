@@ -39,5 +39,10 @@ export const api = {
     patch:  (path, body)   => request('PATCH',  path, body),
     delete: (path)         => request('DELETE', path),
     upload: (path, form)   => request('POST',   path, form, true),
-    uploadPut: (path, form)=> request('PUT',    path, form, true),
+    uploadPut: (path, form) => {
+        if (form instanceof FormData && !form.has('_method')) {
+            form.append('_method', 'PUT');
+        }
+        return request('POST', path, form, true);
+    },
 };

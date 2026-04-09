@@ -67,6 +67,7 @@ class ComponentController extends Controller
 
         $perPage = min((int)$request->input('per_page', 20), 100);
         $result  = $query->orderBy('part_number')->paginate($perPage);
+        $result->getCollection()->transform(fn (Component $component) => $this->decorateComponent($component));
 
         return ApiResponse::success($result);
     }
@@ -92,7 +93,9 @@ class ComponentController extends Controller
             $component = Component::create($data);
             $this->syncRelations($component, $request);
 
-            return ApiResponse::created($component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks']));
+            return ApiResponse::created($this->decorateComponent(
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks'])
+            ));
         });
     }
 
@@ -109,9 +112,7 @@ class ComponentController extends Controller
             'transactions' => fn($q) => $q->latest()->limit(20),
             'altiumLink',
         ]);
-        $component->image_url     = FileStorage::url($component->image_path);
-        $component->datasheet_url = FileStorage::url($component->datasheet_path);
-        return ApiResponse::success($component);
+        return ApiResponse::success($this->decorateComponent($component));
     }
 
     /**
@@ -135,7 +136,9 @@ class ComponentController extends Controller
             $component->update($data);
             $this->syncRelations($component, $request);
 
-            return ApiResponse::success($component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier']));
+            return ApiResponse::success($this->decorateComponent(
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier'])
+            ));
         });
     }
 
@@ -191,7 +194,9 @@ class ComponentController extends Controller
                     break;
             }
 
-            return ApiResponse::success($component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks']));
+            return ApiResponse::success($this->decorateComponent(
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks'])
+            ));
         });
     }
 
@@ -250,5 +255,13 @@ class ComponentController extends Controller
                 ]);
             }
         }
+    }
+
+    private function decorateComponent(Component $component): Component
+    {
+        $component->image_url = FileStorage::url($component->image_path);
+        $component->datasheet_url = FileStorage::url($component->datasheet_path);
+
+        return $component;
     }
 }

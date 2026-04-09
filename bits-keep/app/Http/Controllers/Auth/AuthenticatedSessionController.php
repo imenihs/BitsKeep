@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\BootstrapAdminService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,11 +23,13 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request, BootstrapAdminService $bootstrapAdmin): RedirectResponse
     {
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $bootstrapAdmin->ensureForUser($request->user());
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

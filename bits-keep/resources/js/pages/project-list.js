@@ -1,7 +1,6 @@
 /**
  * 案件管理ページ（SCR-005）
- * 独自案件CRUD + 使用部品・コスト積算
- * Notion同期は未実装（チェックリスト Phase 4-1 Notion系タスク）
+ * 独自案件CRUD + 使用部品・コスト積算 + Notion同期
  */
 import { ref, reactive, computed, onMounted } from 'vue';
 import { api } from '../api.js';
@@ -9,23 +8,30 @@ import { useToast } from '../composables/useToast.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
-    const projects  = ref([]);
-    const meta      = ref(null);
-    const loading   = ref(false);
-    const detailProject = ref(null);    // 詳細パネル
+    const projects      = ref([]);
+    const meta          = ref(null);
+    const loading       = ref(false);
+    const detailProject = ref(null);
     const costSummary   = ref(null);
-    const costLoading   = ref(false);
+    const businesses    = ref([]);   // 事業フィルタ用
 
-    const filters = reactive({ q: '', status: 'active', page: 1, per_page: 20 });
+    const filters = reactive({ q: '', status: 'active', source_type: '', business_code: '', page: 1, per_page: 20 });
 
-    // モーダル
+    // 追加/編集モーダル
     const modal = reactive({
         open: false, isEdit: false, editId: null,
-        form: { name: '', description: '', status: 'active', color: '#2563eb' }
+        form: { name: '', description: '', status: 'active', color: '#2563eb', business_code: '' }
     });
 
     // 使用部品追加フォーム
     const addCompForm = reactive({ component_id: '', required_qty: 1, searching: false, searchResults: [], keyword: '' });
+
+    // Notion同期
+    const syncing     = ref(false);
+    const lastSyncRun = ref(null);
+    const syncConfig  = ref({ configured: false, token_configured: false, root_page_configured: false, missing: [] });
+    const supportError = ref('');
+    const detailError = ref('');
 
     const fetchProjects = async () => {
         loading.value = true;
@@ -38,32 +44,92 @@ export default function setup() {
         finally { loading.value = false; }
     };
 
-    const openDetail = async (proj) => {
-        detailProject.value = null; costSummary.value = null;
+    const fetchBusinesses = async () => {
         try {
-            const r = await api.get(`/projects/${proj.id}`);
-            detailProject.value = r.data.project;
-            costSummary.value   = r.data.cost_summary;
-        } catch { toastError('案件詳細の取得に失敗しました'); }
+            const r = await api.get('/project-businesses');
+            businesses.value = r.data?.data ?? r.data ?? [];
+        } catch {
+            supportError.value = '事業フィルタ候補の取得に失敗しました。再読込するか、案件一覧のみで続行してください。';
+        }
     };
 
-    const openAdd = () => Object.assign(modal, { open: true, isEdit: false, editId: null,
-        form: { name: '', description: '', status: 'active', color: '#2563eb' } });
-    const openEdit = (p) => Object.assign(modal, { open: true, isEdit: true, editId: p.id,
-        form: { name: p.name, description: p.description ?? '', status: p.status, color: p.color ?? '#2563eb' } });
+    const fetchLastSyncRun = async () => {
+        try {
+            const r = await api.get('/projects/sync-runs');
+            const runs = r.data?.data ?? r.data ?? [];
+            lastSyncRun.value = runs[0] ?? null;
+        } catch {
+            supportError.value = '同期履歴の取得に失敗しました。Notion同期の結果確認は再読込後に再試行してください。';
+        }
+    };
+
+    const fetchSyncStatus = async () => {
+        try {
+            const r = await api.get('/projects/sync/status');
+            syncConfig.value = r.data?.data ?? r.data ?? syncConfig.value;
+        } catch {
+            supportError.value = 'Notion同期状態の取得に失敗しました。連携設定を確認するか、再読込してください。';
+        }
+    };
+
+    const openDetail = async (proj) => {
+        detailProject.value = null; costSummary.value = null; detailError.value = '';
+        try {
+            const r = await api.get(`/projects/${proj.id}`);
+            detailProject.value = r.data.data?.project ?? r.data.project;
+            costSummary.value   = r.data.data?.cost_summary ?? r.data.cost_summary;
+        } catch {
+            detailError.value = '案件詳細の取得に失敗しました。再試行するか、一覧を再読込してください。';
+            toastError('案件詳細の取得に失敗しました');
+        }
+    };
+
+    const openAdd = () => Object.assign(modal, {
+        open: true, isEdit: false, editId: null,
+        form: { name: '', description: '', status: 'active', color: '#2563eb', business_code: '' }
+    });
+    const openEdit = (p) => {
+        // Notion由来は編集不可
+        if (!p.is_editable) { toastError('Notion由来の案件は編集できません'); return; }
+        Object.assign(modal, { open: true, isEdit: true, editId: p.id,
+            form: { name: p.name, description: p.description ?? '', status: p.status,
+                    color: p.color ?? '#2563eb', business_code: p.business_code ?? '' } });
+    };
 
     const save = async () => {
         try {
             if (modal.isEdit) await api.put(`/projects/${modal.editId}`, modal.form);
             else await api.post('/projects', modal.form);
-            toastSuccess('保存しました'); modal.open = false; await fetchProjects();
-        } catch (e) { toastError(e.message); }
+            toastSuccess('保存しました'); modal.open = false;
+            await fetchProjects(); await fetchBusinesses();
+        } catch (e) { toastError(e.response?.data?.message ?? e.message); }
     };
 
     const deleteProject = async (p) => {
+        if (!p.is_editable) { toastError('Notion由来の案件は削除できません'); return; }
         if (!confirm(`「${p.name}」を削除しますか？`)) return;
         try { await api.delete(`/projects/${p.id}`); await fetchProjects(); toastSuccess('削除しました'); }
-        catch (e) { toastError(e.message); }
+        catch (e) { toastError(e.response?.data?.message ?? e.message); }
+    };
+
+    // Notion同期
+    const syncNotion = async () => {
+        if (!syncConfig.value.configured) {
+            toastError(`Notion同期は未設定です: ${syncConfig.value.missing.join(', ')}`);
+            return;
+        }
+        syncing.value = true;
+        try {
+            const r = await api.post('/projects/sync/notion');
+            const run = r.data?.data ?? r.data;
+            toastSuccess(`同期完了: ${run.synced_count}件`);
+            lastSyncRun.value = run;
+            await fetchProjects(); await fetchBusinesses();
+        } catch (e) {
+            const msg = e.response?.data?.message ?? e.message;
+            toastError('同期失敗: ' + msg);
+        }
+        finally { syncing.value = false; }
     };
 
     // 部品検索（インライン）
@@ -107,14 +173,39 @@ export default function setup() {
 
     const statusLabel = (s) => ({ active: '進行中', archived: 'アーカイブ' }[s] ?? s);
     const statusClass = (s) => s === 'active' ? 'tag-ok' : 'opacity-50';
+    const sourceLabel = (p) => p.source_type === 'notion' ? '[Notion]' : '[Local]';
+    const sourceClass = (p) => p.source_type === 'notion' ? 'text-blue-600' : 'text-green-600';
 
     const applyFilter = () => { filters.page = 1; fetchProjects(); };
 
-    onMounted(fetchProjects);
+    const syncStatusLabel = computed(() => {
+        if (!syncConfig.value.configured) {
+            const missing = syncConfig.value.missing?.length ? syncConfig.value.missing.join(', ') : 'NOTION_API_TOKEN, NOTION_ROOT_PAGE_ID';
+            return `Notion同期は未設定です: ${missing}`;
+        }
+        if (!lastSyncRun.value) return null;
+        const run = lastSyncRun.value;
+        if (run.status === 'running') return '同期中...';
+        if (run.status === 'success') return `最終同期: ${run.synced_count}件 (${run.finished_at?.substring(0,10)})`;
+        return `同期失敗: ${run.error_detail?.substring(0,30)}`;
+    });
+
+    const reloadSupportData = () => {
+        supportError.value = '';
+        fetchBusinesses();
+        fetchLastSyncRun();
+        fetchSyncStatus();
+    };
+
+    onMounted(() => { fetchProjects(); reloadSupportData(); });
+
     return {
-        toasts, projects, meta, loading, filters, modal, detailProject, costSummary, costLoading, addCompForm,
+        toasts, projects, meta, loading, filters, modal, businesses,
+        detailProject, costSummary, addCompForm,
+        syncing, lastSyncRun, syncStatusLabel, syncConfig, supportError, detailError, reloadSupportData,
         fetchProjects, openDetail, openAdd, openEdit, save, deleteProject,
         searchComponents, selectComp, addComponent, removeComponent,
-        statusLabel, statusClass, applyFilter,
+        statusLabel, statusClass, sourceLabel, sourceClass,
+        applyFilter, syncNotion,
     };
 }
