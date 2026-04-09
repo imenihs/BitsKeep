@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\Log;
 class NotionSyncService
 {
     private const NOTION_API_BASE = 'https://api.notion.com/v1';
-    private const NOTION_VERSION  = '2022-06-28';
+
+    private const NOTION_VERSION = '2022-06-28';
 
     // 事業ページ番号の正規表現（010〜099）
     private const BUSINESS_CODE_PATTERN = '/^(0[1-9][0-9])_(.+)$/u';
@@ -26,6 +27,42 @@ class NotionSyncService
     public function isConfigured(): bool
     {
         return app(AppSettingService::class)->getNotionConfig()['configured'];
+    }
+
+    public function diagnoseConnection(): array
+    {
+        $config = app(AppSettingService::class)->getNotionConfig();
+
+        if (empty($config['token'])) {
+            return [
+                'status' => 'unconfigured',
+                'message' => 'Notion APIトークンが未設定です。',
+                'action' => '連携設定から Notion API トークンを保存してください。',
+            ];
+        }
+
+        try {
+            $this->notionRequest('POST', '/search', [
+                'page_size' => 1,
+                'filter' => ['property' => 'object', 'value' => 'page'],
+            ]);
+
+            return [
+                'status' => 'ok',
+                'message' => 'Notion API への接続は正常です。',
+                'action' => $config['root_page_id']
+                    ? '案件管理で Notion同期を実行してください。'
+                    : '対象DBまたは親ページをインテグレーションに共有したうえで、案件管理から Notion同期を実行してください。',
+            ];
+        } catch (\RuntimeException $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'action' => $config['root_page_id']
+                    ? 'ルートページURLと共有設定を確認し、必要なら連携設定を修正してください。'
+                    : '対象の `01_案件管理` DB または親ページをインテグレーションに共有し、案件管理から再同期してください。',
+            ];
+        }
     }
 
     /**
@@ -36,35 +73,36 @@ class NotionSyncService
     {
         $run = ProjectSyncRun::create([
             'triggered_by' => $triggeredBy,
-            'status'       => 'running',
-            'started_at'   => now(),
+            'status' => 'running',
+            'started_at' => now(),
         ]);
 
         $syncedCount = 0;
-        $errorCount  = 0;
-        $errors      = [];
+        $errorCount = 0;
+        $errors = [];
+        $notices = [];
 
         try {
             $config = app(AppSettingService::class)->getNotionConfig();
             if (! empty($config['root_page_id'])) {
-                $this->syncFromRootPage($config['root_page_id'], $syncedCount, $errorCount, $errors);
+                $this->syncFromRootPage($config['root_page_id'], $syncedCount, $errorCount, $errors, $notices);
             } else {
-                $syncedCount += $this->syncByWorkspaceSearch($errorCount, $errors);
+                $syncedCount += $this->syncByWorkspaceSearch($errorCount, $errors, $notices);
             }
 
             $run->update([
-                'status'       => $errorCount > 0 && $syncedCount === 0 ? 'error' : 'success',
+                'status' => $errorCount > 0 && $syncedCount === 0 ? 'error' : 'success',
                 'synced_count' => $syncedCount,
-                'error_count'  => $errorCount,
-                'error_detail' => $errors ? implode("\n", $errors) : null,
-                'finished_at'  => now(),
+                'error_count' => $errorCount,
+                'error_detail' => array_filter([...$errors, ...$notices]) ? implode("\n", array_filter([...$errors, ...$notices])) : null,
+                'finished_at' => now(),
             ]);
         } catch (\Exception $e) {
             $run->update([
-                'status'       => 'error',
-                'error_count'  => 1,
+                'status' => 'error',
+                'error_count' => 1,
                 'error_detail' => $e->getMessage(),
-                'finished_at'  => now(),
+                'finished_at' => now(),
             ]);
             Log::error('NotionSync: 全体エラー', ['error' => $e->getMessage()]);
         }
@@ -72,9 +110,11 @@ class NotionSyncService
         return $run->fresh();
     }
 
-    private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors): void
+    private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors, array &$notices): void
     {
         $children = $this->fetchBlockChildren($rootPageId);
+        $foundBusinessPage = false;
+        $foundDatabase = false;
 
         foreach ($children as $block) {
             if (($block['type'] ?? '') !== 'child_page') {
@@ -86,34 +126,45 @@ class NotionSyncService
                 continue;
             }
 
+            $foundBusinessPage = true;
             $businessCode = $matches[1];
             $businessName = $matches[2];
             $businessPageId = $block['id'];
 
             try {
-                $synced = $this->syncBusinessPage($businessPageId, $businessCode, $businessName);
+                $synced = $this->syncBusinessPage($businessPageId, $businessCode, $businessName, $foundDatabase);
                 $syncedCount += $synced;
             } catch (\Exception $e) {
                 $errorCount++;
-                $errors[] = "[{$businessCode}_{$businessName}] " . $e->getMessage();
+                $errors[] = "[{$businessCode}_{$businessName}] ".$e->getMessage();
                 Log::warning('NotionSync: 事業ページ同期失敗', [
                     'business_code' => $businessCode,
-                    'error'         => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
+
+        if (! $foundBusinessPage) {
+            $notices[] = '指定したルートページ配下に `010_`〜`099_` の事業ページが見つかりません。URLと共有範囲を確認してください。';
+        } elseif (! $foundDatabase) {
+            $notices[] = '事業ページは見つかりましたが、配下に `01_案件管理` データベースがありません。DB名と共有設定を確認してください。';
+        } elseif ($syncedCount === 0 && $errorCount === 0) {
+            $notices[] = '同期対象は見つかりましたが、案件レコードが0件でした。Notion側の案件データを確認してください。';
+        }
     }
 
-    private function syncByWorkspaceSearch(int &$errorCount, array &$errors): int
+    private function syncByWorkspaceSearch(int &$errorCount, array &$errors, array &$notices): int
     {
         $synced = 0;
         $databases = $this->searchDatabasesByTitle('01_案件管理');
+        $matchedDatabases = 0;
 
         foreach ($databases as $database) {
             $title = collect($database['title'] ?? [])->pluck('plain_text')->implode('');
             if ($title !== '01_案件管理') {
                 continue;
             }
+            $matchedDatabases++;
 
             $parentPageId = $database['parent']['page_id'] ?? null;
             if (! $parentPageId) {
@@ -135,9 +186,15 @@ class NotionSyncService
                 }
             } catch (\Exception $e) {
                 $errorCount++;
-                $errors[] = '[workspace-search] ' . $e->getMessage();
+                $errors[] = '[workspace-search] '.$e->getMessage();
                 Log::warning('NotionSync: 検索同期失敗', ['error' => $e->getMessage()]);
             }
+        }
+
+        if ($matchedDatabases === 0) {
+            $notices[] = 'アクセス可能な Notion 内に `01_案件管理` データベースが見つかりません。対象DBまたは親ページをインテグレーションへ共有してください。';
+        } elseif ($synced === 0 && $errorCount === 0) {
+            $notices[] = '対象の `01_案件管理` データベースは見つかりましたが、案件レコードが0件でした。Notion側の案件データを確認してください。';
         }
 
         return $synced;
@@ -147,10 +204,10 @@ class NotionSyncService
      * 事業ページ配下の「01_案件管理」DBを検索し、案件をupsertする。
      * 返却値: 同期した件数
      */
-    private function syncBusinessPage(string $pageId, string $businessCode, string $businessName): int
+    private function syncBusinessPage(string $pageId, string $businessCode, string $businessName, bool &$foundDatabase = false): int
     {
         $children = $this->fetchBlockChildren($pageId);
-        $synced   = 0;
+        $synced = 0;
 
         foreach ($children as $block) {
             if (($block['type'] ?? '') !== 'child_database') {
@@ -160,6 +217,7 @@ class NotionSyncService
             if ($dbTitle !== '01_案件管理') {
                 continue;
             }
+            $foundDatabase = true;
 
             // DBのレコード（案件）を全件取得
             $records = $this->queryDatabase($block['id']);
@@ -191,18 +249,18 @@ class NotionSyncService
         Project::updateOrCreate(
             [
                 'source_type' => 'notion',
-                'source_key'  => $page['id'],
+                'source_key' => $page['id'],
             ],
             [
-                'name'          => $name,
+                'name' => $name,
                 'business_code' => $businessCode,
                 'business_name' => $businessName,
                 'external_code' => $externalCode,
-                'external_url'  => $page['url'] ?? null,
-                'status'        => 'active',
-                'is_editable'   => false,
-                'sync_state'    => 'synced',
-                'last_synced_at'=> now(),
+                'external_url' => $page['url'] ?? null,
+                'status' => 'active',
+                'is_editable' => false,
+                'sync_state' => 'synced',
+                'last_synced_at' => now(),
             ]
         );
     }
@@ -211,8 +269,8 @@ class NotionSyncService
 
     private function fetchBlockChildren(string $blockId): array
     {
-        $results  = [];
-        $cursor   = null;
+        $results = [];
+        $cursor = null;
 
         do {
             $params = ['page_size' => 100];
@@ -221,8 +279,8 @@ class NotionSyncService
             }
 
             $response = $this->notionRequest('GET', "/blocks/{$blockId}/children", $params);
-            $results  = array_merge($results, $response['results'] ?? []);
-            $cursor   = $response['has_more'] ? ($response['next_cursor'] ?? null) : null;
+            $results = array_merge($results, $response['results'] ?? []);
+            $cursor = $response['has_more'] ? ($response['next_cursor'] ?? null) : null;
         } while ($cursor);
 
         return $results;
@@ -231,7 +289,7 @@ class NotionSyncService
     private function queryDatabase(string $dbId): array
     {
         $results = [];
-        $cursor  = null;
+        $cursor = null;
 
         do {
             $body = ['page_size' => 100];
@@ -240,8 +298,8 @@ class NotionSyncService
             }
 
             $response = $this->notionRequest('POST', "/databases/{$dbId}/query", $body);
-            $results  = array_merge($results, $response['results'] ?? []);
-            $cursor   = $response['has_more'] ? ($response['next_cursor'] ?? null) : null;
+            $results = array_merge($results, $response['results'] ?? []);
+            $cursor = $response['has_more'] ? ($response['next_cursor'] ?? null) : null;
         } while ($cursor);
 
         return $results;
@@ -277,25 +335,51 @@ class NotionSyncService
 
     private function notionRequest(string $method, string $path, array $params = []): array
     {
-        $token    = app(AppSettingService::class)->getNotionConfig()['token'];
-        $url      = self::NOTION_API_BASE . $path;
+        $token = app(AppSettingService::class)->getNotionConfig()['token'];
+        $url = self::NOTION_API_BASE.$path;
 
-        $request  = Http::withToken($token)
+        $request = Http::withToken($token)
             ->withHeaders(['Notion-Version' => self::NOTION_VERSION]);
 
         $response = match (strtoupper($method)) {
-            'GET'  => $request->get($url, $params),
+            'GET' => $request->get($url, $params),
             'POST' => $request->post($url, $params),
             default => throw new \InvalidArgumentException("Unsupported method: {$method}"),
         };
 
         if ($response->failed()) {
-            throw new \RuntimeException(
-                "Notion API エラー ({$response->status()}): " . $response->body()
-            );
+            $body = $response->json() ?? [];
+            $code = $body['code'] ?? null;
+            $message = $body['message'] ?? $response->body();
+            throw new \RuntimeException($this->buildUserFacingErrorMessage($response->status(), $code, $message, $path));
         }
 
         return $response->json();
+    }
+
+    private function buildUserFacingErrorMessage(int $status, ?string $code, string $message, string $path): string
+    {
+        if (in_array($status, [401, 403], true)) {
+            return 'Notion APIトークンが無効か、対象ページ/DBへのアクセス権がありません。トークンと共有設定を確認してください。';
+        }
+
+        if ($status === 404 || $code === 'object_not_found') {
+            if (str_starts_with($path, '/blocks/') || str_starts_with($path, '/pages/')) {
+                return '指定したルートページURLにアクセスできません。URLが正しいか、そのページがインテグレーションに共有されているか確認してください。';
+            }
+
+            return 'Notion上の対象オブジェクトが見つかりません。共有設定または対象ページ/DBの存在を確認してください。';
+        }
+
+        if ($status === 429) {
+            return 'Notion API の呼び出し回数制限に達しました。少し待ってから再試行してください。';
+        }
+
+        if ($status >= 500) {
+            return 'Notion API 側でエラーが発生しました。時間を置いて再試行してください。';
+        }
+
+        return "Notion API エラー ({$status}): {$message}";
     }
 
     private function extractPageTitle(array $page): string
@@ -305,6 +389,7 @@ class NotionSyncService
                 return collect($property['title'] ?? [])->pluck('plain_text')->implode('');
             }
         }
+
         return '';
     }
 
@@ -319,14 +404,25 @@ class NotionSyncService
 
     private function extractText(array $prop): ?string
     {
-        // rich_text / number いずれにも対応
+        // rich_text / number / formula いずれにも対応
         if (isset($prop['rich_text'])) {
             $text = collect($prop['rich_text'])->pluck('plain_text')->implode('');
+
             return $text ?: null;
         }
         if (isset($prop['number'])) {
             return (string) $prop['number'];
         }
+        if (isset($prop['formula'])) {
+            $f = $prop['formula'];
+
+            return match ($f['type'] ?? null) {
+                'string' => $f['string'] ?: null,
+                'number' => isset($f['number']) ? (string) $f['number'] : null,
+                default => null,
+            };
+        }
+
         return null;
     }
 }

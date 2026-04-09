@@ -178,16 +178,83 @@ export default function setup() {
 
     const applyFilter = () => { filters.page = 1; fetchProjects(); };
 
-    const syncStatusLabel = computed(() => {
+    const syncPanel = computed(() => {
         if (!syncConfig.value.configured) {
-            const missing = syncConfig.value.missing?.length ? syncConfig.value.missing.join(', ') : 'NOTION_API_TOKEN, NOTION_ROOT_PAGE_ID';
-            return `Notion同期は未設定です: ${missing}`;
+            return {
+                tone: 'warning',
+                badge: '未設定',
+                title: 'Notion連携を先に整える',
+                summary: syncConfig.value.missing?.length ? `不足: ${syncConfig.value.missing.join(', ')}` : '連携設定が必要です',
+                actionLabel: '連携設定を開く',
+                actionType: 'settings',
+            };
         }
-        if (!lastSyncRun.value) return null;
+
+        if (syncConfig.value.health?.status === 'error') {
+            return {
+                tone: 'danger',
+                badge: '要確認',
+                title: '接続を確認してから同期',
+                summary: syncConfig.value.health.message,
+                actionLabel: '連携設定を開く',
+                actionType: 'settings',
+            };
+        }
+
+        if (!lastSyncRun.value) {
+            return {
+                tone: 'idle',
+                badge: '未実行',
+                title: '最初の同期を実行',
+                summary: '案件一覧へ Notion の案件を取り込みます',
+                actionLabel: 'Notion同期',
+                actionType: 'sync',
+            };
+        }
+
         const run = lastSyncRun.value;
-        if (run.status === 'running') return '同期中...';
-        if (run.status === 'success') return `最終同期: ${run.synced_count}件 (${run.finished_at?.substring(0,10)})`;
-        return `同期失敗: ${run.error_detail?.substring(0,30)}`;
+
+        if (run.status === 'running') {
+            return {
+                tone: 'progress',
+                badge: '実行中',
+                title: 'Notion同期を実行中',
+                summary: '完了後に一覧を更新します',
+                actionLabel: '同期中...',
+                actionType: 'sync',
+            };
+        }
+
+        if (run.status === 'success' && run.synced_count === 0 && run.error_detail) {
+            return {
+                tone: 'warning',
+                badge: '0件',
+                title: '同期対象が見つからない',
+                summary: run.error_detail,
+                actionLabel: '再同期',
+                actionType: 'sync',
+            };
+        }
+
+        if (run.status === 'success') {
+            return {
+                tone: 'ok',
+                badge: '最新',
+                title: `${run.synced_count}件を同期済み`,
+                summary: run.finished_at ? `最終同期 ${run.finished_at.substring(0, 10)}` : '同期完了',
+                actionLabel: '再同期',
+                actionType: 'sync',
+            };
+        }
+
+        return {
+            tone: 'danger',
+            badge: '失敗',
+            title: '同期に失敗しました',
+            summary: run.error_detail?.substring(0, 80) ?? '時間をおいて再実行してください',
+            actionLabel: '再同期',
+            actionType: 'sync',
+        };
     });
 
     const reloadSupportData = () => {
@@ -202,7 +269,7 @@ export default function setup() {
     return {
         toasts, projects, meta, loading, filters, modal, businesses,
         detailProject, costSummary, addCompForm,
-        syncing, lastSyncRun, syncStatusLabel, syncConfig, supportError, detailError, reloadSupportData,
+        syncing, lastSyncRun, syncPanel, syncConfig, supportError, detailError, reloadSupportData,
         fetchProjects, openDetail, openAdd, openEdit, save, deleteProject,
         searchComponents, selectComp, addComponent, removeComponent,
         statusLabel, statusClass, sourceLabel, sourceClass,

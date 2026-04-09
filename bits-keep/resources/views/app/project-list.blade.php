@@ -17,11 +17,7 @@
   </nav>
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <div>
-      <h1 class="text-2xl font-bold">案件管理</h1>
-      <p class="text-sm opacity-60 mt-1">010_〜099_ 事業配下の Notion案件を自動発見し、独自案件と統合表示</p>
-      <p v-if="syncStatusLabel" class="text-xs mt-0.5" :class="syncConfig.configured ? 'opacity-50' : 'text-[var(--color-tag-warning)] font-semibold'">@{{ syncStatusLabel }}</p>
-    </div>
+    <h1 class="text-2xl font-bold">案件管理</h1>
     <div class="flex items-center gap-2">
       <a href="{{ route('settings.integrations') }}"
         class="px-3 py-2 text-sm border border-[var(--color-border)] rounded hover:opacity-80 transition-opacity no-underline">
@@ -36,18 +32,46 @@
     </div>
   </header>
 
-  <div v-if="!syncConfig.configured"
-    class="mb-5 rounded-2xl border border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))] px-4 py-3 text-sm">
-    <div class="font-semibold text-[var(--color-tag-warning)]">Notion同期は未設定です</div>
-    <div class="mt-1 opacity-80">不足設定: @{{ syncConfig.missing.join(', ') }}</div>
-    <div class="mt-1 opacity-70">連携設定から `Notion API トークン` と `ルートページ URL` を設定すると同期できます。.env は初期値としてのみ参照します。</div>
-    <div class="mt-3">
-      <a href="{{ route('settings.integrations') }}"
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--color-tag-warning)] text-[var(--color-tag-warning)] no-underline hover:opacity-80 transition-opacity">
-        連携設定を開く
-      </a>
+  <section class="mb-5 rounded-3xl border p-5"
+    :class="{
+      'border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]': syncPanel.tone === 'warning',
+      'border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))]': syncPanel.tone === 'danger',
+      'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_8%,var(--color-bg))]': syncPanel.tone === 'progress',
+      'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-bg))]': syncPanel.tone === 'idle',
+      'border-[var(--color-tag-ok)] bg-[color-mix(in_srgb,var(--color-tag-ok)_10%,var(--color-bg))]': syncPanel.tone === 'ok'
+    }">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-semibold tracking-[0.22em] uppercase opacity-60">案件同期</span>
+          <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
+            :class="{
+              'border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]': syncPanel.tone === 'warning',
+              'border-[var(--color-tag-eol)] text-[var(--color-tag-eol)]': syncPanel.tone === 'danger',
+              'border-[var(--color-primary)] text-[var(--color-primary)]': syncPanel.tone === 'progress' || syncPanel.tone === 'idle',
+              'border-[var(--color-tag-ok)] text-[var(--color-tag-ok)]': syncPanel.tone === 'ok'
+            }">
+            @{{ syncPanel.badge }}
+          </span>
+        </div>
+        <div class="mt-2 text-xl font-bold">@{{ syncPanel.title }}</div>
+        <div class="mt-1 text-sm opacity-75">@{{ syncPanel.summary }}</div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button v-if="syncPanel.actionType === 'sync'" @click="syncNotion" :disabled="syncing"
+          class="px-4 py-2 text-sm font-medium rounded-xl border hover:opacity-80 disabled:opacity-40 transition-opacity"
+          :class="syncPanel.tone === 'danger' || syncPanel.tone === 'warning'
+            ? 'border-current'
+            : 'border-[var(--color-border)] bg-[var(--color-bg)]'">
+          @{{ syncPanel.actionLabel }}
+        </button>
+        <a href="{{ route('settings.integrations') }}"
+          class="inline-flex items-center px-4 py-2 text-sm rounded-xl border border-[var(--color-border)] no-underline text-inherit hover:opacity-80 transition-opacity">
+          連携設定
+        </a>
+      </div>
     </div>
-  </div>
+  </section>
 
   <div v-if="supportError"
     class="mb-5 rounded-2xl border border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))] px-4 py-3 text-sm">
@@ -65,19 +89,16 @@
 
   <div class="grid gap-4 mb-5 md:grid-cols-3">
     <div class="rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50">Projects</div>
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50">案件数</div>
       <div class="text-2xl font-bold mt-1">@{{ meta?.total ?? projects.length }}</div>
-      <div class="text-sm opacity-60 mt-1">統合案件マスタ</div>
     </div>
     <div class="rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-odd)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50">Businesses</div>
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50">事業</div>
       <div class="text-2xl font-bold mt-1">@{{ businesses.length }}</div>
-      <div class="text-sm opacity-60 mt-1">事業フィルタ候補</div>
     </div>
     <div class="rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50">Source</div>
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50">表示</div>
       <div class="text-2xl font-bold mt-1">@{{ filters.source_type === 'notion' ? 'Notion' : (filters.source_type === 'local' ? 'Local' : 'All') }}</div>
-      <div class="text-sm opacity-60 mt-1">検索条件の現在値</div>
     </div>
   </div>
 
@@ -123,8 +144,8 @@
               <div class="w-3 h-3 rounded-full flex-shrink-0"
                 :style="{ backgroundColor: p.color || '#2563eb' }"></div>
               <div class="min-w-0">
-                <div class="font-medium truncate">@{{ p.name }}</div>
-                <div class="text-xs opacity-60 mt-0.5 truncate">@{{ p.description || '説明なし' }}</div>
+                <div class="font-medium truncate">@{{ p.external_code ? p.external_code + '_' + p.name : p.name }}</div>
+                <div class="text-xs opacity-50 mt-0.5 truncate" v-if="p.business_name">@{{ p.business_name }}</div>
               </div>
             </div>
             <div class="flex items-center gap-2 ml-3 flex-shrink-0">
@@ -154,7 +175,7 @@
         <div class="flex justify-between items-start mb-4">
           <div class="flex items-center gap-2">
             <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: detailProject.color || '#2563eb' }"></div>
-            <h2 class="font-bold text-lg">@{{ detailProject.name }}</h2>
+            <h2 class="font-bold text-lg">@{{ detailProject.external_code ? detailProject.external_code + '_' + detailProject.name : detailProject.name }}</h2>
           </div>
           <div class="flex gap-2">
             <template v-if="detailProject.is_editable">

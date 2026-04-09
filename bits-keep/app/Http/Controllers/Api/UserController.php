@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
+use App\Mail\UserInvitationMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 /**
@@ -24,7 +26,7 @@ class UserController extends Controller
         }
 
         $users = User::orderBy('created_at')->get()
-            ->map(fn($u) => $this->format($u));
+            ->map(fn ($u) => $this->format($u));
 
         return ApiResponse::success($users);
     }
@@ -41,6 +43,7 @@ class UserController extends Controller
         ]);
 
         $user->update($validated);
+
         return ApiResponse::success($this->format($user));
     }
 
@@ -61,6 +64,7 @@ class UserController extends Controller
         ]);
 
         $user->update($validated);
+
         return ApiResponse::success($this->format($user));
     }
 
@@ -72,40 +76,40 @@ class UserController extends Controller
         }
 
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'role'  => ['required', Rule::in(['admin', 'editor', 'viewer'])],
+            'role' => ['required', Rule::in(['admin', 'editor', 'viewer'])],
         ]);
 
         // 仮パスワード生成（初回ログイン時に変更）
         $tempPassword = \Illuminate\Support\Str::random(12);
 
         $user = User::create([
-            'name'        => $validated['name'],
-            'email'       => $validated['email'],
-            'role'        => $validated['role'],
-            'password'    => Hash::make($tempPassword),
-            'is_active'   => true,
-            'invited_at'  => now(),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'password' => Hash::make($tempPassword),
+            'is_active' => true,
+            'invited_at' => now(),
         ]);
 
-        // メール送信は未実装（チェックリストの招待メール送信タスク）
-        // Mail::to($user->email)->send(new InviteMail($user, $tempPassword));
+        Mail::to($user->email)->send(new UserInvitationMail($user, $tempPassword));
 
         return ApiResponse::created([
-            'user'          => $this->format($user),
-            'temp_password' => $tempPassword,   // フロントに一度だけ表示
+            'user' => $this->format($user),
+            'temp_password' => $tempPassword,
+            'mail_sent' => true,
         ], 'ユーザーを招待しました');
     }
 
     private function format(User $u): array
     {
         return [
-            'id'         => $u->id,
-            'name'       => $u->name,
-            'email'      => $u->email,
-            'role'       => $u->role,
-            'is_active'  => $u->is_active,
+            'id' => $u->id,
+            'name' => $u->name,
+            'email' => $u->email,
+            'role' => $u->role,
+            'is_active' => $u->is_active,
             'invited_at' => $u->invited_at?->toIso8601String(),
             'created_at' => $u->created_at?->toIso8601String(),
         ];

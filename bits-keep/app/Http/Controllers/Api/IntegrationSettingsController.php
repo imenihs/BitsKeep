@@ -5,36 +5,46 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Services\AppSettingService;
+use App\Services\NotionSyncService;
 use Illuminate\Http\Request;
 
 class IntegrationSettingsController extends Controller
 {
-    public function showNotion(AppSettingService $settings)
+    public function showNotion(AppSettingService $settings, NotionSyncService $notion)
     {
-        return ApiResponse::success($settings->getNotionConfig());
+        $config = $settings->getNotionConfig();
+        $config['health'] = $notion->diagnoseConnection();
+
+        return ApiResponse::success($config);
     }
 
-    public function updateNotion(Request $request, AppSettingService $settings)
+    public function updateNotion(Request $request, AppSettingService $settings, NotionSyncService $notion)
     {
         if (! $request->user()->isEditor()) {
             return ApiResponse::forbidden();
         }
 
         $validated = $request->validate([
-            'api_token' => ['nullable', 'string'],
+            'api_token' => ['nullable', 'string', 'not_regex:/\s/'],
             'root_page_url' => ['nullable', 'string'],
+            'clear_api_token' => ['nullable', 'boolean'],
+            'clear_root_page_url' => ['nullable', 'boolean'],
         ]);
 
         try {
             $config = $settings->updateNotionConfig(
                 $validated['api_token'] ?? null,
                 $validated['root_page_url'] ?? null,
+                (bool) ($validated['clear_api_token'] ?? false),
+                (bool) ($validated['clear_root_page_url'] ?? false),
             );
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::validationError([
                 'root_page_url' => [$e->getMessage()],
             ]);
         }
+
+        $config['health'] = $notion->diagnoseConnection();
 
         return ApiResponse::success($config, '連携設定を保存しました');
     }

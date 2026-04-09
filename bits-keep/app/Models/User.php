@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -41,14 +42,35 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'is_active'         => 'boolean',
-            'invited_at'        => 'datetime',
+            'password' => 'hashed',
+            'is_active' => 'boolean',
+            'invited_at' => 'datetime',
         ];
     }
 
     // ロール判定ヘルパー
-    public function isAdmin(): bool   { return $this->role === 'admin'; }
-    public function isEditor(): bool  { return in_array($this->role, ['admin', 'editor']); }
-    public function isViewer(): bool  { return true; } // 全ロールが閲覧可
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isEditor(): bool
+    {
+        return in_array($this->role, ['admin', 'editor']);
+    }
+
+    public function isViewer(): bool
+    {
+        return true;
+    } // 全ロールが閲覧可
+
+    public function authProviders(): HasMany
+    {
+        return $this->hasMany(UserAuthProvider::class);
+    }
+
+    public function preferences(): HasMany
+    {
+        return $this->hasMany(UserPreference::class);
+    }
 }

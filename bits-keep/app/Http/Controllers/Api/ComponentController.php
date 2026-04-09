@@ -34,7 +34,7 @@ class ComponentController extends Controller
 
         // 分類フィルタ（複数選択 OR）
         if ($cats = $request->input('category_ids')) {
-            $query->whereHas('categories', fn($q) => $q->whereIn('categories.id', (array)$cats));
+            $query->whereHas('categories', fn ($q) => $q->whereIn('categories.id', (array) $cats));
         }
 
         // 入手可否フィルタ
@@ -52,21 +52,21 @@ class ComponentController extends Controller
             $query->whereHas('specs', function ($q) use ($request, $specTypeId) {
                 $q->where('spec_type_id', $specTypeId);
                 if ($min = $request->input('spec_min')) {
-                    $q->where('value_numeric', '>=', (float)$min);
+                    $q->where('value_numeric', '>=', (float) $min);
                 }
                 if ($max = $request->input('spec_max')) {
-                    $q->where('value_numeric', '<=', (float)$max);
+                    $q->where('value_numeric', '<=', (float) $max);
                 }
             });
         }
 
         // 発注点フィルタ（在庫数が発注点以上）
         if ($minStock = $request->input('min_stock')) {
-            $query->where('quantity_new', '>=', (int)$minStock);
+            $query->where('quantity_new', '>=', (int) $minStock);
         }
 
-        $perPage = min((int)$request->input('per_page', 20), 100);
-        $result  = $query->orderBy('part_number')->paginate($perPage);
+        $perPage = min((int) $request->input('per_page', 20), 100);
+        $result = $query->orderBy('part_number')->paginate($perPage);
         $result->getCollection()->transform(fn (Component $component) => $this->decorateComponent($component));
 
         return ApiResponse::success($result);
@@ -107,11 +107,14 @@ class ComponentController extends Controller
         $component->load([
             'categories', 'packages',
             'specs.specType',
+            'attributes',
             'componentSuppliers.supplier', 'componentSuppliers.priceBreaks',
             'inventoryBlocks.location',
-            'transactions' => fn($q) => $q->latest()->limit(20),
+            'transactions' => fn ($q) => $q->latest()->limit(20),
+            'projects',
             'altiumLink',
         ]);
+
         return ApiResponse::success($this->decorateComponent($component));
     }
 
@@ -176,9 +179,9 @@ class ComponentController extends Controller
                     $component->specs()->delete();
                     foreach ($request->specs as $spec) {
                         $component->specs()->create([
-                            'spec_type_id'  => $spec['spec_type_id'],
-                            'value'         => $spec['value'] ?? null,
-                            'unit'          => $spec['unit'] ?? null,
+                            'spec_type_id' => $spec['spec_type_id'],
+                            'value' => $spec['value'] ?? null,
+                            'unit' => $spec['unit'] ?? null,
                             'value_numeric' => $spec['value_numeric'] ?? null,
                         ]);
                     }
@@ -187,7 +190,7 @@ class ComponentController extends Controller
 
                 case 'suppliers':
                     // 送信された suppliers で全置換
-                    $component->componentSuppliers()->each(fn($cs) => $cs->priceBreaks()->delete());
+                    $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());
                     $component->componentSuppliers()->delete();
                     $this->syncSuppliers($component, $request->suppliers ?? []);
                     $component->save();
@@ -206,6 +209,7 @@ class ComponentController extends Controller
     public function destroy(Component $component)
     {
         $component->delete();
+
         return ApiResponse::noContent();
     }
 
@@ -223,15 +227,15 @@ class ComponentController extends Controller
             $component->specs()->delete();
             foreach ($request->specs as $spec) {
                 $component->specs()->create([
-                    'spec_type_id'  => $spec['spec_type_id'],
-                    'value'         => $spec['value'] ?? null,
-                    'unit'          => $spec['unit'] ?? null,
+                    'spec_type_id' => $spec['spec_type_id'],
+                    'value' => $spec['value'] ?? null,
+                    'unit' => $spec['unit'] ?? null,
                     'value_numeric' => $spec['value_numeric'] ?? null,
                 ]);
             }
         }
         if ($request->has('suppliers')) {
-            $component->componentSuppliers()->each(fn($cs) => $cs->priceBreaks()->delete());
+            $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());
             $component->componentSuppliers()->delete();
             $this->syncSuppliers($component, $request->suppliers ?? []);
         }
@@ -241,16 +245,16 @@ class ComponentController extends Controller
     {
         foreach ($suppliers as $s) {
             $cs = $component->componentSuppliers()->create([
-                'supplier_id'          => $s['supplier_id'],
+                'supplier_id' => $s['supplier_id'],
                 'supplier_part_number' => $s['supplier_part_number'] ?? null,
-                'product_url'          => $s['product_url'] ?? null,
-                'unit_price'           => $s['unit_price'] ?? null,
-                'price_updated_at'     => $s['unit_price'] ? now() : null,
-                'is_preferred'         => $s['is_preferred'] ?? false,
+                'product_url' => $s['product_url'] ?? null,
+                'unit_price' => $s['unit_price'] ?? null,
+                'price_updated_at' => $s['unit_price'] ? now() : null,
+                'is_preferred' => $s['is_preferred'] ?? false,
             ]);
             foreach ($s['price_breaks'] ?? [] as $pb) {
                 $cs->priceBreaks()->create([
-                    'min_qty'    => $pb['min_qty'],
+                    'min_qty' => $pb['min_qty'],
                     'unit_price' => $pb['unit_price'],
                 ]);
             }

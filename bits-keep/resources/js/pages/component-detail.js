@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 
@@ -11,6 +11,7 @@ export default function setup() {
     const part       = ref(null);
     const loading    = ref(true);
     const loadError  = ref('');
+    const sections   = reactive({ basic: true, detail: true, custom: true });
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -24,6 +25,7 @@ export default function setup() {
         { value: 'active', label: '量産中' }, { value: 'eol', label: 'EOL' },
         { value: 'last_time', label: '在庫限り' }, { value: 'nrnd', label: '新規非推奨' },
     ];
+    const stockConditionLabel = { new: '新品', used: '中古' };
 
     const fetchPart = async () => {
         loading.value = true;
@@ -156,9 +158,26 @@ export default function setup() {
 
     onMounted(fetchPart);
 
+    const preferredSupplier = computed(() => {
+        const suppliers = part.value?.component_suppliers ?? [];
+        return suppliers.find((item) => item.is_preferred) ?? suppliers[0] ?? null;
+    });
+
+    const stockSummary = computed(() => {
+        const blocks = part.value?.inventory_blocks ?? [];
+        return blocks.reduce((acc, block) => {
+            if (block.condition === 'used') acc.used += block.quantity ?? 0;
+            else acc.new += block.quantity ?? 0;
+            return acc;
+        }, { new: 0, used: 0 });
+    });
+
+    const recentTransactions = computed(() => (part.value?.transactions ?? []).slice(0, 5));
+
     return {
         toasts, part, loading, loadError, componentId,
-        stockTypeLabel, procurementOptions,
+        sections, stockTypeLabel, stockConditionLabel, procurementOptions,
+        preferredSupplier, stockSummary, recentTransactions,
         editModal, openEdit, saveSection, saveAll,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,

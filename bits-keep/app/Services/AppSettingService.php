@@ -40,6 +40,7 @@ class AppSettingService
         return [
             'configured' => $tokenConfigured,
             'token' => $token,
+            'token_preview' => $this->maskSecret($token),
             'root_page_url' => $rootPageUrl,
             'root_page_id' => $rootPageId,
             'token_configured' => $tokenConfigured,
@@ -51,22 +52,22 @@ class AppSettingService
         ];
     }
 
-    public function updateNotionConfig(?string $token, ?string $rootPageUrl): array
+    public function updateNotionConfig(?string $token, ?string $rootPageUrl, bool $clearToken = false, bool $clearRootPageUrl = false): array
     {
         $token = $token !== null ? trim($token) : null;
         $rootPageUrl = $rootPageUrl !== null ? trim($rootPageUrl) : null;
 
-        if ($token === '') {
+        if ($clearToken) {
             $this->delete('notion.api_token');
-        } else {
+        } elseif ($token !== null && $token !== '') {
             $this->set('notion.api_token', $token);
         }
 
-        // null と空文字どちらも「未設定」として扱う
-        if ($rootPageUrl === null || $rootPageUrl === '') {
+        // null/空文字は「既存維持」。削除は明示操作のみ
+        if ($clearRootPageUrl) {
             $this->delete('notion.root_page_url');
             $this->delete('notion.root_page_id');
-        } else {
+        } elseif ($rootPageUrl !== null && $rootPageUrl !== '') {
             $rootPageId = $this->parseNotionPageId($rootPageUrl);
             if (! $rootPageId) {
                 throw new \InvalidArgumentException('NotionのページURLからページIDを抽出できませんでした。ページURLを確認してください。');
@@ -90,6 +91,7 @@ class AppSettingService
 
         if (preg_match('/([0-9a-fA-F]{32})/', $value, $matches)) {
             $hex = strtolower($matches[1]);
+
             return sprintf(
                 '%s-%s-%s-%s-%s',
                 substr($hex, 0, 8),
@@ -101,5 +103,19 @@ class AppSettingService
         }
 
         return null;
+    }
+
+    private function maskSecret(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $len = mb_strlen($value);
+        if ($len <= 8) {
+            return str_repeat('•', $len);
+        }
+
+        return mb_substr($value, 0, 4).str_repeat('•', max($len - 8, 4)).mb_substr($value, -4);
     }
 }

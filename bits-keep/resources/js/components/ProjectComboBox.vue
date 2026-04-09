@@ -45,9 +45,9 @@
           <!-- 案件名 -->
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium truncate">
-              <span v-if="item.business_name" class="opacity-70">{{ item.business_name }} / </span>{{ item.name }}
+              {{ item.external_code ? item.external_code + '_' + item.name : item.name }}
             </div>
-            <div v-if="item.external_code" class="text-xs opacity-50 truncate">{{ item.external_code }}</div>
+            <div v-if="item.business_name" class="text-xs opacity-50 truncate">{{ item.business_name }}</div>
           </div>
           <!-- ソース種別バッジ -->
           <span
@@ -167,11 +167,8 @@ export default {
 
     const formatLabel = (item) => {
       if (!item) return '';
-      const parts = [];
-      if (item.business_name) parts.push(item.business_name);
-      parts.push(item.name);
-      if (item.external_code) parts.push(item.external_code);
-      return parts.join(' / ');
+      const code = item.external_code ? item.external_code + '_' : '';
+      return code + item.name;
     };
 
     // 完全一致（名前が同じ候補が存在するか）

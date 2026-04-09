@@ -1,4 +1,15 @@
 <x-guest-layout>
+    <div class="space-y-2 mb-6">
+        <a href="{{ route('auth.social.redirect', ['provider' => 'google']) }}"
+            class="w-full inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Googleで登録
+        </a>
+        <a href="{{ route('auth.social.redirect', ['provider' => 'github']) }}"
+            class="w-full inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            GitHubで登録
+        </a>
+    </div>
+
     <form method="POST" action="{{ route('register') }}">
         @csrf
 

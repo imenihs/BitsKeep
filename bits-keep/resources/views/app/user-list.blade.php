@@ -88,12 +88,12 @@
         <button @click="inviteModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
 
-      <!-- 招待完了: 仮パスワード表示 -->
+      <!-- 招待完了 -->
       <div v-if="inviteModal.result" class="p-6">
         <p class="text-emerald-600 font-medium mb-3">✓ 招待ユーザーを作成しました</p>
-        <p class="text-sm mb-2">以下の仮パスワードを本人に伝えてください（この画面を閉じると確認できません）:</p>
+        <p class="text-sm mb-2">招待メールを送信しました。必要なら仮パスワードも控えてください。</p>
         <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-3 font-mono text-lg text-center tracking-widest">
-          @{{ inviteModal.result }}
+          @{{ inviteModal.result.temp_password }}
         </div>
         <div class="flex justify-end mt-4">
           <button @click="inviteModal.open = false" class="btn-primary px-4 py-2 rounded">閉じる</button>

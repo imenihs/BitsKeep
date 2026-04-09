@@ -2,6 +2,17 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
+    <div class="space-y-2 mb-6">
+        <a href="{{ route('auth.social.redirect', ['provider' => 'google']) }}"
+            class="w-full inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Googleでログイン
+        </a>
+        <a href="{{ route('auth.social.redirect', ['provider' => 'github']) }}"
+            class="w-full inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            GitHubでログイン
+        </a>
+    </div>
+
     <form method="POST" action="{{ route('login') }}">
         @csrf
 

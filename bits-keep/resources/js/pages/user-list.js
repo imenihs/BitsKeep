@@ -14,7 +14,7 @@ export default function setup() {
     const inviteModal = reactive({
         open: false,
         form: { name: '', email: '', role: 'viewer' },
-        result: null,   // 仮パスワード表示用
+        result: null,
     });
 
     const fetchUsers = async () => {
@@ -44,7 +44,7 @@ export default function setup() {
     const invite = async () => {
         try {
             const r = await api.post('/users/invite', inviteModal.form);
-            inviteModal.result = r.data.temp_password;
+            inviteModal.result = r.data;
             await fetchUsers();
         } catch (e) { toastError(e.message); }
     };

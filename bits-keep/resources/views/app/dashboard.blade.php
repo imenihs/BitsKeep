@@ -20,18 +20,13 @@
         <img src="{{ asset('brand/bitskeep-logo-mark.png') }}" alt="BitsKeep" class="h-12 w-12 rounded-2xl" />
         <div>
           <p class="text-xs uppercase tracking-[0.2em] opacity-50">BitsKeep Home</p>
-          <h1 class="text-2xl font-bold">使うべき部品へ最短で入る</h1>
-          <p class="text-sm opacity-60">おはようございます、{{ auth()->user()->name }} さん。検索主導で主要導線へ迷わず入れます。</p>
+          <h1 class="text-2xl font-bold">{{ auth()->user()->name }}</h1>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">
-          権限:
-          {{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}
-        </span>
         <a href="{{ route('components.index') }}"
           class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors no-underline">
-          部品一覧へ
+          部品一覧
         </a>
         <button @click="openSearch"
           class="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] text-sm hover:border-[var(--color-primary)] transition-colors">
@@ -43,19 +38,11 @@
   </header>
 
   <nav class="sticky top-0 z-20 border-b border-[var(--color-border)] bg-[var(--color-bg)]/96 backdrop-blur">
-    <div class="max-w-7xl mx-auto px-6 py-3">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Section Guide</p>
-          <div class="text-sm opacity-70">目次から目的のセクションへ直接移動できます。</div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <a v-for="link in sectionLinks" :key="link.href" :href="link.href"
-            class="px-3 py-2 rounded-full border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors">
-            @{{ link.label }}
-          </a>
-        </div>
-      </div>
+    <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap gap-2">
+      <a v-for="link in sectionLinks" :key="link.href" :href="link.href"
+        class="px-3 py-1.5 rounded-full border border-[var(--color-border)] text-sm no-underline hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors">
+        @{{ link.label }}
+      </a>
     </div>
   </nav>
 
@@ -66,10 +53,7 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p class="text-xs uppercase tracking-[0.2em] opacity-50 mb-2">Global Launcher</p>
-            <h2 class="text-3xl font-bold mb-2">まず検索するか、すぐ使うか</h2>
-            <p class="text-sm opacity-70 leading-relaxed">
-              部品・案件・機能を横断検索し、見つからなければ主要アクションから入る構成です。
-            </p>
+            <h2 class="text-3xl font-bold">検索</h2>
           </div>
           <div class="flex flex-wrap gap-2">
             <button v-for="mode in focusModes" :key="mode" type="button" @click="setFocus(mode)"
@@ -90,12 +74,6 @@
               placeholder="型番・部品名・案件・機能名を検索" />
             <span class="absolute right-4 top-4 text-xs opacity-40">Enter</span>
           </div>
-          <div class="mt-3 flex flex-wrap gap-2 text-xs opacity-70">
-            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">部品</span>
-            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">案件</span>
-            <span class="px-2 py-1 rounded-full border border-[var(--color-border)]">機能</span>
-          </div>
-
           <div class="mt-4 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
             <div v-if="searchError" class="px-4 py-4 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]">
               <div class="text-sm font-semibold text-[var(--color-tag-warning)]">@{{ searchError }}</div>
@@ -122,17 +100,11 @@
                 <span class="opacity-40 flex-shrink-0">↗</span>
               </div>
             </button>
-            <div v-if="!launcherResults.length" class="px-4 py-5 text-sm opacity-60">
-              一致候補はありません。部品一覧または案件管理から新規登録を検討してください。
+            <div v-if="!launcherResults.length" class="px-4 py-5 text-sm opacity-40 text-center">
+              見つかりません
             </div>
           </div>
 
-          <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
-            <a href="#today-section"
-              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
-              今日の確認事項へ ↓
-            </a>
-          </div>
         </div>
       </div>
 
@@ -152,7 +124,6 @@
               <p class="text-xs uppercase tracking-[0.2em] opacity-50">Today</p>
               <h2 class="text-lg font-bold">今日の確認事項</h2>
             </div>
-            <span class="text-xs opacity-50">先に見るべきもの</span>
           </div>
           <div class="space-y-3">
             <button v-for="card in statusCards" :key="card.title" type="button" @click="openItem(card)"
@@ -171,12 +142,6 @@
             </button>
           </div>
 
-          <div class="mt-4 pt-4 border-t border-[var(--color-border)] flex justify-end">
-            <a href="#quick-actions-section"
-              class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
-              主要アクションへ ↓
-            </a>
-          </div>
         </section>
       </aside>
     </section>
@@ -188,7 +153,6 @@
           <h2 class="text-2xl font-bold">主要アクション</h2>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <p class="text-sm opacity-60">頻出操作だけを上段に置き、並び順は個人ごとに保存します。</p>
           <button v-if="!sortMode" @click="sortMode = true"
             class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
             並び替え
@@ -205,9 +169,6 @@
           </template>
         </div>
       </div>
-      <div v-if="sortMode" class="mb-4 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-75 bg-[var(--color-bg)]">
-        カードをドラッグして並び替えます。通常時はクリック起動、並び替え中だけドラッグを有効にします。
-      </div>
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <component :is="sortMode ? 'div' : 'a'"
           v-for="(action, idx) in quickActions" :key="action.key"
@@ -218,17 +179,12 @@
           @drop="onDrop(idx)"
           class="relative rounded-3xl border border-[var(--color-border)] p-5 text-left hover:border-[var(--color-primary)] hover:shadow-sm transition-all bg-[var(--color-bg)] no-underline text-inherit"
           :class="sortMode ? 'cursor-grab border-dashed border-2 border-[var(--color-primary)]' : ''">
-          <div v-if="sortMode" class="flex items-center justify-between text-xs opacity-50 mb-3">
-            <span>ドラッグで並び替え</span>
-            <span>⠿</span>
-          </div>
+          <div v-if="sortMode" class="flex justify-end text-xs opacity-40 mb-2"><span>⠿</span></div>
           <div class="w-11 h-11 rounded-2xl text-white flex items-center justify-center mb-4 text-xl"
             style="background-color: var(--color-primary);">
             @{{ action.icon }}
           </div>
-          <div class="text-sm opacity-50 mb-1">Action</div>
-          <div class="font-bold text-lg leading-tight mb-2">@{{ action.label }}</div>
-          <div class="text-sm opacity-65 leading-relaxed">必要な画面へすぐ移動します。</div>
+          <div class="font-bold text-lg leading-tight">@{{ action.label }}</div>
           <span v-if="action.badge"
             class="absolute top-4 right-4 bg-amber-500 text-white text-xs rounded-full min-w-6 h-6 px-1.5 flex items-center justify-center font-bold">
             @{{ action.badge > 9 ? '9+' : action.badge }}
@@ -236,12 +192,6 @@
         </component>
       </div>
 
-      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
-        <a href="#recent-section"
-          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
-          最近の部品へ ↓
-        </a>
-      </div>
     </section>
 
     <section id="recent-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-bg)] shadow-sm">
@@ -268,12 +218,6 @@
       </div>
       <div v-if="recentItems.length === 0" class="text-center py-8 opacity-40 text-sm">部品が登録されていません</div>
 
-      <div class="mt-5 pt-4 border-t border-[var(--color-border)] flex justify-end">
-        <a href="#all-functions-section"
-          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
-          全機能一覧へ ↓
-        </a>
-      </div>
     </section>
 
     <!-- 全機能一覧 -->
@@ -281,7 +225,6 @@
       <div class="mb-6">
         <p class="text-xs uppercase tracking-[0.2em] opacity-50">All Functions</p>
         <h2 class="text-2xl font-bold">全機能一覧</h2>
-        <p class="text-sm opacity-60 mt-1">BitsKeep のすべての機能へのショートカットです。</p>
       </div>
 
       {{-- 部品管理 --}}
@@ -395,12 +338,6 @@
         </div>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-[var(--color-border)] flex justify-end">
-        <a href="#page-top"
-          class="inline-flex items-center gap-2 text-sm no-underline hover:text-[var(--color-primary)] transition-colors">
-          ↑ ページ先頭へ
-        </a>
-      </div>
     </section>
   </main>
 
