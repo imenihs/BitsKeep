@@ -1783,3 +1783,26 @@ Bladeテンプレートが未作成のため、そこから再開。
 ビルド: ✓ / テスト: ✓ 25 passed
 
 曹長の心の声: `sm:grid-cols-[auto_1fr_auto_1fr]` はTailwindの任意値で動く。属性の全置換はspecsと同じ方式で統一感がある。
+
+---
+
+## [曹長(コード分隊)] 2026-04-11 21:18 — バグ修正3件
+
+### 対象バグ
+ユーザ報告:
+1. 仕入先情報保存時 `Add [min_qty] to fillable property to allow mass assignment on [App\Models\SupplierPriceBreak]`
+2. 基本情報のPDFリンクが403エラー
+3. 部品画像が保存されているのに表示されない
+
+### 修正内容
+
+**Bug 1: SupplierPriceBreak mass assignment**
+- `app/Models/SupplierPriceBreak.php` に `$fillable = ['min_qty', 'unit_price']` を追加
+- デフォルトで `$fillable = []` のため `create()` がブロックされていた
+
+**Bug 2 & 3: PDF 403 / 画像表示不可**
+- 共通原因: `public/storage` シンボリックリンクが存在しなかった
+- `FileStorage::url()` は `/storage/...` パスを生成するが、リンク未作成のためWebサーバが404/403を返していた
+- `php artisan storage:link` を実行し `public/storage → storage/app/public` を作成
+
+曹長の心の声: ストレージリンクは初回セットアップ時に必須だが、見落としやすい。ファイル保存自体は成功していたので画像は残っていた。リンクを貼った瞬間に全部解決するタイプのバグ。
