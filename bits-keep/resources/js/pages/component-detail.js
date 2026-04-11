@@ -11,7 +11,7 @@ export default function setup() {
     const part       = ref(null);
     const loading    = ref(true);
     const loadError  = ref('');
-    const sections   = reactive({ basic: true, detail: true, custom: true });
+    const sections   = reactive({ basic: true, detail: true, custom: true, integration: true });
     const categories = ref([]);
     const packages = ref([]);
     const specTypes = ref([]);
@@ -102,10 +102,28 @@ export default function setup() {
         editModal.value = { open: true, section, ...forms[section] };
     };
 
-    // セクション保存（PATCH）
+    // セクション保存（PATCH / ファイルありの場合は multipart POST + _method=PATCH）
     const saveSection = async () => {
         try {
-            await api.patch(`/components/${componentId}/${editModal.value.section}`, editModal.value.form);
+            const form = editModal.value.form;
+            // basic セクションでファイルが添付されている場合は FormData で送る
+            if (editModal.value.section === 'basic' && (form._newImage || form._newDatasheets?.length)) {
+                const fd = new FormData();
+                // テキスト項目
+                const textKeys = ['part_number', 'manufacturer', 'common_name', 'description',
+                    'procurement_status', 'threshold_new', 'threshold_used', 'primary_location_id'];
+                textKeys.forEach(k => { if (form[k] != null) fd.append(k, form[k]); });
+                (form.category_ids ?? []).forEach(id => fd.append('category_ids[]', id));
+                (form.package_ids ?? []).forEach(id => fd.append('package_ids[]', id));
+                // ファイル項目
+                if (form._newImage) fd.append('image', form._newImage);
+                (form._newDatasheets ?? []).forEach(f => fd.append('datasheets[]', f));
+                await api.uploadPatch(`/components/${componentId}/basic`, fd);
+            } else {
+                // ファイルなし → 通常 JSON PATCH（_newImage/_newDatasheets は除外）
+                const { _newImage, _newDatasheets, ...payload } = form;
+                await api.patch(`/components/${componentId}/${editModal.value.section}`, payload);
+            }
             toastSuccess('保存しました');
             editModal.value.open = false;
             await fetchPart();

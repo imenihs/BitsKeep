@@ -45,4 +45,11 @@ export const api = {
         }
         return request('POST', path, form, true);
     },
+    // PATCH をマルチパートで送る（PHP は PATCH のマルチパートを解釈しないため POST + _method=PATCH）
+    uploadPatch: (path, form) => {
+        if (form instanceof FormData && !form.has('_method')) {
+            form.append('_method', 'PATCH');
+        }
+        return request('POST', path, form, true);
+    },
 };

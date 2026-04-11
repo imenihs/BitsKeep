@@ -56,11 +56,14 @@
           <span class="text-lg">@{{ sections.basic ? '▾' : '▸' }}</span>
           <span>基本情報</span>
         </button>
-        <button @click="openEdit('basic')" class="text-xs link-text">編集</button>
+        <div class="flex items-center gap-3">
+          <button @click="openEdit('specs')" class="text-xs link-text">スペック編集</button>
+          <button @click="openEdit('basic')" class="text-xs link-text">編集</button>
+        </div>
       </div>
-      <div v-show="sections.basic" class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <!-- 左カラム: 画像 + データシート -->
-        <div>
+      <div v-show="sections.basic" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <!-- 左カラム: 画像 + データシート + 在庫内訳 -->
+        <div class="space-y-3">
           <div class="component-image-frame component-image-frame-lg">
             <img v-if="part.image_url" :src="part.image_url" alt="部品画像" class="component-image-preview" />
             <div v-else class="component-image-empty">
@@ -68,53 +71,84 @@
               <span>画像未登録</span>
             </div>
           </div>
-          <!-- データシートリンク: 登録済みの場合は開くボタン、未登録の場合は編集促進 -->
-          <div class="mt-3">
+          <!-- データシート -->
+          <div>
             <div v-if="part.datasheets?.length" class="flex flex-wrap gap-2">
               <a v-for="sheet in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
                 class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
                 📄 @{{ sheet.original_name || 'データシートを開く' }}
               </a>
             </div>
-            <div v-else class="text-xs opacity-50">
-              データシート未登録 —
-              <button @click="openEdit('basic')" class="link-text">編集から追加</button>
+            <p v-else class="text-xs opacity-50">データシート未登録</p>
+          </div>
+          <!-- 棚別在庫内訳（モック準拠: 各ブロックを行表示） -->
+          <div>
+            <p class="text-xs font-semibold opacity-60 mb-1">在庫内訳</p>
+            <div v-if="part.inventory_blocks?.length" class="space-y-1 text-xs">
+              <div v-for="b in part.inventory_blocks" :key="b.id"
+                class="px-2 py-1.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span v-if="b.location" class="font-medium">@{{ b.location.code }}</span>
+                    <span class="opacity-60">@{{ b.condition === 'new' ? '新品' : '中古' }}</span>
+                    <span class="px-1.5 py-0 rounded border border-[var(--color-border)] opacity-70">@{{ stockTypeLabel[b.stock_type] }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <strong class="font-mono">@{{ b.quantity }}個</strong>
+                    <button @click="openStockOut(b)" class="btn text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)]">出庫</button>
+                  </div>
+                </div>
+                <div v-if="b.lot_number || b.reel_code" class="flex gap-3 pl-1 mt-0.5 text-[10px] opacity-50">
+                  <span v-if="b.lot_number">ロット: @{{ b.lot_number }}</span>
+                  <span v-if="b.reel_code">リール: @{{ b.reel_code }}</span>
+                </div>
+              </div>
+              <div class="flex justify-end text-xs font-bold pt-1 border-t border-[var(--color-border)] opacity-70">
+                合計: 新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個
+              </div>
             </div>
+            <p v-else class="text-xs opacity-40">在庫なし</p>
           </div>
         </div>
-        <!-- 右カラム: 部品情報グリッド（xl:3列） -->
-        <div class="space-y-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-2 text-sm">
-            <div><span class="list-label">型番</span><span class="list-value ml-2 font-mono">@{{ part.part_number }}</span></div>
-            <div><span class="list-label">メーカー</span><span class="list-value ml-2">@{{ part.manufacturer || '—' }}</span></div>
-            <div><span class="list-label">分類</span>
-              <span v-for="c in part.categories" :key="c.id" class="tag ml-1 text-xs">@{{ c.name }}</span>
-              <span v-if="!part.categories.length" class="ml-2 opacity-40">—</span>
-            </div>
-            <div><span class="list-label">パッケージ</span>
-              <span v-for="p in part.packages" :key="p.id" class="tag ml-1 text-xs">@{{ p.name }}</span>
-              <span v-if="!part.packages.length" class="ml-2 opacity-40">—</span>
-            </div>
-            <div><span class="list-label">入手可否</span>
-              <span :class="'tag ml-2 ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
-                @{{ {active:'量産中',eol:'EOL',last_time:'在庫限り',nrnd:'新規非推奨'}[part.procurement_status] }}
-              </span>
-            </div>
-            <div><span class="list-label">発注点</span><span class="list-value ml-2">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span></div>
-            <div><span class="list-label">代表保管棚</span><span class="list-value ml-2">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span></div>
-            <!-- 最優先仕入先 -->
-            <div class="md:col-span-1 xl:col-span-1">
-              <span class="list-label">最優先仕入先</span>
-              <span class="list-value ml-2">@{{ preferredSupplier?.supplier?.name || '—' }}</span>
+        <!-- 右カラム: ラベル:値 2列グリッド + スペック -->
+        <div class="space-y-3">
+          <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline">
+            <span class="list-label">型番</span>
+            <span class="list-value font-mono">@{{ part.part_number }}</span>
+            <span class="list-label">通称</span>
+            <span class="list-value">@{{ part.common_name || '—' }}</span>
+            <span class="list-label">メーカー</span>
+            <span class="list-value">@{{ part.manufacturer || '—' }}</span>
+            <span class="list-label">分類</span>
+            <span>
+              <span v-for="c in part.categories" :key="c.id" class="tag mr-1 text-xs">@{{ c.name }}</span>
+              <span v-if="!part.categories.length" class="opacity-40">—</span>
+            </span>
+            <span class="list-label">パッケージ</span>
+            <span>
+              <span v-for="p in part.packages" :key="p.id" class="tag mr-1 text-xs">@{{ p.name }}</span>
+              <span v-if="!part.packages.length" class="opacity-40">—</span>
+            </span>
+            <span class="list-label">入手可否</span>
+            <span :class="'tag ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
+              @{{ {active:'量産中',eol:'EOL',last_time:'在庫限り',nrnd:'新規非推奨'}[part.procurement_status] }}
+            </span>
+            <span class="list-label">発注点</span>
+            <span class="list-value">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span>
+            <span class="list-label">代表保管棚</span>
+            <span class="list-value">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span>
+            <span class="list-label">最優先仕入先</span>
+            <span class="list-value">
+              @{{ preferredSupplier?.supplier?.name || '—' }}
               <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">¥@{{ preferredSupplier.unit_price.toLocaleString() }}</span>
-            </div>
-            <!-- 棚別在庫合計 -->
-            <div class="md:col-span-1 xl:col-span-1">
-              <span class="list-label">在庫合計</span>
-              <span class="list-value ml-2">新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個</span>
-            </div>
+            </span>
+            <!-- 登録スペック（分類によって内容が変わる） -->
+            <template v-for="s in part.specs" :key="s.id">
+              <span class="list-label">@{{ s.spec_type?.name }}</span>
+              <span class="list-value">@{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}</span>
+            </template>
           </div>
-          <!-- 説明（説明文がある場合のみ表示、ラベル付きで明示） -->
+          <!-- 説明（あれば） -->
           <div v-if="part.description" class="text-sm border-t border-[var(--color-border)] pt-3">
             <span class="list-label">説明</span>
             <p class="mt-1 opacity-70 leading-relaxed">@{{ part.description }}</p>
@@ -129,23 +163,9 @@
           <span class="text-lg">@{{ sections.detail ? '▾' : '▸' }}</span>
           <span>詳細情報</span>
         </button>
-        <div class="flex items-center gap-3">
-          <button @click="openEdit('specs')" class="text-xs link-text">スペック編集</button>
-          <button @click="openEdit('suppliers')" class="text-xs link-text">仕入先編集</button>
-        </div>
+        <button @click="openEdit('suppliers')" class="text-xs link-text">仕入先編集</button>
       </div>
       <div v-show="sections.detail" class="space-y-4">
-        <div>
-          <h3 class="text-sm font-semibold mb-2 opacity-80">スペック</h3>
-          <div v-if="part.specs.length" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <div v-for="s in part.specs" :key="s.id" class="flex gap-2">
-              <span class="list-label">@{{ s.spec_type?.name }}</span>
-              <span class="list-value">@{{ s.value }} @{{ s.unit }}</span>
-            </div>
-          </div>
-          <p v-else class="text-sm opacity-40">スペック未登録</p>
-        </div>
-
         <div>
           <h3 class="text-sm font-semibold mb-2 opacity-80">仕入先・価格</h3>
           <div v-if="part.component_suppliers?.length" class="space-y-3">
@@ -177,26 +197,6 @@
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <div>
-            <h3 class="text-sm font-semibold mb-2 opacity-80">在庫ブロック</h3>
-            <div v-if="part.inventory_blocks?.length" class="space-y-2">
-              <div v-for="b in part.inventory_blocks" :key="b.id"
-                class="flex items-center justify-between text-sm px-3 py-2 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
-                <div>
-                  <span class="tag text-xs mr-2">@{{ stockTypeLabel[b.stock_type] }}</span>
-                  <span class="tag text-xs mr-2" :class="b.condition === 'new' ? 'tag-ok' : ''">@{{ stockConditionLabel[b.condition] }}</span>
-                  <span v-if="b.location">@{{ b.location.code }}</span>
-                  <span v-if="b.lot_number" class="ml-2 opacity-60 text-xs">Lot: @{{ b.lot_number }}</span>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span class="font-mono font-bold">@{{ b.quantity }}個</span>
-                  <button @click="openStockOut(b)" class="btn text-xs px-2 py-1 rounded border border-[var(--color-border)]">出庫</button>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-sm opacity-40">在庫なし</p>
-          </div>
-
           <div>
             <h3 class="text-sm font-semibold mb-2 opacity-80">使用案件・直近入出庫</h3>
             <div class="flex flex-wrap gap-1.5 mb-3">
@@ -254,34 +254,43 @@
       </div>
     </section>
 
+    <!-- カスタムフィールド（自由属性のみ） -->
     <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.custom = !sections.custom" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.custom ? '▾' : '▸' }}</span>
           <span>カスタムフィールド</span>
         </button>
-        <span class="text-xs opacity-50">属性・連携情報</span>
+        <span class="text-xs opacity-50">自由属性</span>
       </div>
-      <div v-show="sections.custom" class="grid gap-4 lg:grid-cols-2 text-sm">
-        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-          <h3 class="text-sm font-semibold mb-2 opacity-80">自由属性</h3>
-          <div v-if="part.attributes?.length" class="space-y-2">
-            <div v-for="attr in part.attributes" :key="attr.id" class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-              <span class="list-label">@{{ attr.key }}</span>
-              <span class="list-value">@{{ attr.value }}</span>
-            </div>
-          </div>
-          <p v-else class="text-sm opacity-40">カスタムフィールド未登録</p>
+      <div v-show="sections.custom" class="text-sm">
+        <div v-if="part.attributes?.length" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+          <span v-for="attr in part.attributes" :key="attr.id" class="contents">
+            <span class="list-label">@{{ attr.key }}</span>
+            <span class="list-value">@{{ attr.value }}</span>
+          </span>
         </div>
-        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-          <h3 class="text-sm font-semibold mb-2 opacity-80">連携情報</h3>
-          <div class="space-y-2">
-            <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-              <span class="list-label">Altium</span>
-              <span class="list-value">@{{ part.altium_link?.symbol_name || '未連携' }}</span>
-            </div>
-          </div>
-        </div>
+        <p v-else class="text-sm opacity-40">カスタムフィールド未登録</p>
+      </div>
+    </section>
+
+    <!-- 連携情報（独立カード） -->
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+      <div class="flex justify-between items-center mb-3">
+        <button @click="sections.integration = !sections.integration" class="flex items-center gap-2 font-bold">
+          <span class="text-lg">@{{ sections.integration ? '▾' : '▸' }}</span>
+          <span>連携情報</span>
+        </button>
+        <a href="{{ route('altium.index') }}" class="text-xs link-text">Altium設定</a>
+      </div>
+      <div v-show="sections.integration" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+        <span class="list-label">Altium Designer</span>
+        <span class="list-value">@{{ part.altium_link?.symbol_name || '未連携' }}</span>
+        <span v-if="part.altium_link?.library_name" class="list-label">ライブラリ</span>
+        <span v-if="part.altium_link?.library_name" class="list-value font-mono">@{{ part.altium_link.library_name }}</span>
+      </div>
+      <div v-show="sections.integration && !part.altium_link" class="text-sm opacity-40 mt-1">
+        Altium未連携 — <a href="{{ route('altium.index') }}" class="link-text">Altium連携設定へ</a>
       </div>
     </section>
     </div>
@@ -387,7 +396,7 @@
           <input v-model.number="editModal.form.threshold_new" type="number" min="0" class="input-text w-full" placeholder="発注点 新品" />
           <input v-model.number="editModal.form.threshold_used" type="number" min="0" class="input-text w-full" placeholder="発注点 中古" />
         </div>
-        <textarea v-model="editModal.form.description" class="input-text w-full h-24" placeholder="説明"></textarea>
+        <textarea v-model="editModal.form.description" class="input-text w-full h-20" placeholder="説明（任意）"></textarea>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold mb-1">分類</label>
@@ -414,6 +423,29 @@
             <option value="">未設定</option>
             <option v-for="location in locations" :key="location.id" :value="location.id">@{{ location.code }} / @{{ location.name }}</option>
           </select>
+        </div>
+        <!-- 画像変更 -->
+        <div>
+          <label class="block text-xs font-semibold mb-1">部品画像（変更する場合のみ選択）</label>
+          <div class="flex items-center gap-3">
+            <img v-if="part.image_url" :src="part.image_url" alt="現在の画像" class="w-16 h-16 object-contain rounded border border-[var(--color-border)] bg-[var(--color-bg)]" />
+            <span v-else class="text-xs opacity-50">画像未登録</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp"
+              class="text-sm"
+              @change="editModal.form._newImage = $event.target.files[0] || null" />
+          </div>
+        </div>
+        <!-- データシート追加 -->
+        <div>
+          <label class="block text-xs font-semibold mb-1">データシート（PDF追加。選択すると既存を置き換えます）</label>
+          <div v-if="part.datasheets?.length" class="mb-2 space-y-1">
+            <div v-for="sheet in part.datasheets" :key="sheet.id" class="flex items-center gap-2 text-xs opacity-70">
+              <span>📄</span><span>@{{ sheet.original_name || 'データシート' }}</span>
+            </div>
+          </div>
+          <input type="file" accept="application/pdf" multiple
+            class="text-sm"
+            @change="editModal.form._newDatasheets = Array.from($event.target.files)" />
         </div>
       </div>
 
