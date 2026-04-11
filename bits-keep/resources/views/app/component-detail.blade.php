@@ -130,7 +130,7 @@
               <span v-if="!part.packages.length" class="opacity-40">—</span>
             </span>
             <span class="list-label">入手可否</span>
-            <span :class="'tag ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
+            <span :class="'tag w-fit ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
               @{{ {active:'量産中',eol:'EOL',last_time:'在庫限り',nrnd:'新規非推奨'}[part.procurement_status] }}
             </span>
             <span class="list-label">発注点</span>
