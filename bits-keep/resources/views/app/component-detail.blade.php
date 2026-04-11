@@ -59,6 +59,7 @@
         <button @click="openEdit('basic')" class="text-xs link-text">編集</button>
       </div>
       <div v-show="sections.basic" class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <!-- 左カラム: 画像 + データシート -->
         <div>
           <div class="component-image-frame component-image-frame-lg">
             <img v-if="part.image_url" :src="part.image_url" alt="部品画像" class="component-image-preview" />
@@ -67,45 +68,59 @@
               <span>画像未登録</span>
             </div>
           </div>
-          <div v-if="part.datasheets?.length" class="mt-3 space-y-2">
-            <a v-for="sheet in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
-              class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm mr-2">
-              @{{ sheet.original_name || 'データシートを開く' }}
-            </a>
-          </div>
-          <div class="mt-4 grid gap-2 text-sm">
-            <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-              <div class="text-xs opacity-60">最優先仕入先</div>
-              <div class="mt-1 font-medium">@{{ preferredSupplier?.supplier?.name || '未登録' }}</div>
-              <div v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-70 mt-1">基準単価: ¥@{{ preferredSupplier.unit_price.toLocaleString() }}</div>
+          <!-- データシートリンク: 登録済みの場合は開くボタン、未登録の場合は編集促進 -->
+          <div class="mt-3">
+            <div v-if="part.datasheets?.length" class="flex flex-wrap gap-2">
+              <a v-for="sheet in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
+                class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
+                📄 @{{ sheet.original_name || 'データシートを開く' }}
+              </a>
             </div>
-            <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-              <div class="text-xs opacity-60">棚別在庫合計</div>
-              <div class="mt-1 text-sm">新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個</div>
+            <div v-else class="text-xs opacity-50">
+              データシート未登録 —
+              <button @click="openEdit('basic')" class="link-text">編集から追加</button>
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-2 text-sm">
-          <div><span class="list-label">型番</span><span class="list-value ml-2 font-mono">@{{ part.part_number }}</span></div>
-          <div><span class="list-label">メーカー</span><span class="list-value ml-2">@{{ part.manufacturer || '—' }}</span></div>
-          <div><span class="list-label">分類</span>
-            <span v-for="c in part.categories" :key="c.id" class="tag ml-1 text-xs">@{{ c.name }}</span>
-            <span v-if="!part.categories.length" class="ml-2 opacity-40">—</span>
+        <!-- 右カラム: 部品情報グリッド（xl:3列） -->
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-2 text-sm">
+            <div><span class="list-label">型番</span><span class="list-value ml-2 font-mono">@{{ part.part_number }}</span></div>
+            <div><span class="list-label">メーカー</span><span class="list-value ml-2">@{{ part.manufacturer || '—' }}</span></div>
+            <div><span class="list-label">分類</span>
+              <span v-for="c in part.categories" :key="c.id" class="tag ml-1 text-xs">@{{ c.name }}</span>
+              <span v-if="!part.categories.length" class="ml-2 opacity-40">—</span>
+            </div>
+            <div><span class="list-label">パッケージ</span>
+              <span v-for="p in part.packages" :key="p.id" class="tag ml-1 text-xs">@{{ p.name }}</span>
+              <span v-if="!part.packages.length" class="ml-2 opacity-40">—</span>
+            </div>
+            <div><span class="list-label">入手可否</span>
+              <span :class="'tag ml-2 ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
+                @{{ {active:'量産中',eol:'EOL',last_time:'在庫限り',nrnd:'新規非推奨'}[part.procurement_status] }}
+              </span>
+            </div>
+            <div><span class="list-label">発注点</span><span class="list-value ml-2">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span></div>
+            <div><span class="list-label">代表保管棚</span><span class="list-value ml-2">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span></div>
+            <!-- 最優先仕入先 -->
+            <div class="md:col-span-1 xl:col-span-1">
+              <span class="list-label">最優先仕入先</span>
+              <span class="list-value ml-2">@{{ preferredSupplier?.supplier?.name || '—' }}</span>
+              <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">¥@{{ preferredSupplier.unit_price.toLocaleString() }}</span>
+            </div>
+            <!-- 棚別在庫合計 -->
+            <div class="md:col-span-1 xl:col-span-1">
+              <span class="list-label">在庫合計</span>
+              <span class="list-value ml-2">新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個</span>
+            </div>
           </div>
-          <div><span class="list-label">パッケージ</span>
-            <span v-for="p in part.packages" :key="p.id" class="tag ml-1 text-xs">@{{ p.name }}</span>
-            <span v-if="!part.packages.length" class="ml-2 opacity-40">—</span>
+          <!-- 説明（説明文がある場合のみ表示、ラベル付きで明示） -->
+          <div v-if="part.description" class="text-sm border-t border-[var(--color-border)] pt-3">
+            <span class="list-label">説明</span>
+            <p class="mt-1 opacity-70 leading-relaxed">@{{ part.description }}</p>
           </div>
-          <div><span class="list-label">入手可否</span>
-            <span :class="'tag ml-2 ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
-              @{{ {active:'量産中',eol:'EOL',last_time:'在庫限り',nrnd:'新規非推奨'}[part.procurement_status] }}
-            </span>
-          </div>
-          <div><span class="list-label">発注点</span><span class="list-value ml-2">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span></div>
-          <div><span class="list-label">代表保管棚</span><span class="list-value ml-2">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span></div>
         </div>
       </div>
-      <div v-show="sections.basic && part.description" class="mt-3 text-sm opacity-70">@{{ part.description }}</div>
     </section>
 
     <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
