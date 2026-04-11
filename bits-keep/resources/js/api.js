@@ -8,10 +8,10 @@ async function request(method, path, body = null, isFormData = false) {
     const headers = {
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+        'Accept': 'application/json',
     };
     if (!isFormData) {
         headers['Content-Type'] = 'application/json';
-        headers['Accept'] = 'application/json';
     }
 
     const res = await fetch(BASE + path, {

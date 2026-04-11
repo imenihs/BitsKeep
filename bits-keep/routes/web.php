@@ -1,11 +1,16 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicFileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('components.index'));
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/files/public/{path}', [PublicFileController::class, 'show'])
+        ->where('path', '.*')
+        ->name('public-files.show');
+
     Route::get('/dashboard', fn() => view('app.dashboard'))->name('dashboard');
 
     // 部品管理

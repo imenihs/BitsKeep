@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use RuntimeException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -25,8 +26,7 @@ class FileStorage
     {
         self::validateMime($file, self::IMAGE_MIMES);
         $name = self::nextAvailableName('components/images', 'component', $file->getClientOriginalExtension());
-        $file->storeAs('components/images', $name, 'public');
-        return 'components/images/' . $name;
+        return self::storeVerified($file, 'components/images', $name);
     }
 
     /**
@@ -36,24 +36,21 @@ class FileStorage
     {
         self::validateMime($file, self::PDF_MIMES);
         $name = self::nextAvailableName('components/datasheets', 'datasheet', 'pdf');
-        $file->storeAs('components/datasheets', $name, 'public');
-        return 'components/datasheets/' . $name;
+        return self::storeVerified($file, 'components/datasheets', $name);
     }
 
     public static function storeComponentImageNamed(UploadedFile $file, array $parts): string
     {
         self::validateMime($file, self::IMAGE_MIMES);
         $name = self::nextAvailableName('components/images', self::buildStem($parts, 'component'), $file->getClientOriginalExtension());
-        $file->storeAs('components/images', $name, 'public');
-        return 'components/images/' . $name;
+        return self::storeVerified($file, 'components/images', $name);
     }
 
     public static function storeComponentDatasheetNamed(UploadedFile $file, array $parts): string
     {
         self::validateMime($file, self::PDF_MIMES);
         $name = self::nextAvailableName('components/datasheets', self::buildStem($parts, 'datasheet'), 'pdf');
-        $file->storeAs('components/datasheets', $name, 'public');
-        return 'components/datasheets/' . $name;
+        return self::storeVerified($file, 'components/datasheets', $name);
     }
 
     /**
@@ -63,8 +60,7 @@ class FileStorage
     {
         self::validateMime($file, self::IMAGE_MIMES);
         $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $file->storeAs('packages/images', $name, 'public');
-        return 'packages/images/' . $name;
+        return self::storeVerified($file, 'packages/images', $name);
     }
 
     /**
@@ -83,7 +79,7 @@ class FileStorage
     public static function url(?string $path): ?string
     {
         if (!$path) return null;
-        return Storage::disk('public')->url($path);
+        return url('/files/public/' . ltrim($path, '/'));
     }
 
     /**
@@ -136,5 +132,17 @@ class FileStorage
         }
 
         return sprintf('%s_%s.%s', $base, Str::lower(Str::random(6)), $extension);
+    }
+
+    protected static function storeVerified(UploadedFile $file, string $directory, string $name): string
+    {
+        $storedPath = $file->storeAs($directory, $name, 'public');
+        $expectedPath = trim($directory . '/' . $name, '/');
+
+        if ($storedPath === false || !Storage::disk('public')->exists($expectedPath)) {
+            throw new RuntimeException('ファイル保存に失敗しました。保存先の権限を確認してください。');
+        }
+
+        return $expectedPath;
     }
 }

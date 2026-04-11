@@ -17,6 +17,9 @@ export default function setup() {
     const specTypes = ref([]);
     const suppliers = ref([]);
     const locations = ref([]);
+    const showAllTransactions = ref(false);
+    const basicImageFile = ref(null);
+    const basicDatasheetFiles = ref([]);
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -70,6 +73,8 @@ export default function setup() {
     // セクション別編集モーダルを開く
     const openEdit = (section) => {
         const p = part.value;
+        basicImageFile.value = null;
+        basicDatasheetFiles.value = [];
         const forms = {
             basic: {
                 title: '基本情報を編集',
@@ -90,7 +95,7 @@ export default function setup() {
             attributes: {
                 title: 'カスタムフィールドを編集',
                 form: {
-                    attributes: (p.attributes ?? []).map(a => ({ key: a.key ?? '', value: a.value ?? '' })),
+                    attributes: (p.custom_attributes ?? []).map(a => ({ key: a.key ?? '', value: a.value ?? '' })),
                 },
             },
             suppliers: {
@@ -112,8 +117,9 @@ export default function setup() {
     const saveSection = async () => {
         try {
             const form = editModal.value.form;
-            // basic セクションでファイルが添付されている場合は FormData で送る
-            if (editModal.value.section === 'basic' && (form._newImage || form._newDatasheets?.length)) {
+            // basic セクションは、部品登録/編集と同じ multipart + full update 経路へ統一する。
+            // ファイル有無で経路を分けると、詳細画面だけ保存差分が出やすい。
+            if (editModal.value.section === 'basic') {
                 const fd = new FormData();
                 // テキスト項目
                 const textKeys = ['part_number', 'manufacturer', 'common_name', 'description',
@@ -122,18 +128,20 @@ export default function setup() {
                 (form.category_ids ?? []).forEach(id => fd.append('category_ids[]', id));
                 (form.package_ids ?? []).forEach(id => fd.append('package_ids[]', id));
                 // ファイル項目
-                if (form._newImage) fd.append('image', form._newImage);
-                (form._newDatasheets ?? []).forEach(f => fd.append('datasheets[]', f));
-                await api.uploadPatch(`/components/${componentId}/basic`, fd);
+                if (basicImageFile.value) fd.append('image', basicImageFile.value);
+                basicDatasheetFiles.value.forEach((file, index) => fd.append(`datasheets[${index}]`, file));
+                await api.uploadPut(`/components/${componentId}`, fd);
             } else {
                 // ファイルなし → 通常 JSON PATCH（_newImage/_newDatasheets は除外）
-                const { _newImage, _newDatasheets, ...payload } = form;
-                await api.patch(`/components/${componentId}/${editModal.value.section}`, payload);
+                await api.patch(`/components/${componentId}/${editModal.value.section}`, form);
             }
             toastSuccess('保存しました');
             editModal.value.open = false;
+            basicImageFile.value = null;
+            basicDatasheetFiles.value = [];
             await fetchPart();
         } catch (e) {
+            console.error('[component-detail save failed]', e);
             toastError(e.message);
         }
     };
@@ -234,13 +242,16 @@ export default function setup() {
         }, { new: 0, used: 0 });
     });
 
-    const recentTransactions = computed(() => (part.value?.transactions ?? []).slice(0, 5));
+    const allTransactions = computed(() => part.value?.transactions ?? []);
+    const displayedTransactions = computed(() => showAllTransactions.value ? allTransactions.value : allTransactions.value.slice(0, 5));
+    const hasMoreTransactions = computed(() => allTransactions.value.length > 5);
 
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
         categories, packages, specTypes, suppliers, locations,
-        preferredSupplier, stockSummary, recentTransactions,
+        preferredSupplier, stockSummary, allTransactions, displayedTransactions, hasMoreTransactions, showAllTransactions,
+        basicImageFile, basicDatasheetFiles,
         editModal, openEdit, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,

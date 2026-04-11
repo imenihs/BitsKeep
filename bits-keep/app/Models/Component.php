@@ -49,7 +49,7 @@ class Component extends Model
     }
 
     // 自由属性
-    public function attributes(): HasMany
+    public function customAttributes(): HasMany
     {
         return $this->hasMany(ComponentAttribute::class);
     }

@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentDatasheet;
 use App\Support\FileStorage;
+use RuntimeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -120,41 +121,44 @@ class ComponentController extends Controller
      */
     public function store(StoreComponentRequest $request)
     {
-        return DB::transaction(function () use ($request) {
-            $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
-            $data['created_by'] = auth()->id();
-            $data['updated_by'] = auth()->id();
+        try {
+            return DB::transaction(function () use ($request) {
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
+                $data['created_by'] = auth()->id();
+                $data['updated_by'] = auth()->id();
 
-            // ファイル保存
-            if ($request->hasFile('image')) {
-                $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
-                    $request->input('part_number'),
-                    $request->input('common_name'),
-                    $this->firstCategoryName((array) $request->input('category_ids', [])),
-                ]);
-            }
-            $component = Component::create($data);
-            if ($request->filled('duplicate_from_component_id') && !$request->hasFile('image')) {
-                $source = Component::with('datasheets')->find($request->integer('duplicate_from_component_id'));
-                if ($source) {
-                    $component->image_path = $source->image_path;
-                    $component->save();
-                    foreach ($source->datasheets as $index => $sheet) {
-                        $component->datasheets()->create([
-                            'file_path' => $sheet->file_path,
-                            'original_name' => $sheet->original_name,
-                            'sort_order' => $index,
-                        ]);
+                if ($request->hasFile('image')) {
+                    $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
+                        $request->input('part_number'),
+                        $request->input('common_name'),
+                        $this->firstCategoryName((array) $request->input('category_ids', [])),
+                    ]);
+                }
+                $component = Component::create($data);
+                if ($request->filled('duplicate_from_component_id') && !$request->hasFile('image')) {
+                    $source = Component::with('datasheets')->find($request->integer('duplicate_from_component_id'));
+                    if ($source) {
+                        $component->image_path = $source->image_path;
+                        $component->save();
+                        foreach ($source->datasheets as $index => $sheet) {
+                            $component->datasheets()->create([
+                                'file_path' => $sheet->file_path,
+                                'original_name' => $sheet->original_name,
+                                'sort_order' => $index,
+                            ]);
+                        }
                     }
                 }
-            }
-            $this->syncDatasheets($component, $request);
-            $this->syncRelations($component, $request);
+                $this->syncDatasheets($component, $request);
+                $this->syncRelations($component, $request);
 
-            return ApiResponse::created($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
-            ));
-        });
+                return ApiResponse::created($this->decorateComponent(
+                    $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
+                ));
+            });
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), [], 500);
+        }
     }
 
     /**
@@ -165,12 +169,12 @@ class ComponentController extends Controller
         $component->load([
             'categories', 'packages',
             'specs.specType',
-            'attributes',
+            'customAttributes',
             'componentSuppliers.supplier', 'componentSuppliers.priceBreaks',
             'inventoryBlocks.location',
             'primaryLocation',
             'datasheets',
-            'transactions' => fn ($q) => $q->latest()->limit(20),
+            'transactions' => fn ($q) => $q->latest(),
             'projects',
             'altiumLink',
         ]);
@@ -183,26 +187,30 @@ class ComponentController extends Controller
      */
     public function update(StoreComponentRequest $request, Component $component)
     {
-        return DB::transaction(function () use ($request, $component) {
-            $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
-            $data['updated_by'] = auth()->id();
+        try {
+            return DB::transaction(function () use ($request, $component) {
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
+                $data['updated_by'] = auth()->id();
 
-            if ($request->hasFile('image')) {
-                FileStorage::delete($component->image_path);
-                $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
-                    $request->input('part_number', $component->part_number),
-                    $request->input('common_name', $component->common_name),
-                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
-                ]);
-            }
-            $component->update($data);
-            $this->syncDatasheets($component, $request);
-            $this->syncRelations($component, $request);
+                if ($request->hasFile('image')) {
+                    FileStorage::delete($component->image_path);
+                    $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
+                        $request->input('part_number', $component->part_number),
+                        $request->input('common_name', $component->common_name),
+                        $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                    ]);
+                }
+                $component->update($data);
+                $this->syncDatasheets($component, $request);
+                $this->syncRelations($component, $request);
 
-            return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets'])
-            ));
-        });
+                return ApiResponse::success($this->decorateComponent(
+                    $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets', 'customAttributes'])
+                ));
+            });
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), [], 500);
+        }
     }
 
     /**
@@ -251,10 +259,10 @@ class ComponentController extends Controller
 
                 case 'attributes':
                     // 送信された attributes 配列で全置換
-                    $component->attributes()->delete();
-                    foreach ($request->attributes as $attr) {
+                    $component->customAttributes()->delete();
+                    foreach ($request->input('attributes', []) as $attr) {
                         if (trim($attr['key']) === '') continue;
-                        $component->attributes()->create([
+                        $component->customAttributes()->create([
                             'key'   => $attr['key'],
                             'value' => $attr['value'] ?? null,
                         ]);
@@ -272,7 +280,7 @@ class ComponentController extends Controller
             }
 
             return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets', 'customAttributes'])
             ));
         });
     }
@@ -373,6 +381,25 @@ class ComponentController extends Controller
 
     private function decorateComponent(Component $component): Component
     {
+        if ($component->relationLoaded('customAttributes')) {
+            $component->custom_attributes = $component->customAttributes;
+        }
+
+        if ($component->relationLoaded('inventoryBlocks')) {
+            $stockTypeOrder = ['reel' => 0, 'tape' => 1, 'tray' => 2, 'loose' => 3, 'box' => 4];
+            $conditionOrder = ['new' => 0, 'used' => 1];
+
+            $component->setRelation('inventoryBlocks', $component->inventoryBlocks
+                ->sortBy([
+                    fn ($block) => $block->location->sort_order ?? PHP_INT_MAX,
+                    fn ($block) => $block->location->code ?? 'ZZZ',
+                    fn ($block) => $conditionOrder[$block->condition] ?? 99,
+                    fn ($block) => $stockTypeOrder[$block->stock_type] ?? 99,
+                    fn ($block) => $block->id,
+                ])
+                ->values());
+        }
+
         $component->image_url = FileStorage::url($component->image_path);
         $primarySheet = $component->relationLoaded('datasheets')
             ? $component->datasheets->first()

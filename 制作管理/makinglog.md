@@ -1806,3 +1806,123 @@ Bladeテンプレートが未作成のため、そこから再開。
 - `php artisan storage:link` を実行し `public/storage → storage/app/public` を作成
 
 曹長の心の声: ストレージリンクは初回セットアップ時に必須だが、見落としやすい。ファイル保存自体は成功していたので画像は残っていた。リンクを貼った瞬間に全部解決するタイプのバグ。
+
+---
+
+## [大佐] 2026-04-12 00:15
+
+### 部品詳細の編集系不具合を切り分け直し、保存経路と表示経路を実ルートで再確認した
+
+- ユーザー報告どおり、`部品詳細 -> 編集` からの `画像/PDF追加` と `カスタムフィールド追加` は実運用上まだ不安が残る状態だったため、推測で閉じずにルート単位で再確認した
+- まず `component-detail.js` の基本情報保存は、ファイル有無で JSON PATCH と multipart PATCH に分岐していたが、詳細画面だけ別経路を持つのは事故源なので、部品登録/編集と同じ `multipart + full update` 経路へ統一した
+- その上で、`tests/Feature/ComponentDetailRouteSmokeTest.php` を追加し、`/api/components/{id}` の `PUT` 経路に対して画像 + PDF を付けた更新を流し、`storage/app/public` 上に実ファイルが生成されること、後片付けで消せることまで確認した
+- これで「コード上は保存するはず」ではなく、`部品詳細編集ルートで画像/PDF保存が実際に通る` ことを確認した
+
+大佐の心の声: ここは `fake storage` で済ませるとまた疑義が残る。今回は実ストレージに書いて、削除まで自分でやって確認したので、少なくともサーバ保存経路は閉じられている。
+
+---
+
+## [大佐] 2026-04-12 00:28
+
+### カスタムフィールド追加が効かない原因を 3 段で除去した
+
+- 1つ目の原因は、`Component` モデルの自由属性リレーション名を `attributes()` にしていたことだった。これは Eloquent 本体の属性配列と名前衝突し、API 整形や画面参照で混乱を起こす
+- 2つ目の原因は、`ComponentController::updateSection('attributes')` が入力配列ではなく `$request->attributes` を読んでいたことだった。ここは Symfony の request attributes bag であり、送った `attributes` 配列を見ていなかった
+- 3つ目の原因は、`ComponentAttribute` モデルに `$fillable` がなく、保存時に mass assignment exception を起こしていたことだった
+- 修正として、自由属性リレーションは `customAttributes()` に改名し、API レスポンスでは `custom_attributes` で返すよう整理した
+- 保存側は `$request->input('attributes', [])` に修正し、`ComponentAttribute` へ `['component_id', 'key', 'value']` の `$fillable` を追加した
+- route smoke test でも `PATCH /api/components/{id}/attributes` が通り、実際に `動作確認属性 / 追加確認` が保存されることを確認した
+
+大佐の心の声: `attributes` という名前は便利そうに見えて、Laravel/Eloquent 文脈では地雷だった。今回の件は「保存 API はあるのに UI で増えない」典型で、原因が3層に分かれていた。
+
+---
+
+## [大佐] 2026-04-12 00:42
+
+### 部品詳細の読みづらさも同時に是正した
+
+- `在庫内訳` は、文字サイズが小さすぎて確認しづらかったため、見出し・棚コード・数量・合計行のフォントを1段上げ、`出庫` ボタンの当たり判定も広げた
+- ヘッダの `出庫する` も、単なる枠線ボタンでは判別しづらかったので、ボタンらしい面と色を持つ主操作へ変更した
+- 出庫モーダルの `キャンセル / 出庫する` も、入庫モーダルと揃えて `px-4/5 py-3` のサイズへ統一した
+- `仕入先・価格` は、商社名が左で価格が右端に飛んでいたため視線移動が大きかった。そこで `商社名 + 基本価格` を近づけ、価格ブレークは `数量 / 単価` の2列表へ切り出して読み筋を揃えた
+
+検証:
+- `APP_ENV=testing DB_CONNECTION=pgsql ... php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → 2 passed
+- `npm run build` → 成功
+
+大佐の心の声: 今回は「保存できるか」と「見やすいか」が別論点だった。保存だけ直して終わると、詳細画面はまだ使いづらいままだったので、視線移動の大きい箇所も同じターンで潰した。
+
+---
+
+## [大佐] 2026-04-12 02:03
+
+### 部品詳細のクラッシュとファイル閲覧不能を追加で是正した
+
+- `部品詳細` で `Cannot read properties of undefined (reading 'length')` が出て全体が落ちる件は、テンプレートで `allTransactions.length` を読んでいるのに `setup()` の return に `allTransactions` を返していなかったのが直接原因だった
+- これを修正し、`直近入出庫` の `さらに表示` は API 側の `20件 limit` も撤去した。これで DB にある分だけ `さらに表示` の対象になる
+- 画像/PDF が保存されていても開けない件は、保存そのものではなく公開経路だった。`/storage/...pdf` が実環境で `403 Forbidden` を返していたため、公開 URL を `Storage::url()` 依存からアプリ配信の `/files/public/...` に切り替えた
+- `PublicFileController` を新設し、`storage/app/public` 配下を認証済みユーザーに対してアプリ経由で `inline` 配信するようにした。これで画像も PDF も Apache 側の静的公開制約に引っ張られず開ける
+- ルートテストも増やし、`部品詳細の更新で画像/PDFが保存される` だけでなく、保存後に `/files/public/...` を実際に GET して `200` と `application/pdf` を確認した
+
+検証:
+- `php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → 2 passed, 14 assertions
+- `npm run build` → 成功
+- API 整形確認: `image_url` `datasheet.url` が `https://bits-keep.rwc.0t0.jp/files/public/...` を返すことを確認
+
+大佐の心の声: 今回の本質は「保存済み」と「閲覧可能」を混同していた点だった。部品詳細の画面側バグ、API の 20 件制限、PDF の公開経路を同時に潰して、ようやく `見える・開ける・追加表示できる` まで閉じた。
+
+---
+
+## [大佐] 2026-04-12 02:18
+
+### UI から保存しても変わらないように見える件は、同名ファイル上書き時のキャッシュも原因候補だった
+
+- 部品詳細の基本情報編集は、画像/PDF を `型番_通称_分類` ベースの同じファイル名で上書きする
+- この仕様だと、保存自体は成功していても `image_url` や `datasheet.url` が前回と同じ URL のままになるため、ブラウザが古い内容を掴み続ける
+- その結果、ユーザー視点では `UIからは保存できていない` ように見える
+- 対策として、`FileStorage::url()` で `lastModified` を使った `?v=...` を必ず付けるようにした
+- これで同じファイル名を上書きしても URL が変わるため、部品詳細の再取得後に画像・PDF の中身が更新される
+
+検証:
+- `php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → 2 passed
+- API 整形確認: `https://bits-keep.rwc.0t0.jp/files/public/... ?v=...` を返すことを確認
+
+大佐の心の声: 保存経路と公開経路を直しても、同名 URL のキャッシュで見え方が古いままだと「直っていない」と判定される。ここは UI 不具合というより配信設計の穴だった。
+
+---
+
+## [大佐] 2026-04-12 02:31
+
+### 部品詳細だけ UI からファイル保存できない本命は、File を reactive なモーダル form に混ぜていた実装差だった
+
+- ユーザー報告どおり、「API 単体では保存できるのに UI からはサーバへファイルが入らない」なら、サーバ側より先にフロントの `FormData` 構築差を疑うべきだった
+- 部品登録画面は `imageFile` `datasheetFiles` を専用 `ref` で保持しており、この経路では保存できている
+- 一方、部品詳細画面だけは `editModal.form._newImage` `editModal.form._newDatasheets` として、`reactive` なモーダル form オブジェクトの中へ `File` を直接混ぜていた
+- この差が UI 経由だけの不安定要因だったため、部品詳細も部品登録と同じく `basicImageFile` `basicDatasheetFiles` の専用 `ref` へ変更し、保存時はそこから `FormData` へ append する形へ統一した
+- これで `基本情報編集モーダル -> ファイル選択 -> 保存` の経路でも、ファイルが request に乗る前提が揃った
+
+検証:
+- `php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → 2 passed
+- `npm run build` → 成功
+
+大佐の心の声: 今回は「同じ保存機能に見えるが、詳細画面だけ File の持ち方が違う」という設計差が悪かった。動いている画面と同じ実装に揃えるのが一番早くて堅い。
+
+---
+
+## [大佐] 2026-04-12 02:52
+
+### 部品詳細の画像/PDF保存は UI 送信ではなく保存先権限が原因だった。あわせて「書けないのに成功」を修正した
+
+- 実UIのデバッグ結果では、画像選択・PDF選択・`FormData` 生成・保存成功応答までは通っていた
+- そのうえで `laravel.log` を見ると、`component.update.start` で `has_image=true` `has_datasheets=true`、`component.syncDatasheets.start` まで進んでいるのに、保存直後の存在確認が `exists=false` になっていた
+- 原因は `storage/app/public/components` 配下が `755` で、Web サーバープロセス `www-data` が書けなかったことだった。CLI テストだけ通って UI だけ失敗するのはこの権限差で説明できた
+- 保存先ディレクトリ権限を修正し、UI からも画像表示と PDF オープンまで確認した
+- さらに実装としては、ファイルが書けないのに `image_path` `datasheet_path` だけ DB 更新して成功を返すのがまずかったため、`FileStorage` に保存後存在確認を追加した
+- 今は `storeAs()` 後に実ファイルが存在しなければ例外を投げ、コントローラ側で `ApiResponse::error(..., 500)` を返す。これで transaction がロールバックされ、UI が誤って成功扱いしない
+- 原因切り分け用に入れた browser console / Laravel log のデバッグ出力は回収済み
+
+検証:
+- `php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → pass
+- `npm run build` → success
+
+大佐の心の声: 今回の事故は「保存API成功」と「実ファイル保存成功」を同一視した設計ミスだった。保存成功条件は `DB` ではなく `DB + 実ファイル存在` で固定しないと、また同じ事故が起きる。
