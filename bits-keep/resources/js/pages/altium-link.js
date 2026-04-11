@@ -2,39 +2,51 @@
  * Altium連携管理ページ（SCR-014）
  * ライブラリ一覧 + 部品リンク確認
  */
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const libraries = ref([]);
+    const dirty = ref(false);
+    const snapshot = ref(null);
+    useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
 
     // ライブラリモーダル
     const libModal = reactive({
         open: false, isEdit: false, editId: null,
         form: { name: '', type: 'SchLib', path: '', note: '' }
     });
+    const clone = (value) => JSON.parse(JSON.stringify(value));
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
     const fetchLibraries = async () => {
         try { const r = await api.get('/altium/libraries'); libraries.value = r.data; }
         catch { toastError('ライブラリ一覧の取得に失敗しました'); }
     };
 
-    const openLibAdd = () => Object.assign(libModal, {
-        open: true, isEdit: false, editId: null,
-        form: { name: '', type: 'SchLib', path: '', note: '' }
-    });
-    const openLibEdit = (l) => Object.assign(libModal, {
-        open: true, isEdit: true, editId: l.id,
-        form: { name: l.name, type: l.type, path: l.path, note: l.note ?? '' }
-    });
+    const openLibAdd = () => {
+        const form = { name: '', type: 'SchLib', path: '', note: '' };
+        snapshot.value = clone(form);
+        Object.assign(libModal, { open: true, isEdit: false, editId: null, form });
+    };
+    const openLibEdit = (l) => {
+        const form = { name: l.name, type: l.type, path: l.path, note: l.note ?? '' };
+        snapshot.value = clone(form);
+        Object.assign(libModal, { open: true, isEdit: true, editId: l.id, form });
+    };
+    const closeLibModal = () => {
+        if (libModal.open && !same(libModal.form, snapshot.value) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+        libModal.open = false;
+    };
 
     const saveLib = async () => {
         try {
             if (libModal.isEdit) await api.put(`/altium/libraries/${libModal.editId}`, libModal.form);
             else await api.post('/altium/libraries', libModal.form);
-            toastSuccess('保存しました'); libModal.open = false; await fetchLibraries();
+            toastSuccess('保存しました'); libModal.open = false; snapshot.value = clone(libModal.form); dirty.value = false; await fetchLibraries();
         } catch (e) { toastError(e.message); }
     };
 
@@ -45,5 +57,11 @@ export default function setup() {
     };
 
     onMounted(fetchLibraries);
-    return { toasts, libraries, libModal, openLibAdd, openLibEdit, saveLib, deleteLib };
+    watch(() => libModal.form, (value) => {
+        if (libModal.open) dirty.value = !same(value, snapshot.value);
+    }, { deep: true });
+    watch(() => libModal.open, (isOpen) => {
+        if (!isOpen) dirty.value = false;
+    });
+    return { toasts, libraries, libModal, openLibAdd, openLibEdit, closeLibModal, saveLib, deleteLib };
 }

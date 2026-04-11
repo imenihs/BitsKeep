@@ -30,6 +30,8 @@ class UpdateComponentSectionRequest extends FormRequest
                 'package_ids.*'      => ['integer', 'exists:packages,id'],
                 'image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
                 'datasheet'          => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
+                'datasheets'         => ['nullable', 'array'],
+                'datasheets.*'       => ['file', 'mimes:pdf', 'max:20480'],
             ],
             'specs' => [
                 'specs'                  => ['required', 'array'],

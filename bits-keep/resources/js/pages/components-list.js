@@ -13,9 +13,13 @@ export default function setup() {
     const advManufacturer  = ref('');
     const advPackageIds    = ref([]);
     const advSpecTypeId    = ref('');
+    const advUnit          = ref('');
     const advMin           = ref('');
     const advMax           = ref('');
     const advMinStock      = ref('');
+    const advInventoryState = ref('');
+    const advPurchasedFrom = ref('');
+    const advPurchasedTo   = ref('');
     const sortOrder        = ref('updated_at');
 
     // ── ページネーション ──────────────────────────────────────
@@ -71,9 +75,13 @@ export default function setup() {
             const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
             chips.push({ key: 'specType', label: `スペック: ${specName}` });
         }
+        if (advUnit.value) chips.push({ key: 'unit', label: `単位: ${advUnit.value}` });
         if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
         if (advMax.value) chips.push({ key: 'specMax', label: `最大: ${advMax.value}` });
         if (advMinStock.value) chips.push({ key: 'minStock', label: `在庫下限: ${advMinStock.value}` });
+        if (advInventoryState.value) chips.push({ key: 'inventoryState', label: `在庫状態: ${advInventoryState.value}` });
+        if (advPurchasedFrom.value) chips.push({ key: 'purchasedFrom', label: `購入日From: ${advPurchasedFrom.value}` });
+        if (advPurchasedTo.value) chips.push({ key: 'purchasedTo', label: `購入日To: ${advPurchasedTo.value}` });
         return chips;
     });
     const isFiltered = computed(() => activeFilterChips.value.length > 0);
@@ -95,14 +103,15 @@ export default function setup() {
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
-        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageIds.value.length || advSpecTypeId.value || advMin.value || advMax.value || advMinStock.value
+        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageIds.value.length || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
     );
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
         filterStatus.value = ''; advancedOpen.value = false;
         advManufacturer.value = ''; advPackageIds.value = [];
-        advSpecTypeId.value = ''; advMin.value = '';
+        advSpecTypeId.value = ''; advUnit.value = ''; advMin.value = '';
         advMax.value = ''; advMinStock.value = '';
+        advInventoryState.value = ''; advPurchasedFrom.value = ''; advPurchasedTo.value = '';
     };
     const removeFilterChip = (key) => {
         if (key === 'q') searchQuery.value = '';
@@ -116,9 +125,13 @@ export default function setup() {
             advPackageIds.value = advPackageIds.value.filter((value) => value !== id);
         }
         else if (key === 'specType') advSpecTypeId.value = '';
+        else if (key === 'unit') advUnit.value = '';
         else if (key === 'specMin') advMin.value = '';
         else if (key === 'specMax') advMax.value = '';
         else if (key === 'minStock') advMinStock.value = '';
+        else if (key === 'inventoryState') advInventoryState.value = '';
+        else if (key === 'purchasedFrom') advPurchasedFrom.value = '';
+        else if (key === 'purchasedTo') advPurchasedTo.value = '';
     };
 
     // ── APIフェッチ ───────────────────────────────────────────
@@ -133,9 +146,13 @@ export default function setup() {
             if (advManufacturer.value)       params.set('manufacturer', advManufacturer.value);
             if (advPackageIds.value.length)  advPackageIds.value.forEach(id => params.append('package_ids[]', id));
             if (advSpecTypeId.value)         params.set('spec_type_id', advSpecTypeId.value);
+            if (advUnit.value)               params.set('spec_unit', advUnit.value);
             if (advMin.value)                params.set('spec_min', advMin.value);
             if (advMax.value)                params.set('spec_max', advMax.value);
             if (advMinStock.value)           params.set('min_stock', advMinStock.value);
+            if (advInventoryState.value)     params.set('inventory_state', advInventoryState.value);
+            if (advPurchasedFrom.value)      params.set('purchased_from', advPurchasedFrom.value);
+            if (advPurchasedTo.value)        params.set('purchased_to', advPurchasedTo.value);
             params.set('sort', sortOrder.value);
             params.set('page', page.value);
             params.set('per_page', perPage.value);
@@ -176,7 +193,7 @@ export default function setup() {
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageIds, advSpecTypeId, advMin, advMax, advMinStock, sortOrder], () => {
+    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageIds, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -192,7 +209,7 @@ export default function setup() {
 
     return {
         toasts, searchQuery, filterCategories, filterStatus,
-        advancedOpen, advManufacturer, advPackageIds, advSpecTypeId, advMin, advMax, advMinStock,
+        advancedOpen, advManufacturer, advPackageIds, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
         sortOrder,
         page, perPage, total, lastPage,
         parts, categories, packages, specTypes, loading, alertCount, listError, masterError, fetchMasters,

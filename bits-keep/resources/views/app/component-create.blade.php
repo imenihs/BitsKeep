@@ -19,6 +19,7 @@
   <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <div>
       <h1 class="text-2xl font-bold">@{{ isEdit ? '部品編集' : '部品登録' }}</h1>
+      <div v-if="duplicateFromId && !isEdit" class="mt-2 text-xs opacity-70">複製元部品を読み込んでいます。型番と差分だけ修正して登録します。</div>
       @unless ($canEdit)
       <div class="mt-2 text-xs opacity-70">閲覧者のため保存できません。内容確認のみ可能です。</div>
       @endunless
@@ -55,14 +56,17 @@
           <p class="text-[11px] opacity-50 mt-1">jpg / png / webp、5MBまで</p>
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1">データシート（PDF）</label>
-          <input type="file" accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
-          <p v-if="datasheetFile" class="text-[11px] mt-1">@{{ datasheetFile.name }}</p>
-          <p v-else-if="currentDatasheetUrl" class="text-[11px] mt-1">
-            現在のファイル:
-            <a :href="currentDatasheetUrl" target="_blank" rel="noreferrer" class="link-text">@{{ currentDatasheetName || 'データシートを開く' }}</a>
-          </p>
-          <p class="text-[11px] opacity-50 mt-1">差し替え時のみ選択してください</p>
+          <label class="block text-xs font-semibold mb-1">データシート（PDF・複数可）</label>
+          <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
+          <div v-if="datasheetFiles.length" class="mt-2 space-y-1 text-[11px]">
+            <div v-for="file in datasheetFiles" :key="file.name">@{{ file.name }}</div>
+          </div>
+          <div v-else-if="currentDatasheets.length" class="mt-2 space-y-1 text-[11px]">
+            <div v-for="sheet in currentDatasheets" :key="sheet.url">
+              <a :href="sheet.url" target="_blank" rel="noreferrer" class="link-text">@{{ sheet.name }}</a>
+            </div>
+          </div>
+          <p class="text-[11px] opacity-50 mt-1">ファイルを選ぶと、現在のデータシート一式を選択した内容で置き換えます</p>
         </div>
       </div>
       <div>

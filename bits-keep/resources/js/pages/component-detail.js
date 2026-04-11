@@ -19,7 +19,7 @@ export default function setup() {
     const locations = ref([]);
 
     // 編集モーダル
-    const editModal  = ref({ open: false, section: '', title: '', form: {}, useFullSave: false });
+    const editModal  = ref({ open: false, section: '', title: '', form: {} });
     // 出庫モーダル
     const stockOutModal = ref({ open: false, blockId: null, maxQty: 0, qty: 1, projectId: '', note: '' });
     // 入庫モーダル（在庫追加）
@@ -99,31 +99,13 @@ export default function setup() {
                 })) },
             },
         };
-        editModal.value = { open: true, section, useFullSave: false, ...forms[section] };
-    };
-
-    const openFullEdit = () => {
-        openEdit('basic');
-        editModal.value.useFullSave = true;
-        editModal.value.title = '部品全体を編集';
+        editModal.value = { open: true, section, ...forms[section] };
     };
 
     // セクション保存（PATCH）
     const saveSection = async () => {
         try {
             await api.patch(`/components/${componentId}/${editModal.value.section}`, editModal.value.form);
-            toastSuccess('保存しました');
-            editModal.value.open = false;
-            await fetchPart();
-        } catch (e) {
-            toastError(e.message);
-        }
-    };
-
-    // 全体編集（PUT） — 基本情報フォームを流用
-    const saveAll = async () => {
-        try {
-            await api.put(`/components/${componentId}`, editModal.value.form);
             toastSuccess('保存しました');
             editModal.value.open = false;
             await fetchPart();
@@ -219,7 +201,7 @@ export default function setup() {
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
         categories, packages, specTypes, suppliers, locations,
         preferredSupplier, stockSummary, recentTransactions,
-        editModal, openEdit, openFullEdit, saveSection, saveAll,
+        editModal, openEdit, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
         deletePart,

@@ -77,4 +77,20 @@ class PackageController extends Controller
 
         return ApiResponse::success($model);
     }
+
+    public function forceDestroy(int $package)
+    {
+        $model = Package::withTrashed()->withCount('components as usage_count')->findOrFail($package);
+        if (!$model->deleted_at) {
+            return ApiResponse::error('完全削除の前にアーカイブしてください', [], 422);
+        }
+        if ($model->usage_count > 0) {
+            return ApiResponse::error("部品{$model->usage_count}件で使用中のため完全削除できません", [], 422);
+        }
+        FileStorage::delete($model->image_path);
+        FileStorage::delete($model->pdf_path);
+        $model->forceDelete();
+
+        return ApiResponse::noContent();
+    }
 }

@@ -81,4 +81,19 @@ class SpecTypeController extends Controller
 
         return ApiResponse::success($model->load('units'));
     }
+
+    public function forceDestroy(int $specType)
+    {
+        $model = SpecType::withTrashed()->withCount('componentSpecs as usage_count')->findOrFail($specType);
+        if (!$model->deleted_at) {
+            return ApiResponse::error('完全削除の前にアーカイブしてください', [], 422);
+        }
+        if ($model->usage_count > 0) {
+            return ApiResponse::error("スペック{$model->usage_count}件で使用中のため完全削除できません", [], 422);
+        }
+        $model->units()->delete();
+        $model->forceDelete();
+
+        return ApiResponse::noContent();
+    }
 }

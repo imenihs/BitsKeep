@@ -75,6 +75,27 @@ class LocationController extends Controller
         return ApiResponse::success($model);
     }
 
+    public function forceDestroy(int $location)
+    {
+        $model = Location::withTrashed()
+            ->withCount([
+                'inventoryBlocks as inventory_block_count',
+                'children as child_count',
+            ])
+            ->findOrFail($location);
+
+        $primaryRefs = Component::where('primary_location_id', $model->id)->count();
+        if (!$model->deleted_at) {
+            return ApiResponse::error('完全削除の前に廃止してください', [], 422);
+        }
+        if ($model->inventory_block_count > 0 || $model->child_count > 0 || $primaryRefs > 0) {
+            return ApiResponse::error('在庫・子棚・代表棚参照が残っているため完全削除できません', [], 422);
+        }
+        $model->forceDelete();
+
+        return ApiResponse::noContent();
+    }
+
     /**
      * POST /api/locations/inventory  — 棚卸し保存
      * [{ location_id, actual_qty }] を受けて差分をtransactionsに記録

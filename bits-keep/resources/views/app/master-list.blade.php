@@ -11,7 +11,7 @@
 @php($canEdit = auth()->user()->isEditor())
 @php($isAdmin = auth()->user()->isAdmin())
 @include('partials.app-header', ['current' => 'マスタ管理'])
-<div id="app" data-page="master-list" data-tab="categories" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
+<div id="app" data-page="master-list" data-tab="categories" data-can-edit="{{ $canEdit ? '1' : '0' }}" data-is-admin="{{ $isAdmin ? '1' : '0' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [['label' => 'マスタ管理', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
@@ -53,7 +53,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="c in categories" :key="c.id"
+        <tr v-for="(c, index) in categories" :key="c.id"
           :class="c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ c.sort_order }}</td>
@@ -70,11 +70,15 @@
             <div class="mt-1 opacity-60">使用件数: @{{ c.usage_count ?? 0 }}</div>
           </td>
           <td class="py-2">
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
+              <button v-if="canEdit && !c.deleted_at" @click="moveCategory(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
+              <button v-if="canEdit && !c.deleted_at" @click="moveCategory(index, 1)" :disabled="index === categories.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openCatEdit(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
               <button v-if="!c.deleted_at" @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
               <button v-else @click="restoreCategory(c)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+              <button v-if="c.can_force_delete" @click="forceDeleteCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
+            <div v-if="c.deleted_at && !c.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ c.force_delete_reason }}</div>
           </td>
         </tr>
         <tr v-if="categories.length === 0">
@@ -106,7 +110,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="p in packages" :key="p.id"
+        <tr v-for="(p, index) in packages" :key="p.id"
           :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ p.sort_order }}</td>
@@ -123,11 +127,15 @@
             <div class="mt-1 opacity-60">使用件数: @{{ p.usage_count ?? 0 }}</div>
           </td>
           <td class="py-2">
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
+              <button v-if="canEdit && !p.deleted_at" @click="movePackage(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
+              <button v-if="canEdit && !p.deleted_at" @click="movePackage(index, 1)" :disabled="index === packages.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openPkgEdit(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
               <button v-if="!p.deleted_at" @click="archivePackage(p)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
               <button v-else @click="restorePackage(p)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+              <button v-if="p.can_force_delete" @click="forceDeletePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
+            <div v-if="p.deleted_at && !p.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ p.force_delete_reason }}</div>
           </td>
         </tr>
         <tr v-if="packages.length === 0">
@@ -160,7 +168,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="s in specTypes" :key="s.id"
+        <tr v-for="(s, index) in specTypes" :key="s.id"
           :class="s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ s.sort_order }}</td>
@@ -183,11 +191,15 @@
             <span v-else class="opacity-40">-</span>
           </td>
           <td class="py-2">
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
+              <button v-if="isAdmin && !s.deleted_at" @click="moveSpecType(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
+              <button v-if="isAdmin && !s.deleted_at" @click="moveSpecType(index, 1)" :disabled="index === specTypes.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openStEdit(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
               <button v-if="!s.deleted_at" @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
               <button v-else @click="restoreSpecType(s)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+              <button v-if="s.can_force_delete" @click="forceDeleteSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
+            <div v-if="s.deleted_at && !s.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ s.force_delete_reason }}</div>
           </td>
         </tr>
         <tr v-if="specTypes.length === 0">
@@ -202,7 +214,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ catModal.isEdit ? '分類編集' : '分類追加' }}</h2>
-        <button @click="catModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button @click="closeCatModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -222,7 +234,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="catModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+        <button @click="closeCatModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="saveCategory" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
       </div>
     </div>
@@ -233,7 +245,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ編集' : 'パッケージ追加' }}</h2>
-        <button @click="pkgModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button @click="closePkgModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -253,7 +265,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="pkgModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+        <button @click="closePkgModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="savePackage" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
       </div>
     </div>
@@ -264,7 +276,7 @@
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック種別編集' : 'スペック種別追加' }}</h2>
-        <button @click="stModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button @click="closeStModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -303,7 +315,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="stModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+        <button @click="closeStModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="saveSpecType" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
       </div>
     </div>

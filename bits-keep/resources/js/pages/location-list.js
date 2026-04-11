@@ -1,6 +1,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -9,8 +10,13 @@ export default function setup() {
     const loading        = ref(false);
     const inventoryMode  = ref(false);
     const countInputs    = reactive({});
+    const dirty = ref(false);
+    const snapshot = ref(null);
+    useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
 
     const locationModal = reactive({ open: false, isEdit: false, form: { code: '', name: '', group: '', description: '', sort_order: 0 }, editId: null });
+    const clone = (value) => JSON.parse(JSON.stringify(value));
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
     const fetchLocations = async () => {
         loading.value = true;
@@ -56,12 +62,18 @@ export default function setup() {
     };
 
     const openAdd = () => {
-        Object.assign(locationModal, { open: true, isEdit: false, editId: null,
-            form: { code: '', name: '', group: '', description: '', sort_order: 0 } });
+        const form = { code: '', name: '', group: '', description: '', sort_order: 0 };
+        snapshot.value = clone(form);
+        Object.assign(locationModal, { open: true, isEdit: false, editId: null, form });
     };
     const openEdit = (loc) => {
-        Object.assign(locationModal, { open: true, isEdit: true, editId: loc.id,
-            form: { code: loc.code, name: loc.name ?? '', group: loc.group ?? '', description: loc.description ?? '', sort_order: loc.sort_order } });
+        const form = { code: loc.code, name: loc.name ?? '', group: loc.group ?? '', description: loc.description ?? '', sort_order: loc.sort_order };
+        snapshot.value = clone(form);
+        Object.assign(locationModal, { open: true, isEdit: true, editId: loc.id, form });
+    };
+    const closeModal = () => {
+        if (locationModal.open && !same(locationModal.form, snapshot.value) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+        locationModal.open = false;
     };
     const saveLocation = async () => {
         try {
@@ -69,6 +81,8 @@ export default function setup() {
             else await api.post('/locations', locationModal.form);
             toastSuccess('保存しました');
             locationModal.open = false;
+            snapshot.value = clone(locationModal.form);
+            dirty.value = false;
             await fetchLocations();
         } catch (e) { toastError(e.message); }
     };
@@ -82,8 +96,19 @@ export default function setup() {
         try { await api.post(`/locations/${loc.id}/restore`); await fetchLocations(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
+    const forceDeleteLocation = async (loc) => {
+        if (!confirm(`「${loc.code}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
+        try { await api.delete(`/locations/${loc.id}/force`); await fetchLocations(); toastSuccess('完全削除しました'); }
+        catch (e) { toastError(e.message); }
+    };
 
     onMounted(fetchLocations);
+    watch(() => locationModal.form, (value) => {
+        if (locationModal.open) dirty.value = !same(value, snapshot.value);
+    }, { deep: true });
+    watch(() => locationModal.open, (isOpen) => {
+        if (!isOpen) dirty.value = false;
+    });
 
-    return { toasts, locations, loading, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, saveLocation, archiveLocation, restoreLocation };
+    return { toasts, locations, loading, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, restoreLocation, forceDeleteLocation };
 }

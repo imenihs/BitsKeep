@@ -8,6 +8,7 @@ export default function setup() {
     const appEl = document.getElementById('app');
     const editId = appEl?.dataset?.id ?? null; // 編集時はID、新規はnull
     const isEdit = !!editId;
+    const duplicateFromId = new URLSearchParams(window.location.search).get('duplicate_from');
 
     // ── マスタデータ ──────────────────────────────────────
     const categories = ref([]);
@@ -28,11 +29,10 @@ export default function setup() {
         supplierRows: [], // [{ supplier_id, supplier_part_number, product_url, unit_price, is_preferred, price_breaks:[] }]
     });
     const imageFile = ref(null);
-    const datasheetFile = ref(null);
+    const datasheetFiles = ref([]);
     const imagePreviewUrl = ref('');
     const currentImageUrl = ref('');
-    const currentDatasheetUrl = ref('');
-    const currentDatasheetName = ref('');
+    const currentDatasheets = ref([]);
 
     const saving = ref(false);
     const dirty = ref(false);
@@ -200,8 +200,7 @@ export default function setup() {
     };
 
     const onDatasheetChange = (event) => {
-        const [file] = event.target.files ?? [];
-        datasheetFile.value = file ?? null;
+        datasheetFiles.value = Array.from(event.target.files ?? []);
     };
 
     const buildPayload = () => {
@@ -244,9 +243,12 @@ export default function setup() {
         if (imageFile.value) {
             payload.append('image', imageFile.value);
         }
-        if (datasheetFile.value) {
-            payload.append('datasheet', datasheetFile.value);
+        if (duplicateFromId && !isEdit) {
+            payload.append('duplicate_from_component_id', duplicateFromId);
         }
+        datasheetFiles.value.forEach((file, index) => {
+            payload.append(`datasheets[${index}]`, file);
+        });
 
         return payload;
     };
@@ -295,33 +297,48 @@ export default function setup() {
         manufacturerOptions.value = normalizeUniqueNames((compRes.data?.data ?? []).map((item) => item.manufacturer));
 
         // 編集モードなら既存データをロード
+        const loadSourceComponent = async (id) => {
+            const res = await api.get(`/components/${id}`);
+            const p = res.data;
+            Object.assign(form, {
+                part_number: p.part_number, manufacturer: p.manufacturer ?? '',
+                common_name: p.common_name ?? '', description: p.description ?? '',
+                procurement_status: p.procurement_status,
+                threshold_new: p.threshold_new, threshold_used: p.threshold_used,
+                primary_location_id: p.primary_location_id ?? '',
+                category_ids: p.categories.map(c => c.id),
+                package_ids:  p.packages.map(pk => pk.id),
+                specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric })),
+                supplierRows: p.component_suppliers.map(cs => ({
+                    supplier_id: cs.supplier_id, supplier_name: cs.supplier?.name ?? '',
+                    supplier_part_number: cs.supplier_part_number ?? '',
+                    product_url: cs.product_url ?? '', unit_price: cs.unit_price ?? '',
+                    is_preferred: cs.is_preferred, price_breaks: cs.price_breaks ?? [],
+                })),
+            });
+            syncManufacturerQuery();
+            ensureManufacturerOption(form.manufacturer);
+            currentImageUrl.value = p.image_url ?? '';
+            currentDatasheets.value = (p.datasheets ?? []).map((sheet) => ({
+                name: sheet.original_name || sheet.file_path.split('/').pop(),
+                url: sheet.url,
+            }));
+            imagePreviewUrl.value = currentImageUrl.value;
+        };
+
         if (isEdit) {
             try {
-                const res = await api.get(`/components/${editId}`);
-                const p = res.data;
-                Object.assign(form, {
-                    part_number: p.part_number, manufacturer: p.manufacturer ?? '',
-                    common_name: p.common_name ?? '', description: p.description ?? '',
-                    procurement_status: p.procurement_status,
-                    threshold_new: p.threshold_new, threshold_used: p.threshold_used,
-                    primary_location_id: p.primary_location_id ?? '',
-                    category_ids: p.categories.map(c => c.id),
-                    package_ids:  p.packages.map(pk => pk.id),
-                    specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric })),
-                    supplierRows: p.component_suppliers.map(cs => ({
-                        supplier_id: cs.supplier_id, supplier_name: cs.supplier?.name ?? '',
-                        supplier_part_number: cs.supplier_part_number ?? '',
-                        product_url: cs.product_url ?? '', unit_price: cs.unit_price ?? '',
-                        is_preferred: cs.is_preferred, price_breaks: cs.price_breaks ?? [],
-                    })),
-                });
-                syncManufacturerQuery();
-                ensureManufacturerOption(form.manufacturer);
-                currentImageUrl.value = p.image_url ?? '';
-                currentDatasheetUrl.value = p.datasheet_url ?? '';
-                currentDatasheetName.value = p.datasheet_path ? p.datasheet_path.split('/').pop() : '';
-                imagePreviewUrl.value = currentImageUrl.value;
+                await loadSourceComponent(editId);
             } catch { toastError('部品情報の取得に失敗しました'); }
+        } else if (duplicateFromId) {
+            try {
+                await loadSourceComponent(duplicateFromId);
+                form.part_number = '';
+                form.common_name = form.common_name ? `${form.common_name} コピー` : '';
+                toastSuccess('複製元を読み込みました。型番と差分だけ調整してください。');
+            } catch {
+                toastError('複製元部品の取得に失敗しました');
+            }
         } else {
             syncManufacturerQuery();
         }
@@ -331,12 +348,12 @@ export default function setup() {
 
     watch(form, () => {
         if (!initialSnapshot.value || saving.value) return;
-        dirty.value = JSON.stringify(form) !== initialSnapshot.value || !!imageFile.value || !!datasheetFile.value;
+        dirty.value = JSON.stringify(form) !== initialSnapshot.value || !!imageFile.value || datasheetFiles.value.length > 0;
     }, { deep: true });
 
     return {
         toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,
-        imagePreviewUrl, currentImageUrl, currentDatasheetUrl, currentDatasheetName, datasheetFile,
+        imagePreviewUrl, currentImageUrl, currentDatasheets, datasheetFiles,
         categories, packages, specTypes, suppliers,
         manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
         categoryQuery, filteredCategories, canCreateCategory,
@@ -347,6 +364,6 @@ export default function setup() {
         toggleCategory, togglePackage, addCategoryFromQuery, addPackageFromQuery,
         filteredSuppliersForRow, canCreateSupplierForRow, selectSupplier, commitSupplier,
         onImageChange, onDatasheetChange,
-        submit,
+        submit, duplicateFromId,
     };
 }

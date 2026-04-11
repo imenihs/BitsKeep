@@ -23,6 +23,9 @@ class StoreComponentRequest extends FormRequest
             // ファイル
             'image'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'datasheet'           => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
+            'datasheets'          => ['nullable', 'array'],
+            'datasheets.*'        => ['file', 'mimes:pdf', 'max:20480'],
+            'duplicate_from_component_id' => ['nullable', 'integer', 'exists:components,id'],
             // 分類・パッケージ（ID配列）
             'category_ids'        => ['nullable', 'array'],
             'category_ids.*'      => ['integer', 'exists:categories,id'],

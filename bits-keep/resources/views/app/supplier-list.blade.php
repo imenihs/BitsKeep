@@ -87,7 +87,12 @@
                 class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">
                 復元
               </button>
+              <button v-if="s.can_force_delete" @click="forceDeleteSupplier(s)"
+                class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">
+                完全削除
+              </button>
             </div>
+            <div v-if="s.deleted_at && !s.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ s.force_delete_reason }}</div>
           </td>
         </tr>
         <tr v-if="suppliers.length === 0">
@@ -102,7 +107,7 @@
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ modal.isEdit ? '商社編集' : '商社追加' }}</h2>
-        <button @click="modal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button @click="closeModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -142,7 +147,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="modal.open = false"
+        <button @click="closeModal"
           class="px-4 py-2 border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">
           キャンセル
         </button>

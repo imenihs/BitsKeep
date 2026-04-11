@@ -54,6 +54,11 @@ class Component extends Model
         return $this->hasMany(ComponentAttribute::class);
     }
 
+    public function datasheets(): HasMany
+    {
+        return $this->hasMany(ComponentDatasheet::class)->orderBy('sort_order');
+    }
+
     // 保管棚（多対多）
     public function locations(): BelongsToMany
     {

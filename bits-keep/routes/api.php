@@ -29,17 +29,22 @@ Route::middleware(['web', 'auth'])->group(function () {
     // ── マスタ管理 ──────────────────────────────────────────
     Route::apiResource('categories', CategoryController::class);
     Route::post('categories/{category}/restore', [CategoryController::class, 'restore']);
+    Route::delete('categories/{category}/force', [CategoryController::class, 'forceDestroy']);
     Route::apiResource('packages',   PackageController::class);
     Route::post('packages/{package}/restore', [PackageController::class, 'restore']);
+    Route::delete('packages/{package}/force', [PackageController::class, 'forceDestroy']);
     Route::apiResource('spec-types', SpecTypeController::class);
     Route::post('spec-types/{spec_type}/restore', [SpecTypeController::class, 'restore']);
+    Route::delete('spec-types/{spec_type}/force', [SpecTypeController::class, 'forceDestroy']);
 
     // ── 在庫・棚・商社管理 ──────────────────────────────────
     Route::apiResource('suppliers', SupplierController::class);
     Route::post('suppliers/{supplier}/restore', [SupplierController::class, 'restore']);
+    Route::delete('suppliers/{supplier}/force', [SupplierController::class, 'forceDestroy']);
     Route::post('locations/inventory', [LocationController::class, 'saveInventory']);
     Route::apiResource('locations', LocationController::class);
     Route::post('locations/{location}/restore', [LocationController::class, 'restore']);
+    Route::delete('locations/{location}/force', [LocationController::class, 'forceDestroy']);
     Route::get('stock-alerts', [StockAlertController::class, 'index']);
 
     // ── 部品管理 ────────────────────────────────────────────

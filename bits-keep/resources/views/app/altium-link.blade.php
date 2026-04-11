@@ -58,7 +58,7 @@
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openLibEdit(l)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button @click="deleteLib(l)" class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">削除</button>
+        <button @click="deleteLib(l)" class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">削除</button>
             </div>
           </td>
         </tr>
@@ -84,7 +84,7 @@
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ libModal.isEdit ? 'ライブラリ編集' : 'ライブラリ追加' }}</h2>
-        <button @click="libModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button @click="closeLibModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -117,7 +117,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="libModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+        <button @click="closeLibModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="saveLib" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
       </div>
     </div>

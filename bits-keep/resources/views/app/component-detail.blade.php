@@ -34,10 +34,10 @@
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           類似部品を探す
         </a>
-        <button @click="openFullEdit"
-          class="btn btn-primary flex items-center gap-1 px-4 py-2 rounded text-sm">
-          全体編集
-        </button>
+        <a :href="'/components/create?duplicate_from=' + componentId"
+          class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+          パッケージ違いで複製
+        </a>
         <button @click="stockInModal.form.location_id = part.primary_location_id || ''; stockInModal.open = true"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           入庫
@@ -49,8 +49,8 @@
       </div>
     </header>
 
-    <div class="grid gap-4 xl:grid-cols-[1.1fr_1.2fr_1fr]">
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
+    <div class="flex flex-col gap-4">
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.basic = !sections.basic" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.basic ? '▾' : '▸' }}</span>
@@ -67,10 +67,12 @@
               <span>画像未登録</span>
             </div>
           </div>
-          <a v-if="part.datasheet_url" :href="part.datasheet_url" target="_blank" rel="noreferrer"
-            class="btn mt-3 inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
-            データシートを開く
-          </a>
+          <div v-if="part.datasheets?.length" class="mt-3 space-y-2">
+            <a v-for="sheet in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
+              class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm mr-2">
+              @{{ sheet.original_name || 'データシートを開く' }}
+            </a>
+          </div>
           <div class="mt-4 grid gap-2 text-sm">
             <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
               <div class="text-xs opacity-60">最優先仕入先</div>
@@ -83,7 +85,7 @@
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-2 text-sm">
           <div><span class="list-label">型番</span><span class="list-value ml-2 font-mono">@{{ part.part_number }}</span></div>
           <div><span class="list-label">メーカー</span><span class="list-value ml-2">@{{ part.manufacturer || '—' }}</span></div>
           <div><span class="list-label">分類</span>
@@ -106,7 +108,7 @@
       <div v-show="sections.basic && part.description" class="mt-3 text-sm opacity-70">@{{ part.description }}</div>
     </section>
 
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.detail = !sections.detail" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.detail ? '▾' : '▸' }}</span>
@@ -213,25 +215,31 @@
             </div>
           </div>
           <div v-else-if="similarParts.length" class="space-y-2">
-            <a v-for="item in similarParts" :key="item.id"
-              :href="`/components/${item.id}`"
-              class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-3 hover:border-[var(--color-primary)] transition-colors">
+            <div v-for="item in similarParts" :key="item.id"
+              class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-3">
               <div>
                 <div class="font-semibold">@{{ item.common_name || item.part_number }}</div>
                 <div class="text-xs opacity-60 font-mono mt-1">@{{ item.part_number }}</div>
+                <div v-if="item.manufacturer" class="text-xs opacity-60 mt-0.5">@{{ item.manufacturer }}</div>
               </div>
-              <div class="text-right text-xs opacity-70">
-                <div v-if="item.manufacturer">@{{ item.manufacturer }}</div>
-                <div>詳細を見る</div>
+              <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                <a :href="`/component-compare?ids=${componentId},${item.id}`"
+                  class="px-3 py-1.5 rounded border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-colors text-center">
+                  比較する
+                </a>
+                <a :href="`/components/${item.id}`"
+                  class="px-3 py-1.5 rounded border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-colors text-center opacity-70">
+                  詳細を見る
+                </a>
               </div>
-            </a>
+            </div>
           </div>
           <p v-else class="text-sm opacity-40">類似部品候補はまだ見つかっていません</p>
         </div>
       </div>
     </section>
 
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
+    <section class="bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.custom = !sections.custom" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.custom ? '▾' : '▸' }}</span>
@@ -444,7 +452,7 @@
 
       <div class="flex justify-end gap-3 mt-6">
         <button @click="editModal.open = false" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
-        <button @click="editModal.useFullSave ? saveAll() : saveSection()" class="btn btn-primary text-sm px-5 py-3 rounded">保存</button>
+        <button @click="saveSection()" class="btn btn-primary text-sm px-5 py-3 rounded">保存</button>
       </div>
     </div>
   </div>

@@ -125,6 +125,10 @@
             </select>
           </div>
           <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">単位</label>
+            <input v-model="advUnit" type="text" class="input-text w-full" placeholder="例: ohm, V" />
+          </div>
+          <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">最小値</label>
             <input v-model="advMin" type="number" class="input-text w-full" placeholder="0" />
           </div>
@@ -135,6 +139,24 @@
           <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">在庫下限</label>
             <input v-model="advMinStock" type="number" class="input-text w-full" placeholder="0" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">在庫状態</label>
+            <select v-model="advInventoryState" class="input-text w-full">
+              <option value="">すべて</option>
+              <option value="new">新品あり</option>
+              <option value="used">中古あり</option>
+              <option value="empty">在庫なし</option>
+              <option value="warning">警告あり</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日From</label>
+            <input v-model="advPurchasedFrom" type="date" class="input-text w-full" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日To</label>
+            <input v-model="advPurchasedTo" type="date" class="input-text w-full" />
           </div>
         </div>
       </div>
@@ -196,12 +218,19 @@
               <span :class="'tag ' + procurementClass[part.procurement_status]" class="text-xs">
                 @{{ procurementLabel[part.procurement_status] }}
               </span>
+              <span v-if="part.needs_reorder" class="tag text-xs bg-amber-100 text-amber-700">警告</span>
               <span v-for="cat in part.categories" :key="cat.id" class="tag text-xs">@{{ cat.name }}</span>
             </div>
             <p class="text-xs opacity-60 mt-0.5 font-mono">@{{ part.part_number }} @{{ part.manufacturer ? '/ ' + part.manufacturer : '' }}</p>
-            <div class="flex gap-4 mt-1 text-xs opacity-70">
+            <div class="flex flex-wrap gap-3 mt-1 text-xs opacity-70">
               <span>新品: @{{ part.quantity_new }}個</span>
               <span>中古: @{{ part.quantity_used }}個</span>
+              <span v-if="part.packages?.length">パッケージ: @{{ part.packages.map((pkg) => pkg.name).join(' / ') }}</span>
+              <span v-if="part.cheapest_supplier_name">最安: ¥@{{ Number(part.cheapest_unit_price).toLocaleString() }} / @{{ part.cheapest_supplier_name }}</span>
+              <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
+            </div>
+            <div class="mt-1 text-xs opacity-60">
+              カテゴリ@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
             </div>
           </div>
 

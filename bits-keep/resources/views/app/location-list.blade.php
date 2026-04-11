@@ -82,7 +82,9 @@
                 <button @click="openEdit(loc)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors mr-1">✏</button>
                 <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">廃止</button>
                 <button v-else @click="restoreLocation(loc)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+                <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
               </div>
+              <div v-if="loc.deleted_at && !loc.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ loc.force_delete_reason }}</div>
             </td>
           </tr>
         </tbody>
@@ -93,7 +95,7 @@
   <div v-if="!loading && Object.keys(grouped).length === 0" class="text-center py-20 opacity-40">棚が登録されていません</div>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="locationModal.open" class="modal-overlay" @click.self="locationModal.open = false">
+  <div v-if="locationModal.open" class="modal-overlay" @click.self="closeModal">
     <div class="modal-window modal-sm p-6">
       <h3 class="font-bold mb-4">@{{ locationModal.isEdit ? '棚を編集' : '棚を追加' }}</h3>
       <div class="space-y-3 text-sm">
@@ -115,7 +117,7 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 mt-5">
-        <button @click="locationModal.open = false" class="btn text-sm">キャンセル</button>
+        <button @click="closeModal" class="btn text-sm">キャンセル</button>
         <button @click="saveLocation" class="btn btn-primary text-sm">保存</button>
       </div>
     </div>

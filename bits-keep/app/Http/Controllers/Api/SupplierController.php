@@ -54,4 +54,18 @@ class SupplierController extends Controller
 
         return ApiResponse::success($model);
     }
+
+    public function forceDestroy(int $supplier)
+    {
+        $model = Supplier::withTrashed()->withCount('componentSuppliers as usage_count')->findOrFail($supplier);
+        if (!$model->deleted_at) {
+            return ApiResponse::error('完全削除の前に取引停止してください', [], 422);
+        }
+        if ($model->usage_count > 0) {
+            return ApiResponse::error("仕入先{$model->usage_count}件で使用中のため完全削除できません", [], 422);
+        }
+        $model->forceDelete();
+
+        return ApiResponse::noContent();
+    }
 }
