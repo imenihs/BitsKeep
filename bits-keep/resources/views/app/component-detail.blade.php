@@ -74,9 +74,9 @@
           <!-- データシート -->
           <div>
             <div v-if="part.datasheets?.length" class="flex flex-wrap gap-2">
-              <a v-for="sheet in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
+              <a v-for="(sheet, i) in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
                 class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
-                📄 @{{ sheet.original_name || 'データシートを開く' }}
+                📄 @{{ part.datasheets.length > 1 ? 'データシート ' + (i + 1) : 'データシートを開く' }}
               </a>
             </div>
             <p v-else class="text-xs opacity-50">データシート未登録</p>
@@ -437,10 +437,10 @@
         </div>
         <!-- データシート追加 -->
         <div>
-          <label class="block text-xs font-semibold mb-1">データシート（PDF追加。選択すると既存を置き換えます）</label>
+          <label class="block text-xs font-semibold mb-1">データシート（複数選択可。ファイルを選択すると既存をすべて置き換えます）</label>
           <div v-if="part.datasheets?.length" class="mb-2 space-y-1">
-            <div v-for="sheet in part.datasheets" :key="sheet.id" class="flex items-center gap-2 text-xs opacity-70">
-              <span>📄</span><span>@{{ sheet.original_name || 'データシート' }}</span>
+            <div v-for="(sheet, i) in part.datasheets" :key="sheet.id" class="flex items-center gap-2 text-xs opacity-70">
+              <span>📄</span><span>データシート @{{ i + 1 }}</span>
             </div>
           </div>
           <input type="file" accept="application/pdf" multiple
