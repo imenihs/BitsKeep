@@ -206,8 +206,9 @@
             <a v-if="emptyState.actions.includes('csv')" href="{{ route('csv.import') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">CSVインポート</a>
           </div>
         </div>
-        <div v-for="(part, i) in parts" v-else :key="part.id"
-          class="card flex items-center gap-4 px-4 py-3"
+        <a v-for="(part, i) in parts" v-else :key="part.id"
+          :href="'/components/' + part.id"
+          class="card flex items-center gap-4 px-4 py-3 no-underline text-inherit cursor-pointer hover:border-[var(--color-primary)] transition-colors"
           :class="i % 2 === 0 ? 'card-even' : 'card-odd'">
           <img v-if="part.image_url" :src="part.image_url" class="thumbnail flex-shrink-0" />
           <div v-else class="w-16 h-16 flex-shrink-0 rounded border border-[var(--color-border)] flex items-center justify-center opacity-30 text-xs">無</div>
@@ -234,16 +235,14 @@
             </div>
           </div>
 
-          <div class="flex gap-2 flex-shrink-0">
+          <div class="flex-shrink-0" @click.stop>
             <button @click="toggleCompare(part)"
               class="px-3 py-1 rounded text-xs border transition-colors"
               :class="inCompare(part) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
               @{{ inCompare(part) ? '比較中' : '比較' }}
             </button>
-            <a :href="'/components/' + part.id"
-              class="btn btn-primary px-3 py-1 rounded text-xs no-underline">詳細</a>
           </div>
-        </div>
+        </a>
       </div>
 
       <div v-if="lastPage > 1" class="px-4 py-3 border-t border-[var(--color-border)] flex items-center justify-center gap-2">
