@@ -110,9 +110,9 @@
             <p v-else class="text-xs opacity-40">在庫なし</p>
           </div>
         </div>
-        <!-- 右カラム: ラベル:値 2列グリッド + スペック -->
+        <!-- 右カラム: ラベル:値 ×2組の横並びグリッド（スマホ1組、sm以上2組） -->
         <div class="space-y-3">
-          <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline">
+          <div class="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-5 gap-y-2 text-sm items-baseline">
             <span class="list-label">型番</span>
             <span class="list-value font-mono">@{{ part.part_number }}</span>
             <span class="list-label">通称</span>
@@ -261,10 +261,10 @@
           <span class="text-lg">@{{ sections.custom ? '▾' : '▸' }}</span>
           <span>カスタムフィールド</span>
         </button>
-        <span class="text-xs opacity-50">自由属性</span>
+        <button @click="openEdit('attributes')" class="text-xs link-text">編集</button>
       </div>
       <div v-show="sections.custom" class="text-sm">
-        <div v-if="part.attributes?.length" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        <div v-if="part.attributes?.length" class="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-5 gap-y-2">
           <span v-for="attr in part.attributes" :key="attr.id" class="contents">
             <span class="list-label">@{{ attr.key }}</span>
             <span class="list-value">@{{ attr.value }}</span>
@@ -461,6 +461,18 @@
           <button @click="editModal.form.specs.splice(index, 1)" class="text-[var(--color-tag-eol)] px-2">✕</button>
         </div>
         <button @click="editModal.form.specs.push({ spec_type_id: '', value: '', unit: '', value_numeric: '' })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ スペック追加</button>
+      </div>
+
+      <!-- カスタムフィールド編集 -->
+      <div v-else-if="editModal.section === 'attributes'" class="space-y-3">
+        <div v-for="(attr, index) in editModal.form.attributes" :key="index"
+          class="grid grid-cols-[1fr_1.5fr_auto] gap-2 items-center">
+          <input v-model="attr.key" type="text" class="input-text w-full" placeholder="項目名" />
+          <input v-model="attr.value" type="text" class="input-text w-full" placeholder="値" />
+          <button @click="editModal.form.attributes.splice(index, 1)" class="text-[var(--color-tag-eol)] px-2 text-lg leading-none">✕</button>
+        </div>
+        <button @click="editModal.form.attributes.push({ key: '', value: '' })"
+          class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ 項目を追加</button>
       </div>
 
       <div v-else-if="editModal.section === 'suppliers'" class="space-y-3">

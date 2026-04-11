@@ -249,6 +249,19 @@ class ComponentController extends Controller
                     $component->save();
                     break;
 
+                case 'attributes':
+                    // 送信された attributes 配列で全置換
+                    $component->attributes()->delete();
+                    foreach ($request->attributes as $attr) {
+                        if (trim($attr['key']) === '') continue;
+                        $component->attributes()->create([
+                            'key'   => $attr['key'],
+                            'value' => $attr['value'] ?? null,
+                        ]);
+                    }
+                    $component->save();
+                    break;
+
                 case 'suppliers':
                     // 送信された suppliers で全置換
                     $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());

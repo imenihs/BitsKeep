@@ -41,6 +41,11 @@ class UpdateComponentSectionRequest extends FormRequest
                 'specs.*.unit'           => ['nullable', 'string', 'max:20'],
                 'specs.*.value_numeric'  => ['nullable', 'numeric'],
             ],
+            'attributes' => [
+                'attributes'          => ['required', 'array'],
+                'attributes.*.key'   => ['required', 'string', 'max:100'],
+                'attributes.*.value' => ['nullable', 'string', 'max:500'],
+            ],
             'suppliers' => [
                 'suppliers'                          => ['required', 'array'],
                 'suppliers.*.supplier_id'            => ['required', 'integer', 'exists:suppliers,id'],

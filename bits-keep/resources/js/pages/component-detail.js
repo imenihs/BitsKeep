@@ -87,6 +87,12 @@ export default function setup() {
                 title: 'スペックを編集',
                 form: { specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric ?? '' })) },
             },
+            attributes: {
+                title: 'カスタムフィールドを編集',
+                form: {
+                    attributes: (p.attributes ?? []).map(a => ({ key: a.key ?? '', value: a.value ?? '' })),
+                },
+            },
             suppliers: {
                 title: '仕入先情報を編集',
                 form: { suppliers: p.component_suppliers.map(cs => ({
