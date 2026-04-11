@@ -280,10 +280,6 @@
               <span class="list-label">Altium</span>
               <span class="list-value">@{{ part.altium_link?.symbol_name || '未連携' }}</span>
             </div>
-            <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-              <span class="list-label">説明</span>
-              <span class="list-value">@{{ part.description || 'なし' }}</span>
-            </div>
           </div>
         </div>
       </div>
