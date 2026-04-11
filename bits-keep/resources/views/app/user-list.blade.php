@@ -8,15 +8,9 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@include('partials.app-header', ['current' => 'ユーザー管理'])
 <div id="app" data-page="user-list" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>管理</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">ユーザー管理</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ユーザー管理', 'current' => true]]])
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <div>
@@ -133,8 +127,10 @@
   <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.message }}</div>
+      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.msg }}</div>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ユーザー管理', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

@@ -27,11 +27,19 @@ export function useNavigationConfirm(activeRef, message) {
         }
     };
 
+    const handlePopState = () => {
+        if (!enabled) return;
+        if (!window.confirm(message)) {
+            history.pushState(null, '', location.href);
+        }
+    };
+
     const enable = () => {
         if (enabled) return;
         enabled = true;
         window.addEventListener('beforeunload', handleBeforeUnload);
         document.addEventListener('click', handleDocumentClick, true);
+        window.addEventListener('popstate', handlePopState);
     };
 
     const disable = () => {
@@ -39,6 +47,7 @@ export function useNavigationConfirm(activeRef, message) {
         enabled = false;
         window.removeEventListener('beforeunload', handleBeforeUnload);
         document.removeEventListener('click', handleDocumentClick, true);
+        window.removeEventListener('popstate', handlePopState);
     };
 
     watch(activeRef, (active) => {

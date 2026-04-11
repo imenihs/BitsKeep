@@ -8,22 +8,24 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => 'Altium連携'])
 <div id="app" data-page="altium-link" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>管理</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">Altium連携</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'Altium連携', 'current' => true]]])
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <div>
       <h1 class="text-2xl font-bold">Altium連携</h1>
       <p class="text-sm opacity-60 mt-1">回路図・PCBライブラリの登録管理</p>
     </div>
-    <button @click="openLibAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ ライブラリを追加</button>
+    @if ($isAdmin)
+    <button @click="openLibAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + ライブラリを追加</button>
+    @else
+    <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
+      <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ ライブラリを追加</span></div>
+      <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
+    </div>
+    @endif
   </header>
 
   <!-- ライブラリ一覧 -->
@@ -125,8 +127,10 @@
   <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.message }}</div>
+      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.msg }}</div>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'Altium連携', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

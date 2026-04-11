@@ -8,13 +8,11 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($canEdit = auth()->user()->isEditor())
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => 'マスタ管理'])
 <div id="app" data-page="master-list" data-tab="categories" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">マスタ管理</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'マスタ管理', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">マスタ管理</h1>
@@ -36,7 +34,14 @@
   <!-- ═══════════════════════════════ 分類タブ ══════════════════════════════ -->
   <div v-if="activeTab === 'categories'">
     <div class="flex justify-end mb-4">
-      <button @click="openCatAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ 分類を追加</button>
+      @if ($canEdit)
+      <button @click="openCatAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + 分類を追加</button>
+      @else
+      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ 分類を追加</span></div>
+        <div class="mt-1 text-xs opacity-70">閲覧者のため追加できません</div>
+      </div>
+      @endif
     </div>
     <table class="w-full text-sm border-collapse">
       <thead>
@@ -52,12 +57,23 @@
           :class="c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ c.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">@{{ c.name }}</td>
-          <td class="py-2 pr-4 opacity-70 text-xs">@{{ c.description || '-' }}</td>
+          <td class="py-2 pr-4 font-medium">
+            <div class="flex items-center gap-2">
+              <span>@{{ c.name }}</span>
+              <span v-if="c.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                アーカイブ済み
+              </span>
+            </div>
+          </td>
+          <td class="py-2 pr-4 opacity-70 text-xs">
+            <div>@{{ c.description || '-' }}</div>
+            <div class="mt-1 opacity-60">使用件数: @{{ c.usage_count ?? 0 }}</div>
+          </td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openCatEdit(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button @click="deleteCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">削除</button>
+              <button v-if="!c.deleted_at" @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-else @click="restoreCategory(c)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
             </div>
           </td>
         </tr>
@@ -71,7 +87,14 @@
   <!-- ══════════════════════════ パッケージタブ ══════════════════════════════ -->
   <div v-if="activeTab === 'packages'">
     <div class="flex justify-end mb-4">
-      <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ パッケージを追加</button>
+      @if ($canEdit)
+      <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + パッケージを追加</button>
+      @else
+      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージを追加</span></div>
+        <div class="mt-1 text-xs opacity-70">閲覧者のため追加できません</div>
+      </div>
+      @endif
     </div>
     <table class="w-full text-sm border-collapse">
       <thead>
@@ -87,12 +110,23 @@
           :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ p.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">@{{ p.name }}</td>
-          <td class="py-2 pr-4 opacity-70 text-xs">@{{ p.description || '-' }}</td>
+          <td class="py-2 pr-4 font-medium">
+            <div class="flex items-center gap-2">
+              <span>@{{ p.name }}</span>
+              <span v-if="p.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                アーカイブ済み
+              </span>
+            </div>
+          </td>
+          <td class="py-2 pr-4 opacity-70 text-xs">
+            <div>@{{ p.description || '-' }}</div>
+            <div class="mt-1 opacity-60">使用件数: @{{ p.usage_count ?? 0 }}</div>
+          </td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openPkgEdit(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button @click="deletePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">削除</button>
+              <button v-if="!p.deleted_at" @click="archivePackage(p)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-else @click="restorePackage(p)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
             </div>
           </td>
         </tr>
@@ -106,7 +140,14 @@
   <!-- ══════════════════════════ スペック種別タブ ═══════════════════════════ -->
   <div v-if="activeTab === 'spec-types'">
     <div class="flex justify-end mb-4">
-      <button @click="openStAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ スペック種別を追加</button>
+      @if ($isAdmin)
+      <button @click="openStAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + スペック種別を追加</button>
+      @else
+      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ スペック種別を追加</span></div>
+        <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
+      </div>
+      @endif
     </div>
     <table class="w-full text-sm border-collapse">
       <thead>
@@ -123,19 +164,29 @@
           :class="s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ s.sort_order }}</td>
-          <td class="py-2 pr-4 font-medium">@{{ s.name }}</td>
-          <td class="py-2 pr-4 text-xs opacity-70">@{{ s.value_type }}</td>
+          <td class="py-2 pr-4 font-medium">
+            <div class="flex items-center gap-2">
+              <span>@{{ s.name }}</span>
+              <span v-if="s.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                アーカイブ済み
+              </span>
+            </div>
+          </td>
+          <td class="py-2 pr-4 text-xs opacity-70">
+            <div>@{{ s.value_type }}</div>
+            <div class="mt-1 opacity-60">使用件数: @{{ s.usage_count ?? 0 }}</div>
+          </td>
           <td class="py-2 pr-4 text-xs">
-            <span v-for="u in (s.units ?? [])" :key="u.id"
-              class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5 mr-1 mb-1">
-              @{{ u.unit }}
+            <span v-if="s.units?.[0]" class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5 mr-1 mb-1">
+              @{{ s.units[0].unit }}
             </span>
-            <span v-if="!s.units?.length" class="opacity-40">-</span>
+            <span v-else class="opacity-40">-</span>
           </td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openStEdit(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button @click="deleteSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">削除</button>
+              <button v-if="!s.deleted_at" @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-else @click="restoreSpecType(s)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
             </div>
           </td>
         </tr>
@@ -243,24 +294,12 @@
           </div>
         </div>
 
-        <!-- 単位候補（数値型のみ） -->
+        <!-- 単位（数値型のみ） -->
         <div v-if="stModal.form.value_type === 'numeric'">
-          <div class="flex justify-between items-center mb-2">
-            <label class="text-sm font-medium">単位候補</label>
-            <button @click="addUnit" type="button"
-              class="text-xs px-2 py-1 border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">
-              + 追加
-            </button>
-          </div>
-          <div v-for="(u, i) in stModal.form.units" :key="i"
-            class="flex gap-2 items-center mb-2">
-            <input v-model="u.unit" type="text" placeholder="例: μF"
-              class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm" />
-            <input v-model.number="u.factor" type="number" step="any" placeholder="係数"
-              class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm" />
-            <button @click="removeUnit(i)" class="text-red-400 hover:text-red-600 px-1">✕</button>
-          </div>
-          <p class="text-xs opacity-50 mt-1">係数: 基準単位に対する倍率（例: μF=1, nF=0.001, pF=0.000001）</p>
+          <label class="text-sm font-medium block mb-2">単位</label>
+          <input v-model="stModal.form.unit" type="text" placeholder="例: μF"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+          <p class="text-xs opacity-50 mt-1">不要なら空欄のまま保存します。</p>
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
@@ -275,9 +314,11 @@
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
       class="text-white px-4 py-2 rounded shadow-lg text-sm">
-      @{{ t.message }}
+      @{{ t.msg }}
     </div>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'マスタ管理', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

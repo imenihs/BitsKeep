@@ -19,6 +19,7 @@ class StoreComponentRequest extends FormRequest
             'procurement_status'  => ['nullable', 'in:active,eol,last_time,nrnd'],
             'threshold_new'       => ['nullable', 'integer', 'min:0'],
             'threshold_used'      => ['nullable', 'integer', 'min:0'],
+            'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
             // ファイル
             'image'               => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'datasheet'           => ['nullable', 'file', 'mimes:pdf', 'max:20480'],

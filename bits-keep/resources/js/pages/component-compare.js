@@ -7,7 +7,7 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 
 export default function setup() {
-    const { toasts, toastError } = useToast();
+    const { toasts, toastSuccess, toastError } = useToast();
     const specTypes  = ref([]);
     const components = ref([]);
     const loading    = ref(false);

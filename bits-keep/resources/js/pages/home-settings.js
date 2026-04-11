@@ -22,7 +22,8 @@ export default function setup() {
     const appEl = document.getElementById('app');
     const userRole = appEl?.dataset?.role ?? 'viewer';
     const actionsSaving = ref(false);
-    useNavigationConfirm(actionsSaving, '保存処理中です。このまま画面を離れてもよいですか？');
+    const dirty = ref(false);
+    useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
     const actionsMessage = ref('');
     const actionsError = ref('');
     const quickActionKeys = ref([]);
@@ -73,6 +74,7 @@ export default function setup() {
             });
             quickActionKeys.value = visibleActions.value.map((action) => action.key);
             actionsMessage.value = '主要アクションを保存しました';
+            dirty.value = false;
         } catch (e) {
             actionsError.value = e.message ?? '主要アクションの保存に失敗しました。';
         } finally {
@@ -84,6 +86,7 @@ export default function setup() {
         quickActionKeys.value = DEFAULT_QUICK_ACTION_KEYS.filter((key) =>
             availableActions.value.some((action) => action.key === key)
         );
+        dirty.value = true;
         actionsMessage.value = '';
         actionsError.value = '';
     };
@@ -117,6 +120,7 @@ export default function setup() {
         targetArray.splice(insertIndex, 0, moved);
 
         quickActionKeys.value = sourceVisible.map((action) => action.key);
+        dirty.value = true;
         dragPayload.value = null;
         actionsMessage.value = '';
         actionsError.value = '';

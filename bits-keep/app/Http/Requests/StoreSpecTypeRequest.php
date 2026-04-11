@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreSpecTypeRequest extends FormRequest
 {
@@ -12,15 +13,12 @@ class StoreSpecTypeRequest extends FormRequest
     {
         $id = $this->route('spec_type')?->id;
         return [
-            'name'        => ['required', 'string', 'max:100', 'unique:spec_types,name,' . $id],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('spec_types', 'name')->ignore($id)],
             'base_unit'   => ['nullable', 'string', 'max:20'],
             'description' => ['nullable', 'string', 'max:500'],
             'sort_order'  => ['nullable', 'integer', 'min:0'],
             // 単位候補の配列（新規・編集時に一括送信）
-            'units'               => ['nullable', 'array'],
-            'units.*.unit'        => ['required_with:units', 'string', 'max:20'],
-            'units.*.factor'      => ['required_with:units', 'numeric', 'min:0'],
-            'units.*.sort_order'  => ['nullable', 'integer', 'min:0'],
+            'unit'               => ['nullable', 'string', 'max:20'],
         ];
     }
 }

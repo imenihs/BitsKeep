@@ -7,31 +7,36 @@ use App\Http\Requests\StoreSpecTypeRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\SpecType;
 use App\Models\SpecUnit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SpecTypeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // 単位候補を一緒にロード
-        $types = SpecType::with('units')->orderBy('sort_order')->orderBy('name')->get();
+        $query = SpecType::with('units')->withCount('componentSpecs as usage_count');
+        if ($request->boolean('include_archived')) {
+            $query->withTrashed();
+        }
+        $types = $query->orderBy('sort_order')->orderBy('name')->get()->map(function (SpecType $type) {
+            $type->can_force_delete = (bool) $type->deleted_at && $type->usage_count === 0;
+            $type->force_delete_reason = $type->can_force_delete ? '' : ($type->usage_count > 0 ? "スペック{$type->usage_count}件で使用中" : '先にアーカイブしてください');
+            return $type;
+        });
         return ApiResponse::success($types);
     }
 
     public function store(StoreSpecTypeRequest $request)
     {
         return DB::transaction(function () use ($request) {
-            $specType = SpecType::create($request->safe()->except('units'));
+            $specType = SpecType::create($request->safe()->except('unit'));
 
-            // 単位候補を一括挿入
-            if ($request->filled('units')) {
-                foreach ($request->units as $i => $unit) {
-                    $specType->units()->create([
-                        'unit'       => $unit['unit'],
-                        'factor'     => $unit['factor'],
-                        'sort_order' => $unit['sort_order'] ?? $i,
-                    ]);
-                }
+            if ($request->filled('unit')) {
+                $specType->units()->create([
+                    'unit' => $request->string('unit')->toString(),
+                    'factor' => 1,
+                    'sort_order' => 0,
+                ]);
             }
 
             return ApiResponse::created($specType->load('units'));
@@ -46,16 +51,15 @@ class SpecTypeController extends Controller
     public function update(StoreSpecTypeRequest $request, SpecType $specType)
     {
         return DB::transaction(function () use ($request, $specType) {
-            $specType->update($request->safe()->except('units'));
+            $specType->update($request->safe()->except('unit'));
 
-            // 単位候補は送信された配列で全置換
-            if ($request->has('units')) {
+            if ($request->has('unit')) {
                 $specType->units()->delete();
-                foreach ($request->units as $i => $unit) {
+                if ($request->filled('unit')) {
                     $specType->units()->create([
-                        'unit'       => $unit['unit'],
-                        'factor'     => $unit['factor'],
-                        'sort_order' => $unit['sort_order'] ?? $i,
+                        'unit' => $request->string('unit')->toString(),
+                        'factor' => 1,
+                        'sort_order' => 0,
                     ]);
                 }
             }
@@ -66,11 +70,15 @@ class SpecTypeController extends Controller
 
     public function destroy(SpecType $specType)
     {
-        if ($specType->componentSpecs()->exists()) {
-            return ApiResponse::error('このスペック種別は部品に使用されているため削除できません。', [], 409);
-        }
-        $specType->units()->delete();
         $specType->delete();
         return ApiResponse::noContent();
+    }
+
+    public function restore(int $specType)
+    {
+        $model = SpecType::withTrashed()->findOrFail($specType);
+        $model->restore();
+
+        return ApiResponse::success($model->load('units'));
     }
 }

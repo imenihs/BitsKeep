@@ -6,13 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Category;
+use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
     // GET /api/categories
-    public function index()
+    public function index(Request $request)
     {
-        $categories = Category::orderBy('sort_order')->orderBy('name')->get();
+        $query = Category::query()->withCount('components as usage_count');
+        if ($request->boolean('include_archived')) {
+            $query->withTrashed();
+        }
+        $categories = $query->orderBy('sort_order')->orderBy('name')->get()->map(function (Category $category) {
+            $category->can_force_delete = (bool) $category->deleted_at && $category->usage_count === 0;
+            $category->force_delete_reason = $category->can_force_delete ? '' : ($category->usage_count > 0 ? "部品{$category->usage_count}件で使用中" : '先にアーカイブしてください');
+            return $category;
+        });
         return ApiResponse::success($categories);
     }
 
@@ -39,11 +48,15 @@ class CategoryController extends Controller
     // DELETE /api/categories/{category}
     public function destroy(Category $category)
     {
-        // 紐づき部品がある場合は削除不可
-        if ($category->components()->exists()) {
-            return ApiResponse::error('この分類は部品に使用されているため削除できません。', [], 409);
-        }
         $category->delete();
         return ApiResponse::noContent();
+    }
+
+    public function restore(int $category)
+    {
+        $model = Category::withTrashed()->findOrFail($category);
+        $model->restore();
+
+        return ApiResponse::success($model);
     }
 }

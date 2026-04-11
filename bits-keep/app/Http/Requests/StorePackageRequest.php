@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePackageRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class StorePackageRequest extends FormRequest
     {
         $id = $this->route('package')?->id;
         return [
-            'name'        => ['required', 'string', 'max:100', 'unique:packages,name,' . $id],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('packages', 'name')->ignore($id)],
             'description' => ['nullable', 'string', 'max:500'],
             'size_x'      => ['nullable', 'numeric', 'min:0'],
             'size_y'      => ['nullable', 'numeric', 'min:0'],

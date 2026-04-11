@@ -23,6 +23,7 @@ class UpdateComponentSectionRequest extends FormRequest
                 'procurement_status' => ['nullable', 'in:active,eol,last_time,nrnd'],
                 'threshold_new'      => ['nullable', 'integer', 'min:0'],
                 'threshold_used'     => ['nullable', 'integer', 'min:0'],
+                'primary_location_id'=> ['nullable', 'integer', 'exists:locations,id'],
                 'category_ids'       => ['nullable', 'array'],
                 'category_ids.*'     => ['integer', 'exists:categories,id'],
                 'package_ids'        => ['nullable', 'array'],

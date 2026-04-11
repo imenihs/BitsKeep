@@ -31,8 +31,9 @@ export default function setup() {
     const sectionLinks = [
         { href: '#launcher-section', label: '検索と起点' },
         { href: '#today-section', label: '今日の確認事項' },
-        { href: '#quick-actions-section', label: '主要アクション' },
-        { href: '#recent-section', label: '最近の部品' },
+        { href: '#quick-actions-section', label: '業務別メニュー' },
+        { href: '#recent-section', label: '最近使った機能' },
+        { href: '#all-functions-section', label: '全機能ショートカット' },
     ];
     const focusModes = ['全部', '部品', '案件', '機能'];
     const activeFocus = ref('全部');
@@ -128,6 +129,7 @@ export default function setup() {
 
     // ── クイックアクション ────────────────────────────────
     const quickActionKeys = ref([]);
+    const preferenceError = ref('');
 
     // roleに応じた利用可能なアクションのみ返す
     const availableActions = computed(() =>
@@ -221,7 +223,10 @@ export default function setup() {
             const res = await api.get(`/preferences/${QUICK_ACTIONS_PREF_KEY}`);
             const val = res.data?.data?.value ?? res.data?.value;
             if (Array.isArray(val)) quickActionKeys.value = val;
-        } catch { /* 未設定なら無視 */ }
+            preferenceError.value = '';
+        } catch {
+            preferenceError.value = '主要アクション設定を読めませんでした。ホーム設定で並び順を再保存するか、既定表示で続行してください。';
+        }
     };
 
     const openItem = (item) => navigate(item.url || item.href);
@@ -241,6 +246,6 @@ export default function setup() {
         searchQuery, searchResults, searching,
         onSearchInput, navigate, launcherResults, openItem, openFirstResult, doSearch,
         alertCount, recentParts, statusCards, recentItems, searchError, summaryError, fetchSummary,
-        quickActions,
+        quickActions, preferenceError,
     };
 }

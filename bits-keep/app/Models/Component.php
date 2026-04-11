@@ -19,6 +19,7 @@ class Component extends Model
         'quantity_new', 'quantity_used',
         'threshold_new', 'threshold_used',
         'image_path', 'datasheet_path',
+        'primary_location_id',
         'created_by', 'updated_by',
     ];
 
@@ -57,6 +58,11 @@ class Component extends Model
     public function locations(): BelongsToMany
     {
         return $this->belongsToMany(Location::class, 'component_location');
+    }
+
+    public function primaryLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'primary_location_id');
     }
 
     // 仕入先情報

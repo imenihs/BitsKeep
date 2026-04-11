@@ -9,12 +9,11 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($canEdit = auth()->user()->isEditor())
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => '全機能一覧'])
 <div class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">全機能一覧</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '全機能一覧', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">全機能一覧</h1>
@@ -39,7 +38,16 @@
         <a href="{{ route('projects.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">案件管理</a>
         <a href="{{ route('components.compare') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品比較</a>
         <a href="{{ route('master.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">マスタ管理</a>
-        <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">連携設定</a>
+        @if ($canEdit)
+        <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">
+          <span class="feature-lock">編</span> 連携設定
+        </a>
+        @else
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">編</span><span>連携設定</span></div>
+          <div class="mt-1 text-xs opacity-70">閲覧者のため変更できません</div>
+        </div>
+        @endif
       </div>
     </section>
 
@@ -67,31 +75,51 @@
     <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
       <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Permissions</div>
       <div class="space-y-2">
-        @if (auth()->user()->role === 'admin')
+        @if ($isAdmin)
           <a href="{{ route('users.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ユーザー管理</a>
           <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
             権限変更は `ユーザー管理` から実施します。
           </div>
         @else
-          <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
-            権限変更は管理者が `ユーザー管理` で実施します。設定保存やユーザー追加が必要なら管理者へ依頼してください。
+          <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+            <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>ユーザー管理</span></div>
+            <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
           </div>
-          <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">連携設定</a>
+          @if ($canEdit)
+          <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]"><span class="feature-lock">編</span> 連携設定</a>
+          @else
+          <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+            <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">編</span><span>連携設定</span></div>
+            <div class="mt-1 text-xs opacity-70">閲覧者は変更できません</div>
+          </div>
+          @endif
         @endif
       </div>
     </section>
 
-    @if (auth()->user()->role === 'admin')
     <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
       <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Admin</div>
       <div class="space-y-2">
+        @if ($isAdmin)
         <a href="{{ route('users.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ユーザー管理</a>
         <a href="{{ route('audit.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">操作ログ</a>
         <a href="{{ route('csv.import') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">CSVインポート</a>
+        @else
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>ユーザー管理</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
+        </div>
+        <a href="{{ route('audit.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">操作ログ</a>
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>CSVインポート</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ実行できます</div>
+        </div>
+        @endif
       </div>
     </section>
-    @endif
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '全機能一覧', 'current' => true]], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

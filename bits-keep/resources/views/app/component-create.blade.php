@@ -8,22 +8,34 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <a href="{{ route('components.index') }}">部品管理</a>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">{{ isset($id) ? '部品編集' : '部品登録' }}</span>
-  </nav>
+@php($canEdit = auth()->user()->isEditor())
+@include('partials.app-header', ['current' => isset($id) ? '部品編集' : '部品登録'])
+<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" data-can-create-supplier="{{ auth()->user()->isAdmin() ? '1' : '0' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => '部品一覧', 'url' => route('components.index')],
+    ['label' => isset($id) ? '部品編集' : '部品登録', 'current' => true],
+  ]])
 
   <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <h1 class="text-2xl font-bold">@{{ isEdit ? '部品編集' : '部品登録' }}</h1>
-    <button @click="submit" :disabled="saving" class="btn btn-primary px-5 py-2 rounded text-sm">
-      @{{ saving ? '保存中...' : (isEdit ? '更新' : '登録') }}
+    <div>
+      <h1 class="text-2xl font-bold">@{{ isEdit ? '部品編集' : '部品登録' }}</h1>
+      @unless ($canEdit)
+      <div class="mt-2 text-xs opacity-70">閲覧者のため保存できません。内容確認のみ可能です。</div>
+      @endunless
+    </div>
+    <button @click="submit" :disabled="saving || {{ $canEdit ? 'false' : 'true' }}" class="btn btn-primary px-5 py-2 rounded text-sm disabled:opacity-50" title="{{ $canEdit ? '' : '編集者以上の権限が必要です' }}">
+      {{ $canEdit ? '' : '編 ' }}@{{ saving ? '保存中...' : (isEdit ? '更新' : '登録') }}
     </button>
   </header>
+
+  <section v-if="masterLoadError" class="mb-4 rounded-2xl border border-[var(--color-tag-warning)] px-4 py-4 bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]">
+    <div class="font-semibold text-[var(--color-tag-warning)]">@{{ masterLoadError }}</div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button type="button" onclick="window.location.reload()" class="px-3 py-2 rounded-xl border border-[var(--color-tag-warning)] text-sm">再読込</button>
+      <a href="{{ route('master.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">マスタ管理へ</a>
+      <a href="{{ route('components.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">部品一覧へ戻る</a>
+    </div>
+  </section>
 
   <!-- 基本情報 -->
   <section class="card mb-4 p-5 flex-col items-start gap-4 block bg-[var(--color-card-even)]">
@@ -104,6 +116,15 @@
             <label class="block text-xs font-semibold mb-1">発注点（中古）</label>
             <input v-model.number="form.threshold_used" type="number" min="0" class="input-text w-full" />
           </div>
+        </div>
+        <div class="mt-3">
+          <label class="block text-xs font-semibold mb-1">代表保管棚</label>
+          <select v-model="form.primary_location_id" class="input-text w-full">
+            <option value="">未設定</option>
+            <option v-for="location in locations" :key="location.id" :value="location.id">
+              @{{ location.code }} / @{{ location.name }}
+            </option>
+          </select>
         </div>
       </div>
     </div>
@@ -213,6 +234,9 @@
               class="w-full rounded px-2 py-1 text-left text-xs border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
               「@{{ row.supplier_name.trim() }}」を新規追加
             </button>
+            <p v-else-if="row.supplier_name?.trim() && !canCreateSupplier" class="text-[11px] opacity-50 px-1">
+              商社の新規追加は管理者のみです。既存商社を選択してください。
+            </p>
           </div>
         </div>
         <label class="flex items-center gap-1 text-xs cursor-pointer">
@@ -238,12 +262,23 @@
     <p v-if="!form.supplierRows.length" class="text-xs opacity-40">仕入先を追加してください</p>
   </section>
 
+  <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] px-4 py-4">
+    <a href="{{ route('components.index') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit text-center">部品一覧へ戻る</a>
+    <button @click="submit" :disabled="saving || {{ $canEdit ? 'false' : 'true' }}" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50">
+      @{{ saving ? '保存中...' : (isEdit ? '更新する' : '登録する') }}
+    </button>
+  </div>
+
   <!-- トースト -->
   <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">
     <div v-for="t in toasts" :key="t.id"
       class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
       :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">@{{ t.msg }}</div>
   </div>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => '部品一覧', 'url' => route('components.index')],
+    ['label' => isset($id) ? '部品編集' : '部品登録', 'current' => true],
+  ], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

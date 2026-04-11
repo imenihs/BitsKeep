@@ -14,7 +14,7 @@ export default function setup() {
 
     const fetchLocations = async () => {
         loading.value = true;
-        try { const r = await api.get('/locations'); locations.value = r.data; }
+        try { const r = await api.get('/locations?include_archived=1'); locations.value = r.data; }
         catch { toastError('棚情報の取得に失敗しました'); }
         finally { loading.value = false; }
     };
@@ -72,13 +72,18 @@ export default function setup() {
             await fetchLocations();
         } catch (e) { toastError(e.message); }
     };
-    const deleteLocation = async (loc) => {
-        if (!confirm(`「${loc.code}」を削除しますか？`)) return;
-        try { await api.delete(`/locations/${loc.id}`); await fetchLocations(); toastSuccess('削除しました'); }
+    const archiveLocation = async (loc) => {
+        if (!confirm(`「${loc.code}」を廃止しますか？\n在庫ブロック: ${loc.inventory_block_count ?? 0}件\n代表棚参照: ${loc.primary_component_count ?? 0}件`)) return;
+        try { await api.delete(`/locations/${loc.id}`); await fetchLocations(); toastSuccess('廃止しました'); }
+        catch (e) { toastError(e.message); }
+    };
+    const restoreLocation = async (loc) => {
+        if (!confirm(`「${loc.code}」を復元しますか？`)) return;
+        try { await api.post(`/locations/${loc.id}/restore`); await fetchLocations(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
 
     onMounted(fetchLocations);
 
-    return { toasts, locations, loading, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, saveLocation, deleteLocation };
+    return { toasts, locations, loading, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, saveLocation, archiveLocation, restoreLocation };
 }

@@ -9,17 +9,14 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@include('partials.app-header', ['current' => '連携設定'])
 <div id="app" data-page="integration-settings" data-can-edit="{{ auth()->user()->isEditor() ? '1' : '0' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-4xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">連携設定</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '連携設定', 'current' => true]]])
 
   <header class="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">連携設定</h1>
     <div class="flex items-center gap-2">
+      <span class="feature-lock">{{ auth()->user()->isEditor() ? '編' : '閲' }}</span>
       <span class="tag">{{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}</span>
       <button @click="fetchStatus" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">再確認</button>
     </div>
@@ -123,6 +120,8 @@
 
     </div>
   </section>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '連携設定', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

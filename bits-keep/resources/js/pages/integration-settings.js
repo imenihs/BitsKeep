@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 
@@ -7,7 +7,8 @@ export default function setup() {
     const canEdit = appEl?.dataset?.canEdit === '1';
     const loading = ref(true);
     const saving = ref(false);
-    useNavigationConfirm(saving, '保存処理中です。このまま画面を離れてもよいですか？');
+    const dirty = ref(false);
+    useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
     const deletingToken = ref(false);
     const deletingRootPage = ref(false);
     const saveMessage = ref('');
@@ -26,6 +27,7 @@ export default function setup() {
         api_token: '',
         root_page_url: '',
     });
+    const initialRootPageUrl = ref('');
 
     const fetchStatus = async () => {
         loading.value = true;
@@ -37,6 +39,8 @@ export default function setup() {
                 api_token: '',
                 root_page_url: notion.value.root_page_url ?? '',
             };
+            initialRootPageUrl.value = form.value.root_page_url;
+            dirty.value = false;
         } catch (e) {
             statusError.value = e.message ?? 'Notion設定状態の取得に失敗しました。';
         } finally {
@@ -61,7 +65,9 @@ export default function setup() {
                 api_token: '',
                 root_page_url: notion.value.root_page_url ?? '',
             };
+            initialRootPageUrl.value = form.value.root_page_url;
             saveMessage.value = r.message || '保存しました';
+            dirty.value = false;
         } catch (e) {
             saveError.value = e.message;
         } finally {
@@ -89,6 +95,7 @@ export default function setup() {
             notion.value = r.data?.data ?? r.data ?? notion.value;
             form.value.api_token = '';
             saveMessage.value = '保存済みトークンを削除しました';
+            dirty.value = false;
         } catch (e) {
             saveError.value = e.message;
         } finally {
@@ -115,7 +122,9 @@ export default function setup() {
             });
             notion.value = r.data?.data ?? r.data ?? notion.value;
             form.value.root_page_url = '';
+            initialRootPageUrl.value = '';
             saveMessage.value = '保存済みルートページ URL を削除しました';
+            dirty.value = false;
         } catch (e) {
             saveError.value = e.message;
         } finally {
@@ -126,6 +135,10 @@ export default function setup() {
     onMounted(() => {
         fetchStatus();
     });
+
+    watch(form, (value) => {
+        dirty.value = value.api_token.trim() !== '' || value.root_page_url !== initialRootPageUrl.value;
+    }, { deep: true });
 
     return {
         loading,

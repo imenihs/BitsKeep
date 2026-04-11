@@ -8,19 +8,20 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => 'CSVインポート'])
 <div id="app" data-page="csv-import" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>管理</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">CSVインポート</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'CSVインポート', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">CSVインポート</h1>
     <p class="text-sm opacity-60 mt-1">部品データを一括登録</p>
+    @unless ($isAdmin)
+    <div class="mt-3 inline-flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] px-4 py-3 feature-disabled">
+      <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>CSV取込</span></div>
+      <div class="mt-1 text-xs opacity-70">管理者のみ実行できます</div>
+    </div>
+    @endunless
   </header>
 
   <!-- ステップインジケータ -->
@@ -148,8 +149,10 @@
   <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.message }}</div>
+      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.msg }}</div>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'CSVインポート', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

@@ -76,6 +76,22 @@ export default function setup() {
         if (advMinStock.value) chips.push({ key: 'minStock', label: `在庫下限: ${advMinStock.value}` });
         return chips;
     });
+    const isFiltered = computed(() => activeFilterChips.value.length > 0);
+    const emptyState = computed(() => {
+        if (loading.value || parts.value.length > 0 || listError.value) return null;
+        if (isFiltered.value) {
+            return {
+                title: '絞り込み条件に一致する部品がありません',
+                desc: '条件を1つ外すか、すべてクリアして探し直してください。',
+                actions: ['clear', 'retry'],
+            };
+        }
+        return {
+            title: 'まだ部品が登録されていません',
+            desc: '新規登録するか、CSVインポートからまとめて登録してください。',
+            actions: ['create', 'csv'],
+        };
+    });
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
@@ -182,7 +198,7 @@ export default function setup() {
         parts, categories, packages, specTypes, loading, alertCount, listError, masterError, fetchMasters,
         compareList, toggleCompare, inCompare,
         compareUrl,
-        selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts,
+        selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts, emptyState, isFiltered,
         procurementLabel, procurementClass,
     };
 }

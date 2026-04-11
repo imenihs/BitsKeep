@@ -9,7 +9,7 @@ export default function setup() {
         form: { name: '', url: '', color: '#2563eb', lead_days: '', free_shipping_threshold: '', note: '' } });
 
     const fetchSuppliers = async () => {
-        try { const r = await api.get('/suppliers'); suppliers.value = r.data; }
+        try { const r = await api.get('/suppliers?include_archived=1'); suppliers.value = r.data; }
         catch { toastError('商社情報の取得に失敗しました'); }
     };
 
@@ -26,12 +26,17 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    const deleteSupplier = async (s) => {
-        if (!confirm(`「${s.name}」を削除しますか？`)) return;
-        try { await api.delete(`/suppliers/${s.id}`); await fetchSuppliers(); toastSuccess('削除しました'); }
+    const archiveSupplier = async (s) => {
+        if (!confirm(`「${s.name}」を取引停止にしますか？\n使用件数: ${s.usage_count ?? 0}件`)) return;
+        try { await api.delete(`/suppliers/${s.id}`); await fetchSuppliers(); toastSuccess('取引停止にしました'); }
+        catch (e) { toastError(e.message); }
+    };
+    const restoreSupplier = async (s) => {
+        if (!confirm(`「${s.name}」を復元しますか？`)) return;
+        try { await api.post(`/suppliers/${s.id}/restore`); await fetchSuppliers(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
 
     onMounted(fetchSuppliers);
-    return { toasts, suppliers, modal, openAdd, openEdit, save, deleteSupplier };
+    return { toasts, suppliers, modal, openAdd, openEdit, save, archiveSupplier, restoreSupplier };
 }

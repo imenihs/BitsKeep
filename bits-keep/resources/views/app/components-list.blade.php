@@ -9,17 +9,12 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($canEdit = auth()->user()->isEditor())
+@include('partials.app-header', ['current' => '部品一覧'])
 
 <div id="app" data-page="components-list" class="min-h-screen">
   <main class="max-w-7xl mx-auto px-4 py-4">
-
-    <nav class="breadcrumb mb-4">
-      @include('partials.brand-home-link')
-      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <span>部品管理</span>
-      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <span class="current">部品一覧</span>
-    </nav>
+    @include('partials.app-breadcrumbs', ['items' => [['label' => '部品一覧', 'current' => true]]])
 
     <section class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-5 mb-4">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -40,9 +35,20 @@
             <span class="font-semibold text-[var(--color-primary)]">比較: @{{ compareList.length }}件</span>
             <a :href="compareUrl" class="btn btn-primary text-xs px-2 py-1 rounded no-underline">比較する</a>
           </div>
+          @if ($canEdit)
           <a href="{{ route('components.create') }}" class="btn btn-primary text-sm px-4 py-2 rounded no-underline">
+            <span class="feature-lock">編</span>
             + 新規登録
           </a>
+          @else
+          <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
+            <div class="flex items-center gap-2 text-sm font-semibold">
+              <span class="feature-lock">編</span>
+              <span>+ 新規登録</span>
+            </div>
+            <div class="mt-1 text-xs opacity-70">閲覧者のため登録できません</div>
+          </div>
+          @endif
         </div>
       </div>
 
@@ -146,8 +152,10 @@
       <div v-if="masterError" class="rounded-2xl border border-[var(--color-tag-warning)] px-4 py-3 text-sm bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]">
         <div class="font-semibold text-[var(--color-tag-warning)]">補助データの取得に失敗しました</div>
         <div class="mt-1 opacity-80">@{{ masterError }}</div>
-        <div class="mt-2">
+        <div class="mt-2 flex flex-wrap gap-2">
           <button @click="fetchMasters" class="px-3 py-2 rounded-xl border border-[var(--color-tag-warning)] text-sm">再読込</button>
+          <a href="{{ route('master.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">マスタ管理へ</a>
+          <a href="{{ route('stock.alert') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">在庫警告へ</a>
         </div>
       </div>
       <div v-if="listError" class="rounded-2xl border border-[var(--color-tag-eol)] px-4 py-3 text-sm bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))]">
@@ -166,10 +174,17 @@
       </div>
 
       <div v-else class="p-4 space-y-2">
-        <div v-if="parts.length === 0" class="text-center opacity-40 py-20">
-          <p class="text-lg">該当する部品がありません</p>
+        <div v-if="emptyState" class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-10 text-center">
+          <p class="text-lg font-semibold">@{{ emptyState.title }}</p>
+          <p class="mt-2 text-sm opacity-60">@{{ emptyState.desc }}</p>
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            <button v-if="emptyState.actions.includes('clear')" @click="clearFilters" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm">条件をクリア</button>
+            <button v-if="emptyState.actions.includes('retry')" @click="fetchParts" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm">再検索</button>
+            <a v-if="emptyState.actions.includes('create')" href="{{ route('components.create') }}" class="px-4 py-2 rounded-xl border border-[var(--color-primary)] text-sm no-underline text-inherit">新規登録</a>
+            <a v-if="emptyState.actions.includes('csv')" href="{{ route('csv.import') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">CSVインポート</a>
+          </div>
         </div>
-        <div v-for="(part, i) in parts" :key="part.id"
+        <div v-for="(part, i) in parts" v-else :key="part.id"
           class="card flex items-center gap-4 px-4 py-3"
           :class="i % 2 === 0 ? 'card-even' : 'card-odd'">
           <img v-if="part.image_url" :src="part.image_url" class="thumbnail flex-shrink-0" />
@@ -218,6 +233,9 @@
       :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">
       @{{ t.msg }}
     </div>
+  </div>
+  <div class="max-w-7xl mx-auto px-4 pb-6">
+    @include('partials.app-breadcrumbs', ['items' => [['label' => '部品一覧', 'current' => true]], 'class' => 'mt-6'])
   </div>
 </div>
 

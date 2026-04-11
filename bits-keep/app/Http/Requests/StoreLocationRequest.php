@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreLocationRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class StoreLocationRequest extends FormRequest
     {
         $id = $this->route('location')?->id;
         return [
-            'code'        => ['required', 'string', 'max:50', 'unique:locations,code,' . $id],
+            'code'        => ['required', 'string', 'max:50', Rule::unique('locations', 'code')->ignore($id)],
             'name'        => ['nullable', 'string', 'max:100'],
             'group'       => ['nullable', 'string', 'max:100'],
             'parent_id'   => ['nullable', 'integer', 'exists:locations,id'],

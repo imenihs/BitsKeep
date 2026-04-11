@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Package extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'name', 'description', 'size_x', 'size_y', 'size_z',
         'image_path', 'model_path', 'pdf_path', 'sort_order',

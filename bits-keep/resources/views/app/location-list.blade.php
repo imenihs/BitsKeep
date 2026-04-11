@@ -8,15 +8,13 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => '保管棚管理'])
 <div id="app" data-page="location-list" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>マスタ管理</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">保管棚管理</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => 'マスタ管理', 'url' => route('master.index')],
+    ['label' => '保管棚管理', 'current' => true],
+  ]])
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">保管棚管理</h1>
@@ -27,7 +25,14 @@
         @{{ inventoryMode ? '棚卸し中 ▸ 保存' : '棚卸しモード' }}
       </button>
       <button v-if="inventoryMode" @click="saveInventory" class="btn btn-primary px-4 py-2 rounded text-sm">確定</button>
-      <button @click="openAdd" class="btn btn-primary px-4 py-2 rounded text-sm">+ 棚を追加</button>
+      @if ($isAdmin)
+      <button @click="openAdd" class="btn btn-primary px-4 py-2 rounded text-sm"><span class="feature-lock">管</span> + 棚を追加</button>
+      @else
+      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ 棚を追加</span></div>
+        <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
+      </div>
+      @endif
     </div>
   </header>
 
@@ -56,7 +61,10 @@
             class="border-t border-[var(--color-border)]"
             :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
             <td class="px-4 py-2 font-mono font-medium">@{{ loc.code }}</td>
-            <td class="px-4 py-2 opacity-70">@{{ loc.name || '—' }}</td>
+            <td class="px-4 py-2 opacity-70">
+              <div>@{{ loc.name || '—' }}</div>
+              <div class="mt-1 text-xs opacity-60">代表棚: @{{ loc.primary_component_count ?? 0 }}件 / 子棚: @{{ loc.child_count ?? 0 }}</div>
+            </td>
             <td class="px-4 py-2 font-mono">@{{ loc.stock_count ?? 0 }}</td>
             <td v-if="inventoryMode" class="px-4 py-2">
               <input v-model.number="countInputs[loc.id]" type="number" min="0"
@@ -67,8 +75,14 @@
               @{{ getCountDiff(loc) > 0 ? '+' : '' }}@{{ getCountDiff(loc) || '—' }}
             </td>
             <td class="px-4 py-2 text-right">
-              <button @click="openEdit(loc)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors mr-1">✏</button>
-              <button @click="deleteLocation(loc)" class="p-1.5 rounded hover:bg-red-100 transition-colors text-[var(--color-tag-eol)]">🗑</button>
+              <div class="inline-flex items-center gap-2">
+                <span v-if="loc.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  廃止
+                </span>
+                <button @click="openEdit(loc)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors mr-1">✏</button>
+                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">廃止</button>
+                <button v-else @click="restoreLocation(loc)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -112,6 +126,10 @@
     <div v-for="t in toasts" :key="t.id" class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
       :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">@{{ t.msg }}</div>
   </div>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => 'マスタ管理', 'url' => route('master.index')],
+    ['label' => '保管棚管理', 'current' => true],
+  ], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

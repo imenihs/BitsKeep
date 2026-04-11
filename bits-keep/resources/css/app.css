@@ -38,6 +38,137 @@ body {
     font-family: 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic', sans-serif;
 }
 
+.app-shell-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+}
+
+.app-shell-header__inner {
+    max-width: 90rem;
+    margin: 0 auto;
+    padding: 0.875rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.app-shell-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-width: 0;
+}
+
+.app-shell-brand__logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 1rem;
+    flex-shrink: 0;
+}
+
+.app-shell-brand__eyebrow {
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.55;
+}
+
+.app-shell-brand__current {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.app-shell-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.app-shell-user__text {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.app-shell-link {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8125rem;
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.app-shell-link:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.role-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid var(--color-border);
+}
+
+.role-pill__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.role-admin {
+    background: color-mix(in srgb, var(--color-tag-eol) 12%, var(--color-bg));
+    color: var(--color-tag-eol);
+}
+
+.role-editor {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+    color: var(--color-primary);
+}
+
+.role-viewer {
+    background: color-mix(in srgb, var(--color-border) 40%, var(--color-bg));
+    color: var(--color-text);
+}
+
+.feature-disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(0.15);
+}
+
+.feature-lock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    border: 1px solid var(--color-border);
+    background: var(--color-card-even);
+}
+
 .link-text,
 .link-text:visited {
     color: var(--color-text);

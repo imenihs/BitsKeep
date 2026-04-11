@@ -24,7 +24,7 @@ class FileStorage
     public static function storeComponentImage(UploadedFile $file): string
     {
         self::validateMime($file, self::IMAGE_MIMES);
-        $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $name = self::nextAvailableName('components/images', 'component', $file->getClientOriginalExtension());
         $file->storeAs('components/images', $name, 'public');
         return 'components/images/' . $name;
     }
@@ -35,7 +35,23 @@ class FileStorage
     public static function storeDatasheet(UploadedFile $file): string
     {
         self::validateMime($file, self::PDF_MIMES);
-        $name = Str::uuid() . '.pdf';
+        $name = self::nextAvailableName('components/datasheets', 'datasheet', 'pdf');
+        $file->storeAs('components/datasheets', $name, 'public');
+        return 'components/datasheets/' . $name;
+    }
+
+    public static function storeComponentImageNamed(UploadedFile $file, array $parts): string
+    {
+        self::validateMime($file, self::IMAGE_MIMES);
+        $name = self::nextAvailableName('components/images', self::buildStem($parts, 'component'), $file->getClientOriginalExtension());
+        $file->storeAs('components/images', $name, 'public');
+        return 'components/images/' . $name;
+    }
+
+    public static function storeComponentDatasheetNamed(UploadedFile $file, array $parts): string
+    {
+        self::validateMime($file, self::PDF_MIMES);
+        $name = self::nextAvailableName('components/datasheets', self::buildStem($parts, 'datasheet'), 'pdf');
         $file->storeAs('components/datasheets', $name, 'public');
         return 'components/datasheets/' . $name;
     }
@@ -80,5 +96,47 @@ class FileStorage
                 '許可されていないファイル形式です: ' . $file->getMimeType()
             );
         }
+    }
+
+    protected static function buildStem(array $parts, string $fallback): string
+    {
+        $stem = collect($parts)
+            ->map(fn ($part) => trim((string) $part))
+            ->filter()
+            ->map(function ($part) {
+                $normalized = Str::of($part)
+                    ->ascii()
+                    ->replaceMatches('/[^A-Za-z0-9_\-]+/', '_')
+                    ->trim('_')
+                    ->value();
+
+                return $normalized !== '' ? $normalized : $part;
+            })
+            ->join('_');
+
+        $stem = Str::limit($stem ?: $fallback, 80, '');
+        $stem = trim($stem, '_');
+
+        return $stem !== '' ? $stem : $fallback;
+    }
+
+    protected static function nextAvailableName(string $directory, string $stem, string $extension): string
+    {
+        $disk = Storage::disk('public');
+        $base = trim($stem, '_');
+        $candidate = "{$base}.{$extension}";
+
+        if (!$disk->exists("{$directory}/{$candidate}")) {
+            return $candidate;
+        }
+
+        for ($i = 1; $i <= 99; $i++) {
+            $candidate = sprintf('%s_%02d.%s', $base, $i, $extension);
+            if (!$disk->exists("{$directory}/{$candidate}")) {
+                return $candidate;
+            }
+        }
+
+        return sprintf('%s_%s.%s', $base, Str::lower(Str::random(6)), $extension);
     }
 }

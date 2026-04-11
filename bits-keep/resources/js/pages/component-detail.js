@@ -12,9 +12,14 @@ export default function setup() {
     const loading    = ref(true);
     const loadError  = ref('');
     const sections   = reactive({ basic: true, detail: true, custom: true });
+    const categories = ref([]);
+    const packages = ref([]);
+    const specTypes = ref([]);
+    const suppliers = ref([]);
+    const locations = ref([]);
 
     // 編集モーダル
-    const editModal  = ref({ open: false, section: '', title: '', form: {} });
+    const editModal  = ref({ open: false, section: '', title: '', form: {}, useFullSave: false });
     // 出庫モーダル
     const stockOutModal = ref({ open: false, blockId: null, maxQty: 0, qty: 1, projectId: '', note: '' });
     // 入庫モーダル（在庫追加）
@@ -43,6 +48,25 @@ export default function setup() {
         }
     };
 
+    const fetchMasters = async () => {
+        try {
+            const [categoryRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
+                api.get('/categories'),
+                api.get('/packages'),
+                api.get('/spec-types'),
+                api.get('/suppliers'),
+                api.get('/locations'),
+            ]);
+            categories.value = categoryRes.data ?? [];
+            packages.value = packageRes.data ?? [];
+            specTypes.value = specTypeRes.data ?? [];
+            suppliers.value = supplierRes.data ?? [];
+            locations.value = locationRes.data ?? [];
+        } catch {
+            toastError('編集用の候補取得に失敗しました');
+        }
+    };
+
     // セクション別編集モーダルを開く
     const openEdit = (section) => {
         const p = part.value;
@@ -54,20 +78,34 @@ export default function setup() {
                     common_name: p.common_name ?? '', description: p.description ?? '',
                     procurement_status: p.procurement_status,
                     threshold_new: p.threshold_new, threshold_used: p.threshold_used,
+                    primary_location_id: p.primary_location_id ?? '',
                     category_ids: p.categories.map(c => c.id),
                     package_ids:  p.packages.map(pk => pk.id),
                 },
             },
             specs: {
                 title: 'スペックを編集',
-                form: { specs: p.specs.map(s => ({ ...s })) },
+                form: { specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric ?? '' })) },
             },
             suppliers: {
                 title: '仕入先情報を編集',
-                form: { suppliers: p.component_suppliers.map(cs => ({ ...cs, price_breaks: [...(cs.price_breaks ?? [])] })) },
+                form: { suppliers: p.component_suppliers.map(cs => ({
+                    supplier_id: cs.supplier_id,
+                    supplier_part_number: cs.supplier_part_number ?? '',
+                    product_url: cs.product_url ?? '',
+                    unit_price: cs.unit_price ?? '',
+                    is_preferred: !!cs.is_preferred,
+                    price_breaks: (cs.price_breaks ?? []).map(pb => ({ min_qty: pb.min_qty, unit_price: pb.unit_price })),
+                })) },
             },
         };
-        editModal.value = { open: true, section, ...forms[section] };
+        editModal.value = { open: true, section, useFullSave: false, ...forms[section] };
+    };
+
+    const openFullEdit = () => {
+        openEdit('basic');
+        editModal.value.useFullSave = true;
+        editModal.value.title = '部品全体を編集';
     };
 
     // セクション保存（PATCH）
@@ -156,7 +194,9 @@ export default function setup() {
         }
     };
 
-    onMounted(fetchPart);
+    onMounted(async () => {
+        await Promise.all([fetchPart(), fetchMasters()]);
+    });
 
     const preferredSupplier = computed(() => {
         const suppliers = part.value?.component_suppliers ?? [];
@@ -177,11 +217,12 @@ export default function setup() {
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
+        categories, packages, specTypes, suppliers, locations,
         preferredSupplier, stockSummary, recentTransactions,
-        editModal, openEdit, saveSection, saveAll,
+        editModal, openEdit, openFullEdit, saveSection, saveAll,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
         deletePart,
-        similarParts, similarLoading, similarError, fetchSimilar,
+        similarParts, similarLoading, similarError, fetchSimilar, fetchPart,
     };
 }

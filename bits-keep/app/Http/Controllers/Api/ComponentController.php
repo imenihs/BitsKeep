@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreComponentRequest;
 use App\Http\Requests\UpdateComponentSectionRequest;
 use App\Http\Responses\ApiResponse;
+use App\Models\Category;
 use App\Models\Component;
 use App\Support\FileStorage;
 use Illuminate\Http\Request;
@@ -98,17 +99,25 @@ class ComponentController extends Controller
 
             // ファイル保存
             if ($request->hasFile('image')) {
-                $data['image_path'] = FileStorage::storeComponentImage($request->file('image'));
+                $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
+                    $request->input('part_number'),
+                    $request->input('common_name'),
+                    $this->firstCategoryName((array) $request->input('category_ids', [])),
+                ]);
             }
             if ($request->hasFile('datasheet')) {
-                $data['datasheet_path'] = FileStorage::storeDatasheet($request->file('datasheet'));
+                $data['datasheet_path'] = FileStorage::storeComponentDatasheetNamed($request->file('datasheet'), [
+                    $request->input('part_number'),
+                    $request->input('common_name'),
+                    $this->firstCategoryName((array) $request->input('category_ids', [])),
+                ]);
             }
 
             $component = Component::create($data);
             $this->syncRelations($component, $request);
 
             return ApiResponse::created($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks'])
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation'])
             ));
         });
     }
@@ -124,6 +133,7 @@ class ComponentController extends Controller
             'attributes',
             'componentSuppliers.supplier', 'componentSuppliers.priceBreaks',
             'inventoryBlocks.location',
+            'primaryLocation',
             'transactions' => fn ($q) => $q->latest()->limit(20),
             'projects',
             'altiumLink',
@@ -143,18 +153,26 @@ class ComponentController extends Controller
 
             if ($request->hasFile('image')) {
                 FileStorage::delete($component->image_path);
-                $data['image_path'] = FileStorage::storeComponentImage($request->file('image'));
+                $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
+                    $request->input('part_number', $component->part_number),
+                    $request->input('common_name', $component->common_name),
+                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                ]);
             }
             if ($request->hasFile('datasheet')) {
                 FileStorage::delete($component->datasheet_path);
-                $data['datasheet_path'] = FileStorage::storeDatasheet($request->file('datasheet'));
+                $data['datasheet_path'] = FileStorage::storeComponentDatasheetNamed($request->file('datasheet'), [
+                    $request->input('part_number', $component->part_number),
+                    $request->input('common_name', $component->common_name),
+                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                ]);
             }
 
             $component->update($data);
             $this->syncRelations($component, $request);
 
             return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier'])
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation'])
             ));
         });
     }
@@ -173,11 +191,19 @@ class ComponentController extends Controller
                     $data = $request->safe()->except(['image', 'datasheet', 'category_ids', 'package_ids']);
                     if ($request->hasFile('image')) {
                         FileStorage::delete($component->image_path);
-                        $data['image_path'] = FileStorage::storeComponentImage($request->file('image'));
+                        $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
+                            $request->input('part_number', $component->part_number),
+                            $request->input('common_name', $component->common_name),
+                            $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                        ]);
                     }
                     if ($request->hasFile('datasheet')) {
                         FileStorage::delete($component->datasheet_path);
-                        $data['datasheet_path'] = FileStorage::storeDatasheet($request->file('datasheet'));
+                        $data['datasheet_path'] = FileStorage::storeComponentDatasheetNamed($request->file('datasheet'), [
+                            $request->input('part_number', $component->part_number),
+                            $request->input('common_name', $component->common_name),
+                            $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                        ]);
                     }
                     $component->update($data);
                     if ($request->has('category_ids')) {
@@ -212,7 +238,7 @@ class ComponentController extends Controller
             }
 
             return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks'])
+                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation'])
             ));
         });
     }
@@ -281,5 +307,18 @@ class ComponentController extends Controller
         $component->datasheet_url = FileStorage::url($component->datasheet_path);
 
         return $component;
+    }
+
+    private function firstCategoryName(array $categoryIds): ?string
+    {
+        if ($categoryIds === []) {
+            return null;
+        }
+
+        return Category::query()
+            ->whereIn('id', $categoryIds)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->value('name');
     }
 }

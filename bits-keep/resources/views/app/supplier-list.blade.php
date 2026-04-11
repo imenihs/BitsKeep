@@ -8,22 +8,27 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($isAdmin = auth()->user()->isAdmin())
+@include('partials.app-header', ['current' => '商社管理'])
 <div id="app" data-page="supplier-list" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>マスタ管理</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">商社管理</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => 'マスタ管理', 'url' => route('master.index')],
+    ['label' => '商社管理', 'current' => true],
+  ]])
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <div>
       <h1 class="text-2xl font-bold">商社管理</h1>
       <p class="text-sm opacity-60 mt-1">発注先・仕入先の登録・編集</p>
     </div>
-    <button @click="openAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ 新規追加</button>
+    @if ($isAdmin)
+    <button @click="openAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + 新規追加</button>
+    @else
+    <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
+      <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ 新規追加</span></div>
+      <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
+    </div>
+    @endif
   </header>
 
   <!-- 商社リスト -->
@@ -48,6 +53,9 @@
               <span class="w-3 h-3 rounded-full inline-block flex-shrink-0"
                 :style="{ backgroundColor: s.color || '#2563eb' }"></span>
               <span class="font-medium">@{{ s.name }}</span>
+              <span v-if="s.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                アーカイブ済み
+              </span>
             </div>
           </td>
           <td class="py-2 pr-4">
@@ -61,16 +69,23 @@
           <td class="py-2 pr-4 text-right">
             @{{ s.free_shipping_threshold != null ? '¥' + Number(s.free_shipping_threshold).toLocaleString() : '-' }}
           </td>
-          <td class="py-2 pr-4 text-xs opacity-70 max-w-xs truncate">@{{ s.note || '-' }}</td>
+          <td class="py-2 pr-4 text-xs opacity-70 max-w-xs">
+            <div class="truncate">@{{ s.note || '-' }}</div>
+            <div class="mt-1 opacity-60">使用件数: @{{ s.usage_count ?? 0 }}</div>
+          </td>
           <td class="py-2">
             <div class="flex gap-2">
               <button @click="openEdit(s)"
                 class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">
                 編集
               </button>
-              <button @click="deleteSupplier(s)"
-                class="px-2 py-1 text-xs border border-red-400 text-red-500 rounded hover:bg-red-50">
-                削除
+              <button v-if="!s.deleted_at" @click="archiveSupplier(s)"
+                class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">
+                アーカイブ
+              </button>
+              <button v-else @click="restoreSupplier(s)"
+                class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">
+                復元
               </button>
             </div>
           </td>
@@ -141,9 +156,14 @@
     <div v-for="t in toasts" :key="t.id"
       :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
       class="text-white px-4 py-2 rounded shadow-lg text-sm">
-      @{{ t.message }}
+      @{{ t.msg }}
     </div>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => 'マスタ管理', 'url' => route('master.index')],
+    ['label' => '商社管理', 'current' => true],
+  ], 'class' => 'mt-6'])
 
 </div>
 </body>

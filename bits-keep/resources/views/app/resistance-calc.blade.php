@@ -8,13 +8,9 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@include('partials.app-header', ['current' => 'ネットワーク探索'])
 <div id="app" data-page="resistance-calc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">ネットワーク探索</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ネットワーク探索', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">🔌 抵抗/容量ネットワーク探索</h1>
@@ -223,6 +219,7 @@
     </div>
 
   </div>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ネットワーク探索', 'current' => true]], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

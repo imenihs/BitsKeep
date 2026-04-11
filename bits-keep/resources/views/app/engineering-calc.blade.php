@@ -8,15 +8,9 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@include('partials.app-header', ['current' => 'エンジニア電卓'])
 <div id="app" data-page="engineering-calc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
-
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span>ツール</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">エンジニア電卓</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニア電卓', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">エンジニア電卓</h1>
@@ -239,6 +233,8 @@ vin * r2 / (r1 + r2)"></textarea>
       </template>
     </section>
   </div>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニア電卓', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

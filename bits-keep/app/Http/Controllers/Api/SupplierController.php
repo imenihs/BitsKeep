@@ -6,12 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSupplierRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Supplier;
+use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return ApiResponse::success(Supplier::orderBy('name')->get());
+        $query = Supplier::query()->withCount('componentSuppliers as usage_count');
+        if ($request->boolean('include_archived')) {
+            $query->withTrashed();
+        }
+        $suppliers = $query->orderBy('name')->get()->map(function (Supplier $supplier) {
+            $supplier->can_force_delete = (bool) $supplier->deleted_at && $supplier->usage_count === 0;
+            $supplier->force_delete_reason = $supplier->can_force_delete ? '' : ($supplier->usage_count > 0 ? "仕入先{$supplier->usage_count}件で使用中" : '先に取引停止してください');
+            return $supplier;
+        });
+
+        return ApiResponse::success($suppliers);
     }
 
     public function store(StoreSupplierRequest $request)
@@ -32,10 +43,15 @@ class SupplierController extends Controller
 
     public function destroy(Supplier $supplier)
     {
-        if ($supplier->componentSuppliers()->exists()) {
-            return ApiResponse::error('この商社は部品に使用されているため削除できません。', [], 409);
-        }
         $supplier->delete();
         return ApiResponse::noContent();
+    }
+
+    public function restore(int $supplier)
+    {
+        $model = Supplier::withTrashed()->findOrFail($supplier);
+        $model->restore();
+
+        return ApiResponse::success($model);
     }
 }

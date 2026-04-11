@@ -22,7 +22,7 @@ export default function setup() {
     });
 
     const fetchCategories = async () => {
-        try { const r = await api.get('/categories'); categories.value = r.data; }
+        try { const r = await api.get('/categories?include_archived=1'); categories.value = r.data; }
         catch { toastError('分類の取得に失敗しました'); }
     };
 
@@ -39,9 +39,14 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    const deleteCategory = async (c) => {
-        if (!confirm(`「${c.name}」を削除しますか？`)) return;
-        try { await api.delete(`/categories/${c.id}`); await fetchCategories(); toastSuccess('削除しました'); }
+    const archiveCategory = async (c) => {
+        if (!confirm(`「${c.name}」をアーカイブしますか？\n使用件数: ${c.usage_count ?? 0}件`)) return;
+        try { await api.delete(`/categories/${c.id}`); await fetchCategories(); toastSuccess('アーカイブしました'); }
+        catch (e) { toastError(e.message); }
+    };
+    const restoreCategory = async (c) => {
+        if (!confirm(`「${c.name}」を復元しますか？`)) return;
+        try { await api.post(`/categories/${c.id}/restore`); await fetchCategories(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
 
@@ -53,7 +58,7 @@ export default function setup() {
     });
 
     const fetchPackages = async () => {
-        try { const r = await api.get('/packages'); packages.value = r.data; }
+        try { const r = await api.get('/packages?include_archived=1'); packages.value = r.data; }
         catch { toastError('パッケージの取得に失敗しました'); }
     };
 
@@ -70,9 +75,14 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    const deletePackage = async (p) => {
-        if (!confirm(`「${p.name}」を削除しますか？`)) return;
-        try { await api.delete(`/packages/${p.id}`); await fetchPackages(); toastSuccess('削除しました'); }
+    const archivePackage = async (p) => {
+        if (!confirm(`「${p.name}」をアーカイブしますか？\n使用件数: ${p.usage_count ?? 0}件`)) return;
+        try { await api.delete(`/packages/${p.id}`); await fetchPackages(); toastSuccess('アーカイブしました'); }
+        catch (e) { toastError(e.message); }
+    };
+    const restorePackage = async (p) => {
+        if (!confirm(`「${p.name}」を復元しますか？`)) return;
+        try { await api.post(`/packages/${p.id}/restore`); await fetchPackages(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
 
@@ -80,27 +90,23 @@ export default function setup() {
     const specTypes = ref([]);
     const stModal = reactive({
         open: false, isEdit: false, editId: null,
-        form: { name: '', description: '', value_type: 'numeric', sort_order: 0, units: [] }
+        form: { name: '', description: '', value_type: 'numeric', sort_order: 0, unit: '' }
     });
 
     const fetchSpecTypes = async () => {
-        try { const r = await api.get('/spec-types'); specTypes.value = r.data; }
+        try { const r = await api.get('/spec-types?include_archived=1'); specTypes.value = r.data; }
         catch { toastError('スペック種別の取得に失敗しました'); }
     };
 
     const openStAdd = () => Object.assign(stModal, { open: true, isEdit: false, editId: null,
-        form: { name: '', description: '', value_type: 'numeric', sort_order: 0, units: [] } });
+        form: { name: '', description: '', value_type: 'numeric', sort_order: 0, unit: '' } });
     const openStEdit = (s) => Object.assign(stModal, { open: true, isEdit: true, editId: s.id,
         form: {
             name: s.name, description: s.description ?? '',
             value_type: s.value_type ?? 'numeric',
             sort_order: s.sort_order ?? 0,
-            units: (s.units ?? []).map(u => ({ unit: u.unit, factor: u.factor, sort_order: u.sort_order }))
+            unit: s.units?.[0]?.unit ?? '',
         } });
-
-    // 単位の追加/削除
-    const addUnit = () => stModal.form.units.push({ unit: '', factor: 1, sort_order: stModal.form.units.length });
-    const removeUnit = (i) => stModal.form.units.splice(i, 1);
 
     const saveSpecType = async () => {
         try {
@@ -111,9 +117,14 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    const deleteSpecType = async (s) => {
-        if (!confirm(`「${s.name}」を削除しますか？`)) return;
-        try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); toastSuccess('削除しました'); }
+    const archiveSpecType = async (s) => {
+        if (!confirm(`「${s.name}」をアーカイブしますか？\n使用件数: ${s.usage_count ?? 0}件`)) return;
+        try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); toastSuccess('アーカイブしました'); }
+        catch (e) { toastError(e.message); }
+    };
+    const restoreSpecType = async (s) => {
+        if (!confirm(`「${s.name}」を復元しますか？`)) return;
+        try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
 
@@ -133,10 +144,10 @@ export default function setup() {
     return {
         toasts, activeTab, switchTab,
         // 分類
-        categories, catModal, openCatAdd, openCatEdit, saveCategory, deleteCategory,
+        categories, catModal, openCatAdd, openCatEdit, saveCategory, archiveCategory, restoreCategory,
         // パッケージ
-        packages, pkgModal, openPkgAdd, openPkgEdit, savePackage, deletePackage,
+        packages, pkgModal, openPkgAdd, openPkgEdit, savePackage, archivePackage, restorePackage,
         // スペック種別
-        specTypes, stModal, openStAdd, openStEdit, saveSpecType, deleteSpecType, addUnit, removeUnit,
+        specTypes, stModal, openStAdd, openStEdit, saveSpecType, archiveSpecType, restoreSpecType,
     };
 }

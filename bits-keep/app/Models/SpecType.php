@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SpecType extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = ['name', 'base_unit', 'description', 'sort_order'];
 
     // 単位候補

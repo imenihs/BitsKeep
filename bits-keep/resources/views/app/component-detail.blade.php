@@ -8,16 +8,13 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@include('partials.app-header', ['current' => '部品詳細'])
 <div id="app" data-page="component-detail" data-id="{{ $id }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
 
-  <!-- パンくず -->
-  <nav class="breadcrumb mb-4">
-    @include('partials.brand-home-link')
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <a href="{{ route('components.index') }}">部品管理</a>
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="current">部品詳細</span>
-  </nav>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => '部品一覧', 'url' => route('components.index')],
+    ['label' => '部品詳細', 'current' => true],
+  ]])
 
   <div v-if="loading" class="text-center py-20 opacity-40">読み込み中...</div>
 
@@ -28,7 +25,7 @@
         <h1 class="text-2xl font-bold">@{{ part.common_name || part.part_number }}</h1>
         <p class="text-sm opacity-60 font-mono mt-0.5">@{{ part.part_number }}@{{ part.manufacturer ? ' / ' + part.manufacturer : '' }}</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2 justify-end">
         <button @click="stockOutModal.open = true"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           出庫する
@@ -37,18 +34,23 @@
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           類似部品を探す
         </a>
-        <button @click="openEdit('basic'); editModal.section='ALL'"
+        <button @click="openFullEdit"
           class="btn btn-primary flex items-center gap-1 px-4 py-2 rounded text-sm">
           全体編集
         </button>
-        <button @click="stockInModal.open = true"
+        <button @click="stockInModal.form.location_id = part.primary_location_id || ''; stockInModal.open = true"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           入庫
+        </button>
+        <button @click="deletePart"
+          class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-tag-eol)] text-[var(--color-tag-eol)] text-sm hover:bg-red-50 transition-colors">
+          削除
         </button>
       </div>
     </header>
 
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <div class="grid gap-4 xl:grid-cols-[1.1fr_1.2fr_1fr]">
+    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.basic = !sections.basic" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.basic ? '▾' : '▸' }}</span>
@@ -98,12 +100,13 @@
             </span>
           </div>
           <div><span class="list-label">発注点</span><span class="list-value ml-2">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span></div>
+          <div><span class="list-label">代表保管棚</span><span class="list-value ml-2">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span></div>
         </div>
       </div>
       <div v-show="sections.basic && part.description" class="mt-3 text-sm opacity-70">@{{ part.description }}</div>
     </section>
 
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.detail = !sections.detail" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.detail ? '▾' : '▸' }}</span>
@@ -228,7 +231,7 @@
       </div>
     </section>
 
-    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4">
+    <section class="mb-4 bg-[var(--color-card-even)] rounded-lg border border-[var(--color-border)] p-4 xl:mb-0">
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.custom = !sections.custom" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.custom ? '▾' : '▸' }}</span>
@@ -262,6 +265,7 @@
         </div>
       </div>
     </section>
+    </div>
   </template>
 
   <div v-else class="notice-card notice-card-error py-8 px-6">
@@ -320,6 +324,13 @@
           <input v-model.number="stockInModal.form.quantity" type="number" min="1" class="input-text w-full" />
         </div>
         <div>
+          <label class="block text-xs font-semibold mb-1">入庫先棚</label>
+          <select v-model="stockInModal.form.location_id" class="input-text w-full">
+            <option value="">未設定</option>
+            <option v-for="location in locations" :key="location.id" :value="location.id">@{{ location.code }} / @{{ location.name }}</option>
+          </select>
+        </div>
+        <div>
           <label class="block text-xs font-semibold mb-1">ロット番号</label>
           <input v-model="stockInModal.form.lot_number" type="text" class="input-text w-full" placeholder="任意" />
         </div>
@@ -332,9 +343,108 @@
           <input v-model="stockInModal.form.note" type="text" class="input-text w-full" placeholder="任意" />
         </div>
       </div>
-      <div class="flex justify-end gap-2 mt-5">
-        <button @click="stockInModal.open = false" class="btn text-sm">キャンセル</button>
-        <button @click="submitStockIn" class="btn btn-primary text-sm">入庫する</button>
+      <div class="flex justify-end gap-3 mt-5">
+        <button @click="stockInModal.open = false" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button @click="submitStockIn" class="btn btn-primary text-sm px-5 py-3 rounded">入庫する</button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="editModal.open" class="modal-overlay" @click.self="editModal.open = false">
+    <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>
+        <button @click="editModal.open = false" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+
+      <div v-if="editModal.section === 'basic'" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input v-model="editModal.form.part_number" type="text" class="input-text w-full" placeholder="型番" />
+          <input v-model="editModal.form.manufacturer" type="text" class="input-text w-full" placeholder="メーカー" />
+          <input v-model="editModal.form.common_name" type="text" class="input-text w-full" placeholder="通称" />
+          <select v-model="editModal.form.procurement_status" class="input-text w-full">
+            <option v-for="option in procurementOptions" :key="option.value" :value="option.value">@{{ option.label }}</option>
+          </select>
+          <input v-model.number="editModal.form.threshold_new" type="number" min="0" class="input-text w-full" placeholder="発注点 新品" />
+          <input v-model.number="editModal.form.threshold_used" type="number" min="0" class="input-text w-full" placeholder="発注点 中古" />
+        </div>
+        <textarea v-model="editModal.form.description" class="input-text w-full h-24" placeholder="説明"></textarea>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1">分類</label>
+            <div class="flex flex-wrap gap-2">
+              <label v-for="category in categories" :key="category.id" class="inline-flex items-center gap-2 text-sm">
+                <input v-model="editModal.form.category_ids" :value="category.id" type="checkbox" />
+                <span>@{{ category.name }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">パッケージ</label>
+            <div class="flex flex-wrap gap-2">
+              <label v-for="pkg in packages" :key="pkg.id" class="inline-flex items-center gap-2 text-sm">
+                <input v-model="editModal.form.package_ids" :value="pkg.id" type="checkbox" />
+                <span>@{{ pkg.name }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">代表保管棚</label>
+          <select v-model="editModal.form.primary_location_id" class="input-text w-full">
+            <option value="">未設定</option>
+            <option v-for="location in locations" :key="location.id" :value="location.id">@{{ location.code }} / @{{ location.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div v-else-if="editModal.section === 'specs'" class="space-y-3">
+        <div v-for="(spec, index) in editModal.form.specs" :key="index" class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr_auto] gap-2 items-center">
+          <select v-model="spec.spec_type_id" class="input-text w-full">
+            <option value="">-- 種別 --</option>
+            <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
+          </select>
+          <input v-model="spec.value" type="text" class="input-text w-full" placeholder="値" />
+          <input v-model="spec.unit" type="text" class="input-text w-full" placeholder="単位" />
+          <input v-model="spec.value_numeric" type="number" step="any" class="input-text w-full" placeholder="数値化" />
+          <button @click="editModal.form.specs.splice(index, 1)" class="text-[var(--color-tag-eol)] px-2">✕</button>
+        </div>
+        <button @click="editModal.form.specs.push({ spec_type_id: '', value: '', unit: '', value_numeric: '' })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ スペック追加</button>
+      </div>
+
+      <div v-else-if="editModal.section === 'suppliers'" class="space-y-3">
+        <div v-for="(supplier, index) in editModal.form.suppliers" :key="index" class="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-card-even)]">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select v-model="supplier.supplier_id" class="input-text w-full">
+              <option value="">-- 商社 --</option>
+              <option v-for="item in suppliers" :key="item.id" :value="item.id">@{{ item.name }}</option>
+            </select>
+            <input v-model="supplier.supplier_part_number" type="text" class="input-text w-full" placeholder="商社型番" />
+            <input v-model="supplier.product_url" type="url" class="input-text w-full" placeholder="商品URL" />
+            <input v-model="supplier.unit_price" type="number" step="0.01" class="input-text w-full" placeholder="単価" />
+          </div>
+          <label class="mt-3 inline-flex items-center gap-2 text-sm">
+            <input v-model="supplier.is_preferred" type="checkbox" />
+            <span>優先商社</span>
+          </label>
+          <div class="mt-3 space-y-2">
+            <div v-for="(pb, pbIndex) in supplier.price_breaks" :key="pbIndex" class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+              <input v-model="pb.min_qty" type="number" min="1" class="input-text w-full" placeholder="数量以上" />
+              <input v-model="pb.unit_price" type="number" step="0.01" class="input-text w-full" placeholder="単価" />
+              <button @click="supplier.price_breaks.splice(pbIndex, 1)" class="text-[var(--color-tag-eol)] px-2">✕</button>
+            </div>
+            <button @click="supplier.price_breaks.push({ min_qty: 1, unit_price: '' })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ 価格ブレーク追加</button>
+          </div>
+          <div class="mt-3">
+            <button @click="editModal.form.suppliers.splice(index, 1)" class="text-[var(--color-tag-eol)] text-sm">この商社を削除</button>
+          </div>
+        </div>
+        <button @click="editModal.form.suppliers.push({ supplier_id: '', supplier_part_number: '', product_url: '', unit_price: '', is_preferred: false, price_breaks: [] })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ 商社追加</button>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-6">
+        <button @click="editModal.open = false" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button @click="editModal.useFullSave ? saveAll() : saveSection()" class="btn btn-primary text-sm px-5 py-3 rounded">保存</button>
       </div>
     </div>
   </div>
@@ -347,6 +457,10 @@
       @{{ t.msg }}
     </div>
   </div>
+  @include('partials.app-breadcrumbs', ['items' => [
+    ['label' => '部品一覧', 'url' => route('components.index')],
+    ['label' => '部品詳細', 'current' => true],
+  ], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

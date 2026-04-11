@@ -5,17 +5,42 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLocationRequest;
 use App\Http\Responses\ApiResponse;
+use App\Models\Component;
 use App\Models\Location;
 use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         // グループ→sort_order順で返す。在庫数は inventory_blocks から集計
-        $locations = Location::withCount(['inventoryBlocks as stock_count' => fn($q) => $q->selectRaw('sum(quantity)')])
+        $query = Location::withCount([
+            'inventoryBlocks as stock_count' => fn($q) => $q->selectRaw('coalesce(sum(quantity), 0)'),
+            'inventoryBlocks as inventory_block_count',
+            'children as child_count',
+        ]);
+        if ($request->boolean('include_archived')) {
+            $query->withTrashed();
+        }
+        $locations = $query
             ->orderBy('group')->orderBy('sort_order')->orderBy('code')
-            ->get();
+            ->get()
+            ->map(function (Location $location) {
+                $primaryRefs = Component::where('primary_location_id', $location->id)->count();
+                $location->primary_component_count = $primaryRefs;
+                $location->can_force_delete = (bool) $location->deleted_at
+                    && $location->inventory_block_count === 0
+                    && $location->child_count === 0
+                    && $primaryRefs === 0;
+                $location->force_delete_reason = $location->can_force_delete
+                    ? ''
+                    : ($location->inventory_block_count > 0
+                        ? "在庫ブロック{$location->inventory_block_count}件が残っています"
+                        : ($location->child_count > 0
+                            ? "子棚{$location->child_count}件が残っています"
+                            : ($primaryRefs > 0 ? "代表保管棚として{$primaryRefs}件で使用中" : '先に廃止してください')));
+                return $location;
+            });
         return ApiResponse::success($locations);
     }
 
@@ -38,11 +63,16 @@ class LocationController extends Controller
 
     public function destroy(Location $location)
     {
-        if ($location->inventoryBlocks()->where('quantity', '>', 0)->exists()) {
-            return ApiResponse::error('在庫のある棚は削除できません。', [], 409);
-        }
         $location->delete();
         return ApiResponse::noContent();
+    }
+
+    public function restore(int $location)
+    {
+        $model = Location::withTrashed()->findOrFail($location);
+        $model->restore();
+
+        return ApiResponse::success($model);
     }
 
     /**

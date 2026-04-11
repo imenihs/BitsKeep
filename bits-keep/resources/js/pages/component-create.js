@@ -1,4 +1,4 @@
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
@@ -14,6 +14,7 @@ export default function setup() {
     const packages   = ref([]);
     const specTypes  = ref([]);
     const suppliers  = ref([]);
+    const locations  = ref([]);
     const manufacturerOptions = ref([]);
 
     // ── フォーム ──────────────────────────────────────────
@@ -21,6 +22,7 @@ export default function setup() {
         part_number: '', manufacturer: '', common_name: '', description: '',
         procurement_status: 'active',
         threshold_new: 0, threshold_used: 0,
+        primary_location_id: '',
         category_ids: [], package_ids: [],
         specs: [],       // [{ spec_type_id, value, unit, value_numeric }]
         supplierRows: [], // [{ supplier_id, supplier_part_number, product_url, unit_price, is_preferred, price_breaks:[] }]
@@ -33,7 +35,10 @@ export default function setup() {
     const currentDatasheetName = ref('');
 
     const saving = ref(false);
-    useNavigationConfirm(saving, '登録処理中です。このまま画面を離れてもよいですか？');
+    const dirty = ref(false);
+    const initialSnapshot = ref('');
+    const masterLoadError = ref('');
+    useNavigationConfirm(dirty, '未保存の入力があります。このまま画面を離れてもよいですか？');
     const manufacturerQuery = ref('');
     const categoryQuery = ref('');
     const packageQuery = ref('');
@@ -66,6 +71,7 @@ export default function setup() {
         if (!q) return false;
         return !packages.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
     });
+    const canCreateSupplier = computed(() => appEl?.dataset?.canCreateSupplier === '1');
 
     const syncManufacturerQuery = () => {
         manufacturerQuery.value = form.manufacturer ?? '';
@@ -154,6 +160,7 @@ export default function setup() {
         return suppliers.value.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 8);
     };
     const canCreateSupplierForRow = (row) => {
+        if (!canCreateSupplier.value) return false;
         const q = (row.supplier_name ?? '').trim();
         if (!q) return false;
         return !suppliers.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
@@ -207,6 +214,7 @@ export default function setup() {
         payload.append('procurement_status', form.procurement_status ?? 'active');
         payload.append('threshold_new', String(form.threshold_new ?? 0));
         payload.append('threshold_used', String(form.threshold_used ?? 0));
+        payload.append('primary_location_id', form.primary_location_id ? String(form.primary_location_id) : '');
 
         form.category_ids.forEach((categoryId, index) => {
             payload.append(`category_ids[${index}]`, String(categoryId));
@@ -252,10 +260,12 @@ export default function setup() {
             if (isEdit) {
                 await api.uploadPut(`/components/${editId}`, payload);
                 toastSuccess('更新しました');
+                dirty.value = false;
                 setTimeout(() => { location.href = `/components/${editId}`; }, 800);
             } else {
                 const res = await api.upload('/components', payload);
                 toastSuccess('登録しました');
+                dirty.value = false;
                 setTimeout(() => { location.href = `/components/${res.data.id}`; }, 800);
             }
         } catch (e) {
@@ -267,16 +277,21 @@ export default function setup() {
 
     // ── 初期ロード ────────────────────────────────────────
     onMounted(async () => {
-        const [catRes, pkgRes, stRes, supRes, compRes] = await Promise.all([
+        const [catRes, pkgRes, stRes, supRes, compRes, locRes] = await Promise.all([
             api.get('/categories'), api.get('/packages'),
             api.get('/spec-types'), api.get('/suppliers'),
             api.get('/components?per_page=100'),
-        ]).catch(() => [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: { data: [] } }]);
+            api.get('/locations'),
+        ]).catch(() => {
+            masterLoadError.value = '初期データの取得に失敗しました。再読込するか、マスタ管理を確認してください。';
+            return [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: { data: [] } }, { data: [] }];
+        });
 
         categories.value = catRes.data ?? [];
         packages.value   = pkgRes.data ?? [];
         specTypes.value  = stRes.data  ?? [];
         suppliers.value  = supRes.data ?? [];
+        locations.value  = locRes.data ?? [];
         manufacturerOptions.value = normalizeUniqueNames((compRes.data?.data ?? []).map((item) => item.manufacturer));
 
         // 編集モードなら既存データをロード
@@ -289,6 +304,7 @@ export default function setup() {
                     common_name: p.common_name ?? '', description: p.description ?? '',
                     procurement_status: p.procurement_status,
                     threshold_new: p.threshold_new, threshold_used: p.threshold_used,
+                    primary_location_id: p.primary_location_id ?? '',
                     category_ids: p.categories.map(c => c.id),
                     package_ids:  p.packages.map(pk => pk.id),
                     specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric })),
@@ -309,10 +325,17 @@ export default function setup() {
         } else {
             syncManufacturerQuery();
         }
+
+        initialSnapshot.value = JSON.stringify(form);
     });
 
+    watch(form, () => {
+        if (!initialSnapshot.value || saving.value) return;
+        dirty.value = JSON.stringify(form) !== initialSnapshot.value || !!imageFile.value || !!datasheetFile.value;
+    }, { deep: true });
+
     return {
-        toasts, isEdit, form, saving,
+        toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,
         imagePreviewUrl, currentImageUrl, currentDatasheetUrl, currentDatasheetName, datasheetFile,
         categories, packages, specTypes, suppliers,
         manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
