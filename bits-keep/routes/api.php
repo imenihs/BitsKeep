@@ -55,7 +55,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::patch(
         'components/{component}/{section}',
         [ComponentController::class, 'updateSection']
-    )->where('section', 'basic|specs|suppliers');
+    )->where('section', 'basic|specs|suppliers|attributes');
 
     // 入出庫
     Route::get( 'components/{component}/transactions', [TransactionController::class, 'index']);
