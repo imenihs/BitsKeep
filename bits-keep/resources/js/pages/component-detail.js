@@ -188,6 +188,22 @@ export default function setup() {
         finally { similarLoading.value = false; }
     };
 
+    // ページURLをクリップボードにコピー
+    const copyLink = () => {
+        const url = location.href;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(url).then(() => toastSuccess('URLをコピーしました'));
+        } else {
+            const el = document.createElement('textarea');
+            el.value = url;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            toastSuccess('URLをコピーしました');
+        }
+    };
+
     // 論理削除
     const deletePart = async () => {
         if (!confirm('この部品を削除しますか？')) return;
@@ -228,7 +244,7 @@ export default function setup() {
         editModal, openEdit, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
-        deletePart,
+        copyLink, deletePart,
         similarParts, similarLoading, similarError, fetchSimilar, fetchPart,
     };
 }
