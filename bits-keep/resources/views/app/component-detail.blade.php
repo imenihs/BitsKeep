@@ -26,6 +26,10 @@
         <p class="text-sm opacity-60 font-mono mt-0.5">@{{ part.part_number }}@{{ part.manufacturer ? ' / ' + part.manufacturer : '' }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2 justify-end">
+        <button @click="navigator.clipboard.writeText(location.href).then(() => toastSuccess('URLをコピーしました'))"
+          class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
+          🔗 リンクコピー
+        </button>
         <button @click="stockOutModal.open = true"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           出庫する

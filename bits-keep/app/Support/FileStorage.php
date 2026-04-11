@@ -103,15 +103,13 @@ class FileStorage
         $stem = collect($parts)
             ->map(fn ($part) => trim((string) $part))
             ->filter()
-            ->map(function ($part) {
-                $normalized = Str::of($part)
-                    ->ascii()
-                    ->replaceMatches('/[^A-Za-z0-9_\-]+/', '_')
-                    ->trim('_')
-                    ->value();
-
-                return $normalized !== '' ? $normalized : $part;
-            })
+            ->map(fn ($part) => Str::of($part)
+                ->ascii()
+                ->replaceMatches('/[^A-Za-z0-9_\-]+/', '_')
+                ->trim('_')
+                ->value()
+            )
+            ->filter()  // ASCII変換で空になった部分（日本語など）を除外
             ->join('_');
 
         $stem = Str::limit($stem ?: $fallback, 80, '');
