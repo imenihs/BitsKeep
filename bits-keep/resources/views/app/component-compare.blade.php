@@ -180,7 +180,7 @@
     <a href="{{ route('components.index') }}" class="inline-block mt-4 btn-primary px-4 py-2 rounded">部品一覧へ</a>
   </div>
 
-  <div v-if="drawer.open" class="modal-overlay" @click.self="drawer.open = false">
+  <div v-if="drawer.open" class="modal-overlay">
     <div class="modal-window modal-md p-6">
       <div class="flex items-center justify-between gap-3">
         <div>
@@ -206,7 +206,7 @@
     </div>
   </div>
 
-  <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+  <div v-if="showAddModal" class="modal-overlay">
     <div class="modal-window modal-md p-6">
       <div class="flex items-center justify-between gap-3">
         <div>

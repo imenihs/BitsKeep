@@ -261,10 +261,12 @@ class ComponentController extends Controller
                     // 送信された attributes 配列で全置換
                     $component->customAttributes()->delete();
                     foreach ($request->input('attributes', []) as $attr) {
-                        if (trim($attr['key']) === '') continue;
+                        $key = trim((string) ($attr['key'] ?? ''));
+                        $value = trim((string) ($attr['value'] ?? ''));
+                        if ($key === '' || $value === '') continue;
                         $component->customAttributes()->create([
-                            'key'   => $attr['key'],
-                            'value' => $attr['value'] ?? null,
+                            'key'   => $key,
+                            'value' => $value,
                         ]);
                     }
                     $component->save();

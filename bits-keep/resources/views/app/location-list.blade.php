@@ -95,7 +95,7 @@
   <div v-if="!loading && Object.keys(grouped).length === 0" class="text-center py-20 opacity-40">棚が登録されていません</div>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="locationModal.open" class="modal-overlay" @click.self="closeModal">
+  <div v-if="locationModal.open" class="modal-overlay">
     <div class="modal-window modal-sm p-6">
       <h3 class="font-bold mb-4">@{{ locationModal.isEdit ? '棚を編集' : '棚を追加' }}</h3>
       <div class="space-y-3 text-sm">

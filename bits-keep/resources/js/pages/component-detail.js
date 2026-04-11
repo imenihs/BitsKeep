@@ -20,6 +20,7 @@ export default function setup() {
     const showAllTransactions = ref(false);
     const basicImageFile = ref(null);
     const basicDatasheetFiles = ref([]);
+    const editModalSnapshot = ref('');
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -111,6 +112,24 @@ export default function setup() {
             },
         };
         editModal.value = { open: true, section, ...forms[section] };
+        editModalSnapshot.value = JSON.stringify(editModal.value.form);
+    };
+
+    const closeEditModal = () => {
+        if (!editModal.value.open) return;
+
+        const currentSnapshot = JSON.stringify(editModal.value.form);
+        const hasFileSelection = !!basicImageFile.value || basicDatasheetFiles.value.length > 0;
+        const changed = currentSnapshot !== editModalSnapshot.value || hasFileSelection;
+
+        if (changed && !confirm('未保存の入力があります。このまま閉じますか？')) {
+            return;
+        }
+
+        editModal.value.open = false;
+        basicImageFile.value = null;
+        basicDatasheetFiles.value = [];
+        editModalSnapshot.value = '';
     };
 
     // セクション保存（PATCH / ファイルありの場合は multipart POST + _method=PATCH）
@@ -139,6 +158,7 @@ export default function setup() {
             editModal.value.open = false;
             basicImageFile.value = null;
             basicDatasheetFiles.value = [];
+            editModalSnapshot.value = '';
             await fetchPart();
         } catch (e) {
             console.error('[component-detail save failed]', e);
@@ -245,14 +265,41 @@ export default function setup() {
     const allTransactions = computed(() => part.value?.transactions ?? []);
     const displayedTransactions = computed(() => showAllTransactions.value ? allTransactions.value : allTransactions.value.slice(0, 5));
     const hasMoreTransactions = computed(() => allTransactions.value.length > 5);
+    const outgoingTransactions = computed(() => allTransactions.value.filter((tx) => tx.type === 'out'));
+    const incomingTransactions = computed(() => allTransactions.value.filter((tx) => tx.type === 'in'));
+    const formatTransactionTimestamp = (value) => {
+        if (!value) return '—';
+        return String(value).replace('T', ' ').substring(0, 19).replaceAll('-', '/');
+    };
+    const canSaveEditModal = computed(() => {
+        if (!editModal.value.open) return true;
+        if (editModal.value.section !== 'attributes') return true;
+
+        const attributes = editModal.value.form?.attributes ?? [];
+        const normalized = attributes
+            .map((attr) => ({
+                key: String(attr.key ?? '').trim(),
+                value: String(attr.value ?? '').trim(),
+            }))
+            .filter((attr) => attr.key !== '' || attr.value !== '');
+
+        if (normalized.length === 0) return false;
+        if (normalized.some((attr) => attr.key === '' || attr.value === '')) return false;
+
+        const keys = normalized.map((attr) => attr.key);
+        return new Set(keys).size === keys.length;
+    });
 
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
         categories, packages, specTypes, suppliers, locations,
         preferredSupplier, stockSummary, allTransactions, displayedTransactions, hasMoreTransactions, showAllTransactions,
+        outgoingTransactions, incomingTransactions,
+        formatTransactionTimestamp,
+        canSaveEditModal,
         basicImageFile, basicDatasheetFiles,
-        editModal, openEdit, saveSection,
+        editModal, openEdit, closeEditModal, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
         copyLink, deletePart,

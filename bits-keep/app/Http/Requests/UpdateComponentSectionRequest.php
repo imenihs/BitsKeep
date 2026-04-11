@@ -43,8 +43,8 @@ class UpdateComponentSectionRequest extends FormRequest
             ],
             'attributes' => [
                 'attributes'          => ['required', 'array'],
-                'attributes.*.key'   => ['required', 'string', 'max:100'],
-                'attributes.*.value' => ['nullable', 'string', 'max:500'],
+                'attributes.*.key'   => ['required', 'string', 'max:100', 'distinct'],
+                'attributes.*.value' => ['required', 'string', 'max:500'],
             ],
             'suppliers' => [
                 'suppliers'                          => ['required', 'array'],

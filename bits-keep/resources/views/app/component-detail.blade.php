@@ -175,14 +175,16 @@
                     </div>
                     <a v-if="cs.product_url" :href="cs.product_url" target="_blank" class="text-xs link-text">商品ページ</a>
                   </div>
-                  <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
-                    <div class="text-[11px] font-semibold opacity-60">商社型番</div>
-                    <div v-if="cs.supplier_part_number" class="font-mono text-sm mt-1">@{{ cs.supplier_part_number }}</div>
-                    <div v-else class="text-sm opacity-40 mt-1">未登録</div>
-                  </div>
-                  <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
-                    <div class="text-[11px] font-semibold opacity-60">基本価格</div>
-                    <div class="font-mono text-base mt-1">¥@{{ cs.unit_price != null ? Number(cs.unit_price).toLocaleString() : '—' }}</div>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
+                      <div class="text-[11px] font-semibold opacity-60">商社型番</div>
+                      <div v-if="cs.supplier_part_number" class="font-mono text-sm mt-1">@{{ cs.supplier_part_number }}</div>
+                      <div v-else class="text-sm opacity-40 mt-1">未登録</div>
+                    </div>
+                    <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
+                      <div class="text-[11px] font-semibold opacity-60">基本価格</div>
+                      <div class="font-mono text-base mt-1">¥@{{ cs.unit_price != null ? Number(cs.unit_price).toLocaleString() : '—' }}</div>
+                    </div>
                   </div>
                 </div>
                 <div class="space-y-2">
@@ -220,13 +222,37 @@
               <h3 class="text-sm font-semibold opacity-80">直近入出庫</h3>
               <div class="text-xs opacity-60 text-right">最新5件表示 / 取得済み @{{ allTransactions?.length ?? 0 }}件</div>
             </div>
-            <div class="space-y-1 text-xs">
-              <div v-for="tx in displayedTransactions" :key="tx.id" class="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <span class="tag text-[10px]" :class="tx.type === 'out' ? 'tag-warning' : 'tag-ok'">@{{ tx.type === 'out' ? '出庫' : '入庫' }}</span>
-                  <span class="opacity-70">@{{ tx.created_at?.substring(0, 10) }}</span>
+            <template v-if="showAllTransactions">
+              <div class="space-y-3 text-xs">
+                <div>
+                  <div class="text-[11px] font-semibold opacity-60 mb-2">出庫</div>
+                  <div v-if="outgoingTransactions.length" class="grid gap-2 sm:grid-cols-2">
+                    <div v-for="tx in outgoingTransactions" :key="tx.id" class="flex min-w-0 items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2">
+                      <span class="tag tag-warning text-[10px]">出庫</span>
+                      <span class="opacity-70">@{{ formatTransactionTimestamp(tx.created_at) }}</span>
+                      <span class="font-mono ml-auto">@{{ Math.abs(tx.quantity) }}個</span>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm opacity-40">出庫履歴なし</div>
                 </div>
-                <div class="font-mono">@{{ Math.abs(tx.quantity) }}個</div>
+                <div>
+                  <div class="text-[11px] font-semibold opacity-60 mb-2">入庫</div>
+                  <div v-if="incomingTransactions.length" class="grid gap-2 sm:grid-cols-2">
+                    <div v-for="tx in incomingTransactions" :key="tx.id" class="flex min-w-0 items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2">
+                      <span class="tag tag-ok text-[10px]">入庫</span>
+                      <span class="opacity-70">@{{ formatTransactionTimestamp(tx.created_at) }}</span>
+                      <span class="font-mono ml-auto">@{{ Math.abs(tx.quantity) }}個</span>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm opacity-40">入庫履歴なし</div>
+                </div>
+              </div>
+            </template>
+            <div v-else class="grid gap-2 sm:grid-cols-2 text-xs">
+              <div v-for="tx in displayedTransactions" :key="tx.id" class="flex min-w-0 items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2">
+                <span class="tag text-[10px]" :class="tx.type === 'out' ? 'tag-warning' : 'tag-ok'">@{{ tx.type === 'out' ? '出庫' : '入庫' }}</span>
+                <span class="opacity-70">@{{ formatTransactionTimestamp(tx.created_at) }}</span>
+                <span class="font-mono ml-auto">@{{ Math.abs(tx.quantity) }}個</span>
               </div>
               <div v-if="displayedTransactions.length === 0" class="text-sm opacity-40">直近入出庫なし</div>
             </div>
@@ -326,7 +352,7 @@
   </div>
 
   <!-- 出庫モーダル -->
-  <div v-if="stockOutModal.open" class="modal-overlay" @click.self="stockOutModal.open = false">
+  <div v-if="stockOutModal.open" class="modal-overlay">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-4">出庫</h3>
       <div class="space-y-3 text-sm">
@@ -348,7 +374,7 @@
   </div>
 
   <!-- 入庫モーダル -->
-  <div v-if="stockInModal.open" class="modal-overlay" @click.self="stockInModal.open = false">
+  <div v-if="stockInModal.open" class="modal-overlay">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-4">入庫</h3>
       <div class="space-y-3 text-sm">
@@ -398,11 +424,11 @@
     </div>
   </div>
 
-  <div v-if="editModal.open" class="modal-overlay" @click.self="editModal.open = false">
+  <div v-if="editModal.open" class="modal-overlay" @click.self="closeEditModal">
     <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>
-        <button @click="editModal.open = false" class="text-xl opacity-50 hover:opacity-100">✕</button>
+        <button @click="closeEditModal" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
 
       <div v-if="editModal.section === 'basic'" class="space-y-4">
@@ -526,8 +552,9 @@
       </div>
 
       <div class="flex justify-end gap-3 mt-6">
-        <button @click="editModal.open = false" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
-        <button @click="saveSection()" class="btn btn-primary text-sm px-5 py-3 rounded">保存</button>
+        <button @click="closeEditModal" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button @click="saveSection()" :disabled="!canSaveEditModal"
+          class="btn btn-primary text-sm px-5 py-3 rounded disabled:opacity-40 disabled:cursor-not-allowed">保存</button>
       </div>
     </div>
   </div>
