@@ -20,6 +20,48 @@
     <p class="text-sm opacity-60 mt-1">品名・型番・商社部品IDで検索し、複数部品を順に受け入れます</p>
   </header>
 
+  <section v-if="alertParts.length" class="card p-5 bg-[var(--color-card-odd)] mb-4 block">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="text-lg font-bold">要入庫候補</h2>
+        <div class="text-sm opacity-60 mt-1">在庫警告になっている部品から直接入庫できます</div>
+      </div>
+      <a href="{{ route('stock.alert') }}" class="text-sm no-underline hover:text-[var(--color-primary)] transition-colors">在庫警告を開く</a>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <button
+        v-for="part in alertParts"
+        :key="part.id"
+        type="button"
+        @click="choosePart(part)"
+        class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4 text-left hover:border-[var(--color-primary)] transition-colors">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
+            <div class="text-xs opacity-60 font-mono mt-1 truncate">@{{ part.part_number }}</div>
+          </div>
+          <span class="tag tag-warning text-xs shrink-0">不足</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <div class="text-[11px] opacity-50">新品在庫</div>
+            <div class="font-mono">@{{ part.quantity_new }}個</div>
+          </div>
+          <div>
+            <div class="text-[11px] opacity-50">発注点</div>
+            <div class="font-mono">@{{ part.threshold_new }}個</div>
+          </div>
+        </div>
+        <div class="mt-3 text-xs opacity-60">
+          推奨商社: @{{ part.cheapest_supplier?.name ?? '未設定' }}
+        </div>
+        <div class="mt-3 inline-flex items-center rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm">
+          この部品を入庫
+        </div>
+      </button>
+    </div>
+  </section>
+
   <section class="card p-5 bg-[var(--color-card-even)] mb-4 block">
     <div class="flex gap-3">
       <input v-model="query" @keydown.enter.prevent="search" type="text" class="input-text flex-1" placeholder="部品名 / 型番 / 商社部品IDで検索" />

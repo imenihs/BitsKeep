@@ -168,27 +168,31 @@
       <div>
         <label class="text-xs font-semibold block mb-2">パッケージ</label>
         <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
-          <input v-model="packageQuery" type="text" class="input-text w-full"
-            placeholder="パッケージ名で絞り込み。なければ追加" />
-          <div v-if="form.package_ids.length" class="mt-2 flex flex-wrap gap-2">
-            <span v-for="id in form.package_ids" :key="`selected-pkg-${id}`"
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
-              @{{ packages.find((item) => item.id === id)?.name }}
-              <button type="button" @click="togglePackage(id)">✕</button>
+          <select v-model="form.package_group_id" class="input-text w-full">
+            <option value="">パッケージ分類を選択</option>
+            <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+          </select>
+          <input v-model="packageQuery" type="text" class="input-text w-full mt-2"
+            :disabled="!form.package_group_id"
+            placeholder="詳細パッケージ名で絞り込み。なければ追加" />
+          <div v-if="form.package_id" class="mt-2">
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+              @{{ packages.find((item) => item.id === form.package_id)?.name }}
             </span>
           </div>
           <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
-            <button v-for="pkg in filteredPackages" :key="pkg.id" type="button" @click="togglePackage(pkg.id)"
+            <button v-for="pkg in filteredPackages" :key="pkg.id" type="button" @click="selectPackage(pkg.id)"
               class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
-              :class="form.package_ids.includes(pkg.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+              :class="form.package_id === pkg.id ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
               <span>@{{ pkg.name }}</span>
-              <span class="text-xs opacity-60">@{{ form.package_ids.includes(pkg.id) ? '選択中' : '追加' }}</span>
+              <span class="text-xs opacity-60">@{{ form.package_id === pkg.id ? '選択中' : '使う' }}</span>
             </button>
             <button v-if="canCreatePackage" type="button" @click="addPackageFromQuery"
               class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
               「@{{ packageQuery.trim() }}」を新規追加
             </button>
-            <p v-if="!filteredPackages.length && !canCreatePackage" class="text-xs opacity-40 p-1">パッケージがありません</p>
+            <p v-if="!form.package_group_id" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</p>
+            <p v-else-if="!filteredPackages.length && !canCreatePackage" class="text-xs opacity-40 p-1">詳細パッケージがありません</p>
           </div>
         </div>
       </div>
@@ -248,8 +252,16 @@
         </label>
         <button @click="removeSupplier(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
         <input v-model="row.supplier_part_number" type="text" class="input-text text-xs py-1" placeholder="商社型番" />
+        <select v-model="row.purchase_unit" class="input-text text-xs py-1">
+          <option value="">購入単位</option>
+          <option value="loose">バラ</option>
+          <option value="tape">テープ</option>
+          <option value="tray">トレー</option>
+          <option value="reel">リール</option>
+          <option value="box">箱</option>
+        </select>
         <input v-model="row.unit_price" type="number" class="input-text text-xs py-1" placeholder="単価 ¥" />
         <input v-model="row.product_url" type="url" class="input-text text-xs py-1" placeholder="商品URL" />
       </div>

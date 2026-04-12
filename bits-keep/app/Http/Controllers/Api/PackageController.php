@@ -13,9 +13,12 @@ class PackageController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Package::query()->withCount('components as usage_count');
+        $query = Package::query()->with(['packageGroup'])->withCount('components as usage_count');
         if ($request->boolean('include_archived')) {
             $query->withTrashed();
+        }
+        if ($groupId = $request->integer('package_group_id')) {
+            $query->where('package_group_id', $groupId);
         }
         $packages = $query->orderBy('sort_order')->orderBy('name')->get()->map(function ($p) {
             $p->image_url = FileStorage::url($p->image_path);
@@ -43,6 +46,7 @@ class PackageController extends Controller
 
     public function show(Package $package)
     {
+        $package->load('packageGroup');
         $package->image_url = FileStorage::url($package->image_path);
         return ApiResponse::success($package);
     }

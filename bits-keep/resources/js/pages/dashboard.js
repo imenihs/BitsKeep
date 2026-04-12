@@ -11,6 +11,7 @@ import { api } from '../api.js';
 const ACTION_DEFS = [
     { key: 'components',    label: '部品一覧',     desc: '登録部品の検索・絞り込み', url: '/components',        icon: '🔩' },
     { key: 'create',        label: '部品登録',     desc: '新規部品を登録する',       url: '/components/create', icon: '➕' },
+    { key: 'stock-in',      label: '入庫',         desc: '購入部品を続けて入庫する', url: '/stock-in',         icon: '📥' },
     { key: 'stock-alert',   label: '在庫警告',     desc: '発注点を下回る部品を確認', url: '/stock-alert',       icon: '⚠️' },
     { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
     { key: 'master',        label: 'マスタ管理',   desc: '分類・パッケージ・スペック種別', url: '/master',     icon: '⚙️' },
@@ -23,7 +24,7 @@ const ACTION_DEFS = [
 ];
 
 const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
-const DEFAULT_QUICK_ACTION_KEYS = ['components', 'create', 'stock-alert', 'projects', 'design-tools'];
+const DEFAULT_QUICK_ACTION_KEYS = ['components', 'stock-in', 'create', 'stock-alert', 'projects'];
 
 export default function setup() {
     const userName  = document.getElementById('app')?.dataset?.userName ?? 'ユーザー';

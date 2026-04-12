@@ -20,6 +20,7 @@ class Component extends Model
         'threshold_new', 'threshold_used',
         'image_path', 'datasheet_path',
         'primary_location_id',
+        'package_id',
         'created_by', 'updated_by',
     ];
 
@@ -36,10 +37,15 @@ class Component extends Model
         return $this->belongsToMany(Category::class, 'component_category');
     }
 
-    // パッケージ（多対多）
-    public function packages(): BelongsToMany
+    public function package(): BelongsTo
     {
-        return $this->belongsToMany(Package::class, 'component_package');
+        return $this->belongsTo(Package::class);
+    }
+
+    // 旧UI互換: 単一パッケージを1件コレクションとして扱う
+    public function packages(): HasMany
+    {
+        return $this->hasMany(Package::class, 'id', 'package_id');
     }
 
     // スペック値

@@ -13,6 +13,7 @@ class StorePackageRequest extends FormRequest
     {
         $id = $this->route('package')?->id;
         return [
+            'package_group_id' => ['required', 'integer', 'exists:package_groups,id'],
             'name'        => ['required', 'string', 'max:100', Rule::unique('packages', 'name')->ignore($id)],
             'description' => ['nullable', 'string', 'max:500'],
             'size_x'      => ['nullable', 'numeric', 'min:0'],

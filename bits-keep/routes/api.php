@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ComponentController;
 use App\Http\Controllers\Api\CsvImportController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PackageController;
+use App\Http\Controllers\Api\PackageGroupController;
 use App\Http\Controllers\Api\SpecTypeController;
 use App\Http\Controllers\Api\StockAlertController;
 use App\Http\Controllers\Api\SupplierController;
@@ -33,6 +34,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::apiResource('packages',   PackageController::class);
     Route::post('packages/{package}/restore', [PackageController::class, 'restore']);
     Route::delete('packages/{package}/force', [PackageController::class, 'forceDestroy']);
+    Route::apiResource('package-groups', PackageGroupController::class);
+    Route::post('package-groups/{package_group}/restore', [PackageGroupController::class, 'restore']);
+    Route::delete('package-groups/{package_group}/force', [PackageGroupController::class, 'forceDestroy']);
     Route::apiResource('spec-types', SpecTypeController::class);
     Route::post('spec-types/{spec_type}/restore', [SpecTypeController::class, 'restore']);
     Route::delete('spec-types/{spec_type}/force', [SpecTypeController::class, 'forceDestroy']);

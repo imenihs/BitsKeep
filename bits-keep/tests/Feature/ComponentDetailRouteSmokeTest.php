@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Component;
+use App\Models\Category;
+use App\Models\Package;
+use App\Models\PackageGroup;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -22,8 +25,21 @@ class ComponentDetailRouteSmokeTest extends TestCase
 
     public function test_basic_detail_route_stores_image_and_datasheet(): void
     {
-        $this->actingAs(User::firstOrFail());
-        $seed = Component::with(['categories', 'packages'])->firstOrFail();
+        $user = User::factory()->create(['role' => 'editor']);
+        $this->actingAs($user);
+        $group = PackageGroup::create([
+            'name' => 'TEST-GROUP-' . now()->format('Hisv'),
+            'sort_order' => 10,
+        ]);
+        $package = Package::create([
+            'package_group_id' => $group->id,
+            'name' => 'TEST-PKG-' . now()->format('Hisv'),
+            'sort_order' => 10,
+        ]);
+        $category = Category::create([
+            'name' => 'TEST-CAT-' . now()->format('Hisv'),
+            'sort_order' => 10,
+        ]);
         $component = Component::create([
             'part_number' => 'BK-DETAIL-ROUTE-' . now()->format('Hisv'),
             'manufacturer' => 'Codex',
@@ -32,11 +48,11 @@ class ComponentDetailRouteSmokeTest extends TestCase
             'procurement_status' => 'active',
             'threshold_new' => 0,
             'threshold_used' => 0,
-            'created_by' => User::firstOrFail()->id,
-            'updated_by' => User::firstOrFail()->id,
+            'package_id' => $package->id,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
         ]);
-        $component->categories()->sync($seed->categories->pluck('id')->all());
-        $component->packages()->sync($seed->packages->pluck('id')->all());
+        $component->categories()->sync([$category->id]);
 
         $storedPaths = [];
 
@@ -51,8 +67,9 @@ class ComponentDetailRouteSmokeTest extends TestCase
                 'threshold_new' => $component->threshold_new,
                 'threshold_used' => $component->threshold_used,
                 'primary_location_id' => $component->primary_location_id,
-                'category_ids' => $component->categories()->pluck('categories.id')->all(),
-                'package_ids' => $component->packages()->pluck('packages.id')->all(),
+                'category_ids' => [$category->id],
+                'package_group_id' => $group->id,
+                'package_id' => $component->package_id,
                 'image' => UploadedFile::fake()->image('detail-basic.png', 50, 50),
                 'datasheets' => [
                     UploadedFile::fake()->create('detail-basic.pdf', 32, 'application/pdf'),
@@ -79,15 +96,27 @@ class ComponentDetailRouteSmokeTest extends TestCase
             }
             $component->datasheets()->delete();
             $component->categories()->detach();
-            $component->packages()->detach();
             $component->forceDelete();
+            $package->forceDelete();
+            $group->forceDelete();
+            $category->forceDelete();
         }
     }
 
     public function test_attributes_route_adds_custom_field(): void
     {
-        $this->actingAs(User::firstOrFail());
-        $component = Component::firstOrFail();
+        $user = User::factory()->create(['role' => 'editor']);
+        $this->actingAs($user);
+        $component = Component::create([
+            'part_number' => 'BK-ATTR-ROUTE-' . now()->format('Hisv'),
+            'manufacturer' => 'Codex',
+            'common_name' => '属性追加確認',
+            'procurement_status' => 'active',
+            'threshold_new' => 0,
+            'threshold_used' => 0,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
 
         $response = $this->patchJson("/api/components/{$component->id}/attributes", [
             'attributes' => [
@@ -100,5 +129,7 @@ class ComponentDetailRouteSmokeTest extends TestCase
         $component->refresh()->load('customAttributes');
         $this->assertSame('動作確認属性', $component->customAttributes->last()?->key);
         $this->assertSame('追加確認', $component->customAttributes->last()?->value);
+        $component->customAttributes()->delete();
+        $component->forceDelete();
     }
 }

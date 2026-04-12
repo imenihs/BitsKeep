@@ -242,6 +242,7 @@
         <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">在庫・棚管理</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @foreach ([
+            ['icon'=>'📥','label'=>'入庫','desc'=>'購入部品を順に入庫する','route'=>'stock.in'],
             ['icon'=>'⚠️','label'=>'在庫警告','desc'=>'発注点を下回る部品を確認','route'=>'stock.alert'],
             ['icon'=>'🗄️','label'=>'保管棚管理','desc'=>'棚マップと棚卸し','route'=>'locations.index'],
             ['icon'=>'🏪','label'=>'商社管理','desc'=>'仕入先・商社の管理','route'=>'suppliers.index'],

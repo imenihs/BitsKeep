@@ -98,8 +98,9 @@
             </span>
             <span class="list-label">パッケージ</span>
             <span>
-              <span v-for="p in part.packages" :key="p.id" class="tag mr-1 text-xs">@{{ p.name }}</span>
-              <span v-if="!part.packages.length" class="opacity-40">—</span>
+              <span v-if="part.package" class="tag mr-1 text-xs">@{{ part.package.name }}</span>
+              <span v-if="part.package_group" class="opacity-60 text-xs ml-1">(@{{ part.package_group.name }})</span>
+              <span v-if="!part.package" class="opacity-40">—</span>
             </span>
             <span class="list-label">入手可否</span>
             <span :class="'tag w-fit ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
@@ -131,7 +132,7 @@
               <p class="text-sm font-semibold opacity-75">在庫内訳</p>
               <p class="text-sm font-semibold opacity-75 text-right">合計 @{{ stockSummary.new + stockSummary.used }}個 / 新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個</p>
             </div>
-            <div v-if="part.inventory_blocks?.length" class="space-y-2 text-sm">
+            <div v-if="part.inventory_blocks?.length" class="grid gap-2 text-sm md:grid-cols-2">
               <div v-for="b in part.inventory_blocks" :key="b.id"
                 class="px-3 py-2 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -175,15 +176,19 @@
                     </div>
                     <a v-if="cs.product_url" :href="cs.product_url" target="_blank" class="text-xs link-text">商品ページ</a>
                   </div>
-                  <div class="grid gap-3 sm:grid-cols-2">
-                    <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
+                  <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="space-y-1 min-w-0">
                       <div class="text-[11px] font-semibold opacity-60">商社型番</div>
-                      <div v-if="cs.supplier_part_number" class="font-mono text-sm mt-1">@{{ cs.supplier_part_number }}</div>
-                      <div v-else class="text-sm opacity-40 mt-1">未登録</div>
+                      <div v-if="cs.supplier_part_number" class="font-mono text-sm break-all">@{{ cs.supplier_part_number }}</div>
+                      <div v-else class="text-sm opacity-40">未登録</div>
                     </div>
-                    <div class="rounded border border-[var(--color-border)] px-3 py-2 bg-[var(--color-card-even)]">
+                    <div class="space-y-1 min-w-0">
+                      <div class="text-[11px] font-semibold opacity-60">購入単位</div>
+                      <div class="text-sm">@{{ cs.purchase_unit === 'loose' ? 'バラ' : cs.purchase_unit === 'tape' ? 'テープ' : cs.purchase_unit === 'tray' ? 'トレー' : cs.purchase_unit === 'reel' ? 'リール' : cs.purchase_unit === 'box' ? '箱' : '未設定' }}</div>
+                    </div>
+                    <div class="space-y-1 min-w-0">
                       <div class="text-[11px] font-semibold opacity-60">基本価格</div>
-                      <div class="font-mono text-base mt-1">¥@{{ cs.unit_price != null ? Number(cs.unit_price).toLocaleString() : '—' }}</div>
+                      <div class="font-mono text-base">¥@{{ cs.unit_price != null ? Number(cs.unit_price).toLocaleString() : '—' }}</div>
                     </div>
                   </div>
                 </div>
@@ -207,8 +212,8 @@
           <p v-else class="text-sm opacity-40">仕入先未登録</p>
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-2">
-          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <div class="space-y-4">
+          <div>
             <h3 class="text-sm font-semibold mb-3 opacity-80">使用案件</h3>
             <div class="flex flex-wrap gap-1.5 mb-3">
               <span v-for="project in part.projects" :key="project.id" class="tag text-xs">
@@ -217,10 +222,10 @@
               <span v-if="!part.projects?.length" class="text-sm opacity-40">使用案件なし</span>
             </div>
           </div>
-          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <div>
             <div class="flex items-center justify-between gap-3 mb-3">
               <h3 class="text-sm font-semibold opacity-80">直近入出庫</h3>
-              <div class="text-xs opacity-60 text-right">最新5件表示 / 取得済み @{{ allTransactions?.length ?? 0 }}件</div>
+              <div v-if="(allTransactions?.length ?? 0) > 5" class="text-xs opacity-60 text-right">最新5件表示 / 取得済み @{{ allTransactions.length }}件</div>
             </div>
             <template v-if="showAllTransactions">
               <div class="space-y-3 text-xs">
@@ -455,11 +460,22 @@
           </div>
           <div>
             <label class="block text-xs font-semibold mb-1">パッケージ</label>
-            <div class="flex flex-wrap gap-2">
-              <label v-for="pkg in packages" :key="pkg.id" class="inline-flex items-center gap-2 text-sm">
-                <input v-model="editModal.form.package_ids" :value="pkg.id" type="checkbox" />
-                <span>@{{ pkg.name }}</span>
-              </label>
+            <div class="space-y-2">
+              <select v-model="editModal.form.package_group_id" @change="handlePackageGroupChange" class="input-text w-full">
+                <option value="">パッケージ分類を選択</option>
+                <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+              </select>
+              <input v-model="packageFilterQuery" type="text" class="input-text w-full" :disabled="!editModal.form.package_group_id" placeholder="詳細パッケージ名で絞り込み" />
+              <div class="max-h-36 overflow-y-auto rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-2 space-y-1">
+                <button v-for="pkg in filteredDetailPackages" :key="pkg.id" type="button" @click="editModal.form.package_id = pkg.id"
+                  class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+                  :class="editModal.form.package_id === pkg.id ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+                  <span>@{{ pkg.name }}</span>
+                  <span class="text-xs opacity-60">@{{ editModal.form.package_id === pkg.id ? '選択中' : '使う' }}</span>
+                </button>
+                <div v-if="!editModal.form.package_group_id" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</div>
+                <div v-else-if="!filteredDetailPackages.length" class="text-xs opacity-40 p-1">詳細パッケージがありません</div>
+              </div>
             </div>
           </div>
         </div>
@@ -529,6 +545,14 @@
               <option v-for="item in suppliers" :key="item.id" :value="item.id">@{{ item.name }}</option>
             </select>
             <input v-model="supplier.supplier_part_number" type="text" class="input-text w-full" placeholder="商社型番" />
+            <select v-model="supplier.purchase_unit" class="input-text w-full">
+              <option value="">購入単位</option>
+              <option value="loose">バラ</option>
+              <option value="tape">テープ</option>
+              <option value="tray">トレー</option>
+              <option value="reel">リール</option>
+              <option value="box">箱</option>
+            </select>
             <input v-model="supplier.product_url" type="url" class="input-text w-full" placeholder="商品URL" />
             <input v-model="supplier.unit_price" type="number" step="0.01" class="input-text w-full" placeholder="単価" />
           </div>
@@ -548,7 +572,7 @@
             <button @click="editModal.form.suppliers.splice(index, 1)" class="text-[var(--color-tag-eol)] text-sm">この商社を削除</button>
           </div>
         </div>
-        <button @click="editModal.form.suppliers.push({ supplier_id: '', supplier_part_number: '', product_url: '', unit_price: '', is_preferred: false, price_breaks: [] })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ 商社追加</button>
+        <button @click="editModal.form.suppliers.push({ supplier_id: '', supplier_part_number: '', purchase_unit: '', product_url: '', unit_price: '', is_preferred: false, price_breaks: [] })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ 商社追加</button>
       </div>
 
       <div class="flex justify-end gap-3 mt-6">

@@ -2000,3 +2000,27 @@ Bladeテンプレートが未作成のため、そこから再開。
 - まずは設計・仕様書・チェックリストへこの判断を反映し、次の実装で `component_package` 廃止と単一 `package_id` 化へ進む
 
 大佐の心の声: ここは「候補が多いから絞る」の前に、「そもそも何の軸で絞るべきか」を間違えないことが重要だった。分類は探索の軸であり、実装形状の軸ではない。
+
+---
+
+## [大佐] 2026-04-12 05:02
+
+### パッケージ再設計の第一段を実装し、単一パッケージ化と2段UIを実データまで通した
+
+- `package_groups` を追加し、`packages.package_group_id` と `components.package_id` へ移行する migration を入れた
+- 既存の `component_package` 多対多は migration 内で代表1件を `components.package_id` へ移し、旧 pivot は廃止した
+- `Component` は内部的に単一 `package` を正としつつ、既存画面を壊さないために `packages` を単件コレクションとして返す互換層を残した
+- `ComponentController` は `package_group_id + package_id` を受けるよう変更し、詳細パッケージが選択中の分類に属しているかをサーバ側で検証するようにした
+- `部品登録` と `部品詳細` のパッケージ選択UIは、`パッケージ分類` ドロップダウン + `詳細パッケージ` フィルタ付きスクロール選択へ変更した
+- `部品一覧` の詳細条件でも同じ2段構造を使うようにし、旧 `package_ids[]` 多選択を廃止した
+- `マスタ管理` には `パッケージ分類` タブを追加し、`詳細パッケージ` 側は親分類必須で保守できるようにした
+- `CSVインポート` も単一 `package_id` 前提へ修正した
+- テストは `ComponentDetailRouteSmokeTest` を既存データ依存から自前 seed 型へ直し、単一パッケージ設計でも通るようにした
+- `php artisan test` 全体は auth/profile 系の既存不整合で失敗したが、今回の変更範囲に対しては `ComponentDetailRouteSmokeTest` と `npm run build` と migration 成功を確認した
+
+検証:
+- `php artisan migrate --force`
+- `php artisan test tests/Feature/ComponentDetailRouteSmokeTest.php` → pass
+- `npm run build` → success
+
+大佐の心の声: 今回は「設計判断を決めた」だけで止めず、DB と API と UI の軸を揃えるところまで入れた。ここを中途半端に残すと、また `設計は単一、実装は複数` のねじれに戻る。

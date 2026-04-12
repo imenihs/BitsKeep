@@ -11,7 +11,10 @@ export default function setup() {
     const filterStatus     = ref('');
     const advancedOpen     = ref(false);
     const advManufacturer  = ref('');
-    const advPackageIds    = ref([]);
+    const packageGroups    = ref([]);
+    const advPackageGroupId = ref('');
+    const advPackageId     = ref('');
+    const advPackageQuery  = ref('');
     const advSpecTypeId    = ref('');
     const advUnit          = ref('');
     const advMin           = ref('');
@@ -67,10 +70,14 @@ export default function setup() {
             chips.push({ key: 'status', label: `入手可否: ${procurementLabel[filterStatus.value] ?? filterStatus.value}` });
         }
         if (advManufacturer.value) chips.push({ key: 'manufacturer', label: `メーカー: ${advManufacturer.value}` });
-        advPackageIds.value.forEach((packageId) => {
-            const packageName = packages.value.find((item) => item.id == packageId)?.name ?? `#${packageId}`;
-            chips.push({ key: `pkg:${packageId}`, label: `パッケージ: ${packageName}` });
-        });
+        if (advPackageGroupId.value) {
+            const groupName = packageGroups.value.find((item) => item.id == advPackageGroupId.value)?.name ?? `#${advPackageGroupId.value}`;
+            chips.push({ key: 'packageGroup', label: `パッケージ分類: ${groupName}` });
+        }
+        if (advPackageId.value) {
+            const packageName = packages.value.find((item) => item.id == advPackageId.value)?.name ?? `#${advPackageId.value}`;
+            chips.push({ key: 'package', label: `詳細パッケージ: ${packageName}` });
+        }
         if (advSpecTypeId.value) {
             const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
             chips.push({ key: 'specType', label: `スペック: ${specName}` });
@@ -103,12 +110,12 @@ export default function setup() {
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
-        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageIds.value.length || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
+        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageGroupId.value || advPackageId.value || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
     );
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
         filterStatus.value = ''; advancedOpen.value = false;
-        advManufacturer.value = ''; advPackageIds.value = [];
+        advManufacturer.value = ''; advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = '';
         advSpecTypeId.value = ''; advUnit.value = ''; advMin.value = '';
         advMax.value = ''; advMinStock.value = '';
         advInventoryState.value = ''; advPurchasedFrom.value = ''; advPurchasedTo.value = '';
@@ -120,10 +127,8 @@ export default function setup() {
             filterCategories.value = filterCategories.value.filter((value) => value !== id);
         } else if (key === 'status') filterStatus.value = '';
         else if (key === 'manufacturer') advManufacturer.value = '';
-        else if (key.startsWith('pkg:')) {
-            const id = Number(key.split(':')[1]);
-            advPackageIds.value = advPackageIds.value.filter((value) => value !== id);
-        }
+        else if (key === 'packageGroup') { advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = ''; }
+        else if (key === 'package') advPackageId.value = '';
         else if (key === 'specType') advSpecTypeId.value = '';
         else if (key === 'unit') advUnit.value = '';
         else if (key === 'specMin') advMin.value = '';
@@ -144,7 +149,8 @@ export default function setup() {
             if (filterCategories.value.length) filterCategories.value.forEach(id => params.append('category_ids[]', id));
             if (filterStatus.value)          params.set('procurement_status', filterStatus.value);
             if (advManufacturer.value)       params.set('manufacturer', advManufacturer.value);
-            if (advPackageIds.value.length)  advPackageIds.value.forEach(id => params.append('package_ids[]', id));
+            if (advPackageGroupId.value)     params.set('package_group_id', advPackageGroupId.value);
+            if (advPackageId.value)          params.set('package_id', advPackageId.value);
             if (advSpecTypeId.value)         params.set('spec_type_id', advSpecTypeId.value);
             if (advUnit.value)               params.set('spec_unit', advUnit.value);
             if (advMin.value)                params.set('spec_min', advMin.value);
@@ -172,19 +178,22 @@ export default function setup() {
     const fetchMasters = async () => {
         masterError.value = '';
         try {
-            const [catRes, pkgRes, stRes, alertRes] = await Promise.all([
+            const [catRes, pkgGroupRes, pkgRes, stRes, alertRes] = await Promise.all([
                 api.get('/categories'),
+                api.get('/package-groups'),
                 api.get('/packages'),
                 api.get('/spec-types'),
                 api.get('/components?needs_reorder=1&per_page=1'),
             ]);
             categories.value = catRes.data;
+            packageGroups.value = pkgGroupRes.data;
             packages.value   = pkgRes.data;
             specTypes.value  = stRes.data;
             alertCount.value = alertRes.data.total;
         } catch {
             masterError.value = '分類・パッケージ・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
+            packageGroups.value = [];
             packages.value = [];
             specTypes.value = [];
             alertCount.value = 0;
@@ -193,7 +202,7 @@ export default function setup() {
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageIds, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
+    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageGroupId, advPackageId, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -201,6 +210,25 @@ export default function setup() {
 
     const procurementLabel = { active: '量産中', eol: 'EOL', last_time: '在庫限り', nrnd: '非推奨' };
     const procurementClass = { active: 'tag-ok', eol: 'tag-eol', last_time: 'tag-warning', nrnd: 'tag-warning' };
+    const filteredAdvancedPackages = computed(() => {
+        if (!advPackageGroupId.value) return [];
+        const scopedPackages = packages.value.filter((item) => item.package_group_id === Number(advPackageGroupId.value));
+        const q = advPackageQuery.value.trim().toLowerCase();
+        if (!q) return scopedPackages;
+        return scopedPackages.filter((item) => item.name.toLowerCase().includes(q));
+    });
+
+    watch(advPackageGroupId, (groupId) => {
+        advPackageQuery.value = '';
+        if (!groupId) {
+            advPackageId.value = '';
+            return;
+        }
+        const selectedPackage = packages.value.find((item) => item.id == advPackageId.value);
+        if (!selectedPackage || selectedPackage.package_group_id !== Number(groupId)) {
+            advPackageId.value = '';
+        }
+    });
 
     onMounted(async () => {
         await fetchMasters();
@@ -209,7 +237,7 @@ export default function setup() {
 
     return {
         toasts, searchQuery, filterCategories, filterStatus,
-        advancedOpen, advManufacturer, advPackageIds, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
+        advancedOpen, advManufacturer, packageGroups, advPackageGroupId, advPackageId, advPackageQuery, filteredAdvancedPackages, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
         sortOrder,
         page, perPage, total, lastPage,
         parts, categories, packages, specTypes, loading, alertCount, listError, masterError, fetchMasters,

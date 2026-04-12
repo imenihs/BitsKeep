@@ -113,9 +113,23 @@
           </div>
           <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">パッケージ</label>
-            <select v-model="advPackageIds" multiple size="1" class="input-text h-11 w-full">
-              <option v-for="pkg in packages" :key="pkg.id" :value="pkg.id">@{{ pkg.name }}</option>
-            </select>
+            <div class="space-y-2">
+              <select v-model="advPackageGroupId" class="input-text w-full">
+                <option value="">パッケージ分類を選択</option>
+                <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+              </select>
+              <input v-model="advPackageQuery" type="text" class="input-text w-full" :disabled="!advPackageGroupId" placeholder="詳細パッケージ名で絞り込み" />
+              <div class="max-h-32 overflow-y-auto rounded border border-[var(--color-border)] bg-[var(--color-card-even)] p-2 space-y-1">
+                <button v-for="pkg in filteredAdvancedPackages" :key="pkg.id" type="button" @click="advPackageId = pkg.id"
+                  class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+                  :class="advPackageId == pkg.id ? 'bg-[var(--color-card-odd)] border border-[var(--color-primary)]' : ''">
+                  <span>@{{ pkg.name }}</span>
+                  <span class="text-xs opacity-60">@{{ advPackageId == pkg.id ? '選択中' : '使う' }}</span>
+                </button>
+                <p v-if="!advPackageGroupId" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</p>
+                <p v-else-if="!filteredAdvancedPackages.length" class="text-xs opacity-40 p-1">詳細パッケージがありません</p>
+              </div>
+            </div>
           </div>
           <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">スペック種別</label>

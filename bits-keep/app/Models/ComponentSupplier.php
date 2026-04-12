@@ -10,7 +10,7 @@ class ComponentSupplier extends Model
 {
     protected $fillable = [
         'component_id', 'supplier_id', 'supplier_part_number',
-        'product_url', 'unit_price', 'price_updated_at', 'is_preferred',
+        'product_url', 'purchase_unit', 'unit_price', 'price_updated_at', 'is_preferred',
     ];
 
     protected $casts = ['is_preferred' => 'boolean', 'price_updated_at' => 'date'];

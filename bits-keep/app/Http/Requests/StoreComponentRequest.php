@@ -29,8 +29,8 @@ class StoreComponentRequest extends FormRequest
             // 分類・パッケージ（ID配列）
             'category_ids'        => ['nullable', 'array'],
             'category_ids.*'      => ['integer', 'exists:categories,id'],
-            'package_ids'         => ['nullable', 'array'],
-            'package_ids.*'       => ['integer', 'exists:packages,id'],
+            'package_group_id'    => ['nullable', 'integer', 'exists:package_groups,id'],
+            'package_id'          => ['nullable', 'integer', 'exists:packages,id'],
             // スペック（配列）
             'specs'               => ['nullable', 'array'],
             'specs.*.spec_type_id'=> ['required_with:specs', 'integer', 'exists:spec_types,id'],
@@ -42,6 +42,7 @@ class StoreComponentRequest extends FormRequest
             'suppliers.*.supplier_id'            => ['required_with:suppliers', 'integer', 'exists:suppliers,id'],
             'suppliers.*.supplier_part_number'   => ['nullable', 'string', 'max:200'],
             'suppliers.*.product_url'            => ['nullable', 'url', 'max:500'],
+            'suppliers.*.purchase_unit'          => ['nullable', 'in:loose,tape,tray,reel,box'],
             'suppliers.*.unit_price'             => ['nullable', 'numeric', 'min:0'],
             'suppliers.*.is_preferred'           => ['nullable', 'boolean'],
             'suppliers.*.price_breaks'           => ['nullable', 'array'],

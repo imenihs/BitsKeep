@@ -13,6 +13,7 @@ export default function setup() {
     const loadError  = ref('');
     const sections   = reactive({ basic: true, detail: true, custom: true, integration: true });
     const categories = ref([]);
+    const packageGroups = ref([]);
     const packages = ref([]);
     const specTypes = ref([]);
     const suppliers = ref([]);
@@ -21,6 +22,7 @@ export default function setup() {
     const basicImageFile = ref(null);
     const basicDatasheetFiles = ref([]);
     const editModalSnapshot = ref('');
+    const packageFilterQuery = ref('');
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -54,14 +56,16 @@ export default function setup() {
 
     const fetchMasters = async () => {
         try {
-            const [categoryRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
+            const [categoryRes, packageGroupRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
                 api.get('/categories'),
+                api.get('/package-groups'),
                 api.get('/packages'),
                 api.get('/spec-types'),
                 api.get('/suppliers'),
                 api.get('/locations'),
             ]);
             categories.value = categoryRes.data ?? [];
+            packageGroups.value = packageGroupRes.data ?? [];
             packages.value = packageRes.data ?? [];
             specTypes.value = specTypeRes.data ?? [];
             suppliers.value = supplierRes.data ?? [];
@@ -76,6 +80,7 @@ export default function setup() {
         const p = part.value;
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
+        packageFilterQuery.value = '';
         const forms = {
             basic: {
                 title: '基本情報を編集',
@@ -86,7 +91,8 @@ export default function setup() {
                     threshold_new: p.threshold_new, threshold_used: p.threshold_used,
                     primary_location_id: p.primary_location_id ?? '',
                     category_ids: p.categories.map(c => c.id),
-                    package_ids:  p.packages.map(pk => pk.id),
+                    package_group_id: p.package_group?.id ?? p.package?.package_group_id ?? '',
+                    package_id: p.package?.id ?? p.packages?.[0]?.id ?? '',
                 },
             },
             specs: {
@@ -105,6 +111,7 @@ export default function setup() {
                     supplier_id: cs.supplier_id,
                     supplier_part_number: cs.supplier_part_number ?? '',
                     product_url: cs.product_url ?? '',
+                    purchase_unit: cs.purchase_unit ?? '',
                     unit_price: cs.unit_price ?? '',
                     is_preferred: !!cs.is_preferred,
                     price_breaks: (cs.price_breaks ?? []).map(pb => ({ min_qty: pb.min_qty, unit_price: pb.unit_price })),
@@ -129,6 +136,7 @@ export default function setup() {
         editModal.value.open = false;
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
+        packageFilterQuery.value = '';
         editModalSnapshot.value = '';
     };
 
@@ -142,10 +150,9 @@ export default function setup() {
                 const fd = new FormData();
                 // テキスト項目
                 const textKeys = ['part_number', 'manufacturer', 'common_name', 'description',
-                    'procurement_status', 'threshold_new', 'threshold_used', 'primary_location_id'];
+                    'procurement_status', 'threshold_new', 'threshold_used', 'primary_location_id', 'package_group_id', 'package_id'];
                 textKeys.forEach(k => { if (form[k] != null) fd.append(k, form[k]); });
                 (form.category_ids ?? []).forEach(id => fd.append('category_ids[]', id));
-                (form.package_ids ?? []).forEach(id => fd.append('package_ids[]', id));
                 // ファイル項目
                 if (basicImageFile.value) fd.append('image', basicImageFile.value);
                 basicDatasheetFiles.value.forEach((file, index) => fd.append(`datasheets[${index}]`, file));
@@ -290,14 +297,39 @@ export default function setup() {
         return new Set(keys).size === keys.length;
     });
 
+    const filteredDetailPackages = computed(() => {
+        const groupId = editModal.value.form?.package_group_id;
+        if (!groupId) return [];
+
+        const scopedPackages = packages.value.filter((item) => item.package_group_id === Number(groupId));
+        const q = packageFilterQuery.value.trim().toLowerCase();
+        if (!q) return scopedPackages;
+        return scopedPackages.filter((item) => item.name.toLowerCase().includes(q));
+    });
+
+    const handlePackageGroupChange = () => {
+        const groupId = editModal.value.form?.package_group_id;
+        packageFilterQuery.value = '';
+        if (!groupId) {
+            editModal.value.form.package_id = '';
+            return;
+        }
+
+        const selectedPackage = packages.value.find((item) => item.id === Number(editModal.value.form.package_id));
+        if (!selectedPackage || selectedPackage.package_group_id !== Number(groupId)) {
+            editModal.value.form.package_id = '';
+        }
+    };
+
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
-        categories, packages, specTypes, suppliers, locations,
+        categories, packageGroups, packages, specTypes, suppliers, locations,
         preferredSupplier, stockSummary, allTransactions, displayedTransactions, hasMoreTransactions, showAllTransactions,
         outgoingTransactions, incomingTransactions,
         formatTransactionTimestamp,
         canSaveEditModal,
+        packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
         basicImageFile, basicDatasheetFiles,
         editModal, openEdit, closeEditModal, saveSection,
         stockOutModal, openStockOut, submitStockOut,

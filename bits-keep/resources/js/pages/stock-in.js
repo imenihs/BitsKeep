@@ -6,6 +6,7 @@ export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const query = ref('');
     const parts = ref([]);
+    const alertParts = ref([]);
     const locations = ref([]);
     const loading = ref(false);
     const submitting = ref(false);
@@ -58,10 +59,14 @@ export default function setup() {
 
     const loadMasters = async () => {
         try {
-            const res = await api.get('/locations');
-            locations.value = res.data ?? [];
+            const [locationRes, alertRes] = await Promise.all([
+                api.get('/locations'),
+                api.get('/stock-alerts'),
+            ]);
+            locations.value = locationRes.data ?? [];
+            alertParts.value = (alertRes.data ?? []).slice(0, 8);
         } catch (e) {
-            toastError(e.message ?? '棚情報の取得に失敗しました');
+            toastError(e.message ?? '初期データの取得に失敗しました');
         }
     };
 
@@ -120,6 +125,7 @@ export default function setup() {
         toasts,
         query,
         parts,
+        alertParts,
         loading,
         selectedPart,
         form,

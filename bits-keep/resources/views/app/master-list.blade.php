@@ -16,12 +16,12 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">マスタ管理</h1>
-    <p class="text-sm opacity-60 mt-1">分類・パッケージ・スペック種別の管理</p>
+    <p class="text-sm opacity-60 mt-1">分類・パッケージ分類・詳細パッケージ・スペック種別の管理</p>
   </header>
 
   <!-- タブ切り替え -->
   <div class="flex gap-1 mb-6 border-b border-[var(--color-border)]">
-    <button v-for="tab in [{id:'categories',label:'分類'},{id:'packages',label:'パッケージ'},{id:'spec-types',label:'スペック種別'}]"
+    <button v-for="tab in [{id:'categories',label:'分類'},{id:'package-groups',label:'パッケージ分類'},{id:'packages',label:'詳細パッケージ'},{id:'spec-types',label:'スペック種別'}]"
       :key="tab.id" @click="switchTab(tab.id)"
       :class="activeTab === tab.id
         ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)] font-medium'
@@ -89,13 +89,13 @@
   </div>
 
   <!-- ══════════════════════════ パッケージタブ ══════════════════════════════ -->
-  <div v-if="activeTab === 'packages'">
+  <div v-if="activeTab === 'package-groups'">
     <div class="flex justify-end mb-4">
       @if ($canEdit)
-      <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + パッケージを追加</button>
+      <button @click="openPkgGroupAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + パッケージ分類を追加</button>
       @else
       <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
-        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージを追加</span></div>
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージ分類を追加</span></div>
         <div class="mt-1 text-xs opacity-70">閲覧者のため追加できません</div>
       </div>
       @endif
@@ -110,10 +110,66 @@
         </tr>
       </thead>
       <tbody>
+        <tr v-for="(group, index) in packageGroups" :key="group.id"
+          :class="group.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+          class="border-b border-[var(--color-border)]">
+          <td class="py-2 pr-4 text-center opacity-50">@{{ group.sort_order }}</td>
+          <td class="py-2 pr-4 font-medium">
+            <div class="flex items-center gap-2">
+              <span>@{{ group.name }}</span>
+              <span v-if="group.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">アーカイブ済み</span>
+            </div>
+          </td>
+          <td class="py-2 pr-4 opacity-70 text-xs">
+            <div>@{{ group.description || '-' }}</div>
+            <div class="mt-1 opacity-60">使用件数: @{{ group.usage_count ?? 0 }}</div>
+          </td>
+          <td class="py-2">
+            <div class="flex gap-2 flex-wrap">
+              <button v-if="canEdit && !group.deleted_at" @click="movePackageGroup(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
+              <button v-if="canEdit && !group.deleted_at" @click="movePackageGroup(index, 1)" :disabled="index === packageGroups.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
+              <button @click="openPkgGroupEdit(group)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
+              <button v-if="!group.deleted_at" @click="archivePackageGroup(group)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-else @click="restorePackageGroup(group)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+              <button v-if="group.can_force_delete" @click="forceDeletePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+            </div>
+            <div v-if="group.deleted_at && !group.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ group.force_delete_reason }}</div>
+          </td>
+        </tr>
+        <tr v-if="packageGroups.length === 0">
+          <td colspan="4" class="py-8 text-center opacity-40">パッケージ分類が登録されていません</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div v-if="activeTab === 'packages'">
+    <div class="flex justify-end mb-4">
+      @if ($canEdit)
+      <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + 詳細パッケージを追加</button>
+      @else
+      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージを追加</span></div>
+        <div class="mt-1 text-xs opacity-70">閲覧者のため追加できません</div>
+      </div>
+      @endif
+    </div>
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="border-b border-[var(--color-border)] text-left opacity-70">
+          <th class="py-2 pr-4 w-8">順</th>
+          <th class="py-2 pr-4">パッケージ分類</th>
+          <th class="py-2 pr-4">名前</th>
+          <th class="py-2 pr-4">説明</th>
+          <th class="py-2">操作</th>
+        </tr>
+      </thead>
+      <tbody>
         <tr v-for="(p, index) in packages" :key="p.id"
           :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)]">
           <td class="py-2 pr-4 text-center opacity-50">@{{ p.sort_order }}</td>
+          <td class="py-2 pr-4 text-xs opacity-70">@{{ p.package_group?.name || '未分類' }}</td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ p.name }}</span>
@@ -139,7 +195,7 @@
           </td>
         </tr>
         <tr v-if="packages.length === 0">
-          <td colspan="4" class="py-8 text-center opacity-40">パッケージが登録されていません</td>
+          <td colspan="5" class="py-8 text-center opacity-40">詳細パッケージが登録されていません</td>
         </tr>
       </tbody>
     </table>
@@ -244,10 +300,17 @@
   <div v-if="pkgModal.open" class="modal-overlay">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ編集' : 'パッケージ追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? '詳細パッケージ編集' : '詳細パッケージ追加' }}</h2>
         <button @click="closePkgModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">パッケージ分類 <span class="text-red-500">*</span></label>
+          <select v-model="pkgModal.form.package_group_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
+            <option value="">選択してください</option>
+            <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+          </select>
+        </div>
         <div>
           <label class="block text-sm font-medium mb-1">名前 <span class="text-red-500">*</span></label>
           <input v-model="pkgModal.form.name" type="text" placeholder="例: 0402, SOT-23"
@@ -267,6 +330,33 @@
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
         <button @click="closePkgModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="savePackage" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="pkgGroupModal.open" class="modal-overlay">
+    <div class="modal-window modal-md">
+      <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
+        <h2 class="text-lg font-bold">@{{ pkgGroupModal.isEdit ? 'パッケージ分類編集' : 'パッケージ分類追加' }}</h2>
+        <button @click="closePkgGroupModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">名前 <span class="text-red-500">*</span></label>
+          <input v-model="pkgGroupModal.form.name" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">説明</label>
+          <input v-model="pkgGroupModal.form.description" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">並び順</label>
+          <input v-model.number="pkgGroupModal.form.sort_order" type="number" class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
+        <button @click="closePkgGroupModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+        <button @click="savePackageGroup" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
       </div>
     </div>
   </div>

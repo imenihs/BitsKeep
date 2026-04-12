@@ -9,10 +9,12 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentDatasheet;
+use App\Models\Package;
 use App\Support\FileStorage;
 use RuntimeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ComponentController extends Controller
 {
@@ -22,7 +24,7 @@ class ComponentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Component::with(['categories', 'packages', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
+        $query = Component::with(['categories', 'package.packageGroup', 'packages.packageGroup', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
             ->withCount('inventoryBlocks');
         $sortMap = [
             'updated_at' => ['updated_at', 'desc'],
@@ -56,9 +58,15 @@ class ComponentController extends Controller
             $query->where('manufacturer', 'ilike', '%' . $manufacturer . '%');
         }
 
-        // パッケージフィルタ（複数選択 OR）
-        if ($packageIds = $request->input('package_ids')) {
-            $query->whereHas('packages', fn ($q) => $q->whereIn('packages.id', (array) $packageIds));
+        // パッケージフィルタ
+        if ($packageId = $request->integer('package_id')) {
+            $query->where('package_id', $packageId);
+        } elseif ($packageIds = $request->input('package_ids')) {
+            $query->whereIn('package_id', array_map('intval', (array) $packageIds));
+        }
+
+        if ($packageGroupId = $request->integer('package_group_id')) {
+            $query->whereHas('package', fn ($q) => $q->where('package_group_id', $packageGroupId));
         }
 
         // スペック数値範囲フィルタ（spec_type_id + min + max）
@@ -123,9 +131,12 @@ class ComponentController extends Controller
     {
         try {
             return DB::transaction(function () use ($request) {
-                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
+                $this->assertPackageSelection($request->input('package_group_id'), $request->input('package_id'));
+
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers']);
                 $data['created_by'] = auth()->id();
                 $data['updated_by'] = auth()->id();
+                $data['package_id'] = $request->input('package_id') ?: null;
 
                 if ($request->hasFile('image')) {
                     $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
@@ -153,9 +164,11 @@ class ComponentController extends Controller
                 $this->syncRelations($component, $request);
 
                 return ApiResponse::created($this->decorateComponent(
-                    $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
+                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
                 ));
             });
+        } catch (ValidationException $e) {
+            return ApiResponse::error($e->getMessage(), $e->errors(), 422);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), [], 500);
         }
@@ -167,7 +180,7 @@ class ComponentController extends Controller
     public function show(Component $component)
     {
         $component->load([
-            'categories', 'packages',
+            'categories', 'package.packageGroup', 'packages.packageGroup',
             'specs.specType',
             'customAttributes',
             'componentSuppliers.supplier', 'componentSuppliers.priceBreaks',
@@ -189,8 +202,11 @@ class ComponentController extends Controller
     {
         try {
             return DB::transaction(function () use ($request, $component) {
-                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_ids', 'specs', 'suppliers']);
+                $this->assertPackageSelection($request->input('package_group_id'), $request->input('package_id'));
+
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers']);
                 $data['updated_by'] = auth()->id();
+                $data['package_id'] = $request->input('package_id') ?: null;
 
                 if ($request->hasFile('image')) {
                     FileStorage::delete($component->image_path);
@@ -205,9 +221,11 @@ class ComponentController extends Controller
                 $this->syncRelations($component, $request);
 
                 return ApiResponse::success($this->decorateComponent(
-                    $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets', 'customAttributes'])
+                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets', 'customAttributes'])
                 ));
             });
+        } catch (ValidationException $e) {
+            return ApiResponse::error($e->getMessage(), $e->errors(), 422);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), [], 500);
         }
@@ -224,7 +242,12 @@ class ComponentController extends Controller
 
             switch ($section) {
                 case 'basic':
-                    $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'category_ids', 'package_ids']);
+                    $this->assertPackageSelection($request->input('package_group_id'), $request->input('package_id'));
+
+                    $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'category_ids', 'package_group_id', 'package_id']);
+                    if ($request->has('package_id')) {
+                        $data['package_id'] = $request->input('package_id') ?: null;
+                    }
                     if ($request->hasFile('image')) {
                         FileStorage::delete($component->image_path);
                         $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
@@ -237,9 +260,6 @@ class ComponentController extends Controller
                     $this->syncDatasheets($component, $request);
                     if ($request->has('category_ids')) {
                         $component->categories()->sync($request->category_ids ?? []);
-                    }
-                    if ($request->has('package_ids')) {
-                        $component->packages()->sync($request->package_ids ?? []);
                     }
                     break;
 
@@ -282,7 +302,7 @@ class ComponentController extends Controller
             }
 
             return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'packages', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets', 'customAttributes'])
+                $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets', 'customAttributes'])
             ));
         });
     }
@@ -303,9 +323,6 @@ class ComponentController extends Controller
     {
         if ($request->has('category_ids')) {
             $component->categories()->sync($request->category_ids ?? []);
-        }
-        if ($request->has('package_ids')) {
-            $component->packages()->sync($request->package_ids ?? []);
         }
         if ($request->has('specs')) {
             $component->specs()->delete();
@@ -332,6 +349,7 @@ class ComponentController extends Controller
                 'supplier_id' => $s['supplier_id'],
                 'supplier_part_number' => $s['supplier_part_number'] ?? null,
                 'product_url' => $s['product_url'] ?? null,
+                'purchase_unit' => $s['purchase_unit'] ?? null,
                 'unit_price' => $s['unit_price'] ?? null,
                 'price_updated_at' => $s['unit_price'] ? now() : null,
                 'is_preferred' => $s['is_preferred'] ?? false,
@@ -383,6 +401,16 @@ class ComponentController extends Controller
 
     private function decorateComponent(Component $component): Component
     {
+        if ($component->relationLoaded('package') || $component->relationLoaded('packages')) {
+            $package = $component->relationLoaded('package')
+                ? $component->package
+                : $component->packages->first();
+            $component->setRelation('package', $package);
+            $component->setRelation('packages', $package ? collect([$package]) : collect());
+            $component->package_group = $package?->packageGroup;
+            $component->package_name = $package?->name;
+        }
+
         if ($component->relationLoaded('customAttributes')) {
             $component->custom_attributes = $component->customAttributes;
         }
@@ -423,6 +451,30 @@ class ComponentController extends Controller
         $component->cheapest_supplier_name = $cheapest?->supplier?->name;
 
         return $component;
+    }
+
+    private function assertPackageSelection(mixed $packageGroupId, mixed $packageId): void
+    {
+        if ($packageGroupId && !$packageId) {
+            throw ValidationException::withMessages(['package_id' => '詳細パッケージを選択してください。']);
+        }
+
+        if ($packageId && !$packageGroupId) {
+            throw ValidationException::withMessages(['package_group_id' => '先にパッケージ分類を選択してください。']);
+        }
+
+        if (!$packageId) {
+            return;
+        }
+
+        $package = Package::find($packageId);
+        if (!$package) {
+            throw ValidationException::withMessages(['package_id' => '選択した詳細パッケージが存在しません。']);
+        }
+
+        if ($packageGroupId && (int) $package->package_group_id !== (int) $packageGroupId) {
+            throw ValidationException::withMessages(['package_id' => '詳細パッケージが選択中のパッケージ分類に属していません。']);
+        }
     }
 
     private function firstCategoryName(array $categoryIds): ?string

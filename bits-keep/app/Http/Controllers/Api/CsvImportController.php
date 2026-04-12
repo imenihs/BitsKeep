@@ -91,7 +91,8 @@ class CsvImportController extends Controller
                 if (! empty($row['package_name'])) {
                     $pkg = Package::where('name', trim($row['package_name']))->first();
                     if ($pkg) {
-                        $comp->packages()->sync([$pkg->id]);
+                        $comp->package_id = $pkg->id;
+                        $comp->save();
                     }
                 }
 
