@@ -101,6 +101,30 @@ vendor/bin/pint        # コード整形
 - コード変更後は必ず `npm run build` を実行してからブラウザでリロードすること
 - **変更が画面に反映されない場合、まず `npm run build` を確認する**
 
+### データベース環境（テスト・本番分離）
+- **本番環境**: PostgreSQL (127.0.0.1:5432, database=bitskeep, user=postgres, password=postgres)
+  - Apache+PHP-FPM 経由で実行される実際の運用 DB
+  - `.env` は `DB_CONNECTION=pgsql` に設定固定
+  - 本番接続先での `migrate --force` `db:wipe` などの破壊的操作は厳禁
+  
+- **ローカル開発・テスト用**: SQLite (`database/database.sqlite`)
+  - 開発者ローカル環境でのみ使用
+  - 本番サーバで誤ってこの設定に上書きすると、本番 DB が空の SQLite に切り替わり、復帰不能の事故に
+  
+- **`.env` 設定確認**:
+  - 現在の設定値: `DB_CONNECTION=pgsql`, `DB_HOST=127.0.0.1`, `DB_PORT=5432`, `DB_DATABASE=bitskeep`, `DB_USERNAME=postgres`, `DB_PASSWORD=postgres`
+  - この設定を本番サーバで維持する。手前みそで SQLite に変更してはならない。
+  - `.env` は個別設定であり、git でバージョン管理されない。ローカル・本番間で設定が異なる場合も、各環境に適切に `.env` を置く。
+  
+- **2026-04-12 DB事故の経緯**:
+  - `.env` が誤ってローカル SQLite 設定に変更された状態で `migrate --force` を実行
+  - バックアップ確認なしに実 DB 相当接続先へ変更が流れ、本番 PostgreSQL が空状態に
+  - 原因は手順ルール（`接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認` の4点チェック）の欠落
+  
+- **今後の安全運用**:
+  - DB 変更コマンド実行前に必ず上記 4 点をログに記録し、確認なしには進めない
+  - `compose run dev` 直後など環境設定が揺れやすい局面では特に慎重に
+
 ### やってはいけないこと（禁止事項）
 - `composer run dev` を実行する → `public/hot` ファイルが生成され、ブラウザが直接 Vite サーバーに接続しようとして ERR_CONNECTION_REFUSED でCSS/JSが全滅する
 - `php artisan serve` を実行する → Apache+FPMが既に動いており不要。複数プロセスが競合してポートが混乱する

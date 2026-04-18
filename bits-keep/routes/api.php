@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PackageGroupController;
 use App\Http\Controllers\Api\SpecTypeController;
 use App\Http\Controllers\Api\StockAlertController;
+use App\Http\Controllers\Api\StockOrderController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\UserController;
@@ -50,6 +51,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('locations/{location}/restore', [LocationController::class, 'restore']);
     Route::delete('locations/{location}/force', [LocationController::class, 'forceDestroy']);
     Route::get('stock-alerts', [StockAlertController::class, 'index']);
+    Route::apiResource('stock-orders', StockOrderController::class);
+    Route::get('stock-orders/component/{component_id}/pending', [StockOrderController::class, 'pendingByComponent']);
 
     // ── 部品管理 ────────────────────────────────────────────
     Route::get('components/compare', [ComponentCompareController::class, 'compare']);

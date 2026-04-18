@@ -2505,3 +2505,31 @@ Step 9 (UI説明過多削減 P0):
 
 **次フェーズ**: テスター検証 → Step 8～9 実装
 
+
+## 2026-04-19
+
+### 02:58 [大将] ログイン認証失敗の根本原因を特定・環境復帰
+
+**作業内容：**
+- ユーザー報告「test@test.com でログインできない」を調査
+- SQLite ローカル環境と PostgreSQL 本番環境の混同を発見
+  - git log で「90f16ef: Fix development environment configuration: set SQLite」を確認
+  - これが今朝 01:14 に実装の際、.env を SQLite に変更したもの
+  - 本番環境（Apache/php-fpm で実行中）は PostgreSQL を向いている
+- PostgreSQL `bitskeep` DB を確認
+  - 存在ユーザー: `imenihs@gmail.com` のみ
+  - `test@test.com` はローカル SQLite にしか存在しない
+  - `imenihs@gmail.com` のパスワードハッシュを検証 → `lA4sdBnnJuV2qBwJ` で正常
+- .env を PostgreSQL 設定に復帰
+  - `DB_CONNECTION=pgsql`
+  - `DB_HOST=127.0.0.1`
+  - `DB_PORT=5432`
+  - `DB_DATABASE=bitskeep`
+  - `DB_USERNAME=postgres`
+  - `DB_PASSWORD=postgres`
+
+**結論：**
+本番環境（PostgreSQL）の正規ユーザー `imenihs@gmail.com` でログイン可能。
+ユーザー報告の「test@test.com」は SQLite 開発環境の想定テストアカウント。
+
+大将の心の声: 環境の二重化（開発 SQLite / 本番 PostgreSQL）に気づかず、SQLite を本番と誤認していた。git で環境変更を追える形にするか、docker-compose で環境を統一するか、方針を定める必要がある。今回は .env を .gitignore から外して管理するか検討すべき。
