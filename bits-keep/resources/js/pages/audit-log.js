@@ -44,6 +44,18 @@ export default function setup() {
     const applyFilter = () => { filters.page = 1; fetchLogs(); };
     const goPage = (p) => { filters.page = p; fetchLogs(); };
 
+    // フィルタが何か適用されているかチェック
+    const hasActiveFilter = () => filters.action || filters.resource_type || filters.date_from || filters.date_to;
+
+    // フィルタをクリア
+    const clearFilters = () => {
+        filters.action = '';
+        filters.resource_type = '';
+        filters.date_from = '';
+        filters.date_to = '';
+        applyFilter();
+    };
+
     const actionLabel = (a) => ({ created: '作成', updated: '更新', deleted: '削除' }[a] ?? a);
     const actionClass = (a) => ({
         created: 'bg-emerald-100 text-emerald-700',
@@ -68,5 +80,5 @@ export default function setup() {
 
     onMounted(fetchLogs);
     return { toasts, logs, meta, loading, filters, expandedId, toggleDiff,
-             applyFilter, goPage, actionLabel, actionClass, diffLines, formatDate };
+             applyFilter, goPage, hasActiveFilter, clearFilters, actionLabel, actionClass, diffLines, formatDate };
 }

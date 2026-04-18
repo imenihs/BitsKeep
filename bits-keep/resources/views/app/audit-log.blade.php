@@ -93,7 +93,19 @@
           </tr>
         </template>
         <tr v-if="!loading && logs.length === 0">
-          <td colspan="5" class="py-8 text-center opacity-40">ログがありません</td>
+          <td colspan="5" class="py-8 px-4">
+            <div v-if="hasActiveFilter()" class="flex flex-col items-center gap-3">
+              <div class="text-center opacity-50">
+                <p class="font-medium">条件に合致するログがありません</p>
+                <p class="text-sm mt-1">フィルタ条件が厳しすぎる可能性があります</p>
+              </div>
+              <button @click="clearFilters" class="btn-primary px-4 py-1.5 rounded text-sm">フィルタをクリア</button>
+            </div>
+            <div v-else class="text-center opacity-40">
+              <p class="font-medium">操作ログはまだ記録されていません</p>
+              <p class="text-sm mt-1">部品やマスタデータが作成・更新・削除されると記録されます</p>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
