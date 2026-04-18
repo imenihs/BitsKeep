@@ -133,11 +133,27 @@
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">表示色</label>
-          <div class="flex items-center gap-3">
-            <input v-model="modal.form.color" type="color"
+          <label class="block text-sm font-medium mb-2">表示色</label>
+          <!-- Color Palette -->
+          <div class="grid grid-cols-8 gap-2 mb-3">
+            <button v-for="c in COLOR_PALETTE" :key="c" @click="modal.form.color = c"
+              :class="modal.form.color?.toLowerCase() === c.toLowerCase() ? 'ring-2 ring-offset-1 ring-gray-400' : ''"
+              class="w-8 h-8 rounded border border-gray-300 hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-all"
+              :style="{ backgroundColor: c }" :title="c" />
+          </div>
+          <!-- Custom Color Toggle & Input -->
+          <div class="flex items-center gap-2">
+            <button @click="modal.showCustomColor = !modal.showCustomColor"
+              class="text-xs px-2 py-1 border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">
+              @{{ modal.showCustomColor ? 'パレットに戻す' : 'カスタム色を選ぶ' }}
+            </button>
+            <input v-if="modal.showCustomColor" v-model="modal.form.color" type="color"
               class="w-10 h-10 rounded border border-[var(--color-border)] cursor-pointer" />
             <span class="text-sm font-mono opacity-70">@{{ modal.form.color }}</span>
+          </div>
+          <!-- Low Contrast Warning -->
+          <div v-if="hasLowContrast(modal.form.color)" class="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            ⚠ この色は明るすぎて視認性が低い可能性があります
           </div>
         </div>
         <div>
