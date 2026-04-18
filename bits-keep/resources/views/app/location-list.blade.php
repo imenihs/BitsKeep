@@ -75,14 +75,14 @@
               @{{ getCountDiff(loc) > 0 ? '+' : '' }}@{{ getCountDiff(loc) || '—' }}
             </td>
             <td class="px-4 py-2 text-right">
-              <div class="inline-flex items-center gap-2">
+              <div class="inline-flex items-center gap-2 flex-wrap justify-end">
                 <span v-if="loc.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                   廃止
                 </span>
-                <button @click="openEdit(loc)" class="p-1.5 rounded hover:bg-[var(--color-border)] transition-colors mr-1">✏</button>
-                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">廃止</button>
-                <button v-else @click="restoreLocation(loc)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
-                <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+                <button @click="openEdit(loc)" class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">編集</button>
+                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-3 py-1.5 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50 font-medium">廃止</button>
+                <button v-else @click="restoreLocation(loc)" class="px-3 py-1.5 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50 font-medium">復元</button>
+                <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">完全削除</button>
               </div>
               <div v-if="loc.deleted_at && !loc.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ loc.force_delete_reason }}</div>
             </td>
