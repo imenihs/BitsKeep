@@ -5,9 +5,10 @@ import { useStockOrderDraft } from '../composables/useStockOrderDraft.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
-    const alerts     = ref([]);
-    const loading    = ref(false);
-    const checkedIds = ref([]);
+    const alerts         = ref([]);
+    const pendingOrders  = ref(new Map());
+    const loading        = ref(false);
+    const checkedIds     = ref([]);
     const { orderDraft, upsertOrderItem, removeOrderItem } = useStockOrderDraft();
 
     const toOrderItem = (alert) => {
@@ -34,12 +35,37 @@ export default function setup() {
             const r = await api.get('/stock-alerts');
             alerts.value = r.data ?? [];
             checkedIds.value = checkedIds.value.filter((id) => alerts.value.some((alert) => alert.id === id));
+            await fetchPendingOrders();
         }
         catch { toastError('在庫警告の取得に失敗しました'); }
         finally { loading.value = false; }
     };
 
-    const inOrder = (alert) => orderDraft.value.some(o => o.id === alert.id);
+    const fetchPendingOrders = async () => {
+        try {
+            const requests = alerts.value.map(alert =>
+                api.get(`/stock-orders/component/${alert.id}/pending`)
+                    .then(r => ({ componentId: alert.id, orders: r.data ?? [] }))
+                    .catch(() => ({ componentId: alert.id, orders: [] }))
+            );
+            const results = await Promise.all(requests);
+            const map = new Map();
+            results.forEach(({ componentId, orders }) => {
+                map.set(componentId, orders);
+            });
+            pendingOrders.value = map;
+        } catch {
+            // Silently handle pending orders fetch failure
+        }
+    };
+
+    const inOrder = (alert) => {
+        const inDraft = orderDraft.value.some(o => o.id === alert.id);
+        const pending = (pendingOrders.value.get(alert.id) ?? []).length > 0;
+        return inDraft || pending;
+    };
+
+    const isPending = (alert) => (pendingOrders.value.get(alert.id) ?? []).length > 0;
     const checkedAlerts = computed(() => alerts.value.filter((alert) => checkedIds.value.includes(alert.id) && !inOrder(alert)));
 
     const toggleChecked = (alertId) => {
@@ -71,10 +97,12 @@ export default function setup() {
         loading,
         checkedIds,
         orderDraft,
+        pendingOrders,
         orderCount,
         checkedCount,
         checkedAlerts,
         inOrder,
+        isPending,
         toggleChecked,
         addCheckedToOrder,
         urgencyClass,

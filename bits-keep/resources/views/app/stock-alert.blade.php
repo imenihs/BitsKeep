@@ -57,7 +57,10 @@
           :class="alert.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
           class="border-b border-[var(--color-border)] hover:opacity-90 transition-opacity">
           <td class="py-2 pr-4">
-            <template v-if="inOrder(alert)">
+            <template v-if="isPending(alert)">
+              <span class="tag tag-warning text-xs">発注待ち</span>
+            </template>
+            <template v-else-if="orderDraft.some(o => o.id === alert.id)">
               <span class="tag tag-ok text-xs">追加済み</span>
             </template>
             <input
@@ -84,7 +87,8 @@
             </span>
           </td>
           <td class="py-2">
-            <span v-if="inOrder(alert)" class="text-xs opacity-60">発注候補へ追加済み</span>
+            <span v-if="isPending(alert)" class="text-xs opacity-60">発注済み（納品待ち）</span>
+            <span v-else-if="orderDraft.some(o => o.id === alert.id)" class="text-xs opacity-60">発注候補へ追加済み</span>
             <span v-else class="text-xs opacity-50">選択して追加</span>
           </td>
         </tr>
