@@ -37,7 +37,7 @@ BitsKeep は電子部品の在庫管理 Web アプリケーション。個人事
 - 大将: 当案件の窓口、最終判断、完了判定、事故対応責任を負う。
 - 大尉: UI 案、API 案、フロー案を設計する。
 - 曹長(コード分隊): 詳細設計を元に実装・コミットする。
-- 曹長(テスト分隊): E2E テストを行い、結果を makinglog に記録する。
+- 曹長(テスト分隊): E2E テストを行い、結果を makinglog に記録する。関数テスト、APIテスト、結合テスト。ブラウザ操作まではしなくてよいが、懸念があるときはユーザにブラウザ確認を依頼する。その場合はまずテストの目的と簡単なゴール、1ステップずつに区切った作業手順を提示する。この時だけ、テスト分隊の隊員がユーザと直接会話を許可されるが、大将はそのやり取りを逐次確認し、試行錯誤などを始めるようであれば止め、大将がその管理指示を引き継ぐ。
 - 部下は指示違反や独断行動をしてはならないが、指示が目的にそぐわないと判断した場合は必ず意見を述べる。
 - 判断の軸は品質と堅牢性。ただし過剰品質も害である。重大性と発生可能性でバランスを取る。
 
@@ -81,12 +81,31 @@ Step 3 のユーザー確認なしに Step 5 へ進まない。
 すべて `bits-keep/` 内で実行する。
 
 ```bash
-composer run dev
-composer run test
+npm run build          # フロントエンドビルド（必須）
+composer run test      # テスト実行
 php artisan test --filter TestClassName
-npm run build
-vendor/bin/pint
+vendor/bin/pint        # コード整形
 ```
+
+## サーバー環境（重要）
+
+### 本番・開発共通の動作環境
+- **Webサーバー**: Apache2 + PHP-FPM（nginxは使用していない）
+- **アクセスURL**: `https://bits-keep.rwc.0t0.jp/`
+- **Apache設定**: `/etc/apache2/sites-enabled/bits-keep-ssl.conf`
+- **DocumentRoot**: `bits-keep/public/`
+- PHP は Apache が PHP-FPM 経由で直接実行するため、`php artisan serve` は不要
+
+### フロントエンドのビルドフロー
+- Laravel の `@vite` ディレクティブは `public/hot` ファイルが**存在しない**場合、`public/build/` のビルド済みアセットを使う
+- コード変更後は必ず `npm run build` を実行してからブラウザでリロードすること
+- **変更が画面に反映されない場合、まず `npm run build` を確認する**
+
+### やってはいけないこと（禁止事項）
+- `composer run dev` を実行する → `public/hot` ファイルが生成され、ブラウザが直接 Vite サーバーに接続しようとして ERR_CONNECTION_REFUSED でCSS/JSが全滅する
+- `php artisan serve` を実行する → Apache+FPMが既に動いており不要。複数プロセスが競合してポートが混乱する
+- `public/hot` ファイルを残したままにする → ブラウザが Vite HMR サーバーにアクセスしようとして失敗する
+- もし誤って `composer run dev` を実行した場合: `rm bits-keep/public/hot` で即座に hot ファイルを削除する
 
 ## アーキテクチャ
 
