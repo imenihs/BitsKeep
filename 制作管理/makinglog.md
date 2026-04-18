@@ -2533,3 +2533,50 @@ Step 9 (UI説明過多削減 P0):
 ユーザー報告の「test@test.com」は SQLite 開発環境の想定テストアカウント。
 
 大将の心の声: 環境の二重化（開発 SQLite / 本番 PostgreSQL）に気づかず、SQLite を本番と誤認していた。git で環境変更を追える形にするか、docker-compose で環境を統一するか、方針を定める必要がある。今回は .env を .gitignore から外して管理するか検討すべき。
+
+---
+
+### 03:15 [曹長(コード分隊)] stock_orders 発注追跡機能実装完了
+
+**作業内容：**
+1. **仕様書更新**
+   - stock_orders の DB 設計（既存）と動作仕様を追加
+   - 発注リスト送信 → 状態追跡 → 受取/キャンセル のフロー定義
+   - API エンドポイント一覧を明記
+
+2. **チェックリスト更新**
+   - Phase 2-5 に「stock_orders テーブルとモデル実装」タスク追加
+
+3. **バックエンド実装**
+   - マイグレーション: 2026_04_19_120000_create_stock_orders_table.php 作成・実行完了
+   - StockOrder モデル（component/supplier/createdBy relations）
+   - StockOrderController (CRUD + pendingByComponent エンドポイント)
+   - routes/api.php に /stock-orders リソースルート追加
+
+4. **フロントエンド統合**
+   - stock-alert.js に fetchPendingOrders() 追加
+   - inOrder 判定に pending orders を統合（draft と併せて判定）
+   - isPending 関数で pending 状態を明示可能に
+   - stock-alert.blade.php で pending/draft を区別表示
+     - pending: 「発注待ち」バッジ（warning color）
+     - draft: 「追加済み」バッジ（ok color）
+     - 未発注: チェックボックス
+
+5. **ビルド**
+   - npm run build 成功
+
+6. **その他**
+   - app-header.blade.php のロール表示を icon のみに変更（「管理/編集/閲覧」テキスト削除）
+   - claude.md にデータベース環境情報を追加（本番 PostgreSQL vs ローカル SQLite、.env 設定管理）
+
+**テスト待ち：**
+- [ ] 在庫警告画面で pending 発注の部品にバッジ表示
+- [ ] pending 発注の部品はチェックボックス無効化
+- [ ] 新規発注作成時に stock_orders レコード生成
+- [ ] 発注状態変更が UI に反映
+
+**コミット**: b5e9465 / 1595262
+
+大将の心の声: stock_orders の発注追跡が整った。これで「既に発注したかどうか」が DB に永続化され、重複発注リスクが解消。次は Step 3～7 のテスター検証。
+
+大将の心の声: 環境の二重化（開発 SQLite / 本番 PostgreSQL）に気づかず、SQLite を本番と誤認していた。git で環境変更を追える形にするか、docker-compose で環境を統一するか、方針を定める必要がある。今回は .env を .gitignore から外して管理するか検討すべき。
