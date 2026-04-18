@@ -19,11 +19,6 @@
         class="px-3 py-2 text-sm border border-[var(--color-border)] rounded hover:opacity-80 transition-opacity no-underline">
         連携設定
       </a>
-      <button @click="syncNotion" :disabled="syncing"
-        class="px-3 py-2 text-sm border rounded hover:opacity-80 disabled:opacity-40 transition-opacity"
-        :class="syncConfig.configured ? 'border-[var(--color-border)]' : 'border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]'">
-        @{{ syncing ? '同期中...' : (syncConfig.configured ? '🔄 Notion同期' : '⚠ Notion未設定') }}
-      </button>
       <button @click="openAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ 案件を作成</button>
     </div>
   </header>

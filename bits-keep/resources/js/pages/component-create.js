@@ -17,6 +17,7 @@ export default function setup() {
     const specTypes  = ref([]);
     const suppliers  = ref([]);
     const locations  = ref([]);
+    const altiumLibraries = ref([]);
     const manufacturerOptions = ref([]);
 
     // ── フォーム ──────────────────────────────────────────
@@ -29,6 +30,13 @@ export default function setup() {
         package_group_id: '',
         package_id: '',
         specs: [],       // [{ spec_type_id, value, unit, value_numeric }]
+        custom_attributes: [],
+        altium: {
+            sch_library_id: '',
+            sch_symbol: '',
+            pcb_library_id: '',
+            pcb_footprint: '',
+        },
         supplierRows: [], // [{ supplier_id, supplier_part_number, product_url, unit_price, is_preferred, price_breaks:[] }]
     });
     const imageFile = ref(null);
@@ -43,8 +51,11 @@ export default function setup() {
     const masterLoadError = ref('');
     useNavigationConfirm(dirty, '未保存の入力があります。このまま画面を離れてもよいですか？');
     const manufacturerQuery = ref('');
+    const manufacturerSuggestionsOpen = ref(false);
     const categoryQuery = ref('');
     const packageQuery = ref('');
+    const schLibraries = computed(() => altiumLibraries.value.filter((library) => library.type === 'SchLib'));
+    const pcbLibraries = computed(() => altiumLibraries.value.filter((library) => library.type === 'PcbLib'));
 
     const filteredManufacturers = computed(() => {
         const q = manufacturerQuery.value.trim().toLowerCase();
@@ -92,6 +103,8 @@ export default function setup() {
     const addSpec = () => form.specs.push({ spec_type_id: '', value: '', unit: '', value_numeric: null });
     const removeSpec = (i) => form.specs.splice(i, 1);
     const getUnits = (specTypeId) => specTypes.value.find(st => st.id == specTypeId)?.units ?? [];
+    const addCustomAttribute = () => form.custom_attributes.push({ key: '', value: '' });
+    const removeCustomAttribute = (i) => form.custom_attributes.splice(i, 1);
 
     // ── 仕入先操作 ────────────────────────────────────────
     const createSupplierRow = () => ({
@@ -127,11 +140,13 @@ export default function setup() {
         form.manufacturer = name;
         manufacturerQuery.value = name;
         ensureManufacturerOption(name);
+        manufacturerSuggestionsOpen.value = false;
     };
     const commitManufacturer = () => {
         const trimmed = manufacturerQuery.value.trim();
         form.manufacturer = trimmed;
         ensureManufacturerOption(trimmed);
+        manufacturerSuggestionsOpen.value = false;
     };
 
     const toggleCategory = (id) => {
@@ -230,6 +245,14 @@ export default function setup() {
             payload.append(`specs[${index}][unit]`, spec.unit ?? '');
             payload.append(`specs[${index}][value_numeric]`, spec.value_numeric === null || spec.value_numeric === '' ? '' : String(spec.value_numeric));
         });
+        form.custom_attributes.forEach((attr, index) => {
+            payload.append(`attributes[${index}][key]`, attr.key ?? '');
+            payload.append(`attributes[${index}][value]`, attr.value ?? '');
+        });
+        payload.append('altium[sch_library_id]', form.altium.sch_library_id ? String(form.altium.sch_library_id) : '');
+        payload.append('altium[sch_symbol]', form.altium.sch_symbol ?? '');
+        payload.append('altium[pcb_library_id]', form.altium.pcb_library_id ? String(form.altium.pcb_library_id) : '');
+        payload.append('altium[pcb_footprint]', form.altium.pcb_footprint ?? '');
         form.supplierRows.forEach((row, index) => {
             payload.append(`suppliers[${index}][supplier_id]`, String(row.supplier_id ?? ''));
             payload.append(`suppliers[${index}][supplier_part_number]`, row.supplier_part_number ?? '');
@@ -283,14 +306,15 @@ export default function setup() {
 
     // ── 初期ロード ────────────────────────────────────────
     onMounted(async () => {
-        const [catRes, groupRes, pkgRes, stRes, supRes, compRes, locRes] = await Promise.all([
+        const [catRes, groupRes, pkgRes, stRes, supRes, compRes, locRes, altiumRes] = await Promise.all([
             api.get('/categories'), api.get('/package-groups'), api.get('/packages'),
             api.get('/spec-types'), api.get('/suppliers'),
             api.get('/components?per_page=100'),
             api.get('/locations'),
+            api.get('/altium/libraries'),
         ]).catch(() => {
             masterLoadError.value = '初期データの取得に失敗しました。再読込するか、マスタ管理を確認してください。';
-            return [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: { data: [] } }, { data: [] }];
+            return [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: { data: [] } }, { data: [] }, { data: [] }];
         });
 
         categories.value = catRes.data ?? [];
@@ -299,6 +323,7 @@ export default function setup() {
         specTypes.value  = stRes.data  ?? [];
         suppliers.value  = supRes.data ?? [];
         locations.value  = locRes.data ?? [];
+        altiumLibraries.value = altiumRes.data ?? [];
         manufacturerOptions.value = normalizeUniqueNames((compRes.data?.data ?? []).map((item) => item.manufacturer));
 
         // 編集モードなら既存データをロード
@@ -315,6 +340,13 @@ export default function setup() {
                 package_group_id: p.package_group?.id ?? p.package?.package_group_id ?? '',
                 package_id: p.package?.id ?? p.packages?.[0]?.id ?? '',
                 specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric })),
+                custom_attributes: (p.custom_attributes ?? []).map((attr) => ({ key: attr.key ?? '', value: attr.value ?? '' })),
+                altium: {
+                    sch_library_id: p.altiumLink?.sch_library_id ?? '',
+                    sch_symbol: p.altiumLink?.sch_symbol ?? '',
+                    pcb_library_id: p.altiumLink?.pcb_library_id ?? '',
+                    pcb_footprint: p.altiumLink?.pcb_footprint ?? '',
+                },
                 supplierRows: p.component_suppliers.map(cs => ({
                     supplier_id: cs.supplier_id, supplier_name: cs.supplier?.name ?? '',
                     supplier_part_number: cs.supplier_part_number ?? '',
@@ -378,10 +410,12 @@ export default function setup() {
         toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,
         imagePreviewUrl, currentImageUrl, currentDatasheets, datasheetFiles,
         categories, packageGroups, packages, specTypes, suppliers,
+        altiumLibraries, schLibraries, pcbLibraries,
         manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
+        manufacturerSuggestionsOpen,
         categoryQuery, filteredCategories, canCreateCategory,
         packageQuery, filteredPackages, canCreatePackage,
-        addSpec, removeSpec, getUnits,
+        addSpec, removeSpec, getUnits, addCustomAttribute, removeCustomAttribute,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         selectManufacturer, commitManufacturer,
         toggleCategory, selectPackage, addCategoryFromQuery, addPackageFromQuery,

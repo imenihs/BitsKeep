@@ -6,6 +6,7 @@
  */
 import { ref, computed, onMounted } from 'vue';
 import { api } from '../api.js';
+import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 
 // 全クイックアクション定義（keyで識別）
 const ACTION_DEFS = [
@@ -13,6 +14,7 @@ const ACTION_DEFS = [
     { key: 'create',        label: '部品登録',     desc: '新規部品を登録する',       url: '/components/create', icon: '➕' },
     { key: 'stock-in',      label: '入庫',         desc: '購入部品を続けて入庫する', url: '/stock-in',         icon: '📥' },
     { key: 'stock-alert',   label: '在庫警告',     desc: '発注点を下回る部品を確認', url: '/stock-alert',       icon: '⚠️' },
+    { key: 'stock-orders',  label: '部品発注',     desc: '発注候補を商社別に確認・出力', url: '/stock-orders',  icon: '🛒' },
     { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
     { key: 'master',        label: 'マスタ管理',   desc: '分類・パッケージ・スペック種別', url: '/master',     icon: '⚙️' },
     { key: 'design-tools',  label: '設計ツール',   desc: 'ADC/電源/誤差/熱など設計解析', url: '/tools/design', icon: '🔬' },
@@ -27,6 +29,7 @@ const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
 const DEFAULT_QUICK_ACTION_KEYS = ['components', 'stock-in', 'create', 'stock-alert', 'projects'];
 
 export default function setup() {
+    const { favoriteIds, loadFavorites } = useFavoriteComponents();
     const userName  = document.getElementById('app')?.dataset?.userName ?? 'ユーザー';
     const userRole  = document.getElementById('app')?.dataset?.role ?? 'viewer';
     const sectionLinks = [
@@ -34,6 +37,7 @@ export default function setup() {
         { href: '#today-section', label: '今日の確認事項' },
         { href: '#quick-actions-section', label: '業務別メニュー' },
         { href: '#recent-section', label: '最近使った機能' },
+        { href: '#favorites-section', label: 'お気に入りパーツ' },
         { href: '#all-functions-section', label: '全機能ショートカット' },
     ];
     const focusModes = ['全部', '部品', '案件', '機能'];
@@ -104,6 +108,7 @@ export default function setup() {
     // ── 今日の確認事項 ──────────────────────────────────────
     const alertCount  = ref(0);
     const recentParts = ref([]);
+    const favoriteParts = ref([]);
     const projectCount = ref(0);
     const summaryError = ref('');
 
@@ -125,6 +130,22 @@ export default function setup() {
             }
         } catch {
             summaryError.value = 'ホーム要約の取得に失敗しました。再読込するか、各一覧画面から直接確認してください。';
+        }
+    };
+
+    const fetchFavoriteParts = async () => {
+        if (!favoriteIds.value.length) {
+            favoriteParts.value = [];
+            return;
+        }
+        try {
+            const params = new URLSearchParams();
+            favoriteIds.value.forEach((id) => params.append('ids[]', id));
+            params.set('per_page', String(favoriteIds.value.length));
+            const res = await api.get(`/components?${params.toString()}`);
+            favoriteParts.value = res.data?.data ?? [];
+        } catch {
+            favoriteParts.value = [];
         }
     };
 
@@ -198,6 +219,12 @@ export default function setup() {
         href: `/components/${part.id}`,
         icon: '🔩',
     })));
+    const favoriteItems = computed(() => favoriteParts.value.slice(0, 6).map((part) => ({
+        name: part.common_name || part.part_number,
+        group: `${part.part_number} / 在庫 ${part.quantity_new ?? 0}`,
+        href: `/components/${part.id}`,
+        icon: '★',
+    })));
     const launcherResults = computed(() => {
         if (searchQuery.value.trim()) return searchResults.value;
         return [
@@ -237,6 +264,7 @@ export default function setup() {
     };
 
     onMounted(() => {
+        loadFavorites().then(fetchFavoriteParts);
         fetchSummary();
         loadOrder();
     });
@@ -246,7 +274,7 @@ export default function setup() {
         sectionLinks, focusModes, activeFocus, setFocus,
         searchQuery, searchResults, searching,
         onSearchInput, navigate, launcherResults, openItem, openFirstResult, doSearch,
-        alertCount, recentParts, statusCards, recentItems, searchError, summaryError, fetchSummary,
+        alertCount, recentParts, favoriteParts, statusCards, recentItems, favoriteItems, searchError, summaryError, fetchSummary,
         quickActions, preferenceError,
     };
 }

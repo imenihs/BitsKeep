@@ -79,8 +79,9 @@
             <label class="block text-xs font-semibold mb-1">メーカー</label>
             <div class="relative">
               <input v-model="manufacturerQuery" @blur="commitManufacturer" type="text" class="input-text w-full"
+                @focus="manufacturerSuggestionsOpen = true"
                 placeholder="入力して絞り込み。候補がなければ新規で使う" />
-              <div v-if="manufacturerQuery.trim()" class="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-2 shadow-lg">
+              <div v-if="manufacturerSuggestionsOpen && manufacturerQuery.trim()" class="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-2 shadow-lg">
                 <div v-if="filteredManufacturers.length" class="flex flex-wrap gap-2">
                   <button v-for="name in filteredManufacturers" :key="name" @mousedown.prevent="selectManufacturer(name)"
                     type="button" class="px-2 py-1 rounded border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)]">
@@ -132,6 +133,28 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- スペック -->
+  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="font-bold">スペック</h2>
+      <button @click="addSpec" class="text-xs link-text">+ 追加</button>
+    </div>
+    <div v-for="(spec, i) in form.specs" :key="i" class="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.8fr_1fr_auto] gap-2 mb-2 items-center">
+      <select v-model="spec.spec_type_id" class="input-text text-sm py-1 w-full">
+        <option value="">-- 種別 --</option>
+        <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
+      </select>
+      <input v-model="spec.value" type="text" class="input-text text-sm py-1 w-full" placeholder="値" />
+      <select v-model="spec.unit" class="input-text text-sm py-1 w-full">
+        <option value="">単位</option>
+        <option v-for="u in getUnits(spec.spec_type_id)" :key="u.id" :value="u.unit">@{{ u.unit }}</option>
+      </select>
+      <input v-model="spec.value_numeric" type="number" step="any" class="input-text text-sm py-1 w-full" placeholder="数値化" />
+      <button @click="removeSpec(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
+    </div>
+    <p v-if="!form.specs.length" class="text-xs opacity-40">スペックを追加してください</p>
   </section>
 
   <!-- 分類・パッケージ -->
@@ -199,27 +222,6 @@
     </div>
   </section>
 
-  <!-- スペック -->
-  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
-    <div class="flex justify-between items-center mb-3">
-      <h2 class="font-bold">スペック</h2>
-      <button @click="addSpec" class="text-xs link-text">+ 追加</button>
-    </div>
-    <div v-for="(spec, i) in form.specs" :key="i" class="flex gap-2 mb-2 items-center">
-      <select v-model="spec.spec_type_id" class="input-text text-sm py-1 flex-1">
-        <option value="">-- 種別 --</option>
-        <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-      </select>
-      <input v-model="spec.value" type="text" class="input-text text-sm py-1 w-28" placeholder="値" />
-      <select v-model="spec.unit" class="input-text text-sm py-1 w-24">
-        <option value="">単位</option>
-        <option v-for="u in getUnits(spec.spec_type_id)" :key="u.id" :value="u.unit">@{{ u.unit }}</option>
-      </select>
-      <button @click="removeSpec(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
-    </div>
-    <p v-if="!form.specs.length" class="text-xs opacity-40">スペックを追加してください</p>
-  </section>
-
   <!-- 仕入先 -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <div class="flex justify-between items-center mb-3">
@@ -276,6 +278,49 @@
       <button @click="addPriceBreak(row)" class="text-xs link-text mt-1">+ 価格ブレーク追加</button>
     </div>
     <p v-if="!form.supplierRows.length" class="text-xs opacity-40">仕入先を追加してください</p>
+  </section>
+
+  <!-- カスタムフィールド -->
+  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="font-bold">カスタムフィールド</h2>
+      <button @click="addCustomAttribute" class="text-xs link-text">+ 追加</button>
+    </div>
+    <div v-for="(attr, i) in form.custom_attributes" :key="`attr-${i}`" class="grid grid-cols-1 md:grid-cols-[1fr_1.6fr_auto] gap-2 mb-2 items-center">
+      <input v-model="attr.key" type="text" class="input-text text-sm py-1 w-full" placeholder="項目名" />
+      <input v-model="attr.value" type="text" class="input-text text-sm py-1 w-full" placeholder="値" />
+      <button @click="removeCustomAttribute(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
+    </div>
+    <p v-if="!form.custom_attributes.length" class="text-xs opacity-40">必要に応じて任意の項目を追加してください</p>
+  </section>
+
+  <!-- Altium連携 -->
+  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
+    <h2 class="font-bold mb-3">Altiumライブラリ連携</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+      <div>
+        <label class="block text-xs font-semibold mb-1">回路図ライブラリ</label>
+        <select v-model="form.altium.sch_library_id" class="input-text w-full">
+          <option value="">未設定</option>
+          <option v-for="library in schLibraries" :key="library.id" :value="library.id">@{{ library.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">回路図シンボル名</label>
+        <input v-model="form.altium.sch_symbol" type="text" class="input-text w-full" placeholder="例: REG_3V3_SOT23" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">PCBライブラリ</label>
+        <select v-model="form.altium.pcb_library_id" class="input-text w-full">
+          <option value="">未設定</option>
+          <option v-for="library in pcbLibraries" :key="library.id" :value="library.id">@{{ library.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">PCBフットプリント名</label>
+        <input v-model="form.altium.pcb_footprint" type="text" class="input-text w-full" placeholder="例: SOT23-3" />
+      </div>
+    </div>
   </section>
 
   <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] px-4 py-4">

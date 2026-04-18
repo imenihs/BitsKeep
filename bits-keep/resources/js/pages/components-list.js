@@ -1,9 +1,11 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { favoriteIds, loadFavorites, toggleFavorite, isFavorite } = useFavoriteComponents();
 
     // ── フィルタ状態 ──────────────────────────────────────────
     const searchQuery      = ref('');
@@ -24,6 +26,7 @@ export default function setup() {
     const advPurchasedFrom = ref('');
     const advPurchasedTo   = ref('');
     const sortOrder        = ref('updated_at');
+    const favoriteOnly     = ref(false);
 
     // ── ページネーション ──────────────────────────────────────
     const page    = ref(1);
@@ -54,6 +57,18 @@ export default function setup() {
         const ids = compareList.value.map((part) => part.id);
         return ids.length >= 2 ? `/component-compare?ids=${ids.join(',')}` : '/component-compare';
     });
+    const handleToggleFavorite = async (componentId) => {
+        try {
+            const wasFavorite = isFavorite(componentId);
+            await toggleFavorite(componentId);
+            toastSuccess(wasFavorite ? 'お気に入りから外しました' : 'お気に入りに追加しました');
+            if (favoriteOnly.value) {
+                fetchParts();
+            }
+        } catch {
+            toastError('お気に入りの保存に失敗しました');
+        }
+    };
     const selectedCategoryNames = computed(() =>
         categories.value
             .filter((item) => filterCategories.value.includes(item.id))
@@ -69,6 +84,7 @@ export default function setup() {
         if (filterStatus.value) {
             chips.push({ key: 'status', label: `入手可否: ${procurementLabel[filterStatus.value] ?? filterStatus.value}` });
         }
+        if (favoriteOnly.value) chips.push({ key: 'favoriteOnly', label: 'お気に入りのみ' });
         if (advManufacturer.value) chips.push({ key: 'manufacturer', label: `メーカー: ${advManufacturer.value}` });
         if (advPackageGroupId.value) {
             const groupName = packageGroups.value.find((item) => item.id == advPackageGroupId.value)?.name ?? `#${advPackageGroupId.value}`;
@@ -110,11 +126,12 @@ export default function setup() {
 
     // ── フィルタリセット ──────────────────────────────────────
     const hasFilter = computed(() =>
-        searchQuery.value || filterCategories.value.length || filterStatus.value || advManufacturer.value || advPackageGroupId.value || advPackageId.value || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
+        searchQuery.value || filterCategories.value.length || filterStatus.value || favoriteOnly.value || advManufacturer.value || advPackageGroupId.value || advPackageId.value || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
     );
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
         filterStatus.value = ''; advancedOpen.value = false;
+        favoriteOnly.value = false;
         advManufacturer.value = ''; advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = '';
         advSpecTypeId.value = ''; advUnit.value = ''; advMin.value = '';
         advMax.value = ''; advMinStock.value = '';
@@ -126,6 +143,7 @@ export default function setup() {
             const id = Number(key.split(':')[1]);
             filterCategories.value = filterCategories.value.filter((value) => value !== id);
         } else if (key === 'status') filterStatus.value = '';
+        else if (key === 'favoriteOnly') favoriteOnly.value = false;
         else if (key === 'manufacturer') advManufacturer.value = '';
         else if (key === 'packageGroup') { advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = ''; }
         else if (key === 'package') advPackageId.value = '';
@@ -145,6 +163,15 @@ export default function setup() {
         listError.value = '';
         try {
             const params = new URLSearchParams();
+            if (favoriteOnly.value) {
+                if (!favoriteIds.value.length) {
+                    parts.value = [];
+                    total.value = 0;
+                    lastPage.value = 1;
+                    return;
+                }
+                favoriteIds.value.forEach((id) => params.append('ids[]', id));
+            }
             if (searchQuery.value)           params.set('q', searchQuery.value);
             if (filterCategories.value.length) filterCategories.value.forEach(id => params.append('category_ids[]', id));
             if (filterStatus.value)          params.set('procurement_status', filterStatus.value);
@@ -202,7 +229,7 @@ export default function setup() {
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, advManufacturer, advPackageGroupId, advPackageId, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
+    watch([searchQuery, filterCategories, filterStatus, favoriteOnly, advManufacturer, advPackageGroupId, advPackageId, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -231,12 +258,13 @@ export default function setup() {
     });
 
     onMounted(async () => {
+        await loadFavorites();
         await fetchMasters();
         await fetchParts();
     });
 
     return {
-        toasts, searchQuery, filterCategories, filterStatus,
+        toasts, searchQuery, filterCategories, filterStatus, favoriteOnly,
         advancedOpen, advManufacturer, packageGroups, advPackageGroupId, advPackageId, advPackageQuery, filteredAdvancedPackages, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
         sortOrder,
         page, perPage, total, lastPage,
@@ -244,6 +272,7 @@ export default function setup() {
         compareList, toggleCompare, inCompare,
         compareUrl,
         selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts, emptyState, isFiltered,
+        favoriteIds, handleToggleFavorite, isFavorite,
         procurementLabel, procurementClass,
     };
 }

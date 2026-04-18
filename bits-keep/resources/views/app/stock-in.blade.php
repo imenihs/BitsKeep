@@ -17,155 +17,130 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">入庫</h1>
-    <p class="text-sm opacity-60 mt-1">品名・型番・商社部品IDで検索し、複数部品を順に受け入れます</p>
+    <p class="text-sm opacity-60 mt-1">品名・型番・商社部品IDで検索し、入庫対象へ追加して一括入庫します</p>
   </header>
 
   <section v-if="alertParts.length" class="card p-5 bg-[var(--color-card-odd)] mb-4 block">
     <div class="flex items-center justify-between gap-3 mb-4">
       <div>
         <h2 class="text-lg font-bold">要入庫候補</h2>
-        <div class="text-sm opacity-60 mt-1">在庫警告になっている部品から直接入庫できます</div>
+        <div class="text-sm opacity-60 mt-1">在庫警告中の部品を、そのまま入庫対象へ追加できます</div>
       </div>
       <a href="{{ route('stock.alert') }}" class="text-sm no-underline hover:text-[var(--color-primary)] transition-colors">在庫警告を開く</a>
     </div>
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <button
+    <div class="space-y-2">
+      <div
         v-for="part in alertParts"
         :key="part.id"
-        type="button"
-        @click="choosePart(part)"
-        class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4 text-left hover:border-[var(--color-primary)] transition-colors">
-        <div class="flex items-start justify-between gap-3">
+        class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 overflow-x-auto">
+        <div class="grid min-w-[760px] grid-cols-[minmax(260px,1.4fr)_120px_120px_150px] gap-3 items-center">
           <div class="min-w-0">
             <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
             <div class="text-xs opacity-60 font-mono mt-1 truncate">@{{ part.part_number }}</div>
           </div>
-          <span class="tag tag-warning text-xs shrink-0">不足</span>
-        </div>
-        <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <div class="text-[11px] opacity-50">新品在庫</div>
-            <div class="font-mono">@{{ part.quantity_new }}個</div>
-          </div>
-          <div>
-            <div class="text-[11px] opacity-50">発注点</div>
-            <div class="font-mono">@{{ part.threshold_new }}個</div>
-          </div>
-        </div>
-        <div class="mt-3 text-xs opacity-60">
-          推奨商社: @{{ part.cheapest_supplier?.name ?? '未設定' }}
-        </div>
-        <div class="mt-3 inline-flex items-center rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm">
-          この部品を入庫
-        </div>
-      </button>
-    </div>
-  </section>
-
-  <section class="card p-5 bg-[var(--color-card-even)] mb-4 block">
-    <div class="flex gap-3">
-      <input v-model="query" @keydown.enter.prevent="search" type="text" class="input-text flex-1" placeholder="部品名 / 型番 / 商社部品IDで検索" />
-      <button @click="search" class="btn btn-primary px-4 py-2 rounded text-sm">検索</button>
-    </div>
-    <div v-if="loading" class="mt-4 text-sm opacity-60">検索中...</div>
-    <div v-else class="mt-4 grid gap-2">
-      <button v-for="part in parts" :key="part.id" @click="choosePart(part)"
-        class="text-left rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 hover:border-[var(--color-primary)]">
-        <div class="font-semibold">@{{ part.common_name || part.part_number }}</div>
-        <div class="text-xs opacity-60 mt-1">@{{ part.part_number }} / @{{ part.manufacturer || 'メーカー未設定' }}</div>
-      </button>
-      <div v-if="!loading && query && parts.length === 0" class="text-sm opacity-50">一致する部品がありません</div>
-    </div>
-  </section>
-
-  <!-- 入庫完了バナー（次の部品へ促す） -->
-  <div v-if="justSubmitted && selectedPart" class="mb-4 flex items-center justify-between gap-4 rounded-xl border border-[var(--color-tag-ok)] bg-[var(--color-tag-ok)]/10 px-5 py-4">
-    <div>
-      <div class="font-semibold text-[var(--color-tag-ok)]">入庫が完了しました</div>
-      <div class="text-sm opacity-70 mt-0.5">@{{ selectedPart.common_name || selectedPart.part_number }} を入庫しました</div>
-    </div>
-    <div class="flex gap-3 shrink-0">
-      <button @click="justSubmitted = false" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">この部品を続けて入庫</button>
-      <button @click="nextPart" class="btn btn-primary px-5 py-2 rounded text-sm">次の部品を入庫</button>
-    </div>
-  </div>
-
-  <section v-if="selectedPart" class="card p-5 bg-[var(--color-card-even)] block">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="text-lg font-bold">@{{ selectedPart.common_name || selectedPart.part_number }}</h2>
-        <div class="text-sm opacity-60 font-mono mt-1">@{{ selectedPart.part_number }}</div>
-      </div>
-      <a :href="'/components/' + selectedPart.id" class="btn px-4 py-2 rounded border border-[var(--color-border)] text-sm no-underline text-inherit">詳細を見る</a>
-    </div>
-
-    <div class="mt-4 grid gap-4 lg:grid-cols-2">
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold mb-1">在庫区分</label>
-          <select v-model="form.stock_type" class="input-text w-full">
-            <option v-for="(label, value) in stockTypeLabel" :key="value" :value="value">@{{ label }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">新品/中古</label>
-          <select v-model="form.condition" class="input-text w-full">
-            <option value="new">新品</option>
-            <option value="used">中古</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">数量</label>
-          <input v-model.number="form.quantity" type="number" min="1" class="input-text w-full" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">入庫先棚</label>
-          <select v-model="form.location_id" class="input-text w-full">
-            <option value="">未設定</option>
-            <option v-for="location in locations" :key="location.id" :value="location.id">@{{ location.code }} / @{{ location.name }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">ロット番号</label>
-          <input v-model="form.lot_number" type="text" class="input-text w-full" />
-        </div>
-        <div v-if="form.stock_type === 'reel'">
-          <label class="block text-xs font-semibold mb-1">リール番号</label>
-          <input v-model="form.reel_code" type="text" class="input-text w-full" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">備考</label>
-          <input v-model="form.note" type="text" class="input-text w-full" />
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
-          <div class="text-xs opacity-60">入庫結果</div>
-          <div class="mt-2 text-sm font-semibold" :class="willMerge ? 'text-[var(--color-tag-ok)]' : 'text-[var(--color-primary)]'">
-            @{{ willMerge ? '既存在庫へ加算されます' : '新しい在庫ブロックを作成します' }}
-          </div>
-        </div>
-        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
-          <div class="text-xs opacity-60 mb-2">一致する既存在庫ブロック</div>
-          <div v-if="matchingBlocks.length" class="space-y-2 text-sm">
-            <div v-for="block in matchingBlocks" :key="block.id" class="flex items-center justify-between">
-              <div>@{{ block.location?.code || '未設定' }} / @{{ stockTypeLabel[block.stock_type] }} / @{{ block.condition === 'new' ? '新品' : '中古' }}</div>
-              <div class="font-mono">@{{ block.quantity }}個</div>
-            </div>
-          </div>
-          <div v-else class="text-sm opacity-50">一致する既存在庫ブロックはありません</div>
-        </div>
-        <div class="flex justify-end">
-          <button @click="submit" :disabled="submitting" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50">
-            @{{ submitting ? '入庫中...' : '入庫する' }}
+          <div class="text-sm font-mono whitespace-nowrap">新品 @{{ part.quantity_new }}個</div>
+          <div class="text-sm font-mono whitespace-nowrap">発注点 @{{ part.threshold_new }}個</div>
+          <button
+            type="button"
+            @click="queuePart(part)"
+            class="px-3 py-2 rounded border border-[var(--color-border)] text-sm whitespace-nowrap hover:border-[var(--color-primary)]">
+            入庫対象へ追加
           </button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- セッション処理ログ -->
+  <section class="card p-5 bg-[var(--color-card-even)] mb-4 block">
+    <div class="flex items-center justify-between gap-4 mb-3">
+      <div>
+        <h2 class="text-lg font-bold">部品検索</h2>
+        <div class="text-sm opacity-60 mt-1">入力すると自動検索します</div>
+      </div>
+      <button
+        @click="addSelectedResults"
+        :disabled="searchSelectionCount === 0"
+        class="btn btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
+        選択を追加 <span v-if="searchSelectionCount > 0">(@{{ searchSelectionCount }})</span>
+      </button>
+    </div>
+    <input v-model="query" type="text" class="input-text w-full" placeholder="部品名 / 型番 / 商社部品IDで検索" />
+
+    <div v-if="loading" class="mt-4 text-sm opacity-60">検索中...</div>
+    <div v-else class="mt-4 space-y-2 max-h-80 overflow-y-auto">
+      <label
+        v-for="part in parts"
+        :key="part.id"
+        class="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 cursor-pointer hover:border-[var(--color-primary)]">
+        <input
+          :checked="selectedSearchIds.includes(part.id)"
+          @change="toggleSearchSelection(part.id)"
+          type="checkbox"
+          class="h-4 w-4" />
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
+          <div class="text-xs opacity-60 mt-1 truncate">@{{ part.part_number }} / @{{ part.manufacturer || 'メーカー未設定' }}</div>
+        </div>
+      </label>
+      <div v-if="!loading && query && parts.length === 0" class="text-sm opacity-50">一致する部品がありません</div>
+    </div>
+  </section>
+
+  <section v-if="queueCount > 0" class="card p-5 bg-[var(--color-card-even)] block">
+    <div class="flex items-start justify-between gap-4 mb-4">
+      <div>
+        <h2 class="text-lg font-bold">入庫対象一覧</h2>
+        <div class="text-sm opacity-60 mt-1">@{{ queueCount }}件をまとめて入庫します</div>
+      </div>
+      <button @click="submitAll" :disabled="submitting" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50">
+        @{{ submitting ? '入庫中...' : '一括入庫する' }}
+      </button>
+    </div>
+
+    <div class="space-y-3">
+      <div v-for="entry in selectedEntries" :key="entry.key" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4">
+        <div class="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <div class="font-semibold">@{{ entry.part.common_name || entry.part.part_number }}</div>
+            <div class="text-xs opacity-60 font-mono mt-1">@{{ entry.part.part_number }}</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-xs opacity-60" :class="matchingBlocks(entry).length > 0 ? 'text-[var(--color-tag-ok)]' : ''">
+              @{{ matchingBlocks(entry).length > 0 ? '既存在庫へ加算' : '新規ブロック' }}
+            </div>
+            <a :href="'/components/' + entry.part.id" target="_blank" rel="noreferrer" class="text-xs no-underline hover:text-[var(--color-primary)]">詳細</a>
+            <button @click="removeEntry(entry.key)" class="px-3 py-2 rounded border border-[var(--color-border)] text-xs">除外</button>
+          </div>
+        </div>
+
+        <div class="grid gap-3 lg:grid-cols-[120px_120px_100px_minmax(180px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)_minmax(180px,1fr)]">
+          <select v-model="entry.form.stock_type" class="input-text">
+            <option v-for="(label, value) in stockTypeLabel" :key="value" :value="value">@{{ label }}</option>
+          </select>
+          <select v-model="entry.form.condition" class="input-text">
+            <option value="new">新品</option>
+            <option value="used">中古</option>
+          </select>
+          <input v-model.number="entry.form.quantity" type="number" min="1" class="input-text text-right" />
+          <select v-model="entry.form.location_id" class="input-text">
+            <option value="">未設定</option>
+            <option v-for="location in locations" :key="location.id" :value="location.id">@{{ location.code }} / @{{ location.name }}</option>
+          </select>
+          <input v-model="entry.form.lot_number" type="text" class="input-text" placeholder="ロット番号" />
+          <input v-model="entry.form.reel_code" type="text" class="input-text" :disabled="entry.form.stock_type !== 'reel'" placeholder="リール番号" />
+          <input v-model="entry.form.note" type="text" class="input-text" placeholder="備考" />
+        </div>
+
+        <div v-if="matchingBlocks(entry).length" class="mt-3 text-xs opacity-60">
+          一致する在庫:
+          <span v-for="block in matchingBlocks(entry)" :key="block.id" class="mr-3">
+            @{{ block.location?.code || '未設定' }} / @{{ stockTypeLabel[block.stock_type] }} / @{{ block.condition === 'new' ? '新品' : '中古' }} / @{{ block.quantity }}個
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section v-if="processedLog.length" class="mt-4 card p-5 bg-[var(--color-card-odd)] block">
     <h2 class="text-sm font-semibold mb-3 opacity-80">本セッションの入庫履歴</h2>
     <div class="space-y-2">

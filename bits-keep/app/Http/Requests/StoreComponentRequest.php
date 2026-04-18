@@ -37,6 +37,15 @@ class StoreComponentRequest extends FormRequest
             'specs.*.value'       => ['nullable', 'string', 'max:100'],
             'specs.*.unit'        => ['nullable', 'string', 'max:20'],
             'specs.*.value_numeric' => ['nullable', 'numeric'],
+            // カスタムフィールド
+            'attributes'          => ['nullable', 'array'],
+            'attributes.*.key'    => ['required_with:attributes', 'string', 'max:100'],
+            'attributes.*.value'  => ['required_with:attributes', 'string', 'max:500'],
+            // Altium 連携
+            'altium.sch_library_id' => ['nullable', 'integer', 'exists:altium_libraries,id'],
+            'altium.sch_symbol'     => ['nullable', 'string', 'max:255'],
+            'altium.pcb_library_id' => ['nullable', 'integer', 'exists:altium_libraries,id'],
+            'altium.pcb_footprint'  => ['nullable', 'string', 'max:255'],
             // 仕入先
             'suppliers'                          => ['nullable', 'array'],
             'suppliers.*.supplier_id'            => ['required_with:suppliers', 'integer', 'exists:suppliers,id'],

@@ -191,6 +191,31 @@
 
     </section>
 
+    <section id="favorites-section" class="scroll-mt-28 rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-bg)] shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Favorites</p>
+          <h2 class="text-2xl font-bold">お気に入りパーツ</h2>
+        </div>
+        <a href="{{ route('components.index') }}" class="text-sm no-underline hover:text-[var(--color-primary)] transition-colors">部品一覧で管理</a>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        <a v-for="item in favoriteItems" :key="item.href"
+          :href="item.href"
+          class="flex items-center justify-between gap-3 rounded-2xl px-4 py-4 border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-colors no-underline text-inherit">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">@{{ item.icon }}</div>
+            <div class="min-w-0 text-left">
+              <div class="font-semibold text-sm truncate">@{{ item.name }}</div>
+              <div class="text-xs opacity-50 truncate">@{{ item.group }}</div>
+            </div>
+          </div>
+          <span class="opacity-35 flex-shrink-0">›</span>
+        </a>
+      </div>
+      <div v-if="favoriteItems.length === 0" class="text-center py-8 opacity-40 text-sm">お気に入りパーツはまだありません</div>
+    </section>
+
     <!-- 全機能一覧 -->
     <section id="all-functions-section" class="scroll-mt-28">
       <div class="mb-6">
@@ -244,6 +269,7 @@
           @foreach ([
             ['icon'=>'📥','label'=>'入庫','desc'=>'購入部品を順に入庫する','route'=>'stock.in'],
             ['icon'=>'⚠️','label'=>'在庫警告','desc'=>'発注点を下回る部品を確認','route'=>'stock.alert'],
+            ['icon'=>'🛒','label'=>'部品発注','desc'=>'発注候補を商社別に確認・出力','route'=>'stock.orders'],
             ['icon'=>'🗄️','label'=>'保管棚管理','desc'=>'棚マップと棚卸し','route'=>'locations.index'],
             ['icon'=>'🏪','label'=>'商社管理','desc'=>'仕入先・商社の管理','route'=>'suppliers.index'],
           ] as $fn)

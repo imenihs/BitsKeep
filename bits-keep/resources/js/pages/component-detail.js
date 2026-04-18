@@ -1,9 +1,11 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { loadFavorites, toggleFavorite, isFavorite } = useFavoriteComponents();
 
     // Blade側から data-id 属性で部品IDを受け取る
     const componentId = document.getElementById('app')?.dataset?.id;
@@ -18,6 +20,7 @@ export default function setup() {
     const specTypes = ref([]);
     const suppliers = ref([]);
     const locations = ref([]);
+    const detailCategoryQuery = ref('');
     const showAllTransactions = ref(false);
     const basicImageFile = ref(null);
     const basicDatasheetFiles = ref([]);
@@ -81,6 +84,7 @@ export default function setup() {
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
         packageFilterQuery.value = '';
+        detailCategoryQuery.value = '';
         const forms = {
             basic: {
                 title: '基本情報を編集',
@@ -137,6 +141,7 @@ export default function setup() {
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
         packageFilterQuery.value = '';
+        detailCategoryQuery.value = '';
         editModalSnapshot.value = '';
     };
 
@@ -251,7 +256,18 @@ export default function setup() {
         }
     };
 
+    const handleToggleFavorite = async () => {
+        try {
+            const wasFavorite = isFavorite(componentId);
+            await toggleFavorite(componentId);
+            toastSuccess(wasFavorite ? 'お気に入りから外しました' : 'お気に入りに追加しました');
+        } catch {
+            toastError('お気に入りの保存に失敗しました');
+        }
+    };
+
     onMounted(async () => {
+        await loadFavorites();
         await Promise.all([fetchPart(), fetchMasters()]);
     });
 
@@ -307,6 +323,19 @@ export default function setup() {
         return scopedPackages.filter((item) => item.name.toLowerCase().includes(q));
     });
 
+    const filteredDetailCategories = computed(() => {
+        const q = detailCategoryQuery.value.trim().toLowerCase();
+        if (!q) return categories.value;
+        return categories.value.filter((item) => item.name.toLowerCase().includes(q));
+    });
+
+    const toggleDetailCategory = (categoryId) => {
+        const ids = editModal.value.form?.category_ids ?? [];
+        editModal.value.form.category_ids = ids.includes(categoryId)
+            ? ids.filter((value) => value !== categoryId)
+            : [...ids, categoryId];
+    };
+
     const handlePackageGroupChange = () => {
         const groupId = editModal.value.form?.package_group_id;
         packageFilterQuery.value = '';
@@ -330,10 +359,12 @@ export default function setup() {
         formatTransactionTimestamp,
         canSaveEditModal,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
+        detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,
         basicImageFile, basicDatasheetFiles,
         editModal, openEdit, closeEditModal, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,
+        handleToggleFavorite, isFavorite,
         copyLink, deletePart,
         similarParts, similarLoading, similarError, fetchSimilar, fetchPart,
     };

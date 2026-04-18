@@ -26,6 +26,11 @@
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button @click="favoriteOnly = !favoriteOnly"
+            class="px-3 py-2 rounded-2xl border text-sm transition-colors"
+            :class="favoriteOnly ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-[var(--color-bg)]' : 'border-[var(--color-border)]'">
+            ★ お気に入りのみ
+          </button>
           <a v-if="alertCount > 0" href="/stock-alert"
             class="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white no-underline"
             style="background-color: var(--color-tag-warning);">
@@ -220,43 +225,52 @@
             <a v-if="emptyState.actions.includes('csv')" href="{{ route('csv.import') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">CSVインポート</a>
           </div>
         </div>
-        <a v-for="(part, i) in parts" v-else :key="part.id"
-          :href="'/components/' + part.id"
-          class="card flex items-center gap-4 px-4 py-3 no-underline text-inherit cursor-pointer hover:border-[var(--color-primary)] transition-colors"
-          :class="i % 2 === 0 ? 'card-even' : 'card-odd'">
-          <img v-if="part.image_url" :src="part.image_url" class="thumbnail flex-shrink-0" />
-          <div v-else class="w-16 h-16 flex-shrink-0 rounded border border-[var(--color-border)] flex items-center justify-center opacity-30 text-xs">無</div>
+        <div v-for="(part, i) in parts" v-else :key="part.id"
+          class="flex items-stretch gap-3">
+          <a :href="'/components/' + part.id"
+            class="card flex flex-1 items-center gap-4 px-4 py-3 no-underline text-inherit cursor-pointer hover:border-[var(--color-primary)] transition-colors min-w-0"
+            :class="i % 2 === 0 ? 'card-even' : 'card-odd'">
+            <img v-if="part.image_url" :src="part.image_url" class="thumbnail flex-shrink-0" />
+            <div v-else class="w-16 h-16 flex-shrink-0 rounded border border-[var(--color-border)] flex items-center justify-center opacity-30 text-xs">無</div>
 
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="list-title truncate">@{{ part.common_name || part.part_number }}</span>
-              <span :class="'tag ' + procurementClass[part.procurement_status]" class="text-xs">
-                @{{ procurementLabel[part.procurement_status] }}
-              </span>
-              <span v-if="part.needs_reorder" class="tag text-xs bg-amber-100 text-amber-700">警告</span>
-              <span v-for="cat in part.categories" :key="cat.id" class="tag text-xs">@{{ cat.name }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="list-title truncate">@{{ part.common_name || part.part_number }}</span>
+                <span :class="'tag ' + procurementClass[part.procurement_status]" class="text-xs">
+                  @{{ procurementLabel[part.procurement_status] }}
+                </span>
+                <span v-if="part.needs_reorder" class="tag text-xs bg-amber-100 text-amber-700">警告</span>
+                <span v-for="cat in part.categories" :key="cat.id" class="tag text-xs">@{{ cat.name }}</span>
+              </div>
+              <p class="text-xs opacity-60 mt-0.5 font-mono">@{{ part.part_number }} @{{ part.manufacturer ? '/ ' + part.manufacturer : '' }}</p>
+              <div class="flex flex-wrap gap-3 mt-1 text-xs opacity-70">
+                <span>新品: @{{ part.quantity_new }}個</span>
+                <span>中古: @{{ part.quantity_used }}個</span>
+                <span v-if="part.packages?.length">パッケージ: @{{ part.packages.map((pkg) => pkg.name).join(' / ') }}</span>
+                <span v-if="part.cheapest_supplier_name">最安: ¥@{{ Number(part.cheapest_unit_price).toLocaleString() }} / @{{ part.cheapest_supplier_name }}</span>
+                <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
+              </div>
+              <div class="mt-1 text-xs opacity-60">
+                カテゴリ@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
+              </div>
             </div>
-            <p class="text-xs opacity-60 mt-0.5 font-mono">@{{ part.part_number }} @{{ part.manufacturer ? '/ ' + part.manufacturer : '' }}</p>
-            <div class="flex flex-wrap gap-3 mt-1 text-xs opacity-70">
-              <span>新品: @{{ part.quantity_new }}個</span>
-              <span>中古: @{{ part.quantity_used }}個</span>
-              <span v-if="part.packages?.length">パッケージ: @{{ part.packages.map((pkg) => pkg.name).join(' / ') }}</span>
-              <span v-if="part.cheapest_supplier_name">最安: ¥@{{ Number(part.cheapest_unit_price).toLocaleString() }} / @{{ part.cheapest_supplier_name }}</span>
-              <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
-            </div>
-            <div class="mt-1 text-xs opacity-60">
-              カテゴリ@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
+          </a>
+
+          <div class="flex flex-shrink-0 items-center" @click.stop>
+            <div class="flex flex-col gap-2 justify-center">
+              <button @click="handleToggleFavorite(part.id)"
+                class="px-3 py-2 rounded text-xs border transition-colors"
+                :class="isFavorite(part.id) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                @{{ isFavorite(part.id) ? '★ お気に入り' : '☆ お気に入り' }}
+              </button>
+              <button @click="toggleCompare(part)"
+                class="px-3 py-2 rounded text-xs border transition-colors"
+                :class="inCompare(part) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                @{{ inCompare(part) ? '比較中' : '比較に追加' }}
+              </button>
             </div>
           </div>
-
-          <div class="flex-shrink-0" @click.stop>
-            <button @click="toggleCompare(part)"
-              class="px-3 py-1 rounded text-xs border transition-colors"
-              :class="inCompare(part) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
-              @{{ inCompare(part) ? '比較中' : '比較' }}
-            </button>
-          </div>
-        </a>
+        </div>
       </div>
 
       <div v-if="lastPage > 1" class="px-4 py-3 border-t border-[var(--color-border)] flex items-center justify-center gap-2">

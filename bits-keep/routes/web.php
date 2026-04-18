@@ -25,6 +25,7 @@ Route::middleware(['auth'])->group(function () {
     // 在庫・棚・商社
     Route::get('/locations',   fn() => view('app.location-list'))->name('locations.index');
     Route::get('/stock-alert', fn() => view('app.stock-alert'))->name('stock.alert');
+    Route::get('/stock-orders', fn() => view('app.stock-orders'))->name('stock.orders');
     Route::get('/stock-in', fn() => view('app.stock-in'))->name('stock.in');
     Route::get('/suppliers',   fn() => view('app.supplier-list'))->name('suppliers.index');
 

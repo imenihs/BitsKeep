@@ -43,6 +43,15 @@ class ComponentController extends Controller
             });
         }
 
+        if ($ids = $request->input('ids')) {
+            $normalizedIds = array_values(array_filter(array_map('intval', (array) $ids), fn ($id) => $id > 0));
+            if (count($normalizedIds) === 0) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('components.id', $normalizedIds);
+            }
+        }
+
         // 分類フィルタ（複数選択 OR）
         if ($cats = $request->input('category_ids')) {
             $query->whereHas('categories', fn ($q) => $q->whereIn('categories.id', (array) $cats));
@@ -133,7 +142,7 @@ class ComponentController extends Controller
             return DB::transaction(function () use ($request) {
                 $this->assertPackageSelection($request->input('package_group_id'), $request->input('package_id'));
 
-                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers']);
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers', 'attributes', 'altium']);
                 $data['created_by'] = auth()->id();
                 $data['updated_by'] = auth()->id();
                 $data['package_id'] = $request->input('package_id') ?: null;
@@ -204,7 +213,7 @@ class ComponentController extends Controller
             return DB::transaction(function () use ($request, $component) {
                 $this->assertPackageSelection($request->input('package_group_id'), $request->input('package_id'));
 
-                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers']);
+                $data = $request->safe()->except(['image', 'datasheet', 'datasheets', 'duplicate_from_component_id', 'category_ids', 'package_group_id', 'package_id', 'specs', 'suppliers', 'attributes', 'altium']);
                 $data['updated_by'] = auth()->id();
                 $data['package_id'] = $request->input('package_id') ?: null;
 
@@ -340,6 +349,23 @@ class ComponentController extends Controller
             $component->componentSuppliers()->delete();
             $this->syncSuppliers($component, $request->suppliers ?? []);
         }
+        if ($request->has('attributes')) {
+            $component->customAttributes()->delete();
+            foreach ($request->input('attributes', []) as $attr) {
+                $key = trim((string) ($attr['key'] ?? ''));
+                $value = trim((string) ($attr['value'] ?? ''));
+                if ($key === '' || $value === '') {
+                    continue;
+                }
+                $component->customAttributes()->create([
+                    'key' => $key,
+                    'value' => $value,
+                ]);
+            }
+        }
+        if ($request->hasAny(['altium.sch_library_id', 'altium.sch_symbol', 'altium.pcb_library_id', 'altium.pcb_footprint'])) {
+            $this->syncAltiumLink($component, (array) $request->input('altium', []));
+        }
     }
 
     private function syncSuppliers(Component $component, array $suppliers): void
@@ -361,6 +387,30 @@ class ComponentController extends Controller
                 ]);
             }
         }
+    }
+
+    private function syncAltiumLink(Component $component, array $altium): void
+    {
+        $payload = [
+            'sch_library_id' => !empty($altium['sch_library_id']) ? (int) $altium['sch_library_id'] : null,
+            'sch_symbol' => $altium['sch_symbol'] ?? null,
+            'pcb_library_id' => !empty($altium['pcb_library_id']) ? (int) $altium['pcb_library_id'] : null,
+            'pcb_footprint' => $altium['pcb_footprint'] ?? null,
+        ];
+
+        $hasAnyValue = collect($payload)->contains(fn ($value) => $value !== null && $value !== '');
+
+        if (! $hasAnyValue) {
+            if ($component->altiumLink) {
+                $component->altiumLink()->delete();
+            }
+            return;
+        }
+
+        $component->altiumLink()->updateOrCreate(
+            ['component_id' => $component->id],
+            $payload
+        );
     }
 
     private function syncDatasheets(Component $component, Request $request): void

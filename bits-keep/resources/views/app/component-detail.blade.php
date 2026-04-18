@@ -30,6 +30,11 @@
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           🔗 リンクコピー
         </button>
+        <button @click="handleToggleFavorite"
+          class="flex items-center gap-1 px-4 py-2 rounded border text-sm transition-colors"
+          :class="isFavorite(componentId) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
+          @{{ isFavorite(componentId) ? '★ お気に入り解除' : '☆ お気に入り' }}
+        </button>
         <a :href="'/component-compare?ids=' + componentId"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           類似部品を探す
@@ -115,6 +120,9 @@
               @{{ preferredSupplier?.supplier?.name || '—' }}
               <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">¥@{{ preferredSupplier.unit_price.toLocaleString() }}</span>
             </span>
+            <template v-if="part.specs?.length">
+              <span class="sm:col-span-4 block border-t border-[var(--color-border)] mt-1 pt-3"></span>
+            </template>
             <!-- 登録スペック（分類によって内容が変わる） -->
             <template v-for="s in part.specs" :key="s.id">
               <span class="list-label">@{{ s.spec_type?.name }}</span>
@@ -429,7 +437,7 @@
     </div>
   </div>
 
-  <div v-if="editModal.open" class="modal-overlay" @click.self="closeEditModal">
+  <div v-if="editModal.open" class="modal-overlay">
     <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>
@@ -438,28 +446,61 @@
 
       <div v-if="editModal.section === 'basic'" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input v-model="editModal.form.part_number" type="text" class="input-text w-full" placeholder="型番" />
-          <input v-model="editModal.form.manufacturer" type="text" class="input-text w-full" placeholder="メーカー" />
-          <input v-model="editModal.form.common_name" type="text" class="input-text w-full" placeholder="通称" />
-          <select v-model="editModal.form.procurement_status" class="input-text w-full">
-            <option v-for="option in procurementOptions" :key="option.value" :value="option.value">@{{ option.label }}</option>
-          </select>
-          <input v-model.number="editModal.form.threshold_new" type="number" min="0" class="input-text w-full" placeholder="発注点 新品" />
-          <input v-model.number="editModal.form.threshold_used" type="number" min="0" class="input-text w-full" placeholder="発注点 中古" />
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">型番</label>
+            <input v-model="editModal.form.part_number" type="text" class="input-text w-full" placeholder="型番" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">メーカー</label>
+            <input v-model="editModal.form.manufacturer" type="text" class="input-text w-full" placeholder="メーカー" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">通称</label>
+            <input v-model="editModal.form.common_name" type="text" class="input-text w-full" placeholder="通称" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">入手可否</label>
+            <select v-model="editModal.form.procurement_status" class="input-text w-full">
+              <option v-for="option in procurementOptions" :key="option.value" :value="option.value">@{{ option.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">発注点（新品）</label>
+            <input v-model.number="editModal.form.threshold_new" type="number" min="0" class="input-text w-full" placeholder="発注点 新品" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1 opacity-70">発注点（中古）</label>
+            <input v-model.number="editModal.form.threshold_used" type="number" min="0" class="input-text w-full" placeholder="発注点 中古" />
+          </div>
         </div>
-        <textarea v-model="editModal.form.description" class="input-text w-full h-20" placeholder="説明（任意）"></textarea>
+        <div>
+          <label class="block text-[11px] font-semibold mb-1 opacity-70">説明</label>
+          <textarea v-model="editModal.form.description" class="input-text w-full h-20" placeholder="説明（任意）"></textarea>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold mb-1">分類</label>
-            <div class="flex flex-wrap gap-2">
-              <label v-for="category in categories" :key="category.id" class="inline-flex items-center gap-2 text-sm">
-                <input v-model="editModal.form.category_ids" :value="category.id" type="checkbox" />
-                <span>@{{ category.name }}</span>
-              </label>
+            <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
+            <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
+              <input v-model="detailCategoryQuery" type="text" class="input-text w-full" placeholder="分類名で絞り込み" />
+              <div v-if="editModal.form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
+                <span v-for="id in editModal.form.category_ids" :key="`detail-cat-${id}`"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+                  @{{ categories.find((item) => item.id === id)?.name }}
+                  <button type="button" @click="toggleDetailCategory(id)">✕</button>
+                </span>
+              </div>
+              <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
+                <button v-for="category in filteredDetailCategories" :key="category.id" type="button" @click="toggleDetailCategory(category.id)"
+                  class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+                  :class="editModal.form.category_ids.includes(category.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+                  <span>@{{ category.name }}</span>
+                  <span class="text-xs opacity-60">@{{ editModal.form.category_ids.includes(category.id) ? '選択中' : '追加' }}</span>
+                </button>
+              </div>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold mb-1">パッケージ</label>
+            <label class="text-xs font-semibold block mb-2">パッケージ</label>
             <div class="space-y-2">
               <select v-model="editModal.form.package_group_id" @change="handlePackageGroupChange" class="input-text w-full">
                 <option value="">パッケージ分類を選択</option>

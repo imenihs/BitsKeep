@@ -112,33 +112,19 @@ class NotionSyncService
 
     private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors, array &$notices): void
     {
-        $children = $this->fetchBlockChildren($rootPageId);
-        $foundBusinessPage = false;
+        $businessPages = $this->findBusinessPages($rootPageId);
+        $foundBusinessPage = ! empty($businessPages);
         $foundDatabase = false;
 
-        foreach ($children as $block) {
-            if (($block['type'] ?? '') !== 'child_page') {
-                continue;
-            }
-
-            $pageTitle = $block['child_page']['title'] ?? '';
-            if (! preg_match(self::BUSINESS_CODE_PATTERN, $pageTitle, $matches)) {
-                continue;
-            }
-
-            $foundBusinessPage = true;
-            $businessCode = $matches[1];
-            $businessName = $matches[2];
-            $businessPageId = $block['id'];
-
+        foreach ($businessPages as $businessPage) {
             try {
-                $synced = $this->syncBusinessPage($businessPageId, $businessCode, $businessName, $foundDatabase);
+                $synced = $this->syncBusinessPage($businessPage['id'], $businessPage['business_code'], $businessPage['business_name'], $foundDatabase);
                 $syncedCount += $synced;
             } catch (\Exception $e) {
                 $errorCount++;
-                $errors[] = "[{$businessCode}_{$businessName}] ".$e->getMessage();
+                $errors[] = "[{$businessPage['business_code']}_{$businessPage['business_name']}] ".$e->getMessage();
                 Log::warning('NotionSync: 事業ページ同期失敗', [
-                    'business_code' => $businessCode,
+                    'business_code' => $businessPage['business_code'],
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -172,16 +158,13 @@ class NotionSyncService
             }
 
             try {
-                $parentPage = $this->fetchPage($parentPageId);
-                $parentTitle = $this->extractPageTitle($parentPage);
-                if (! preg_match(self::BUSINESS_CODE_PATTERN, $parentTitle, $matches)) {
+                $businessPage = $this->resolveNearestBusinessPage($parentPageId);
+                if (! $businessPage) {
                     continue;
                 }
 
-                $businessCode = $matches[1];
-                $businessName = $matches[2];
                 foreach ($this->queryDatabase($database['id']) as $record) {
-                    $this->upsertProject($record, $businessCode, $businessName);
+                    $this->upsertProject($record, $businessPage['business_code'], $businessPage['business_name']);
                     $synced++;
                 }
             } catch (\Exception $e) {
@@ -206,21 +189,12 @@ class NotionSyncService
      */
     private function syncBusinessPage(string $pageId, string $businessCode, string $businessName, bool &$foundDatabase = false): int
     {
-        $children = $this->fetchBlockChildren($pageId);
         $synced = 0;
+        $databaseIds = $this->findProjectDatabases($pageId);
 
-        foreach ($children as $block) {
-            if (($block['type'] ?? '') !== 'child_database') {
-                continue;
-            }
-            $dbTitle = $block['child_database']['title'] ?? '';
-            if ($dbTitle !== '01_案件管理') {
-                continue;
-            }
+        foreach ($databaseIds as $databaseId) {
             $foundDatabase = true;
-
-            // DBのレコード（案件）を全件取得
-            $records = $this->queryDatabase($block['id']);
+            $records = $this->queryDatabase($databaseId);
             foreach ($records as $record) {
                 $this->upsertProject($record, $businessCode, $businessName);
                 $synced++;
@@ -228,6 +202,76 @@ class NotionSyncService
         }
 
         return $synced;
+    }
+
+    private function findBusinessPages(string $rootPageId, array &$visited = []): array
+    {
+        if (isset($visited[$rootPageId])) {
+            return [];
+        }
+        $visited[$rootPageId] = true;
+
+        $results = [];
+        foreach ($this->fetchBlockChildren($rootPageId) as $block) {
+            if (($block['type'] ?? '') !== 'child_page') {
+                continue;
+            }
+
+            $pageTitle = $block['child_page']['title'] ?? '';
+            if (preg_match(self::BUSINESS_CODE_PATTERN, $pageTitle, $matches)) {
+                $results[] = [
+                    'id' => $block['id'],
+                    'business_code' => $matches[1],
+                    'business_name' => $matches[2],
+                ];
+            }
+
+            $results = array_merge($results, $this->findBusinessPages($block['id'], $visited));
+        }
+
+        return $results;
+    }
+
+    private function findProjectDatabases(string $pageId, array &$visited = []): array
+    {
+        if (isset($visited[$pageId])) {
+            return [];
+        }
+        $visited[$pageId] = true;
+
+        $databaseIds = [];
+        foreach ($this->fetchBlockChildren($pageId) as $block) {
+            if (($block['type'] ?? '') === 'child_database' && ($block['child_database']['title'] ?? '') === '01_案件管理') {
+                $databaseIds[] = $block['id'];
+            }
+
+            if (($block['type'] ?? '') === 'child_page') {
+                $databaseIds = array_merge($databaseIds, $this->findProjectDatabases($block['id'], $visited));
+            }
+        }
+
+        return array_values(array_unique($databaseIds));
+    }
+
+    private function resolveNearestBusinessPage(string $pageId): ?array
+    {
+        $page = $this->fetchPage($pageId);
+        $title = $this->extractPageTitle($page);
+
+        if (preg_match(self::BUSINESS_CODE_PATTERN, $title, $matches)) {
+            return [
+                'id' => $pageId,
+                'business_code' => $matches[1],
+                'business_name' => $matches[2],
+            ];
+        }
+
+        $parentPageId = $page['parent']['page_id'] ?? null;
+        if (! $parentPageId || $parentPageId === $pageId) {
+            return null;
+        }
+
+        return $this->resolveNearestBusinessPage($parentPageId);
     }
 
     /**
