@@ -2218,3 +2218,42 @@ formatNumber(value)
 次: Step 3 (ユーザー管理UI改善: 確認ダイアログ + ロール変更UI)
 
 ---
+
+## [大将] 2026-04-19 17:00
+
+### Phase 1～5 実装計画 Step 3: ユーザー管理UI改善
+
+**作業内容**:
+- Step 3a: 有効化/無効化の確認ダイアログを追加
+- Step 3b: ロール変更UIを select から modal へ再設計
+
+#### Step 3a: toggleActive() に確認ダイアログを追加
+
+- `user-list.js` の `toggleActive()` に `confirm()` を挿入
+- 無効化/有効化の前に対象ユーザー名と操作内容を確認させる
+- 確認を取ったあとだけ PATCH を送信
+
+#### Step 3b: ロール変更UIの再設計
+
+- **前**: インライン `<select>` で即座に変更 (confirm なし)
+- **後**: ロール現在値をバッジ表示 + 「ロール変更」ボタン → モーダルで選択 → 確認後に PATCH
+
+実装内容:
+
+```javascript
+roleModal = { open, user, selectedRole }
+openRoleChange(u)    // モーダルを開く
+confirmRoleChange()  // ロール変更を確定
+```
+
+Blade では:
+- 行内セルから select を削除、「ロール変更」ボタンを追加
+- modal-sm サイズのロール選択モーダルを新規追加
+
+**検証**: ブラウザで動作確認予定
+
+**大将の心の声**: ユーザー管理は admin 限定画面だが、誤クリックで他者のロールや有効状態を変えてしまうリスクが大きい。確認ダイアログと modal 分離で、操作の重要度が視覚的に高まる。ただし native confirm は今後 custom modal に置き換える可能性あり。
+
+次: Step 4 (保管棚管理ボタンサイズ是正) へ移行予定。ただしブラウザ実機確認が必要。
+
+---

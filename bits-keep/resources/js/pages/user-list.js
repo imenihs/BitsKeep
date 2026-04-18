@@ -19,22 +19,43 @@ export default function setup() {
         result: null,
     });
 
+    // ロール変更モーダル
+    const roleModal = reactive({
+        open: false,
+        user: null,
+        selectedRole: null,
+    });
+
     const fetchUsers = async () => {
         try { const r = await api.get('/users'); users.value = r.data; }
         catch { toastError('ユーザー一覧の取得に失敗しました'); }
     };
 
-    // ロール変更（インライン select）
-    const changeRole = async (user, role) => {
+    // ロール変更モーダルを開く
+    const openRoleChange = (user) => {
+        roleModal.user = user;
+        roleModal.selectedRole = user.role;
+        roleModal.open = true;
+    };
+
+    // ロール変更を確定
+    const confirmRoleChange = async () => {
+        if (!roleModal.user || roleModal.selectedRole === roleModal.user.role) {
+            roleModal.open = false;
+            return;
+        }
         try {
-            await api.patch(`/users/${user.id}/role`, { role });
-            user.role = role;
+            await api.patch(`/users/${roleModal.user.id}/role`, { role: roleModal.selectedRole });
+            roleModal.user.role = roleModal.selectedRole;
             toastSuccess('ロールを変更しました');
+            roleModal.open = false;
         } catch (e) { toastError(e.message); }
     };
 
-    // 有効/無効切り替え
+    // 有効/無効切り替え（確認付き）
     const toggleActive = async (user) => {
+        const action = user.is_active ? '無効化' : '有効化';
+        if (!confirm(`${user.name} を${action}しますか？`)) return;
         try {
             const r = await api.patch(`/users/${user.id}/active`, { is_active: !user.is_active });
             user.is_active = r.data.is_active;
@@ -61,5 +82,5 @@ export default function setup() {
     }[r] ?? '');
 
     onMounted(fetchUsers);
-    return { toasts, users, inviteModal, openInvite, invite, changeRole, toggleActive, roleLabel, roleBadgeClass, formatDate };
+    return { toasts, users, inviteModal, openInvite, invite, roleModal, openRoleChange, confirmRoleChange, toggleActive, roleLabel, roleBadgeClass, formatDate };
 }

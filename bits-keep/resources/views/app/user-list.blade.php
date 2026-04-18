@@ -54,15 +54,13 @@
         </td>
         <td class="py-2">
           <div class="flex gap-2 items-center">
-            <select :value="u.role" @change="changeRole(u, $event.target.value)"
-              class="text-xs bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1">
-              <option value="admin">管理者</option>
-              <option value="editor">編集者</option>
-              <option value="viewer">閲覧者</option>
-            </select>
+            <button @click="openRoleChange(u)"
+              class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
+              ロール変更
+            </button>
             <button @click="toggleActive(u)"
               :class="u.is_active ? 'border-red-400 text-red-500 hover:bg-red-50' : 'border-emerald-500 text-emerald-600 hover:bg-emerald-50'"
-              class="px-2 py-1 text-xs border rounded">
+              class="px-3 py-1.5 text-xs border rounded font-medium">
               @{{ u.is_active ? '無効化' : '有効化' }}
             </button>
           </div>
@@ -118,6 +116,32 @@
         <div class="flex justify-end gap-2 pt-2">
           <button @click="inviteModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
           <button @click="invite" class="btn-primary px-4 py-2 rounded font-medium">招待する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ロール変更モーダル -->
+  <div v-if="roleModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm">
+      <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
+        <h2 class="text-lg font-bold">ロール変更</h2>
+        <button @click="roleModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <p class="text-sm font-medium mb-2">ユーザー: @{{ roleModal.user?.name }}</p>
+          <p class="text-sm opacity-70 mb-4">新しいロールを選択してください</p>
+          <div class="space-y-2">
+            <label v-for="role in ['admin', 'editor', 'viewer']" :key="role" class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" :value="role" v-model="roleModal.selectedRole" class="rounded" />
+              <span class="text-sm">@{{ roleLabel(role) }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
+          <button @click="roleModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+          <button @click="confirmRoleChange" class="btn-primary px-4 py-2 rounded font-medium">変更する</button>
         </div>
       </div>
     </div>
