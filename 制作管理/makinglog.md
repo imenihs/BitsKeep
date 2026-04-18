@@ -2176,3 +2176,45 @@ Bladeテンプレートが未作成のため、そこから再開。
 次: Step 2 (共通フォーマッタ useFormatter.js 実装)
 
 ---
+
+## [大将] 2026-04-19 16:45
+
+### Phase 1～5 実装計画 Step 2: 共通フォーマッタ composable を実装
+
+**作業内容**:
+- `bits-keep/resources/js/composables/useFormatter.js` を新規作成
+- 4つの既存画面へ直書きフォーマット処理を統一
+
+#### 実装：useFormatter composable
+
+3つのフォーマット関数を提供:
+
+```javascript
+formatCurrency(value, {decimals=0})
+  // 金額: ¥1,234形式。合計は整数円、単価は最大2桁
+
+formatDate(value, {time=false})
+  // 日付: YYYY/MM/DD または YYYY/MM/DD HH:MM形式
+
+formatNumber(value)
+  // 数値: 桁区切りカンマ
+```
+
+#### 適用した4画面:
+
+1. **supplier-list**: 無料送料閾値 `s.free_shipping_threshold`
+2. **user-list**: ユーザー招待日時 `u.invited_at`
+3. **audit-log**: 操作ログ時刻 `log.created_at` (time: true 付き)
+4. **project-list**: コスト合計 `costSummary.total`
+
+各画面の JS ファイルで composable をインポート・使用、Blade テンプレートで直書きを置換
+
+#### 検証:
+- `npm run build`: ✓ 11.06s で完了
+- コミット: `7972294` Phase 5-7
+
+**大将の心の声**: 直書きが4画面に散在していたため、揃える価値があった。フォーマッタが共通化されたことで、金額・日付の見た目が今後も統一される基盤ができた。
+
+次: Step 3 (ユーザー管理UI改善: 確認ダイアログ + ロール変更UI)
+
+---
