@@ -2371,3 +2371,92 @@ getBusinessName(code)  // business_code から事業名を取得
 次: Step 7 (操作ログ 0件導線) へ
 
 ---
+## [大将] 2026-04-19 18:30
+
+### Vite開発サーバー接続問題の修正
+
+**作業内容**:
+ブラウザがViteサーバーのアセット（CSS/JS）を読み込めない問題を解決
+
+#### 問題の根本原因
+
+Viteサーバーが `127.0.0.1:5173` (ループバックのみ) にバインドされていた。
+ブラウザがドメイン経由でアクセスしようとしても、ホスト名解決できず ERR_CONNECTION_REFUSED が発生していた。
+
+#### 解決方法
+
+**vite.config.js に server 設定を追加**:
+```javascript
+server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false,
+}
+```
+
+これにより Vite サーバーがすべてのネットワークインターフェースでリッスン:
+- Local: http://localhost:5174/
+- Network: http://192.168.10.210:5174/ (HMR有効)
+- Network: http://10.8.0.1:5174/ (VPN接続時)
+
+public/hot も `http://localhost:5174` へ更新
+
+**ビルド**: ✓ 再起動で即座に解決
+**コミット**: `修正: Viteサーバーをネットワークに公開`
+
+**大将の心の声**: Vite デフォルト設定が localhost のみというのは開発環境の前提として理解できるが、リモート開発時は落とし穴。netstat で listen 状態を確認することで、問題の局所化ができた。
+
+---
+
+### Phase 1～5 実装計画 Step 7: 操作ログ 0件導線
+
+**作業内容**:
+操作ログが 0件 のとき、「DB が空」と「フィルタで絞られ過ぎた」を区別表示
+
+#### 実装詳細
+
+**audit-log.js**:
+```javascript
+const hasActiveFilter = () => filters.action || filters.resource_type || filters.date_from || filters.date_to;
+const clearFilters = () => { /* フィルタ全クリア + 再検索 */ };
+```
+両関数を return 文に追加
+
+**audit-log.blade.php**:
+```html
+<div v-if="hasActiveFilter()">
+  条件に合致するログがありません
+  <button @click="clearFilters">フィルタをクリア</button>
+</div>
+<div v-else>
+  操作ログはまだ記録されていません
+  （ログはいつ作成されるかの説明）
+</div>
+```
+
+この分岐で、ユーザーの「見えない理由」を 2パターン想定：
+1. DB に一件もない → 説明文で安心させる
+2. 検索条件が厳しい → 「クリア」ボタンで直前の状態に戻す
+
+**ビルド**: ✓ 11.04s で完了
+**コミット**: `実装: Step 7 操作ログ 0件導線`
+
+**大将の心の声**: ユーザーが「なぜ見えないのか」を疑問に思わずに済むよう、2 パターンを明示的に分けた。「見えない → 探さない」 の UX 負債を減らすのが狙い。
+
+次: Step 8 (連携設定エラー導線) - 既に実装済み確認済み
+次: Step 9 (UI説明過多削減) - 既に実装済み確認済み
+
+---
+
+### Step 8～9 実装確認
+
+Step 8 (integration-settings): 
+- 既にエラー表示・再試行ボタン・health check message が実装済み
+
+Step 9 (UI説明過多削減 P0):
+- dashboard: 状態カード + 直接アクション で情報密度を調整
+- components-list: emptyState の動的表示で、0件時に適切な導線を表示
+- 権限不足機能: feature-disabled + 理由表示で統一
+
+**大将の心の声**: Steps 3～9 の実装はほぼ完了。残はテスター検証と、実装進捗チェックリストの update。
+
