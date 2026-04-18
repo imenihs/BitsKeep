@@ -183,7 +183,7 @@
           <div class="flex justify-between items-center">
             <span class="text-sm font-medium">部品コスト合計</span>
             <span class="font-mono font-bold text-lg">
-              @{{ costSummary.total != null ? '¥' + costSummary.total.toLocaleString() : '-' }}
+              @{{ costSummary.total != null ? formatCurrency(costSummary.total) : '-' }}
             </span>
           </div>
           <p v-if="costSummary.warning" class="text-xs text-amber-600 mt-1">⚠ @{{ costSummary.warning }}</p>

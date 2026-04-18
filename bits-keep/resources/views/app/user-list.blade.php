@@ -50,7 +50,7 @@
           </span>
         </td>
         <td class="py-2 pr-4 text-xs opacity-60">
-          @{{ u.invited_at ? new Date(u.invited_at).toLocaleDateString('ja-JP') : '-' }}
+          @{{ u.invited_at ? formatDate(u.invited_at) : '-' }}
         </td>
         <td class="py-2">
           <div class="flex gap-2 items-center">

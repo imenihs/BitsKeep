@@ -2,9 +2,11 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { formatCurrency } = useFormatter();
     const suppliers = ref([]);
     const dirty = ref(false);
     const snapshot = ref(null);
@@ -66,5 +68,5 @@ export default function setup() {
         if (!isOpen) dirty.value = false;
     });
 
-    return { toasts, suppliers, modal, openAdd, openEdit, closeModal, save, archiveSupplier, restoreSupplier, forceDeleteSupplier };
+    return { toasts, suppliers, modal, openAdd, openEdit, closeModal, save, archiveSupplier, restoreSupplier, forceDeleteSupplier, formatCurrency };
 }

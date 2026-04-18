@@ -5,9 +5,11 @@
 import { ref, reactive, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { formatDate } = useFormatter();
     const users = ref([]);
 
     // 招待モーダル
@@ -59,5 +61,5 @@ export default function setup() {
     }[r] ?? '');
 
     onMounted(fetchUsers);
-    return { toasts, users, inviteModal, openInvite, invite, changeRole, toggleActive, roleLabel, roleBadgeClass };
+    return { toasts, users, inviteModal, openInvite, invite, changeRole, toggleActive, roleLabel, roleBadgeClass, formatDate };
 }

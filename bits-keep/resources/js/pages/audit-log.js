@@ -5,9 +5,11 @@
 import { ref, reactive, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastError } = useToast();
+    const { formatDate } = useFormatter();
     const logs = ref([]);
     const meta = ref(null);   // paginator meta
     const loading = ref(false);
@@ -66,5 +68,5 @@ export default function setup() {
 
     onMounted(fetchLogs);
     return { toasts, logs, meta, loading, filters, expandedId, toggleDiff,
-             applyFilter, goPage, actionLabel, actionClass, diffLines };
+             applyFilter, goPage, actionLabel, actionClass, diffLines, formatDate };
 }

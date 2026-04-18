@@ -54,7 +54,7 @@
             class="border-b border-[var(--color-border)] cursor-pointer hover:opacity-90"
             @click="toggleDiff(log.id)">
             <td class="py-2 pr-3 whitespace-nowrap text-xs opacity-70">
-              @{{ new Date(log.created_at).toLocaleString('ja-JP') }}
+              @{{ formatDate(log.created_at, { time: true }) }}
             </td>
             <td class="py-2 pr-3 text-xs">
               <div>@{{ log.user?.name ?? '-' }}</div>

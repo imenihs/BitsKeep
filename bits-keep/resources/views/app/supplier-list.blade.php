@@ -67,7 +67,7 @@
           </td>
           <td class="py-2 pr-4 text-right">@{{ s.lead_days != null ? s.lead_days + '日' : '-' }}</td>
           <td class="py-2 pr-4 text-right">
-            @{{ s.free_shipping_threshold != null ? '¥' + Number(s.free_shipping_threshold).toLocaleString() : '-' }}
+            @{{ s.free_shipping_threshold != null ? formatCurrency(s.free_shipping_threshold) : '-' }}
           </td>
           <td class="py-2 pr-4 text-xs opacity-70 max-w-xs">
             <div class="truncate">@{{ s.note || '-' }}</div>
