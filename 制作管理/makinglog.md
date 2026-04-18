@@ -2460,3 +2460,48 @@ Step 9 (UI説明過多削減 P0):
 
 **大将の心の声**: Steps 3～9 の実装はほぼ完了。残はテスター検証と、実装進捗チェックリストの update。
 
+
+## [大将] 2026-04-19 01:15
+
+### 重大: 開発環境構成の修正 ＆ Step 7 完了確認
+
+**背景**:
+前回セッションの最後、ユーザー報告: 「CSS読まれず Vue も処理されない」 → raw Vue template syntax が表示される状態。
+根本原因: .env が PostgreSQL + 本番 URL (https://bits-keep.rwc.0t0.jp) を向いていた。
+
+**修正内容**:
+
+1. **.env 設定修正**
+   - `DB_CONNECTION`: pgsql → sqlite
+   - `DB_DATABASE`: bitskeep → database/database.sqlite
+   - `APP_URL`: https://bits-keep.rwc.0t0.jp → http://127.0.0.1:8002 (localhost)
+
+2. **Vite dev server 統合修正**
+   - `/public/hot` ファイル再生成 → http://127.0.0.1:5174 を指定
+   - config キャッシュ・view キャッシュ削除
+   - `php artisan migrate:fresh` で SQLite DB 再初期化
+
+3. **検証**:
+   修正前: `<link href="http://127.0.0.1:8003/build/assets/app-*.css">` (本番ビルド)
+   修正後: `<link href="http://127.0.0.1:5174/resources/css/app.css">` (Vite dev server)
+   ✓ Vite dev server が正しく使用されるようになった
+
+**コミット**: `90f16ef`
+
+大将の心の声: 開発環境の構成誤りで Vue が全く動いていなかった。Step 2～7 のコード実装は既に完了していたが、環境の問題で検証ができず「未実装」に見えていた。根本原因を特定してから全体が機能する状態へ。
+
+---
+
+### Phase 1～5 実装計画 Steps 2～7 実装完了確認
+
+- [x] Step 2: 共通フォーマッタ (useFormatter.js 作成済み)
+- [x] Step 3: ユーザー管理 UI (role change modal + toggle confirm)
+- [x] Step 4: 棚管理ボタン統一 (px-3 py-1.5 text-xs)
+- [x] Step 5: 商社色パレット (16色 + コントラスト警告)
+- [x] Step 6: 案件管理 UI (事業タグ + Origin 表示 + modal)
+- [x] Step 7: 操作ログ 0 件導線 (フィルタ有無で分岐表示)
+
+**現在**: 開発環境が正常化。ブラウザでの実機検証が可能になった。
+
+**次フェーズ**: テスター検証 → Step 8～9 実装
+
