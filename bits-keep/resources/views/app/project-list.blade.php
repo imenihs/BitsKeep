@@ -130,17 +130,26 @@
           :class="detailProject?.id === p.id ? 'ring-2 ring-[var(--color-primary)]' : ''"
           class="border border-[var(--color-border)] rounded-2xl p-4 cursor-pointer hover:opacity-90 transition-all"
           :style="{ backgroundColor: idx % 2 === 0 ? 'var(--color-card-even)' : 'var(--color-card-odd)' }">
+          <!-- タグ行 -->
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            <span v-if="p.business_code" class="inline-flex items-center bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded font-medium">
+              [@{{ p.business_code }}] @{{ getBusinessName(p.business_code) }}
+            </span>
+            <span :class="sourceClass(p)" class="inline-flex items-center text-xs px-2 py-0.5 rounded font-medium border"
+              :class="p.source_type === 'notion' ? 'border-blue-300 bg-blue-50' : 'border-green-300 bg-green-50'">
+              @{{ sourceLabel(p) }}
+            </span>
+          </div>
+          <!-- 名前行 -->
           <div class="flex justify-between items-start">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-3 h-3 rounded-full flex-shrink-0"
                 :style="{ backgroundColor: p.color || '#2563eb' }"></div>
               <div class="min-w-0">
                 <div class="font-medium truncate">@{{ p.external_code ? p.external_code + '_' + p.name : p.name }}</div>
-                <div class="text-xs opacity-50 mt-0.5 truncate" v-if="p.business_name">@{{ p.business_name }}</div>
               </div>
             </div>
             <div class="flex items-center gap-2 ml-3 flex-shrink-0">
-              <span :class="sourceClass(p)" class="text-xs font-mono opacity-70">@{{ sourceLabel(p) }}</span>
               <span :class="statusClass(p.status)" class="tag text-xs px-2 py-0.5 rounded font-medium">
                 @{{ statusLabel(p.status) }}
               </span>
@@ -253,6 +262,16 @@
         <button @click="modal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">所属事業</label>
+          <select v-model="modal.form.business_code"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
+            <option value="">選択してください</option>
+            <option v-for="b in businesses" :key="b.business_code" :value="b.business_code">
+              [@{{ b.business_code }}] @{{ b.business_name }}
+            </option>
+          </select>
+        </div>
         <div>
           <label class="block text-sm font-medium mb-1">案件名 <span class="text-red-500">*</span></label>
           <input v-model="modal.form.name" type="text"

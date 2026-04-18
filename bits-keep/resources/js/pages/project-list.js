@@ -25,6 +25,11 @@ export default function setup() {
         form: { name: '', description: '', status: 'active', color: '#2563eb', business_code: '' }
     });
 
+    // ビジネス選択用の関数
+    const getBusinessName = (code) => {
+        return businesses.value.find(b => b.business_code === code)?.business_name || code;
+    };
+
     // 使用部品追加フォーム
     const addCompForm = reactive({ component_id: '', required_qty: 1, searching: false, searchResults: [], keyword: '' });
 
@@ -275,7 +280,7 @@ export default function setup() {
         fetchProjects, openDetail, openAdd, openEdit, save, deleteProject,
         searchComponents, selectComp, addComponent, removeComponent,
         statusLabel, statusClass, sourceLabel, sourceClass,
-        applyFilter, syncNotion,
+        applyFilter, syncNotion, getBusinessName,
         formatCurrency, formatDate,
     };
 }
