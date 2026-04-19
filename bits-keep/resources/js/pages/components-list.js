@@ -210,13 +210,13 @@ export default function setup() {
                 api.get('/package-groups'),
                 api.get('/packages'),
                 api.get('/spec-types'),
-                api.get('/components?needs_reorder=1&per_page=1'),
+                api.get('/stock-alerts'),
             ]);
             categories.value = catRes.data;
             packageGroups.value = pkgGroupRes.data;
             packages.value   = pkgRes.data;
             specTypes.value  = stRes.data;
-            alertCount.value = alertRes.data?.total ?? 0;
+            alertCount.value = alertRes.data?.length ?? 0;
         } catch {
             masterError.value = '分類・パッケージ・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
