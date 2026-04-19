@@ -22,9 +22,8 @@
       <button @click="inventoryMode = !inventoryMode"
         class="px-4 py-2 rounded text-sm border transition-colors"
         :class="inventoryMode ? 'bg-[var(--color-tag-warning)] text-white border-[var(--color-tag-warning)]' : 'border-[var(--color-border)]'">
-        @{{ inventoryMode ? '棚卸し中 ▸ 保存' : '棚卸しモード' }}
+        @{{ inventoryMode ? '棚卸しモード終了' : '棚卸しモード' }}
       </button>
-      <button v-if="inventoryMode" @click="saveInventory" class="btn btn-primary px-4 py-2 rounded text-sm">確定</button>
       @if ($isAdmin)
       <button @click="openAdd" class="btn btn-primary px-4 py-2 rounded text-sm"><span class="feature-lock">管</span> + 棚を追加</button>
       @else
@@ -46,9 +45,11 @@
     <button @click="fetchLocations" class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs">再試行</button>
   </div>
 
-  <!-- 棚卸し警告バナー -->
-  <div v-if="inventoryMode" class="mb-4 p-3 rounded bg-[var(--color-tag-warning)]/10 border border-[var(--color-tag-warning)] text-sm flex items-center gap-2">
-    ⚠ 棚卸しモード中です。実数を入力して「確定」を押してください。
+  <!-- 棚卸し中ステータスバー -->
+  <div v-if="inventoryMode" class="sticky top-0 z-10 mb-4 px-4 py-2 rounded bg-[var(--color-tag-warning)] text-white text-sm flex items-center justify-between gap-2 shadow">
+    <span class="font-semibold">棚卸し中</span>
+    <span class="opacity-80 text-xs">実数を入力 → 「確定」で保存</span>
+    <button @click="saveInventory" class="px-3 py-1 rounded bg-white text-[var(--color-tag-warning)] font-semibold text-xs">確定</button>
   </div>
 
   <!-- グループ別テーブル -->
