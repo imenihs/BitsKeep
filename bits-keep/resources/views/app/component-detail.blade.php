@@ -32,8 +32,10 @@
         </button>
         <button @click="handleToggleFavorite"
           class="flex items-center gap-1 px-4 py-2 rounded border text-sm transition-colors"
-          :class="isFavorite(componentId) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]'">
-          @{{ isFavorite(componentId) ? '★ お気に入り解除' : '☆ お気に入り' }}
+          :class="isFavorite(componentId)
+            ? 'border-orange-400 text-orange-500 bg-orange-50'
+            : 'border-[var(--color-border)] hover:border-orange-400 hover:text-orange-500'">
+          @{{ isFavorite(componentId) ? '★ お気に入り' : '☆ お気に入り' }}
         </button>
         <a :href="'/component-compare?ids=' + componentId"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">

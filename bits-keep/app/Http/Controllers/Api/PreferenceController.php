@@ -29,7 +29,7 @@ class PreferenceController extends Controller
     public function update(Request $request, string $key): JsonResponse
     {
         $request->validate([
-            'value' => ['required'],
+            'value' => ['present'],  // 空配列も許可（お気に入り全解除時に [] が来る）
         ]);
 
         $this->prefs->set($request->user(), $key, $request->input('value'));
