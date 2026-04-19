@@ -2,9 +2,11 @@ import { ref, computed, onMounted, reactive } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { formatCurrency } = useFormatter();
     const { loadFavorites, toggleFavorite, isFavorite } = useFavoriteComponents();
 
     // Blade側から data-id 属性で部品IDを受け取る
@@ -367,5 +369,6 @@ export default function setup() {
         handleToggleFavorite, isFavorite,
         copyLink, deletePart,
         similarParts, similarLoading, similarError, fetchSimilar, fetchPart,
+        formatCurrency,
     };
 }

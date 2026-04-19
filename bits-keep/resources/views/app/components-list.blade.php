@@ -247,7 +247,7 @@
                 <span>新品: @{{ part.quantity_new }}個</span>
                 <span>中古: @{{ part.quantity_used }}個</span>
                 <span v-if="part.packages?.length">パッケージ: @{{ part.packages.map((pkg) => pkg.name).join(' / ') }}</span>
-                <span v-if="part.cheapest_supplier_name">最安: ¥@{{ Number(part.cheapest_unit_price).toLocaleString() }} / @{{ part.cheapest_supplier_name }}</span>
+                <span v-if="part.cheapest_supplier_name">最安: @{{ formatCurrency(part.cheapest_unit_price, {decimals:2}) }} / @{{ part.cheapest_supplier_name }}</span>
                 <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
               </div>
               <div class="mt-1 text-xs opacity-60">

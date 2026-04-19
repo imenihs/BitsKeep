@@ -118,7 +118,7 @@
             <span class="list-label">最優先仕入先</span>
             <span class="list-value">
               @{{ preferredSupplier?.supplier?.name || '—' }}
-              <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">¥@{{ preferredSupplier.unit_price.toLocaleString() }}</span>
+              <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">@{{ formatCurrency(preferredSupplier.unit_price, {decimals:2}) }}</span>
             </span>
             <template v-if="part.specs?.length">
               <span class="sm:col-span-4 block border-t border-[var(--color-border)] mt-1 pt-3"></span>
@@ -196,7 +196,7 @@
                     </div>
                     <div class="space-y-1 min-w-0">
                       <div class="text-[11px] font-semibold opacity-60">基本価格</div>
-                      <div class="font-mono text-base">¥@{{ cs.unit_price != null ? Number(cs.unit_price).toLocaleString() : '—' }}</div>
+                      <div class="font-mono text-base">@{{ cs.unit_price != null ? formatCurrency(cs.unit_price, {decimals:2}) : '—' }}</div>
                     </div>
                   </div>
                 </div>
@@ -209,7 +209,7 @@
                     </div>
                     <div v-for="pb in cs.price_breaks" :key="pb.id" class="grid grid-cols-[120px_1fr] border-t border-[var(--color-border)] text-sm">
                       <div class="px-3 py-2 opacity-80">@{{ pb.min_qty }}個〜</div>
-                      <div class="px-3 py-2 font-mono">¥@{{ Number(pb.unit_price).toLocaleString() }}</div>
+                      <div class="px-3 py-2 font-mono">@{{ formatCurrency(pb.unit_price, {decimals:2}) }}</div>
                     </div>
                   </div>
                   <p v-else class="text-sm opacity-45 px-1">価格ブレーク未登録</p>

@@ -2,6 +2,7 @@ import { computed, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useStockOrderDraft } from '../composables/useStockOrderDraft.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 const purchaseUnitOptions = [
     { value: 'loose', label: 'バラ' },
@@ -118,5 +119,6 @@ export default function setup() {
         exportSupplierCsv,
         removeItem,
         clearAll,
+        ...useFormatter(),
     };
 }

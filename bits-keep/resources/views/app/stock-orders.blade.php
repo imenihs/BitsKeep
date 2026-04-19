@@ -73,8 +73,8 @@
                 </select>
                 <div class="text-xs opacity-50 mt-1">@{{ item.supplierPartNumber || '商社型番未設定' }}</div>
               </td>
-              <td class="py-2 pr-4 font-mono">¥@{{ Number(item.price || 0).toLocaleString() }}</td>
-              <td class="py-2 pr-4 font-mono">¥@{{ (Number(item.price || 0) * Number(item.orderQty || 0)).toLocaleString() }}</td>
+              <td class="py-2 pr-4 font-mono">@{{ formatCurrency(item.price || 0, {decimals:2}) }}</td>
+              <td class="py-2 pr-4 font-mono">@{{ formatCurrency((item.price || 0) * (item.orderQty || 0)) }}</td>
               <td class="py-2">
                 <button @click="removeItem(item.id)" class="px-3 py-2 rounded border border-[var(--color-border)] text-xs">除外</button>
               </td>
@@ -101,7 +101,7 @@
 
     <section class="card p-5 bg-[var(--color-card-odd)] flex items-center justify-between">
       <div class="text-lg font-bold">合計</div>
-      <div class="text-xl font-bold">¥@{{ grandTotal.toLocaleString() }}</div>
+      <div class="text-xl font-bold">@{{ formatCurrency(grandTotal) }}</div>
     </section>
   </div>
 

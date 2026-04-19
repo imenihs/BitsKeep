@@ -2,6 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -274,5 +275,6 @@ export default function setup() {
         selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts, emptyState, isFiltered,
         favoriteIds, handleToggleFavorite, isFavorite,
         procurementLabel, procurementClass,
+        ...useFormatter(),
     };
 }
