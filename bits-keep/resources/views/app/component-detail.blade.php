@@ -33,7 +33,7 @@
         <button @click="handleToggleFavorite"
           class="flex items-center gap-1 px-4 py-2 rounded border text-sm transition-colors"
           :class="isFavorite(componentId)
-            ? 'border-orange-400 text-orange-500 bg-orange-50'
+            ? 'border-orange-400 text-orange-400 bg-orange-400/10'
             : 'border-[var(--color-border)] hover:border-orange-400 hover:text-orange-500'">
           @{{ isFavorite(componentId) ? '★ お気に入り' : '☆ お気に入り' }}
         </button>
