@@ -158,7 +158,7 @@ vendor/bin/pint        # コード整形
 
 ## ドキュメント管理
 - README はプロジェクト直下の `/web/documents/BitsKeep/README.md` を正とする。`bits-keep/README.md` は作らない。
-- 機能追加・修正時は `README.md` も更新する。
+- 機能追加・修正時は `README.md` も更新する。README を更新したら `bits-keep/resources/views/app/help.blade.php` も同内容に合わせて更新する（アプリ内ヘルプページ）。
 - 設計仕様・ユーザー指示は `仕様書.md` に追記・更新する。
 - ドキュメント更新指示時は `仕様書.md` / `実装進捗チェックリスト.md` / `README.md` をセットで更新する。
 
