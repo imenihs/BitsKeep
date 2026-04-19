@@ -133,7 +133,7 @@
         <tr class="border-b border-[var(--color-border)] bg-[var(--color-card-even)] hover:opacity-90">
           <td class="py-2 pr-4 opacity-60 text-xs">最安値</td>
           <td v-for="comp in components" :key="comp.id" class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
-            @{{ comp.cheapest_price != null ? '¥' + comp.cheapest_price.toLocaleString() : '-' }}
+            @{{ comp.cheapest_price != null ? formatCurrency(comp.cheapest_price, {decimals:2}) : '-' }}
           </td>
         </tr>
 

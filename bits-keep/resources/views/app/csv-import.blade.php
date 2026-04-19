@@ -81,10 +81,11 @@
     </div>
 
     <!-- エラー一覧 -->
-    <div v-if="preview.errors.length > 0" class="mb-4 bg-red-50 border border-red-200 rounded p-3 text-xs">
-      <p class="font-medium text-red-700 mb-1">エラー行（インポートからスキップされます）:</p>
-      <div v-for="e in preview.errors" :key="e.row" class="text-red-600">
-        行@{{ e.row }}: @{{ e.message }}
+    <div v-if="preview.errors.length > 0" class="mb-4 border border-[var(--color-tag-eol)] rounded p-3 text-xs bg-[color-mix(in_srgb,var(--color-tag-eol)_6%,var(--color-bg))]">
+      <p class="font-medium text-[var(--color-tag-eol)] mb-2">エラー行（インポートからスキップされます）:</p>
+      <div v-for="e in preview.errors" :key="e.row" class="flex items-start gap-2 mb-1">
+        <span class="bg-[var(--color-tag-eol)] text-white text-[10px] px-1 rounded flex-shrink-0">行@{{ e.row }}</span>
+        <span class="text-[var(--color-tag-eol)]">@{{ e.message }}</span>
       </div>
     </div>
 
@@ -117,10 +118,21 @@
 
   <!-- ═══════ Step 3: 確認 ═══════ -->
   <div v-if="step === 3">
-    <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-6 text-center mb-6">
-      <p class="text-3xl font-bold text-[var(--color-primary)]">@{{ preview.rows.length }}</p>
-      <p class="text-sm mt-1">件の部品をインポートします</p>
-      <p class="text-xs opacity-60 mt-1">型番が既存と重複する場合はスキップされます</p>
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-4 text-center">
+        <p class="text-3xl font-bold text-[var(--color-primary)]">@{{ preview.rows.length }}</p>
+        <p class="text-xs mt-1 font-medium">登録予定</p>
+      </div>
+      <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-4 text-center">
+        <p class="text-3xl font-bold text-amber-500">@{{ preview.total - preview.rows.length - (preview.errors?.length ?? 0) }}</p>
+        <p class="text-xs mt-1 font-medium">重複スキップ予定</p>
+        <p class="text-[10px] opacity-50 mt-0.5">型番が既存と重複</p>
+      </div>
+      <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-4 text-center">
+        <p class="text-3xl font-bold text-[var(--color-tag-eol)]">@{{ preview.errors?.length ?? 0 }}</p>
+        <p class="text-xs mt-1 font-medium">エラースキップ</p>
+        <p class="text-[10px] opacity-50 mt-0.5">フォーマット不正など</p>
+      </div>
     </div>
     <div class="flex justify-between">
       <button @click="step = 2" class="px-4 py-2 border border-[var(--color-border)] rounded">← 戻る</button>

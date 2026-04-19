@@ -104,7 +104,73 @@
       <div class="text-lg font-bold">合計</div>
       <div class="text-xl font-bold">@{{ formatCurrency(grandTotal) }}</div>
     </section>
+
+    <!-- 発注記録へ保存ボタン -->
+    <section class="card p-4 bg-[var(--color-card-even)] flex items-center justify-between gap-4">
+      <div class="text-sm opacity-70">商社・数量を確定したら発注記録へ保存し、受取管理できます</div>
+      <button @click="commitToTracking" class="btn-primary px-4 py-2 rounded text-sm font-medium">発注記録へ保存</button>
+    </section>
   </div>
+
+  <!-- 発注追跡セクション -->
+  <section class="mt-8">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold">発注追跡（未受取）</h2>
+      <button @click="fetchTrackedOrders" class="text-xs opacity-60 hover:opacity-100 px-3 py-1.5 border border-[var(--color-border)] rounded">更新</button>
+    </div>
+
+    <div v-if="trackError" class="card p-4 bg-[var(--color-card-even)] border border-[var(--color-tag-eol)] flex items-start gap-3 text-sm mb-4">
+      <span class="text-[var(--color-tag-eol)]">⚠</span>
+      <div class="flex-1">
+        <div class="font-semibold text-[var(--color-tag-eol)]">発注追跡の取得に失敗しました</div>
+        <div class="opacity-70 mt-0.5">@{{ trackError }}</div>
+      </div>
+      <button @click="fetchTrackedOrders" class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs">再試行</button>
+    </div>
+
+    <div v-if="trackLoading" class="text-center py-6 opacity-50 text-sm">読み込み中...</div>
+
+    <div v-else-if="!trackError && trackedOrders.length === 0" class="card p-6 bg-[var(--color-card-even)] text-center opacity-50">
+      <p class="text-sm">発注済み（未受取）の記録はありません</p>
+    </div>
+
+    <div v-else-if="trackedOrders.length > 0" class="card p-0 overflow-hidden">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-left opacity-70 bg-[var(--color-card-even)]">
+            <th class="py-2 px-4">部品</th>
+            <th class="py-2 px-4">商社</th>
+            <th class="py-2 px-4 text-right">数量</th>
+            <th class="py-2 px-4">発注日</th>
+            <th class="py-2 px-4">予定日</th>
+            <th class="py-2 px-4">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(order, i) in trackedOrders" :key="order.id"
+            :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+            class="border-b border-[var(--color-border)]">
+            <td class="py-2 px-4">
+              <div class="font-medium">@{{ order.component?.common_name || order.component?.part_number || '-' }}</div>
+              <div class="text-xs opacity-60">@{{ order.component?.part_number }}</div>
+            </td>
+            <td class="py-2 px-4 text-xs">@{{ order.supplier?.name || '-' }}</td>
+            <td class="py-2 px-4 font-mono text-right">@{{ order.quantity }}</td>
+            <td class="py-2 px-4 text-xs opacity-70">@{{ order.order_date ? formatDate(order.order_date) : '-' }}</td>
+            <td class="py-2 px-4 text-xs opacity-70">@{{ order.expected_date ? formatDate(order.expected_date) : '-' }}</td>
+            <td class="py-2 px-4">
+              <div class="flex gap-2">
+                <button @click="updateOrderStatus(order, 'received')"
+                  class="px-2 py-1.5 text-xs border border-emerald-500 text-emerald-600 rounded hover:bg-emerald-50">受取済み</button>
+                <button @click="updateOrderStatus(order, 'cancelled')"
+                  class="px-2 py-1.5 text-xs border border-[var(--color-border)] text-red-500 rounded hover:bg-red-50">キャンセル</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
     <div v-for="t in toasts" :key="t.id"

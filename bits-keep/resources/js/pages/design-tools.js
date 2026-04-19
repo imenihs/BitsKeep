@@ -18,15 +18,16 @@ export default function setup() {
     const activeToolId = ref(document.getElementById('app')?.dataset?.tool ?? 'adc');
 
     const tools = [
-        { id: 'adc',        label: 'ADCスケーリング' },
-        { id: 'cap-life',   label: 'コンデンサ寿命' },
-        { id: 'divider',    label: '分圧・温度変換' },
-        { id: 'shunt',      label: '電流検出' },
-        { id: 'power',      label: '電源余裕' },
-        { id: 'comparator', label: '比較器' },
-        { id: 'thermal',    label: '熱設計' },
-        { id: 'interface',  label: 'IF余裕' },
+        { id: 'adc',        label: 'ADCスケーリング', desc: '入力電圧をADCデジタルコードに変換し、スケーリング係数・LSBサイズ・フルスケール誤差を計算します。' },
+        { id: 'cap-life',   label: 'コンデンサ寿命',  desc: 'アレニウス則に基づき、動作温度・リプル電流から電解コンデンサの推定寿命を算出します。' },
+        { id: 'divider',    label: '分圧・温度変換',  desc: '抵抗分圧回路の出力電圧を計算し、NTC/PTCサーミスタの温度変換も行います。' },
+        { id: 'shunt',      label: '電流検出',        desc: 'シャント抵抗の両端電圧と消費電力から電流値を求め、検出回路の設計値を評価します。' },
+        { id: 'power',      label: '電源余裕',        desc: '供給電力と各負荷の消費電力を比較し、電源の余裕度（マージン）を確認します。' },
+        { id: 'comparator', label: '比較器',          desc: '比較器のしきい値電圧とヒステリシス幅を計算します。ポジティブ/ネガティブフィードバック対応。' },
+        { id: 'thermal',    label: '熱設計',          desc: '熱抵抗チェーンを積み上げ、接合温度を推定します。放熱板・TIM・パッケージ熱抵抗を考慮。' },
+        { id: 'interface',  label: 'IF余裕',          desc: 'VOH/VOL/VIH/VILを入力してロジックインタフェースの電圧余裕（ノイズマージン）を評価します。' },
     ];
+    const activeTool = computed(() => tools.find(t => t.id === activeToolId.value));
 
     // ══════════════════════════════════════════════
     // 1. ADCコード/スケーリング
@@ -198,7 +199,7 @@ export default function setup() {
     });
 
     return {
-        activeToolId, tools,
+        activeToolId, tools, activeTool,
         adc, adcResult,
         cap, capResult,
         divider, dividerResult,

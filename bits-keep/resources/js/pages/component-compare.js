@@ -5,9 +5,11 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useFormatter } from '../composables/useFormatter.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { formatCurrency } = useFormatter();
     const specTypes  = ref([]);
     const components = ref([]);
     const loading    = ref(false);
@@ -197,5 +199,6 @@ export default function setup() {
         hasDiff,
         statusLabel,
         statusClass,
+        formatCurrency,
     };
 }

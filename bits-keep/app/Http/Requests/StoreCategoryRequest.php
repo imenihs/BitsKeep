@@ -13,9 +13,10 @@ class StoreCategoryRequest extends FormRequest
     {
         $id = $this->route('category')?->id;
         return [
-            'name'       => ['required', 'string', 'max:100', Rule::unique('categories', 'name')->ignore($id)],
-            'color'      => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('categories', 'name')->ignore($id)],
+            'description' => ['nullable', 'string', 'max:500'],
+            'color'       => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'sort_order'  => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

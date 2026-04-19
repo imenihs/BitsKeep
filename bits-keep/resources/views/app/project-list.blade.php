@@ -148,6 +148,7 @@
                 :style="{ backgroundColor: p.color || '#2563eb' }"></div>
               <div class="min-w-0">
                 <div class="font-medium truncate">@{{ p.external_code ? p.external_code + '_' + p.name : p.name }}</div>
+                <div v-if="p.last_synced_at" class="text-[10px] opacity-40 mt-0.5">同期: @{{ formatDate(p.last_synced_at) }}</div>
               </div>
             </div>
             <div class="flex items-center gap-2 ml-3 flex-shrink-0">
@@ -201,16 +202,45 @@
 
         <!-- 使用部品一覧 -->
         <h3 class="text-sm font-medium mb-2">使用部品</h3>
-        <div class="space-y-1 max-h-60 overflow-y-auto mb-3">
-          <div v-for="comp in detailProject.components" :key="comp.id"
-            class="flex items-center justify-between bg-[var(--color-bg)] border border-[var(--color-border)] rounded p-2 text-xs">
-            <div class="min-w-0 flex-1 mr-2">
-              <div class="font-medium truncate">@{{ comp.common_name || comp.part_number }}</div>
-              <div class="opacity-50">x@{{ comp.pivot.required_qty }}</div>
-            </div>
-            <button @click="removeComponent(comp)" class="text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
-          </div>
-          <div v-if="detailProject.components?.length === 0" class="text-center py-2 opacity-40 text-xs">部品が未登録です</div>
+        <div class="max-h-64 overflow-y-auto mb-3 border border-[var(--color-border)] rounded">
+          <table class="w-full text-[11px]">
+            <thead class="bg-[var(--color-card-even)] sticky top-0">
+              <tr class="border-b border-[var(--color-border)]">
+                <th class="text-left px-2 py-1 font-semibold">部品名</th>
+                <th class="text-right px-2 py-1 font-semibold">必要数</th>
+                <th class="text-right px-2 py-1 font-semibold">在庫</th>
+                <th class="text-right px-2 py-1 font-semibold">単価</th>
+                <th class="text-right px-2 py-1 font-semibold">小計</th>
+                <th class="px-2 py-1 w-6"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="comp in detailProject.components" :key="comp.id"
+                class="border-b border-[var(--color-border)] last:border-0">
+                <td class="px-2 py-1.5">
+                  <div class="font-medium truncate max-w-[100px]">@{{ comp.common_name || comp.part_number }}</div>
+                  <div class="opacity-40 font-mono truncate max-w-[100px]">@{{ comp.part_number }}</div>
+                </td>
+                <td class="px-2 py-1.5 text-right font-mono">@{{ comp.pivot.required_qty }}</td>
+                <td class="px-2 py-1.5 text-right font-mono"
+                  :class="(comp.quantity_new ?? 0) >= comp.pivot.required_qty ? 'text-[var(--color-tag-ok)]' : 'text-[var(--color-tag-eol)]'">
+                  @{{ comp.quantity_new ?? '—' }}
+                </td>
+                <td class="px-2 py-1.5 text-right font-mono">
+                  @{{ comp.cheapest_price != null ? formatCurrency(comp.cheapest_price, {decimals:0}) : '—' }}
+                </td>
+                <td class="px-2 py-1.5 text-right font-mono">
+                  @{{ comp.cheapest_price != null ? formatCurrency(comp.cheapest_price * comp.pivot.required_qty, {decimals:0}) : '—' }}
+                </td>
+                <td class="px-2 py-1.5 text-center">
+                  <button @click="removeComponent(comp)" class="text-red-400 hover:text-red-600">✕</button>
+                </td>
+              </tr>
+              <tr v-if="detailProject.components?.length === 0">
+                <td colspan="6" class="text-center py-3 opacity-40">部品が未登録です</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- 部品追加フォーム -->
@@ -250,6 +280,8 @@
         <div class="mt-2 opacity-80">@{{ detailError }}</div>
         <div class="mt-3 flex flex-wrap gap-2">
           <button @click="fetchProjects" class="px-3 py-2 rounded-xl border border-[var(--color-tag-eol)] text-sm">一覧を再読込</button>
+          <button @click="detailProject = null; detailError = ''" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">案件を再選択</button>
+          <a href="{{ route('components.index') }}" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">部品一覧へ</a>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ export default function setup() {
     const locations      = ref([]);
     const loading        = ref(false);
     const fetchError     = ref('');
+    const activeTab      = ref('manage'); // 'manage' | 'inventory'
     const inventoryMode  = ref(false);
     const countInputs    = reactive({});
     const dirty = ref(false);
@@ -37,6 +38,9 @@ export default function setup() {
         });
         return map;
     });
+
+    // タブ切替でinventoryModeを連動
+    watch(activeTab, (tab) => { inventoryMode.value = tab === 'inventory'; });
 
     // 棚卸しモード切替: ON時に現在在庫数をコピー
     watch(inventoryMode, (val) => {
@@ -114,5 +118,5 @@ export default function setup() {
         if (!isOpen) dirty.value = false;
     });
 
-    return { toasts, locations, loading, fetchError, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, confirmArchive, archiveModal, restoreLocation, forceDeleteLocation, fetchLocations };
+    return { toasts, locations, loading, fetchError, activeTab, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, confirmArchive, archiveModal, restoreLocation, forceDeleteLocation, fetchLocations };
 }

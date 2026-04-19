@@ -58,7 +58,7 @@
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-          <th class="py-2 pr-4 w-8">順</th>
+          <th class="py-2 pr-2 w-6"></th>
           <th class="py-2 pr-4">名前</th>
           <th class="py-2 pr-4">説明</th>
           <th class="py-2">操作</th>
@@ -66,9 +66,19 @@
       </thead>
       <tbody>
         <tr v-for="(c, index) in categories" :key="c.id"
-          :class="c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
-          class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">@{{ c.sort_order }}</td>
+          :draggable="canEdit && !c.deleted_at ? 'true' : 'false'"
+          @dragstart="catDnD.start(index)"
+          @dragover="catDnD.over($event, index)"
+          @dragend="catDnD.end()"
+          @drop.prevent="catDnD.drop(index)"
+          :class="[
+            c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+            dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''
+          ]"
+          class="border-b border-[var(--color-border)] transition-colors">
+          <td class="py-2 pr-2 text-center">
+            <span v-if="canEdit && !c.deleted_at" class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none">⠿</span>
+          </td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ c.name }}</span>
@@ -83,10 +93,8 @@
           </td>
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
-              <button v-if="canEdit && !c.deleted_at" @click="moveCategory(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
-              <button v-if="canEdit && !c.deleted_at" @click="moveCategory(index, 1)" :disabled="index === categories.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openCatEdit(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!c.deleted_at" @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-if="!c.deleted_at" @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
               <button v-else @click="restoreCategory(c)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
               <button v-if="c.can_force_delete" @click="forceDeleteCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
@@ -115,7 +123,7 @@
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-          <th class="py-2 pr-4 w-8">順</th>
+          <th class="py-2 pr-2 w-6"></th>
           <th class="py-2 pr-4">名前</th>
           <th class="py-2 pr-4">説明</th>
           <th class="py-2">操作</th>
@@ -123,9 +131,19 @@
       </thead>
       <tbody>
         <tr v-for="(group, index) in packageGroups" :key="group.id"
-          :class="group.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
-          class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">@{{ group.sort_order }}</td>
+          :draggable="canEdit && !group.deleted_at ? 'true' : 'false'"
+          @dragstart="pgDnD.start(index)"
+          @dragover="pgDnD.over($event, index)"
+          @dragend="pgDnD.end()"
+          @drop.prevent="pgDnD.drop(index)"
+          :class="[
+            group.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+            dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''
+          ]"
+          class="border-b border-[var(--color-border)] transition-colors">
+          <td class="py-2 pr-2 text-center">
+            <span v-if="canEdit && !group.deleted_at" class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none">⠿</span>
+          </td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ group.name }}</span>
@@ -138,10 +156,8 @@
           </td>
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
-              <button v-if="canEdit && !group.deleted_at" @click="movePackageGroup(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
-              <button v-if="canEdit && !group.deleted_at" @click="movePackageGroup(index, 1)" :disabled="index === packageGroups.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openPkgGroupEdit(group)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!group.deleted_at" @click="archivePackageGroup(group)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-if="!group.deleted_at" @click="archivePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
               <button v-else @click="restorePackageGroup(group)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
               <button v-if="group.can_force_delete" @click="forceDeletePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
@@ -169,7 +185,7 @@
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-          <th class="py-2 pr-4 w-8">順</th>
+          <th class="py-2 pr-2 w-6"></th>
           <th class="py-2 pr-4">パッケージ分類</th>
           <th class="py-2 pr-4">名前</th>
           <th class="py-2 pr-4">説明</th>
@@ -178,9 +194,19 @@
       </thead>
       <tbody>
         <tr v-for="(p, index) in packages" :key="p.id"
-          :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
-          class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">@{{ p.sort_order }}</td>
+          :draggable="canEdit && !p.deleted_at ? 'true' : 'false'"
+          @dragstart="pkgDnD.start(index)"
+          @dragover="pkgDnD.over($event, index)"
+          @dragend="pkgDnD.end()"
+          @drop.prevent="pkgDnD.drop(index)"
+          :class="[
+            p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+            dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''
+          ]"
+          class="border-b border-[var(--color-border)] transition-colors">
+          <td class="py-2 pr-2 text-center">
+            <span v-if="canEdit && !p.deleted_at" class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none">⠿</span>
+          </td>
           <td class="py-2 pr-4 text-xs opacity-70">@{{ p.package_group?.name || '未分類' }}</td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
@@ -196,10 +222,8 @@
           </td>
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
-              <button v-if="canEdit && !p.deleted_at" @click="movePackage(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
-              <button v-if="canEdit && !p.deleted_at" @click="movePackage(index, 1)" :disabled="index === packages.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openPkgEdit(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!p.deleted_at" @click="archivePackage(p)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-if="!p.deleted_at" @click="archivePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
               <button v-else @click="restorePackage(p)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
               <button v-if="p.can_force_delete" @click="forceDeletePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
@@ -228,7 +252,7 @@
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-          <th class="py-2 pr-4 w-8">順</th>
+          <th class="py-2 pr-2 w-6"></th>
           <th class="py-2 pr-4">名前</th>
           <th class="py-2 pr-4">型</th>
           <th class="py-2 pr-4">単位候補</th>
@@ -237,9 +261,19 @@
       </thead>
       <tbody>
         <tr v-for="(s, index) in specTypes" :key="s.id"
-          :class="s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
-          class="border-b border-[var(--color-border)]">
-          <td class="py-2 pr-4 text-center opacity-50">@{{ s.sort_order }}</td>
+          :draggable="isAdmin && !s.deleted_at ? 'true' : 'false'"
+          @dragstart="stDnD.start(index)"
+          @dragover="stDnD.over($event, index)"
+          @dragend="stDnD.end()"
+          @drop.prevent="stDnD.drop(index)"
+          :class="[
+            s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+            dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''
+          ]"
+          class="border-b border-[var(--color-border)] transition-colors">
+          <td class="py-2 pr-2 text-center">
+            <span v-if="isAdmin && !s.deleted_at" class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none">⠿</span>
+          </td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ s.name }}</span>
@@ -260,10 +294,8 @@
           </td>
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
-              <button v-if="isAdmin && !s.deleted_at" @click="moveSpecType(index, -1)" :disabled="index === 0" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↑</button>
-              <button v-if="isAdmin && !s.deleted_at" @click="moveSpecType(index, 1)" :disabled="index === specTypes.length - 1" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded disabled:opacity-30">↓</button>
               <button @click="openStEdit(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!s.deleted_at" @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">アーカイブ</button>
+              <button v-if="!s.deleted_at" @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
               <button v-else @click="restoreSpecType(s)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
               <button v-if="s.can_force_delete" @click="forceDeleteSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
             </div>
@@ -419,6 +451,18 @@
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
         <button @click="closeStModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
         <button @click="saveSpecType" class="btn-primary px-4 py-2 rounded font-medium">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 汎用確認モーダル -->
+  <div v-if="confirmModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm p-6">
+      <h3 class="text-lg font-bold mb-3">@{{ confirmModal.title }}</h3>
+      <p class="text-sm opacity-80 mb-5 whitespace-pre-line">@{{ confirmModal.message }}</p>
+      <div class="flex justify-end gap-3">
+        <button @click="confirmModal.open = false" class="btn text-sm px-4 py-2 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button @click="doConfirm" class="text-sm px-5 py-2 rounded border font-semibold transition-colors" :class="confirmModal.actionClass">@{{ confirmModal.actionLabel }}</button>
       </div>
     </div>
   </div>

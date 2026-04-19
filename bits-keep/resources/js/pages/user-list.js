@@ -33,6 +33,21 @@ export default function setup() {
         editedName: '',
     });
 
+    // メールアドレス変更モーダル
+    const emailModal = reactive({
+        open: false,
+        user: null,
+        editedEmail: '',
+    });
+
+    // パスワードリセットモーダル
+    const passwordModal = reactive({
+        open: false,
+        user: null,
+        newPassword: '',
+        newPasswordConfirmation: '',
+    });
+
     const fetchUsers = async () => {
         try { const r = await api.get('/users'); users.value = r.data; }
         catch { toastError('ユーザー一覧の取得に失敗しました'); }
@@ -95,6 +110,59 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
+    // メールアドレス変更モーダルを開く
+    const openEmailEdit = (user) => {
+        emailModal.user = user;
+        emailModal.editedEmail = user.email;
+        emailModal.open = true;
+    };
+
+    // メールアドレス変更を確定
+    const confirmEmailChange = async () => {
+        if (!emailModal.user || !emailModal.editedEmail.trim()) {
+            toastError('メールアドレスを入力してください');
+            return;
+        }
+        if (emailModal.editedEmail === emailModal.user.email) {
+            emailModal.open = false;
+            return;
+        }
+        try {
+            await api.patch(`/users/${emailModal.user.id}/email`, { email: emailModal.editedEmail });
+            emailModal.user.email = emailModal.editedEmail;
+            toastSuccess('メールアドレスを変更しました');
+            emailModal.open = false;
+        } catch (e) { toastError(e.message); }
+    };
+
+    // パスワードリセットモーダルを開く
+    const openPasswordReset = (user) => {
+        passwordModal.user = user;
+        passwordModal.newPassword = '';
+        passwordModal.newPasswordConfirmation = '';
+        passwordModal.open = true;
+    };
+
+    // パスワードリセットを確定
+    const confirmPasswordReset = async () => {
+        if (!passwordModal.newPassword) {
+            toastError('新しいパスワードを入力してください');
+            return;
+        }
+        if (passwordModal.newPassword !== passwordModal.newPasswordConfirmation) {
+            toastError('パスワードと確認が一致しません');
+            return;
+        }
+        try {
+            await api.patch(`/users/${passwordModal.user.id}/password`, {
+                password: passwordModal.newPassword,
+                password_confirmation: passwordModal.newPasswordConfirmation,
+            });
+            toastSuccess('パスワードをリセットしました');
+            passwordModal.open = false;
+        } catch (e) { toastError(e.message); }
+    };
+
     // 招待
     const invite = async () => {
         try {
@@ -114,5 +182,13 @@ export default function setup() {
     }[r] ?? '');
 
     onMounted(fetchUsers);
-    return { toasts, users, inviteModal, openInvite, invite, roleModal, openRoleChange, confirmRoleChange, nameModal, openNameEdit, confirmNameChange, toggleActive, roleLabel, roleBadgeClass, formatDate };
+    return {
+        toasts, users,
+        inviteModal, openInvite, invite,
+        roleModal, openRoleChange, confirmRoleChange,
+        nameModal, openNameEdit, confirmNameChange,
+        emailModal, openEmailEdit, confirmEmailChange,
+        passwordModal, openPasswordReset, confirmPasswordReset,
+        toggleActive, roleLabel, roleBadgeClass, formatDate,
+    };
 }

@@ -10,7 +10,7 @@ class Category extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['name', 'color', 'sort_order'];
+    protected $fillable = ['name', 'description', 'color', 'sort_order'];
 
     public function components(): BelongsToMany
     {

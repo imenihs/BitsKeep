@@ -420,27 +420,23 @@ img.thumbnail {
 }
 
 .theme-toggle-fab {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    z-index: 60;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2rem;
+    height: 2rem;
     border: 1px solid var(--color-border);
     border-radius: 9999px;
-    background: color-mix(in srgb, var(--color-card-odd) 90%, transparent);
+    background: transparent;
     color: var(--color-text);
-    box-shadow: 0 12px 30px rgb(15 23 42 / 0.16);
-    backdrop-filter: blur(10px);
-    transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    font-size: 1rem;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .theme-toggle-fab:hover {
-    transform: translateY(-1px);
     border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .modal-overlay {

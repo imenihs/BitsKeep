@@ -28,6 +28,40 @@ export default function setup() {
 
     const fetchError = ref('');
 
+    // ── ドラッグ&ドロップ並び替え ─────────────────────────
+    const dragSrc = ref(null);
+    const dragTarget = ref(null);
+
+    const makeDnD = (arr, buildPayload, fetchFn) => ({
+        start: (i) => { dragSrc.value = i; dragTarget.value = i; },
+        over:  (e, i) => { e.preventDefault(); dragTarget.value = i; },
+        end:   () => { dragSrc.value = null; dragTarget.value = null; },
+        drop:  async (i) => {
+            const from = dragSrc.value;
+            dragSrc.value = null; dragTarget.value = null;
+            if (from === null || from === i) return;
+            const items = [...arr.value];
+            const [moved] = items.splice(from, 1);
+            items.splice(i, 0, moved);
+            arr.value = items; // 楽観的更新
+            try {
+                await Promise.all(items.map((item, idx) => api.put(buildPayload(item).url, { ...buildPayload(item).body, sort_order: (idx + 1) * 10 })));
+                toastSuccess('並び順を更新しました');
+                await fetchFn();
+            } catch (e) { toastError(e.message); await fetchFn(); }
+        },
+    });
+
+    // ── 汎用確認モーダル ──────────────────────────────────
+    const confirmModal = reactive({ open: false, title: '', message: '', actionLabel: '', actionClass: '', onConfirm: null });
+    const openConfirm = ({ title, message, actionLabel, actionClass = 'border-red-400 text-red-600 hover:bg-red-50', onConfirm }) => {
+        Object.assign(confirmModal, { open: true, title, message, actionLabel, actionClass, onConfirm });
+    };
+    const doConfirm = async () => {
+        confirmModal.open = false;
+        await confirmModal.onConfirm?.();
+    };
+
     // ── 分類 ─────────────────────────────────────────────
     const categories = ref([]);
     const catSnapshot = ref(null);
@@ -62,21 +96,34 @@ export default function setup() {
     };
     const closeCatModal = () => closeModalWithConfirm(catModal, catSnapshot.value);
 
-    const archiveCategory = async (c) => {
-        if (!confirm(`「${c.name}」をアーカイブしますか？\n使用件数: ${c.usage_count ?? 0}件`)) return;
-        try { await api.delete(`/categories/${c.id}`); await fetchCategories(); toastSuccess('アーカイブしました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const restoreCategory = async (c) => {
-        if (!confirm(`「${c.name}」を復元しますか？`)) return;
-        try { await api.post(`/categories/${c.id}/restore`); await fetchCategories(); toastSuccess('復元しました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const forceDeleteCategory = async (c) => {
-        if (!confirm(`「${c.name}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
-        try { await api.delete(`/categories/${c.id}/force`); await fetchCategories(); toastSuccess('完全削除しました'); }
-        catch (e) { toastError(e.message); }
-    };
+    const archiveCategory = (c) => openConfirm({
+        title: '分類をアーカイブしますか？',
+        message: `「${c.name}」をアーカイブします。\n使用件数: ${c.usage_count ?? 0}件`,
+        actionLabel: 'アーカイブする',
+        onConfirm: async () => {
+            try { await api.delete(`/categories/${c.id}`); await fetchCategories(); toastSuccess('アーカイブしました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const restoreCategory = (c) => openConfirm({
+        title: '分類を復元しますか？',
+        message: `「${c.name}」を復元します。`,
+        actionLabel: '復元する',
+        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
+        onConfirm: async () => {
+            try { await api.post(`/categories/${c.id}/restore`); await fetchCategories(); toastSuccess('復元しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const forceDeleteCategory = (c) => openConfirm({
+        title: '分類を完全削除しますか？',
+        message: `「${c.name}」を完全削除します。\nこの操作は元に戻せません。`,
+        actionLabel: '完全削除する',
+        onConfirm: async () => {
+            try { await api.delete(`/categories/${c.id}/force`); await fetchCategories(); toastSuccess('完全削除しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
     const moveCategory = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= categories.value.length) return;
@@ -127,21 +174,34 @@ export default function setup() {
     };
     const closePkgGroupModal = () => closeModalWithConfirm(pkgGroupModal, pkgGroupSnapshot.value);
 
-    const archivePackageGroup = async (group) => {
-        if (!confirm(`「${group.name}」をアーカイブしますか？\n使用件数: ${group.usage_count ?? 0}件`)) return;
-        try { await api.delete(`/package-groups/${group.id}`); await fetchPackageGroups(); toastSuccess('アーカイブしました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const restorePackageGroup = async (group) => {
-        if (!confirm(`「${group.name}」を復元しますか？`)) return;
-        try { await api.post(`/package-groups/${group.id}/restore`); await fetchPackageGroups(); toastSuccess('復元しました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const forceDeletePackageGroup = async (group) => {
-        if (!confirm(`「${group.name}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
-        try { await api.delete(`/package-groups/${group.id}/force`); await fetchPackageGroups(); toastSuccess('完全削除しました'); }
-        catch (e) { toastError(e.message); }
-    };
+    const archivePackageGroup = (group) => openConfirm({
+        title: 'パッケージ分類をアーカイブしますか？',
+        message: `「${group.name}」をアーカイブします。\n使用件数: ${group.usage_count ?? 0}件`,
+        actionLabel: 'アーカイブする',
+        onConfirm: async () => {
+            try { await api.delete(`/package-groups/${group.id}`); await fetchPackageGroups(); toastSuccess('アーカイブしました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const restorePackageGroup = (group) => openConfirm({
+        title: 'パッケージ分類を復元しますか？',
+        message: `「${group.name}」を復元します。`,
+        actionLabel: '復元する',
+        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
+        onConfirm: async () => {
+            try { await api.post(`/package-groups/${group.id}/restore`); await fetchPackageGroups(); toastSuccess('復元しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const forceDeletePackageGroup = (group) => openConfirm({
+        title: 'パッケージ分類を完全削除しますか？',
+        message: `「${group.name}」を完全削除します。\nこの操作は元に戻せません。`,
+        actionLabel: '完全削除する',
+        onConfirm: async () => {
+            try { await api.delete(`/package-groups/${group.id}/force`); await fetchPackageGroups(); toastSuccess('完全削除しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
     const movePackageGroup = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= packageGroups.value.length) return;
@@ -191,21 +251,34 @@ export default function setup() {
     };
     const closePkgModal = () => closeModalWithConfirm(pkgModal, pkgSnapshot.value);
 
-    const archivePackage = async (p) => {
-        if (!confirm(`「${p.name}」をアーカイブしますか？\n使用件数: ${p.usage_count ?? 0}件`)) return;
-        try { await api.delete(`/packages/${p.id}`); await fetchPackages(); toastSuccess('アーカイブしました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const restorePackage = async (p) => {
-        if (!confirm(`「${p.name}」を復元しますか？`)) return;
-        try { await api.post(`/packages/${p.id}/restore`); await fetchPackages(); toastSuccess('復元しました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const forceDeletePackage = async (p) => {
-        if (!confirm(`「${p.name}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
-        try { await api.delete(`/packages/${p.id}/force`); await fetchPackages(); toastSuccess('完全削除しました'); }
-        catch (e) { toastError(e.message); }
-    };
+    const archivePackage = (p) => openConfirm({
+        title: 'パッケージをアーカイブしますか？',
+        message: `「${p.name}」をアーカイブします。\n使用件数: ${p.usage_count ?? 0}件`,
+        actionLabel: 'アーカイブする',
+        onConfirm: async () => {
+            try { await api.delete(`/packages/${p.id}`); await fetchPackages(); toastSuccess('アーカイブしました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const restorePackage = (p) => openConfirm({
+        title: 'パッケージを復元しますか？',
+        message: `「${p.name}」を復元します。`,
+        actionLabel: '復元する',
+        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
+        onConfirm: async () => {
+            try { await api.post(`/packages/${p.id}/restore`); await fetchPackages(); toastSuccess('復元しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const forceDeletePackage = (p) => openConfirm({
+        title: 'パッケージを完全削除しますか？',
+        message: `「${p.name}」を完全削除します。\nこの操作は元に戻せません。`,
+        actionLabel: '完全削除する',
+        onConfirm: async () => {
+            try { await api.delete(`/packages/${p.id}/force`); await fetchPackages(); toastSuccess('完全削除しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
     const movePackage = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= packages.value.length) return;
@@ -262,21 +335,34 @@ export default function setup() {
     };
     const closeStModal = () => closeModalWithConfirm(stModal, stSnapshot.value);
 
-    const archiveSpecType = async (s) => {
-        if (!confirm(`「${s.name}」をアーカイブしますか？\n使用件数: ${s.usage_count ?? 0}件`)) return;
-        try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); toastSuccess('アーカイブしました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const restoreSpecType = async (s) => {
-        if (!confirm(`「${s.name}」を復元しますか？`)) return;
-        try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); toastSuccess('復元しました'); }
-        catch (e) { toastError(e.message); }
-    };
-    const forceDeleteSpecType = async (s) => {
-        if (!confirm(`「${s.name}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
-        try { await api.delete(`/spec-types/${s.id}/force`); await fetchSpecTypes(); toastSuccess('完全削除しました'); }
-        catch (e) { toastError(e.message); }
-    };
+    const archiveSpecType = (s) => openConfirm({
+        title: 'スペック種別をアーカイブしますか？',
+        message: `「${s.name}」をアーカイブします。\n使用件数: ${s.usage_count ?? 0}件`,
+        actionLabel: 'アーカイブする',
+        onConfirm: async () => {
+            try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); toastSuccess('アーカイブしました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const restoreSpecType = (s) => openConfirm({
+        title: 'スペック種別を復元しますか？',
+        message: `「${s.name}」を復元します。`,
+        actionLabel: '復元する',
+        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
+        onConfirm: async () => {
+            try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); toastSuccess('復元しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
+    const forceDeleteSpecType = (s) => openConfirm({
+        title: 'スペック種別を完全削除しますか？',
+        message: `「${s.name}」を完全削除します。\nこの操作は元に戻せません。`,
+        actionLabel: '完全削除する',
+        onConfirm: async () => {
+            try { await api.delete(`/spec-types/${s.id}/force`); await fetchSpecTypes(); toastSuccess('完全削除しました'); }
+            catch (e) { toastError(e.message); }
+        },
+    });
     const moveSpecType = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= specTypes.value.length) return;
@@ -328,8 +414,16 @@ export default function setup() {
         if (!catOpen && !groupOpen && !pkgOpen && !stOpen) dirty.value = false;
     });
 
+    // DnDインスタンスはすべてのrefが揃ったここで生成する
+    const catDnD = makeDnD(categories,    (c) => ({ url: `/categories/${c.id}`,     body: { name: c.name, color: c.color ?? null } }), fetchCategories);
+    const pgDnD  = makeDnD(packageGroups, (g) => ({ url: `/package-groups/${g.id}`, body: { name: g.name, description: g.description ?? '' } }), fetchPackageGroups);
+    const pkgDnD = makeDnD(packages,      (p) => ({ url: `/packages/${p.id}`,       body: { name: p.name, description: p.description ?? '' } }), fetchPackages);
+    const stDnD  = makeDnD(specTypes,     (s) => ({ url: `/spec-types/${s.id}`,     body: { name: s.name, description: s.description ?? '', value_type: s.value_type ?? 'numeric', unit: s.units?.[0]?.unit ?? '' } }), fetchSpecTypes);
+
     return {
         toasts, fetchError, activeTab, switchTab, canEdit, isAdmin, closeCatModal, closePkgGroupModal, closePkgModal, closeStModal,
+        confirmModal, doConfirm,
+        dragSrc, dragTarget, catDnD, pgDnD, pkgDnD, stDnD,
         fetchCategories, fetchPackageGroups, fetchPackages, fetchSpecTypes,
         // 分類
         categories, catModal, openCatAdd, openCatEdit, saveCategory, archiveCategory, restoreCategory, forceDeleteCategory, moveCategory,

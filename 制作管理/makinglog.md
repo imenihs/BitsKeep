@@ -2693,3 +2693,69 @@ component-create のスペック・仕入先セクションに「未追加」バ
 
 曹長(コード分隊)の心の声: バックアップUIはストリームレスポンスなので fetch 直接呼び出しにした。api.js の upload() で FormData も問題なし。
 
+
+---
+
+## [大将] 2026-04-20 00:43 — 5-7 金額表示フォーマット統一
+
+[ユーザ] チェックリストの5-7までを実装して
+
+### 対応内容
+- `component-compare.js`: `useFormatter` をインポートし、`formatCurrency` を return へ追加
+- `component-compare.blade.php:136`: `'¥' + comp.cheapest_price.toLocaleString()` を `formatCurrency(comp.cheapest_price, {decimals:2})` へ置換
+- チェックリスト 5-7「金額表示を全画面で共通 formatter に統一」を完了マークへ更新
+- `npm run build` 完了（エラーなし）
+
+### 適用済み全画面
+supplier-list / user-list / audit-log / project-list / component-detail / stock-orders / components-list / component-compare
+
+### 対象外
+backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイルサイズであり金額ではないため対象外とした。
+編集用 `input[type=number]` は生値が必要なため意図的に formatter 非適用を維持。
+
+大将の心の声: toLocaleString 直書きの混入箇所は component-compare の最安値セルのみだった。全画面網羅で残件なし。
+
+---
+
+## [大将] 2026-04-20 02:02 — チェックリスト 1-1〜5-7 残件実装（第2フェーズ）
+
+[ユーザ] チェックリストの1-1から5-7までを実装して
+
+### 実装内容
+
+#### C-1: バックエンド
+- `DesignAnalysisResponse.php` 新規作成: 設計解析ツール共通レスポンス整形基盤
+- `CalcController.php`: `networkSearch()` を `DesignAnalysisResponse` 適用へ更新
+- `UserController.php`: `updateEmail()` / `updatePassword()` 追加（管理者権限チェック付き）
+- `routes/api.php`: PATCH users/{user}/email, PATCH users/{user}/password を追加
+
+#### C-2: 保管棚・在庫警告
+- `location-list.blade.php`: ヘッダの棚卸しトグルボタンを廃止し、「棚管理」「棚卸し」2タブ構造へ変更
+- `location-list.js`: `activeTab` ref 追加、tab='inventory' → `inventoryMode=true` 連動
+- 棚管理タブ: CRUD操作（棚卸し列なし）
+- 棚卸しタブ: スティッキーステータスバー + システム在庫/実数入力/差分列
+
+#### C-3: 案件管理（project-list.blade.php）
+- 案件カードに `last_synced_at` の同期時刻表示を追加
+- detailError カードに「案件を再選択」「部品一覧へ」の導線を追加
+- 右ペイン使用部品をカード列→表形式へ再編（必要数/在庫比較/商社単価/小計列）
+- 所属事業選択は既に実装済みを確認 → チェックマーク更新のみ
+
+#### C-4: フロントエンドUI改善
+- `altium-link.js/blade.php`: fetchError ref追加 + エラーカード + v-if="!fetchError" 表示制御
+- `user-list.blade.php/js`: メール変更モーダル・PW リセットモーダル追加、権限変更をスタイル付きカードへ改善
+- `csv-import.blade.php`: Step2エラーをテーマカラー+行バッジ表示、Step3を3分類ハイライトへ改善
+- `engineering-calc.blade.php`: ヘッダ説明文を「数式を入力して Enter で評価」へ簡素化
+- `design-tools.js/blade.php`: 各ツールに説明文(desc)追加、アクティブタブ下にサブタイトル表示
+
+#### 空状態・エラーカード確認
+- master-list/supplier-list/audit-log/stock-alert: 既存実装が共通トーンに準拠済みを確認
+
+#### スキップ
+- 3-2 在庫警告商社別Notion/CSV出力: Notion出力先設定・テンプレート設計が必要で別タスク扱い
+
+### ビルド
+- `npm run build` 完了（エラーなし、警告: engineering-calc チャンク大は既知）
+
+大将の心の声: location-list の2タブ化はJSのinventoryModeを既存のまま流用できた。project-list右ペイン部品表はcheapest_price・quantity_newフィールドがAPIから来ることを前提に表形式に変更。フィールドがない場合は「—」で安全に表示される。
+

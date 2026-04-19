@@ -19,13 +19,15 @@
   </header>
 
   <!-- ツールタブ -->
-  <div class="flex flex-wrap gap-1 mb-6 pb-2 border-b border-[var(--color-border)]">
+  <div class="flex flex-wrap gap-1 mb-4 pb-2 border-b border-[var(--color-border)]">
     <button v-for="t in tools" :key="t.id" @click="activeToolId = t.id"
       :class="activeToolId === t.id ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-card-odd)] hover:opacity-90'"
       class="px-3 py-1.5 rounded text-sm transition-colors border border-[var(--color-border)]">
       @{{ t.label }}
     </button>
   </div>
+  <!-- アクティブツールの説明 -->
+  <p v-if="activeTool?.desc" class="text-xs opacity-60 mb-5">@{{ activeTool.desc }}</p>
 
   <!-- ══════ ADCスケーリング ══════ -->
   <div v-if="activeToolId === 'adc'">

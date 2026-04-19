@@ -13,9 +13,11 @@
 <div id="app" data-page="engineering-calc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニア電卓', 'current' => true]]])
 
-  <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
-    <h1 class="text-2xl font-bold">エンジニア電卓</h1>
-    <p class="text-sm opacity-60 mt-1">進数混在・SI接頭辞・複数行変数・E系列丸め・数値解法に対応</p>
+  <header class="mb-6 pb-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">エンジニア電卓</h1>
+      <p class="text-sm opacity-60 mt-1">数式を入力して Enter で評価</p>
+    </div>
   </header>
 
   <div class="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6">

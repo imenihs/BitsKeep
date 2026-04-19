@@ -40,7 +40,13 @@ function ensureThemeToggle() {
     });
 
     syncLabel();
-    document.body.appendChild(button);
+    // ヘッダーのユーザーエリアに挿入、なければbodyに追加
+    const userArea = document.querySelector('.app-shell-user');
+    if (userArea) {
+        userArea.appendChild(button);
+    } else {
+        document.body.appendChild(button);
+    }
 }
 
 ensureThemeToggle();

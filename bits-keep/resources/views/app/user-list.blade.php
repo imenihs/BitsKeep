@@ -59,6 +59,14 @@
               class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
               名前編集
             </button>
+            <button @click="openEmailEdit(u)"
+              class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
+              メール変更
+            </button>
+            <button @click="openPasswordReset(u)"
+              class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
+              PW リセット
+            </button>
             <button @click="openRoleChange(u)"
               class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
               ロール変更
@@ -88,10 +96,11 @@
       <!-- 招待完了 -->
       <div v-if="inviteModal.result" class="p-6">
         <p class="text-emerald-600 font-medium mb-3">✓ 招待ユーザーを作成しました</p>
-        <p class="text-sm mb-2">招待メールを送信しました。必要なら仮パスワードも控えてください。</p>
+        <p class="text-sm mb-2">招待メールを送信しました。以下の仮パスワードを控え、ユーザーへ伝えてください。</p>
         <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-3 font-mono text-lg text-center tracking-widest">
           @{{ inviteModal.result.temp_password }}
         </div>
+        <p class="text-xs opacity-60 mt-2">⚠ 初回ログイン後、ユーザー自身がパスワードを変更してください（プロフィール画面）</p>
         <div class="flex justify-end mt-4">
           <button @click="inviteModal.open = false" class="btn-primary px-4 py-2 rounded">閉じる</button>
         </div>
@@ -136,11 +145,19 @@
       <div class="p-6 space-y-4">
         <div>
           <p class="text-sm font-medium mb-2">ユーザー: @{{ roleModal.user?.name }}</p>
-          <p class="text-sm opacity-70 mb-4">新しいロールを選択してください</p>
           <div class="space-y-2">
-            <label v-for="role in ['admin', 'editor', 'viewer']" :key="role" class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" :value="role" v-model="roleModal.selectedRole" class="rounded" />
-              <span class="text-sm">@{{ roleLabel(role) }}</span>
+            <label v-for="role in ['admin', 'editor', 'viewer']" :key="role"
+              class="flex items-start gap-3 cursor-pointer p-2 rounded border transition-colors"
+              :class="roleModal.selectedRole === role ? 'border-[var(--color-primary)] bg-[var(--color-card-even)]' : 'border-[var(--color-border)]'">
+              <input type="radio" :value="role" v-model="roleModal.selectedRole" class="mt-0.5" />
+              <div>
+                <div class="text-sm font-medium">@{{ roleLabel(role) }}</div>
+                <div class="text-xs opacity-60 mt-0.5">
+                  <template v-if="role === 'admin'">全操作・ユーザー管理・設定変更・データ削除が可能</template>
+                  <template v-else-if="role === 'editor'">部品・在庫・案件の登録・編集が可能。ユーザー管理・設定変更は不可</template>
+                  <template v-else>閲覧・検索のみ。登録・編集・削除は不可</template>
+                </div>
+              </div>
             </label>
           </div>
         </div>
@@ -168,6 +185,56 @@
         <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
           <button @click="nameModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
           <button @click="confirmNameChange" class="btn-primary px-4 py-2 rounded font-medium">変更する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- メールアドレス変更モーダル -->
+  <div v-if="emailModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm">
+      <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
+        <h2 class="text-lg font-bold">メールアドレス変更</h2>
+        <button @click="emailModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-2">新しいメールアドレス</label>
+          <input v-model="emailModal.editedEmail" type="email" placeholder="new@example.com"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <p class="text-xs opacity-60">変更後のアドレスでログインできるようになります</p>
+        <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
+          <button @click="emailModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+          <button @click="confirmEmailChange" class="btn-primary px-4 py-2 rounded font-medium">変更する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パスワードリセットモーダル -->
+  <div v-if="passwordModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm">
+      <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
+        <h2 class="text-lg font-bold">パスワードリセット</h2>
+        <button @click="passwordModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <p class="text-sm font-medium">対象: @{{ passwordModal.user?.name }}</p>
+        <div>
+          <label class="block text-sm font-medium mb-2">新しいパスワード（8文字以上）</label>
+          <input v-model="passwordModal.newPassword" type="password" placeholder="新しいパスワード"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">確認</label>
+          <input v-model="passwordModal.newPasswordConfirmation" type="password" placeholder="もう一度入力"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <p class="text-xs opacity-60">⚠ ユーザーへ新しいパスワードを別途通知してください</p>
+        <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
+          <button @click="passwordModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+          <button @click="confirmPasswordReset" class="btn-primary px-4 py-2 rounded font-medium">リセットする</button>
         </div>
       </div>
     </div>

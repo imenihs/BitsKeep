@@ -42,6 +42,14 @@ class UserController extends Controller
             'role' => ['required', Rule::in(['admin', 'editor', 'viewer'])],
         ]);
 
+        // 最後の管理者を降格させようとする場合は拒否
+        if ($user->role === 'admin' && $validated['role'] !== 'admin') {
+            $adminCount = User::where('role', 'admin')->where('is_active', true)->count();
+            if ($adminCount <= 1) {
+                return ApiResponse::error('管理者が他にいないため、この変更はできません');
+            }
+        }
+
         $user->update($validated);
 
         return ApiResponse::success($this->format($user));
@@ -82,6 +90,38 @@ class UserController extends Controller
         $user->update($validated);
 
         return ApiResponse::success($this->format($user));
+    }
+
+    // PATCH /api/users/{user}/email
+    public function updateEmail(Request $request, User $user)
+    {
+        if (! $request->user()->isAdmin()) {
+            return ApiResponse::forbidden();
+        }
+
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+        ]);
+
+        $user->update($validated);
+
+        return ApiResponse::success($this->format($user));
+    }
+
+    // PATCH /api/users/{user}/password
+    public function updatePassword(Request $request, User $user)
+    {
+        if (! $request->user()->isAdmin()) {
+            return ApiResponse::forbidden();
+        }
+
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user->update(['password' => Hash::make($validated['password'])]);
+
+        return ApiResponse::success($this->format($user), 'パスワードをリセットしました');
     }
 
     // POST /api/users/invite

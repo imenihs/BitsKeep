@@ -10,6 +10,7 @@ import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const libraries = ref([]);
+    const fetchError = ref('');
     const dirty = ref(false);
     const snapshot = ref(null);
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
@@ -23,8 +24,9 @@ export default function setup() {
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
     const fetchLibraries = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/altium/libraries'); libraries.value = r.data; }
-        catch { toastError('ライブラリ一覧の取得に失敗しました'); }
+        catch (e) { fetchError.value = e.message || 'ライブラリ一覧の取得に失敗しました'; }
     };
 
     const openLibAdd = () => {
@@ -63,5 +65,5 @@ export default function setup() {
     watch(() => libModal.open, (isOpen) => {
         if (!isOpen) dirty.value = false;
     });
-    return { toasts, libraries, libModal, openLibAdd, openLibEdit, closeLibModal, saveLib, deleteLib };
+    return { toasts, libraries, fetchError, fetchLibraries, libModal, openLibAdd, openLibEdit, closeLibModal, saveLib, deleteLib };
 }

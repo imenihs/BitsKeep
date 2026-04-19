@@ -19,22 +19,29 @@
 
   <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">保管棚管理</h1>
-    <div class="flex items-center gap-2">
-      <button @click="inventoryMode = !inventoryMode"
-        class="px-4 py-2 rounded text-sm border transition-colors"
-        :class="inventoryMode ? 'bg-[var(--color-tag-warning)] text-white border-[var(--color-tag-warning)]' : 'border-[var(--color-border)]'">
-        @{{ inventoryMode ? '棚卸しモード終了' : '棚卸しモード' }}
-      </button>
-      @if ($isAdmin)
-      <button @click="openAdd" class="btn btn-primary px-4 py-2 rounded text-sm"><span class="feature-lock">管</span> + 棚を追加</button>
-      @else
-      <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
-        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ 棚を追加</span></div>
-        <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
-      </div>
-      @endif
+    @if ($isAdmin)
+    <button @click="openAdd" class="btn btn-primary px-4 py-2 rounded text-sm"><span class="feature-lock">管</span> + 棚を追加</button>
+    @else
+    <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)]">
+      <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ 棚を追加</span></div>
+      <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
     </div>
+    @endif
   </header>
+
+  <!-- タブ -->
+  <div class="flex gap-1 mb-5 border-b border-[var(--color-border)]">
+    <button @click="activeTab = 'manage'"
+      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+      :class="activeTab === 'manage' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent opacity-60 hover:opacity-100'">
+      棚管理
+    </button>
+    <button @click="activeTab = 'inventory'"
+      class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+      :class="activeTab === 'inventory' ? 'border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]' : 'border-transparent opacity-60 hover:opacity-100'">
+      棚卸し
+    </button>
+  </div>
 
   <!-- エラーカード -->
   <div v-if="fetchError" class="card p-5 bg-[var(--color-card-even)] mb-4 flex items-start gap-3 text-sm border border-[var(--color-tag-eol)]">
@@ -46,65 +53,100 @@
     <button @click="fetchLocations" class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs">再試行</button>
   </div>
 
-  <!-- 棚卸し中ステータスバー -->
-  <div v-if="inventoryMode" class="sticky top-0 z-10 mb-4 px-4 py-2 rounded bg-[var(--color-tag-warning)] text-white text-sm flex items-center justify-between gap-2 shadow">
-    <span class="font-semibold">棚卸し中</span>
-    <span class="opacity-80 text-xs">実数を入力 → 「確定」で保存</span>
-    <button @click="saveInventory" class="px-3 py-1 rounded bg-white text-[var(--color-tag-warning)] font-semibold text-xs">確定</button>
-  </div>
-
-  <!-- グループ別テーブル -->
-  <div v-for="(locs, group) in grouped" :key="group" class="mb-6">
-    <h2 class="font-bold text-sm mb-2 opacity-60 uppercase tracking-wide">@{{ group }}</h2>
-    <div class="card overflow-hidden p-0">
-      <table class="w-full text-sm">
-        <thead class="bg-[var(--color-card-even)]">
-          <tr>
-            <th class="text-left px-4 py-2 font-semibold">棚コード</th>
-            <th class="text-left px-4 py-2 font-semibold">名称</th>
-            <th class="text-left px-4 py-2 font-semibold">在庫数</th>
-            <th v-if="inventoryMode" class="text-left px-4 py-2 font-semibold">実数入力</th>
-            <th v-if="inventoryMode" class="text-left px-4 py-2 font-semibold">差分</th>
-            <th class="text-right px-4 py-2 font-semibold w-24">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(loc, i) in locs" :key="loc.id"
-            class="border-t border-[var(--color-border)]"
-            :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
-            <td class="px-4 py-2 font-mono font-medium">@{{ loc.code }}</td>
-            <td class="px-4 py-2 opacity-70">
-              <div>@{{ loc.name || '—' }}</div>
-              <div class="mt-1 text-xs opacity-60">代表棚: @{{ loc.primary_component_count ?? 0 }}件 / 子棚: @{{ loc.child_count ?? 0 }}</div>
-            </td>
-            <td class="px-4 py-2 font-mono">@{{ loc.stock_count ?? 0 }}</td>
-            <td v-if="inventoryMode" class="px-4 py-2">
-              <input v-model.number="countInputs[loc.id]" type="number" min="0"
-                class="input-text text-sm py-1 w-24" />
-            </td>
-            <td v-if="inventoryMode" class="px-4 py-2 font-mono font-bold"
-              :class="getCountDiff(loc) > 0 ? 'text-[var(--color-tag-ok)]' : getCountDiff(loc) < 0 ? 'text-[var(--color-tag-eol)]' : 'opacity-40'">
-              @{{ getCountDiff(loc) > 0 ? '+' : '' }}@{{ getCountDiff(loc) || '—' }}
-            </td>
-            <td class="px-4 py-2 text-right">
-              <div class="inline-flex items-center gap-2 flex-wrap justify-end">
-                <span v-if="loc.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                  廃止
-                </span>
-                <button @click="openEdit(loc)" class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">編集</button>
-                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">廃止</button>
-                <button v-else @click="restoreLocation(loc)" class="px-3 py-1.5 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50 font-medium">復元</button>
-                <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">完全削除</button>
-              </div>
-              <div v-if="loc.deleted_at && !loc.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ loc.force_delete_reason }}</div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- ═══ 棚管理タブ ═══ -->
+  <template v-if="activeTab === 'manage'">
+    <div v-for="(locs, group) in grouped" :key="group" class="mb-6">
+      <h2 class="font-bold text-sm mb-2 opacity-60 uppercase tracking-wide">@{{ group }}</h2>
+      <div class="card overflow-hidden p-0">
+        <table class="w-full text-sm">
+          <thead class="bg-[var(--color-card-even)]">
+            <tr>
+              <th class="text-left px-4 py-2 font-semibold">棚コード</th>
+              <th class="text-left px-4 py-2 font-semibold">名称</th>
+              <th class="text-left px-4 py-2 font-semibold">在庫数</th>
+              <th class="text-right px-4 py-2 font-semibold w-24">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(loc, i) in locs" :key="loc.id"
+              class="border-t border-[var(--color-border)]"
+              :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+              <td class="px-4 py-2 font-mono font-medium">@{{ loc.code }}</td>
+              <td class="px-4 py-2 opacity-70">
+                <div>@{{ loc.name || '—' }}</div>
+                <div class="mt-1 text-xs opacity-60">代表棚: @{{ loc.primary_component_count ?? 0 }}件 / 子棚: @{{ loc.child_count ?? 0 }}</div>
+              </td>
+              <td class="px-4 py-2 font-mono">@{{ loc.stock_count ?? 0 }}</td>
+              <td class="px-4 py-2 text-right">
+                <div class="inline-flex items-center gap-2 flex-wrap justify-end">
+                  <span v-if="loc.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                    廃止
+                  </span>
+                  <button @click="openEdit(loc)" class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">編集</button>
+                  <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">廃止</button>
+                  <button v-else @click="restoreLocation(loc)" class="px-3 py-1.5 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50 font-medium">復元</button>
+                  <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">完全削除</button>
+                </div>
+                <div v-if="loc.deleted_at && !loc.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ loc.force_delete_reason }}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
+    <div v-if="!loading && Object.keys(grouped).length === 0" class="text-center py-20 opacity-40">
+      <p class="text-3xl mb-3">🗄️</p>
+      <p class="font-medium">棚が登録されていません</p>
+      @if ($isAdmin)
+      <p class="text-xs opacity-70 mt-1">「+ 棚を追加」から登録してください</p>
+      @endif
+    </div>
+  </template>
 
-  <div v-if="!loading && Object.keys(grouped).length === 0" class="text-center py-20 opacity-40">棚が登録されていません</div>
+  <!-- ═══ 棚卸しタブ ═══ -->
+  <template v-if="activeTab === 'inventory'">
+    <!-- ステータスバー -->
+    <div class="sticky top-0 z-10 mb-4 px-4 py-2 rounded bg-[var(--color-tag-warning)] text-white text-sm flex items-center justify-between gap-2 shadow">
+      <span class="font-semibold">棚卸しモード</span>
+      <span class="opacity-80 text-xs">実数を入力 → 「確定」で保存</span>
+      <button @click="saveInventory" class="px-3 py-1 rounded bg-white text-[var(--color-tag-warning)] font-semibold text-xs">確定</button>
+    </div>
+
+    <div v-for="(locs, group) in grouped" :key="group" class="mb-6">
+      <h2 class="font-bold text-sm mb-2 opacity-60 uppercase tracking-wide">@{{ group }}</h2>
+      <div class="card overflow-hidden p-0">
+        <table class="w-full text-sm">
+          <thead class="bg-[var(--color-card-even)]">
+            <tr>
+              <th class="text-left px-4 py-2 font-semibold">棚コード</th>
+              <th class="text-left px-4 py-2 font-semibold">名称</th>
+              <th class="text-left px-4 py-2 font-semibold">システム在庫</th>
+              <th class="text-left px-4 py-2 font-semibold">実数入力</th>
+              <th class="text-left px-4 py-2 font-semibold">差分</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(loc, i) in locs" :key="loc.id"
+              class="border-t border-[var(--color-border)]"
+              :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
+              <td class="px-4 py-2 font-mono font-medium">@{{ loc.code }}</td>
+              <td class="px-4 py-2 opacity-70">@{{ loc.name || '—' }}</td>
+              <td class="px-4 py-2 font-mono">@{{ loc.stock_count ?? 0 }}</td>
+              <td class="px-4 py-2">
+                <input v-model.number="countInputs[loc.id]" type="number" min="0"
+                  class="input-text text-sm py-1 w-24" />
+              </td>
+              <td class="px-4 py-2 font-mono font-bold"
+                :class="getCountDiff(loc) > 0 ? 'text-[var(--color-tag-ok)]' : getCountDiff(loc) < 0 ? 'text-[var(--color-tag-eol)]' : 'opacity-40'">
+                @{{ getCountDiff(loc) > 0 ? '+' : '' }}@{{ getCountDiff(loc) || '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div v-if="!loading && Object.keys(grouped).length === 0" class="text-center py-20 opacity-40">棚が登録されていません</div>
+  </template>
 
   <!-- 追加/編集モーダル -->
   <div v-if="locationModal.open" class="modal-overlay">

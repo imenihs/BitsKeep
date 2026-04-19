@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
+use App\Http\Responses\DesignAnalysisResponse;
 use App\Services\NetworkSearchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,16 +55,31 @@ class CalcController extends Controller
 
         // 目標値0は探索不能
         if ($validated['target'] == 0) {
-            return ApiResponse::success([
-                'candidates' => [],
-                'elapsed_ms' => 0,
-                'truncated'  => false,
-            ]);
+            return DesignAnalysisResponse::invalid(
+                '目標値が 0 のため探索できません',
+                ['0より大きい目標値を入力してください']
+            );
         }
 
         $service = new NetworkSearchService();
         $result  = $service->search($validated);
 
-        return ApiResponse::success($result);
+        $warnings    = [];
+        $nextActions = [];
+
+        if ($result['truncated'] ?? false) {
+            $warnings[]    = '候補が多すぎるため上位のみ表示しています';
+            $nextActions[] = '許容誤差を狭めるか、素子数の上限を下げてください';
+        }
+        if (empty($result['candidates'])) {
+            $nextActions[] = '許容誤差を広げるか、素子数の上限を増やしてください';
+            $nextActions[] = '在庫限定をオフにすると候補が増える場合があります';
+        }
+
+        $summary = empty($result['candidates'])
+            ? '候補が見つかりませんでした'
+            : count($result['candidates']) . ' 件の候補が見つかりました';
+
+        return DesignAnalysisResponse::success($result, $summary, $warnings, $nextActions);
     }
 }

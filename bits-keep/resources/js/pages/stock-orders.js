@@ -1,4 +1,4 @@
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useStockOrderDraft } from '../composables/useStockOrderDraft.js';
@@ -15,6 +15,57 @@ const purchaseUnitOptions = [
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { orderDraft, removeOrderItem, clearOrderDraft, replaceOrderDraft } = useStockOrderDraft();
+
+    // 発注追跡（DB記録済み発注）
+    const trackedOrders = ref([]);
+    const trackError = ref('');
+    const trackLoading = ref(false);
+
+    const fetchTrackedOrders = async () => {
+        trackLoading.value = true;
+        trackError.value = '';
+        try {
+            const r = await api.get('/stock-orders?status=pending');
+            trackedOrders.value = Array.isArray(r.data?.data) ? r.data.data : [];
+        } catch (e) {
+            trackError.value = e.message || '発注追跡データの取得に失敗しました';
+        } finally {
+            trackLoading.value = false;
+        }
+    };
+
+    const updateOrderStatus = async (order, status) => {
+        const labels = { received: '受取済みにしました', cancelled: 'キャンセルしました' };
+        try {
+            await api.patch(`/stock-orders/${order.id}`, { status });
+            order.status = status;
+            toastSuccess(labels[status] ?? '更新しました');
+        } catch (e) {
+            toastError(e.message);
+        }
+    };
+
+    // 発注ドラフトをDBに保存して追跡へ移す
+    const commitToTracking = async () => {
+        const exportable = orderDraft.value.filter((item) => item.supplierId && Number(item.orderQty) > 0);
+        if (!exportable.length) {
+            toastError('商社・数量が入力された行がありません');
+            return;
+        }
+        try {
+            await Promise.all(exportable.map((item) => api.post('/stock-orders', {
+                component_id: item.id,
+                supplier_id: item.supplierId,
+                quantity: Number(item.orderQty),
+                status: 'pending',
+                order_date: new Date().toISOString().slice(0, 10),
+            })));
+            toastSuccess(`${exportable.length} 件を発注記録に保存しました`);
+            await fetchTrackedOrders();
+        } catch (e) {
+            toastError(e.message);
+        }
+    };
 
     const purchaseUnitLabel = (value) => purchaseUnitOptions.find((option) => option.value === value)?.label ?? '未設定';
 
@@ -105,7 +156,7 @@ export default function setup() {
         toastSuccess('発注候補をクリアしました');
     };
 
-    onMounted(hydrateDraftOptions);
+    onMounted(() => { hydrateDraftOptions(); fetchTrackedOrders(); });
 
     return {
         toasts,
@@ -119,6 +170,12 @@ export default function setup() {
         exportSupplierCsv,
         removeItem,
         clearAll,
+        trackedOrders,
+        trackError,
+        trackLoading,
+        fetchTrackedOrders,
+        updateOrderStatus,
+        commitToTracking,
         ...useFormatter(),
     };
 }
