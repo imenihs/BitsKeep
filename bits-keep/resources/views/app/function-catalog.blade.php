@@ -104,6 +104,7 @@
         <a href="{{ route('users.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ユーザー管理</a>
         <a href="{{ route('audit.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">操作ログ</a>
         <a href="{{ route('csv.import') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">CSVインポート</a>
+        <a href="{{ route('backup.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">DBバックアップ</a>
         @else
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
           <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>ユーザー管理</span></div>
@@ -113,6 +114,10 @@
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
           <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>CSVインポート</span></div>
           <div class="mt-1 text-xs opacity-70">管理者のみ実行できます</div>
+        </div>
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>DBバックアップ</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
         </div>
         @endif
       </div>

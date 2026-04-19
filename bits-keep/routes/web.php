@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
         Route::get('/csv-import',  fn() => view('app.csv-import'))->name('csv.import');
         Route::get('/altium',      fn() => view('app.altium-link'))->name('altium.index');
+        Route::get('/backup',      fn() => view('app.backup'))->name('backup.index');
     });
 });
 
