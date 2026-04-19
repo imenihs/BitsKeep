@@ -260,7 +260,7 @@
             <div class="flex flex-col gap-2 justify-center">
               <button @click="handleToggleFavorite(part.id)"
                 class="px-3 py-2 rounded text-xs border transition-colors"
-                :class="isFavorite(part.id) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                :class="isFavorite(part.id) ? 'border-orange-400 text-orange-400 bg-orange-400/10' : 'border-[var(--color-border)] hover:border-orange-400 hover:text-orange-400'">
                 @{{ isFavorite(part.id) ? '★ お気に入り' : '☆ お気に入り' }}
               </button>
               <button @click="toggleCompare(part)"
