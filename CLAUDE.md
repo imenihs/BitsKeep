@@ -157,6 +157,7 @@ vendor/bin/pint        # コード整形
 - コミット対象は全ファイル。
 
 ## ドキュメント管理
+- README はプロジェクト直下の `/web/documents/BitsKeep/README.md` を正とする。`bits-keep/README.md` は作らない。
 - 機能追加・修正時は `README.md` も更新する。
 - 設計仕様・ユーザー指示は `仕様書.md` に追記・更新する。
 - ドキュメント更新指示時は `仕様書.md` / `実装進捗チェックリスト.md` / `README.md` をセットで更新する。
