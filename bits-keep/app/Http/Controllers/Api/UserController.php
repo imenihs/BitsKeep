@@ -68,6 +68,22 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user));
     }
 
+    // PATCH /api/users/{user}/name
+    public function updateName(Request $request, User $user)
+    {
+        if (! $request->user()->isAdmin()) {
+            return ApiResponse::forbidden();
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user->update($validated);
+
+        return ApiResponse::success($this->format($user));
+    }
+
     // POST /api/users/invite
     public function invite(Request $request)
     {

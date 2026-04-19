@@ -53,7 +53,11 @@
           @{{ u.invited_at ? formatDate(u.invited_at) : '-' }}
         </td>
         <td class="py-2">
-          <div class="flex gap-2 items-center">
+          <div class="flex gap-2 items-center flex-wrap">
+            <button @click="openNameEdit(u)"
+              class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
+              名前編集
+            </button>
             <button @click="openRoleChange(u)"
               class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">
               ロール変更
@@ -142,6 +146,27 @@
         <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
           <button @click="roleModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
           <button @click="confirmRoleChange" class="btn-primary px-4 py-2 rounded font-medium">変更する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 名前編集モーダル -->
+  <div v-if="nameModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm">
+      <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
+        <h2 class="text-lg font-bold">名前編集</h2>
+        <button @click="nameModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-2">新しい名前</label>
+          <input v-model="nameModal.editedName" type="text" placeholder="ユーザーの表示名"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
+          <button @click="nameModal.open = false" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
+          <button @click="confirmNameChange" class="btn-primary px-4 py-2 rounded font-medium">変更する</button>
         </div>
       </div>
     </div>

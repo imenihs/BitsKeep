@@ -92,6 +92,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post( 'users/invite',            [UserController::class, 'invite']);
     Route::patch('users/{user}/role',       [UserController::class, 'updateRole']);
     Route::patch('users/{user}/active',     [UserController::class, 'updateActive']);
+    Route::patch('users/{user}/name',       [UserController::class, 'updateName']);
 
     // ── 操作ログ（admin のみ） ────────────────────────────────
     Route::get('audit-logs', [AuditLogController::class, 'index']);

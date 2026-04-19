@@ -26,6 +26,13 @@ export default function setup() {
         selectedRole: null,
     });
 
+    // 名前編集モーダル
+    const nameModal = reactive({
+        open: false,
+        user: null,
+        editedName: '',
+    });
+
     const fetchUsers = async () => {
         try { const r = await api.get('/users'); users.value = r.data; }
         catch { toastError('ユーザー一覧の取得に失敗しました'); }
@@ -49,6 +56,31 @@ export default function setup() {
             roleModal.user.role = roleModal.selectedRole;
             toastSuccess('ロールを変更しました');
             roleModal.open = false;
+        } catch (e) { toastError(e.message); }
+    };
+
+    // 名前編集モーダルを開く
+    const openNameEdit = (user) => {
+        nameModal.user = user;
+        nameModal.editedName = user.name;
+        nameModal.open = true;
+    };
+
+    // 名前編集を確定
+    const confirmNameChange = async () => {
+        if (!nameModal.user || !nameModal.editedName.trim()) {
+            toastError('名前を入力してください');
+            return;
+        }
+        if (nameModal.editedName === nameModal.user.name) {
+            nameModal.open = false;
+            return;
+        }
+        try {
+            await api.patch(`/users/${nameModal.user.id}/name`, { name: nameModal.editedName });
+            nameModal.user.name = nameModal.editedName;
+            toastSuccess('名前を変更しました');
+            nameModal.open = false;
         } catch (e) { toastError(e.message); }
     };
 
@@ -82,5 +114,5 @@ export default function setup() {
     }[r] ?? '');
 
     onMounted(fetchUsers);
-    return { toasts, users, inviteModal, openInvite, invite, roleModal, openRoleChange, confirmRoleChange, toggleActive, roleLabel, roleBadgeClass, formatDate };
+    return { toasts, users, inviteModal, openInvite, invite, roleModal, openRoleChange, confirmRoleChange, nameModal, openNameEdit, confirmNameChange, toggleActive, roleLabel, roleBadgeClass, formatDate };
 }

@@ -21,8 +21,8 @@
     <div class="app-shell-user">
       <a href="{{ route('functions.index') }}" class="app-shell-link">全機能一覧</a>
       <span class="app-shell-user__text">ログイン: {{ $user?->name }}</span>
-      <span class="role-pill {{ $roleMeta['class'] }}" title="{{ $roleMeta['desc'] }}">
-        <span class="role-pill__icon">{{ $roleMeta['icon'] }}</span>
+      <span class="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-red-500 font-bold text-sm {{ $roleMeta['class'] }}" title="{{ $roleMeta['desc'] }}">
+        {{ substr($roleMeta['icon'], 0, 1) }}
       </span>
     </div>
   </div>
