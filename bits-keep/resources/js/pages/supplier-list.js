@@ -15,6 +15,7 @@ export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency } = useFormatter();
     const suppliers = ref([]);
+    const fetchError = ref('');
     const dirty = ref(false);
     const snapshot = ref(null);
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
@@ -41,8 +42,9 @@ export default function setup() {
     };
 
     const fetchSuppliers = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/suppliers?include_archived=1'); suppliers.value = r.data; }
-        catch { toastError('商社情報の取得に失敗しました'); }
+        catch { fetchError.value = '商社情報の取得に失敗しました。再試行するか、しばらく待ってから再読み込みしてください。'; toastError('商社情報の取得に失敗しました'); }
     };
 
     const openAdd = () => {
@@ -92,5 +94,5 @@ export default function setup() {
         if (!isOpen) dirty.value = false;
     });
 
-    return { toasts, suppliers, modal, openAdd, openEdit, closeModal, save, archiveSupplier, restoreSupplier, forceDeleteSupplier, formatCurrency, COLOR_PALETTE, isCustomColor, hasLowContrast };
+    return { toasts, suppliers, fetchError, modal, openAdd, openEdit, closeModal, save, archiveSupplier, restoreSupplier, forceDeleteSupplier, fetchSuppliers, formatCurrency, COLOR_PALETTE, isCustomColor, hasLowContrast };
 }

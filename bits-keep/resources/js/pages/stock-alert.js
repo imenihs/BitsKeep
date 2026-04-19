@@ -6,6 +6,7 @@ import { useStockOrderDraft } from '../composables/useStockOrderDraft.js';
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const alerts         = ref([]);
+    const fetchError     = ref('');
     const pendingOrders  = ref(new Map());
     const loading        = ref(false);
     const checkedIds     = ref([]);
@@ -37,7 +38,7 @@ export default function setup() {
             checkedIds.value = checkedIds.value.filter((id) => alerts.value.some((alert) => alert.id === id));
             await fetchPendingOrders();
         }
-        catch { toastError('在庫警告の取得に失敗しました'); }
+        catch { fetchError.value = '在庫警告の取得に失敗しました。再試行するか、しばらく待ってから再読み込みしてください。'; toastError('在庫警告の取得に失敗しました'); }
         finally { loading.value = false; }
     };
 
@@ -94,7 +95,9 @@ export default function setup() {
     return {
         toasts,
         alerts,
+        fetchError,
         loading,
+        fetchAlerts,
         checkedIds,
         orderDraft,
         pendingOrders,

@@ -36,6 +36,16 @@
     </div>
   </header>
 
+  <!-- エラーカード -->
+  <div v-if="fetchError" class="card p-5 bg-[var(--color-card-even)] mb-4 flex items-start gap-3 text-sm border border-[var(--color-tag-eol)]">
+    <span class="text-[var(--color-tag-eol)] text-lg leading-none">⚠</span>
+    <div class="flex-1">
+      <div class="font-semibold text-[var(--color-tag-eol)]">棚情報の取得に失敗しました</div>
+      <div class="opacity-70 mt-0.5">@{{ fetchError }}</div>
+    </div>
+    <button @click="fetchLocations" class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs">再試行</button>
+  </div>
+
   <!-- 棚卸し警告バナー -->
   <div v-if="inventoryMode" class="mb-4 p-3 rounded bg-[var(--color-tag-warning)]/10 border border-[var(--color-tag-warning)] text-sm flex items-center gap-2">
     ⚠ 棚卸しモード中です。実数を入力して「確定」を押してください。

@@ -32,6 +32,16 @@
     </div>
   </header>
 
+  <!-- エラーカード -->
+  <div v-if="fetchError" class="card p-5 bg-[var(--color-card-even)] mb-4 flex items-start gap-3 text-sm border border-[var(--color-tag-eol)]">
+    <span class="text-[var(--color-tag-eol)] text-lg leading-none">⚠</span>
+    <div class="flex-1">
+      <div class="font-semibold text-[var(--color-tag-eol)]">在庫警告の取得に失敗しました</div>
+      <div class="opacity-70 mt-0.5">@{{ fetchError }}</div>
+    </div>
+    <button @click="fetchAlerts" class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs">再試行</button>
+  </div>
+
   <!-- 警告バッジ -->
   <div v-if="!loading && alerts.length === 0" class="text-center py-12 opacity-50">
     <p class="text-lg">⚠️ 発注点を下回っている部品はありません</p>

@@ -26,6 +26,8 @@ export default function setup() {
         modal.open = false;
     };
 
+    const fetchError = ref('');
+
     // ── 分類 ─────────────────────────────────────────────
     const categories = ref([]);
     const catSnapshot = ref(null);
@@ -35,8 +37,9 @@ export default function setup() {
     });
 
     const fetchCategories = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/categories?include_archived=1'); categories.value = r.data; }
-        catch { toastError('分類の取得に失敗しました'); }
+        catch { fetchError.value = '分類の取得に失敗しました。再試行してください。'; toastError('分類の取得に失敗しました'); }
     };
 
     const openCatAdd = () => {
@@ -99,8 +102,9 @@ export default function setup() {
     });
 
     const fetchPackageGroups = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/package-groups?include_archived=1'); packageGroups.value = r.data; }
-        catch { toastError('パッケージ分類の取得に失敗しました'); }
+        catch { fetchError.value = 'パッケージ分類の取得に失敗しました。再試行してください。'; toastError('パッケージ分類の取得に失敗しました'); }
     };
 
     const openPkgGroupAdd = () => {
@@ -162,8 +166,9 @@ export default function setup() {
     });
 
     const fetchPackages = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/packages?include_archived=1'); packages.value = r.data; }
-        catch { toastError('パッケージの取得に失敗しました'); }
+        catch { fetchError.value = 'パッケージの取得に失敗しました。再試行してください。'; toastError('パッケージの取得に失敗しました'); }
     };
 
     const openPkgAdd = () => {
@@ -226,8 +231,9 @@ export default function setup() {
     });
 
     const fetchSpecTypes = async () => {
+        fetchError.value = '';
         try { const r = await api.get('/spec-types?include_archived=1'); specTypes.value = r.data; }
-        catch { toastError('スペック種別の取得に失敗しました'); }
+        catch { fetchError.value = 'スペック種別の取得に失敗しました。再試行してください。'; toastError('スペック種別の取得に失敗しました'); }
     };
 
     const openStAdd = () => {
@@ -323,7 +329,8 @@ export default function setup() {
     });
 
     return {
-        toasts, activeTab, switchTab, canEdit, isAdmin, closeCatModal, closePkgGroupModal, closePkgModal, closeStModal,
+        toasts, fetchError, activeTab, switchTab, canEdit, isAdmin, closeCatModal, closePkgGroupModal, closePkgModal, closeStModal,
+        fetchCategories, fetchPackageGroups, fetchPackages, fetchSpecTypes,
         // 分類
         categories, catModal, openCatAdd, openCatEdit, saveCategory, archiveCategory, restoreCategory, forceDeleteCategory, moveCategory,
         // パッケージ分類

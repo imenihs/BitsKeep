@@ -8,6 +8,7 @@ export default function setup() {
 
     const locations      = ref([]);
     const loading        = ref(false);
+    const fetchError     = ref('');
     const inventoryMode  = ref(false);
     const countInputs    = reactive({});
     const dirty = ref(false);
@@ -21,7 +22,7 @@ export default function setup() {
     const fetchLocations = async () => {
         loading.value = true;
         try { const r = await api.get('/locations?include_archived=1'); locations.value = r.data; }
-        catch { toastError('棚情報の取得に失敗しました'); }
+        catch { fetchError.value = '棚情報の取得に失敗しました。再試行するか、しばらく待ってから再読み込みしてください。'; toastError('棚情報の取得に失敗しました'); }
         finally { loading.value = false; }
     };
 
@@ -110,5 +111,5 @@ export default function setup() {
         if (!isOpen) dirty.value = false;
     });
 
-    return { toasts, locations, loading, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, restoreLocation, forceDeleteLocation };
+    return { toasts, locations, loading, fetchError, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, restoreLocation, forceDeleteLocation, fetchLocations };
 }
