@@ -216,7 +216,7 @@ export default function setup() {
             packageGroups.value = pkgGroupRes.data;
             packages.value   = pkgRes.data;
             specTypes.value  = stRes.data;
-            alertCount.value = alertRes.data?.length ?? 0;
+            alertCount.value = alertRes.data?.total ?? 0;
         } catch {
             masterError.value = '分類・パッケージ・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
