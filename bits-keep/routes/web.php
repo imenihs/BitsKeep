@@ -12,6 +12,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('public-files.show');
 
     Route::get('/dashboard', fn() => view('app.dashboard'))->name('dashboard');
+    Route::get('/help',      fn() => view('app.help'))->name('help.index');
 
     // 部品管理
     Route::get('/components',         fn() => view('app.components-list'))->name('components.index');

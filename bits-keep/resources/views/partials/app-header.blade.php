@@ -19,6 +19,7 @@
     </a>
 
     <div class="app-shell-user">
+      <a href="{{ route('help.index') }}" class="app-shell-link">使い方</a>
       <a href="{{ route('functions.index') }}" class="app-shell-link">全機能一覧</a>
       <span class="app-shell-user__text">ログイン: {{ $user?->name }}</span>
       <span class="role-pill {{ $roleMeta['class'] }}" title="{{ $roleMeta['desc'] }}">
