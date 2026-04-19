@@ -63,20 +63,20 @@
           </td>
         </tr>
         <tr v-if="libraries.length === 0">
-          <td colspan="6" class="py-8 text-center opacity-40">ライブラリが登録されていません</td>
+          <td colspan="6" class="py-8">
+            <div class="flex flex-col items-center gap-3 opacity-60">
+              <div class="text-center">
+                <p class="font-medium">ライブラリが登録されていません</p>
+                <p class="text-xs mt-1 opacity-70">「+ ライブラリを追加」から .SchLib / .PcbLib ファイルを登録します</p>
+              </div>
+              @if ($isAdmin)
+              <button @click="openLibAdd" class="btn-primary px-4 py-1.5 rounded text-sm opacity-100">+ ライブラリを追加</button>
+              @endif
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
-  </div>
-
-  <!-- 補足説明 -->
-  <div class="mt-6 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-4 text-xs opacity-70">
-    <p class="font-medium mb-1">ℹ️ 使い方</p>
-    <ul class="list-disc list-inside space-y-1">
-      <li>ここで Altium ライブラリ（.SchLib / .PcbLib）を登録します</li>
-      <li>各部品の詳細ページから、シンボル名・フットプリント名を紐づけできます</li>
-      <li>ライブラリを削除すると、紐づいた部品のリンク情報は NULL になります</li>
-    </ul>
   </div>
 
   <!-- ライブラリ追加/編集モーダル -->
