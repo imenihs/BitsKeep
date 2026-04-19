@@ -138,6 +138,7 @@ body {
 .role-admin {
     background: color-mix(in srgb, var(--color-tag-eol) 12%, var(--color-bg));
     color: var(--color-tag-eol);
+    border: 2px solid var(--color-tag-eol);
 }
 
 .role-editor {
