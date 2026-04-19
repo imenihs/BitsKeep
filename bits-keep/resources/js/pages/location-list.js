@@ -16,6 +16,7 @@ export default function setup() {
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
 
     const locationModal = reactive({ open: false, isEdit: false, form: { code: '', name: '', group: '', description: '', sort_order: 0 }, editId: null });
+    const archiveModal  = reactive({ open: false, loc: null });
     const clone = (value) => JSON.parse(JSON.stringify(value));
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -87,8 +88,10 @@ export default function setup() {
             await fetchLocations();
         } catch (e) { toastError(e.message); }
     };
-    const archiveLocation = async (loc) => {
-        if (!confirm(`「${loc.code}」を廃止しますか？\n在庫ブロック: ${loc.inventory_block_count ?? 0}件\n代表棚参照: ${loc.primary_component_count ?? 0}件`)) return;
+    const archiveLocation = (loc) => { archiveModal.loc = loc; archiveModal.open = true; };
+    const confirmArchive = async () => {
+        const loc = archiveModal.loc;
+        archiveModal.open = false;
         try { await api.delete(`/locations/${loc.id}`); await fetchLocations(); toastSuccess('廃止しました'); }
         catch (e) { toastError(e.message); }
     };
@@ -111,5 +114,5 @@ export default function setup() {
         if (!isOpen) dirty.value = false;
     });
 
-    return { toasts, locations, loading, fetchError, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, restoreLocation, forceDeleteLocation, fetchLocations };
+    return { toasts, locations, loading, fetchError, inventoryMode, countInputs, grouped, getCountDiff, saveInventory, locationModal, openAdd, openEdit, closeModal, saveLocation, archiveLocation, confirmArchive, archiveModal, restoreLocation, forceDeleteLocation, fetchLocations };
 }

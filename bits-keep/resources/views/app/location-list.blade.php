@@ -91,7 +91,7 @@
                   廃止
                 </span>
                 <button @click="openEdit(loc)" class="px-3 py-1.5 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] font-medium">編集</button>
-                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-3 py-1.5 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50 font-medium">廃止</button>
+                <button v-if="!loc.deleted_at" @click="archiveLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">廃止</button>
                 <button v-else @click="restoreLocation(loc)" class="px-3 py-1.5 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50 font-medium">復元</button>
                 <button v-if="loc.can_force_delete" @click="forceDeleteLocation(loc)" class="px-3 py-1.5 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 font-medium">完全削除</button>
               </div>
@@ -130,6 +130,27 @@
       <div class="flex justify-end gap-2 mt-5">
         <button @click="closeModal" class="btn text-sm">キャンセル</button>
         <button @click="saveLocation" class="btn btn-primary text-sm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 廃止確認モーダル -->
+  <div v-if="archiveModal.open" class="modal-overlay">
+    <div class="modal-window modal-sm p-6">
+      <h3 class="text-lg font-bold mb-3">棚を廃止しますか？</h3>
+      <p class="text-sm opacity-80 mb-4">
+        <span class="font-semibold font-mono">@{{ archiveModal.loc?.code }}</span> を廃止します。<br>
+        廃止すると新規入庫の棚選択候補から外れます。<br>
+        過去の在庫データへの影響はなく、復元もできます。
+      </p>
+      <div v-if="archiveModal.loc?.inventory_block_count || archiveModal.loc?.primary_component_count"
+        class="mb-4 px-3 py-2 rounded bg-red-50 border border-red-200 text-xs text-red-700 space-y-0.5">
+        <div v-if="archiveModal.loc?.inventory_block_count">在庫ブロック: @{{ archiveModal.loc.inventory_block_count }}件</div>
+        <div v-if="archiveModal.loc?.primary_component_count">代表棚に設定されている部品: @{{ archiveModal.loc.primary_component_count }}件</div>
+      </div>
+      <div class="flex justify-end gap-3 mt-2">
+        <button @click="archiveModal.open = false" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button @click="confirmArchive" class="text-sm px-5 py-3 rounded border border-red-400 text-red-600 hover:bg-red-50 font-semibold transition-colors">廃止する</button>
       </div>
     </div>
   </div>
