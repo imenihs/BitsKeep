@@ -138,7 +138,10 @@
   <!-- スペック -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <div class="flex justify-between items-center mb-3">
-      <h2 class="font-bold">スペック</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="font-bold">スペック</h2>
+        <span v-if="!form.specs.length" class="text-xs px-1.5 py-0.5 rounded bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">未追加</span>
+      </div>
       <button @click="addSpec" class="text-xs link-text">+ 追加</button>
     </div>
     <div v-for="(spec, i) in form.specs" :key="i" class="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.8fr_1fr_auto] gap-2 mb-2 items-center">
@@ -225,7 +228,10 @@
   <!-- 仕入先 -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <div class="flex justify-between items-center mb-3">
-      <h2 class="font-bold">仕入先</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="font-bold">仕入先</h2>
+        <span v-if="!form.supplierRows.length" class="text-xs px-1.5 py-0.5 rounded bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">未追加</span>
+      </div>
       <button @click="addSupplier" class="text-xs link-text">+ 行追加</button>
     </div>
     <div v-for="(row, i) in form.supplierRows" :key="i" class="mb-4 p-3 rounded bg-[var(--color-card-odd)] border border-[var(--color-border)]">
