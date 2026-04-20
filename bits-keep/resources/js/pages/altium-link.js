@@ -7,7 +7,6 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -60,10 +59,6 @@ export default function setup() {
         try { await api.delete(`/altium/libraries/${l.id}`); await fetchLibraries(); toastSuccess('削除しました'); }
         catch (e) { toastError(e.message); }
     };
-
-    useModalEsc([
-        { isOpen: () => libModal.open, close: closeLibModal },
-    ]);
 
     onMounted(fetchLibraries);
     watch(() => libModal.form, (value) => {

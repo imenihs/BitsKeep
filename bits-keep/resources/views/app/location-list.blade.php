@@ -149,7 +149,7 @@
   </template>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="locationModal.open" class="modal-overlay">
+  <div v-if="locationModal.open" class="modal-overlay" v-esc="closeModal">
     <div class="modal-window modal-sm p-6">
       <h3 class="font-bold mb-4">@{{ locationModal.isEdit ? '棚を編集' : '棚を追加' }}</h3>
       <div class="space-y-3 text-sm">
@@ -178,7 +178,7 @@
   </div>
 
   <!-- 廃止確認モーダル -->
-  <div v-if="archiveModal.open" class="modal-overlay">
+  <div v-if="archiveModal.open" class="modal-overlay" v-esc="() => archiveModal.open = false">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-3">棚を廃止しますか？</h3>
       <p class="text-sm opacity-80 mb-4">

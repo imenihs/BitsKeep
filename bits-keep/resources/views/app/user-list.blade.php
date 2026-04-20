@@ -86,7 +86,7 @@
   </table>
 
   <!-- 招待モーダル -->
-  <div v-if="inviteModal.open" class="modal-overlay">
+  <div v-if="inviteModal.open" class="modal-overlay" v-esc="() => inviteModal.open = false">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">ユーザー招待</h2>
@@ -136,7 +136,7 @@
   </div>
 
   <!-- ロール変更モーダル -->
-  <div v-if="roleModal.open" class="modal-overlay">
+  <div v-if="roleModal.open" class="modal-overlay" v-esc="() => roleModal.open = false">
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">ロール変更</h2>
@@ -170,7 +170,7 @@
   </div>
 
   <!-- 名前編集モーダル -->
-  <div v-if="nameModal.open" class="modal-overlay">
+  <div v-if="nameModal.open" class="modal-overlay" v-esc="() => nameModal.open = false">
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">名前編集</h2>
@@ -191,7 +191,7 @@
   </div>
 
   <!-- メールアドレス変更モーダル -->
-  <div v-if="emailModal.open" class="modal-overlay">
+  <div v-if="emailModal.open" class="modal-overlay" v-esc="() => emailModal.open = false">
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">メールアドレス変更</h2>
@@ -213,7 +213,7 @@
   </div>
 
   <!-- パスワードリセットモーダル -->
-  <div v-if="passwordModal.open" class="modal-overlay">
+  <div v-if="passwordModal.open" class="modal-overlay" v-esc="() => passwordModal.open = false">
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">パスワードリセット</h2>

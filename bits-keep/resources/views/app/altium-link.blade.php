@@ -91,7 +91,7 @@
   </div>
 
   <!-- ライブラリ追加/編集モーダル -->
-  <div v-if="libModal.open" class="modal-overlay">
+  <div v-if="libModal.open" class="modal-overlay" v-esc="closeLibModal">
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ libModal.isEdit ? 'ライブラリ編集' : 'ライブラリ追加' }}</h2>

@@ -66,6 +66,28 @@ if (container && page) {
         // 全ページで利用できる共通コンポーネントを登録
         app.component('ProjectComboBox', ProjectComboBox);
         app.component('ConfirmLeaveModal', ConfirmLeaveModal);
+        // v-esc ディレクティブ: modal-overlay の v-if と連動してESCリスナーを自動ON/OFF
+        // v-if=false → DOM から外れた瞬間に unmounted が走りリスナーが消える
+        app.directive('esc', {
+            mounted(el, { value }) {
+                el._escValue = value;
+                el._escHandler = async (e) => {
+                    if (e.key !== 'Escape') return;
+                    e.preventDefault();
+                    await el._escValue();
+                };
+                window.addEventListener('keydown', el._escHandler);
+            },
+            updated(el, { value }) {
+                // バインド先関数が差し替わっても最新を参照する
+                el._escValue = value;
+            },
+            unmounted(el) {
+                window.removeEventListener('keydown', el._escHandler);
+                delete el._escValue;
+                delete el._escHandler;
+            },
+        });
         app.mount(container);
     }).catch(() => {
         console.error(`Page module not found: ${page}`);

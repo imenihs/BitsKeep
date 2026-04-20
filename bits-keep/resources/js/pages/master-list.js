@@ -8,7 +8,6 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -395,14 +394,6 @@ export default function setup() {
         }
         else if (tab === 'spec-types' && specTypes.value.length === 0) fetchSpecTypes();
     };
-
-    useModalEsc([
-        { isOpen: () => catModal.open,      close: () => closeCatModal() },
-        { isOpen: () => pkgGroupModal.open, close: () => closePkgGroupModal() },
-        { isOpen: () => pkgModal.open,      close: () => closePkgModal() },
-        { isOpen: () => stModal.open,       close: () => closeStModal() },
-        { isOpen: () => confirmModal.open,  close: () => { confirmModal.open = false; } },
-    ]);
 
     onMounted(() => {
         // 初期タブのデータだけ取得

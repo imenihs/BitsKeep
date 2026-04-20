@@ -368,7 +368,7 @@
   </div>
 
   <!-- 出庫モーダル -->
-  <div v-if="stockOutModal.open" class="modal-overlay">
+  <div v-if="stockOutModal.open" class="modal-overlay" v-esc="() => stockOutModal.open = false">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-4">出庫</h3>
       <div class="space-y-3 text-sm">
@@ -390,7 +390,7 @@
   </div>
 
   <!-- 入庫モーダル -->
-  <div v-if="stockInModal.open" class="modal-overlay">
+  <div v-if="stockInModal.open" class="modal-overlay" v-esc="() => stockInModal.open = false">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-4">入庫</h3>
       <div class="space-y-3 text-sm">
@@ -440,7 +440,7 @@
     </div>
   </div>
 
-  <div v-if="editModal.open" class="modal-overlay">
+  <div v-if="editModal.open" class="modal-overlay" v-esc="closeEditModal">
     <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>

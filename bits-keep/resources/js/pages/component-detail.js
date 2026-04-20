@@ -4,7 +4,6 @@ import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -270,12 +269,6 @@ export default function setup() {
             toastError('お気に入りの保存に失敗しました');
         }
     };
-
-    useModalEsc([
-        { isOpen: () => editModal.value.open,    close: closeEditModal },
-        { isOpen: () => stockOutModal.value.open, close: () => { stockOutModal.value.open = false; } },
-        { isOpen: () => stockInModal.value.open,  close: () => { stockInModal.value.open = false; } },
-    ]);
 
     onMounted(async () => {
         await loadFavorites();

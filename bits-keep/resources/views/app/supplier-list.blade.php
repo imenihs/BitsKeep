@@ -114,7 +114,7 @@
   </div>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="modal.open" class="modal-overlay">
+  <div v-if="modal.open" class="modal-overlay" v-esc="closeModal">
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ modal.isEdit ? '商社編集' : '商社追加' }}</h2>

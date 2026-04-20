@@ -7,7 +7,6 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -273,10 +272,6 @@ export default function setup() {
         fetchLastSyncRun();
         fetchSyncStatus();
     };
-
-    useModalEsc([
-        { isOpen: () => modal.open, close: () => { modal.open = false; } },
-    ]);
 
     onMounted(() => { fetchProjects(); reloadSupportData(); });
 

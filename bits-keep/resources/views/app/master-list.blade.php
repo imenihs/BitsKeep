@@ -310,7 +310,7 @@
   </div>
 
   <!-- ═══════════════ 分類モーダル ════════════════ -->
-  <div v-if="catModal.open" class="modal-overlay">
+  <div v-if="catModal.open" class="modal-overlay" v-esc="closeCatModal">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ catModal.isEdit ? '分類編集' : '分類追加' }}</h2>
@@ -341,7 +341,7 @@
   </div>
 
   <!-- ═══════════════ パッケージモーダル ════════════════ -->
-  <div v-if="pkgModal.open" class="modal-overlay">
+  <div v-if="pkgModal.open" class="modal-overlay" v-esc="closePkgModal">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? '詳細パッケージ編集' : '詳細パッケージ追加' }}</h2>
@@ -378,7 +378,7 @@
     </div>
   </div>
 
-  <div v-if="pkgGroupModal.open" class="modal-overlay">
+  <div v-if="pkgGroupModal.open" class="modal-overlay" v-esc="closePkgGroupModal">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgGroupModal.isEdit ? 'パッケージ分類編集' : 'パッケージ分類追加' }}</h2>
@@ -406,7 +406,7 @@
   </div>
 
   <!-- ═══════════════ スペック種別モーダル ════════════════ -->
-  <div v-if="stModal.open" class="modal-overlay modal-top">
+  <div v-if="stModal.open" class="modal-overlay modal-top" v-esc="closeStModal">
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック種別編集' : 'スペック種別追加' }}</h2>
@@ -456,7 +456,7 @@
   </div>
 
   <!-- 汎用確認モーダル -->
-  <div v-if="confirmModal.open" class="modal-overlay">
+  <div v-if="confirmModal.open" class="modal-overlay" v-esc="() => confirmModal.open = false">
     <div class="modal-window modal-sm p-6">
       <h3 class="text-lg font-bold mb-3">@{{ confirmModal.title }}</h3>
       <p class="text-sm opacity-80 mb-5 whitespace-pre-line">@{{ confirmModal.message }}</p>

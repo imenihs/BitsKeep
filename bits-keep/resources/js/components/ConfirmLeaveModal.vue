@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" style="z-index:9000">
+  <div v-if="visible" class="modal-overlay" style="z-index:9000" v-esc="cancel">
     <div class="modal-window modal-sm" @click.stop>
       <div class="p-6">
         <p class="text-sm leading-relaxed mb-6">{{ message }}</p>

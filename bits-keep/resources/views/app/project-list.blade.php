@@ -288,7 +288,7 @@
   </div>
 
   <!-- 追加/編集モーダル -->
-  <div v-if="modal.open" class="modal-overlay">
+  <div v-if="modal.open" class="modal-overlay" v-esc="() => modal.open = false">
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ modal.isEdit ? '案件編集' : '案件作成' }}</h2>

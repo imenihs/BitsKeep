@@ -4,7 +4,6 @@ import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import { useModalEsc } from '../composables/useModalEsc.js';
 
 const COLOR_PALETTE = [
     '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -88,10 +87,6 @@ export default function setup() {
         try { await api.delete(`/suppliers/${s.id}/force`); await fetchSuppliers(); toastSuccess('完全削除しました'); }
         catch (e) { toastError(e.message); }
     };
-
-    useModalEsc([
-        { isOpen: () => modal.open, close: closeModal },
-    ]);
 
     onMounted(fetchSuppliers);
     watch(() => modal.form, (value) => {
