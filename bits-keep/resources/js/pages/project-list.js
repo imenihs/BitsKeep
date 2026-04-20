@@ -6,10 +6,13 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency, formatDate } = useFormatter();
+    const { ask } = useConfirmModal();
     const projects      = ref([]);
     const meta          = ref(null);
     const loading       = ref(false);
@@ -114,7 +117,7 @@ export default function setup() {
 
     const deleteProject = async (p) => {
         if (!p.is_editable) { toastError('Notion由来の案件は削除できません'); return; }
-        if (!confirm(`「${p.name}」を削除しますか？`)) return;
+        if (!await ask(`「${p.name}」を削除しますか？`)) return;
         try { await api.delete(`/projects/${p.id}`); await fetchProjects(); toastSuccess('削除しました'); }
         catch (e) { toastError(e.response?.data?.message ?? e.message); }
     };
@@ -270,6 +273,10 @@ export default function setup() {
         fetchLastSyncRun();
         fetchSyncStatus();
     };
+
+    useModalEsc([
+        { isOpen: () => modal.open, close: () => { modal.open = false; } },
+    ]);
 
     onMounted(() => { fetchProjects(); reloadSupportData(); });
 

@@ -83,8 +83,7 @@
     <!-- 新規案件追加確認モーダル -->
     <teleport to="body">
       <div v-if="newModal.open"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        @click.self="newModal.open = false">
+        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-[var(--color-bg)] rounded-2xl shadow-2xl w-full max-w-md">
           <div class="p-5 border-b border-[var(--color-border)]">
             <h3 class="font-bold text-lg">新規案件を追加</h3>
@@ -276,8 +275,20 @@ export default {
       }
     };
 
-    onMounted(() => document.addEventListener('mousedown', onClickOutside));
-    onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
+    const onEscKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (newModal.value.open) { e.preventDefault(); newModal.value.open = false; return; }
+      if (open.value) { e.preventDefault(); open.value = false; }
+    };
+
+    onMounted(() => {
+      document.addEventListener('mousedown', onClickOutside);
+      window.addEventListener('keydown', onEscKey);
+    });
+    onUnmounted(() => {
+      document.removeEventListener('mousedown', onClickOutside);
+      window.removeEventListener('keydown', onEscKey);
+    });
 
     return {
       wrapRef, inputRef, query, open, loading, candidates, activeIdx, selected,

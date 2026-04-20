@@ -6,10 +6,13 @@ import { ref, reactive, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatDate } = useFormatter();
+    const { ask } = useConfirmModal();
     const users = ref([]);
 
     // 招待モーダル
@@ -102,7 +105,7 @@ export default function setup() {
     // 有効/無効切り替え（確認付き）
     const toggleActive = async (user) => {
         const action = user.is_active ? '無効化' : '有効化';
-        if (!confirm(`${user.name} を${action}しますか？`)) return;
+        if (!await ask(`${user.name} を${action}しますか？`)) return;
         try {
             const r = await api.patch(`/users/${user.id}/active`, { is_active: !user.is_active });
             user.is_active = r.data.is_active;
@@ -180,6 +183,14 @@ export default function setup() {
     const roleBadgeClass = (r) => ({
         admin: 'bg-red-100 text-red-700', editor: 'bg-blue-100 text-blue-700', viewer: 'bg-gray-100 text-gray-600'
     }[r] ?? '');
+
+    useModalEsc([
+        { isOpen: () => inviteModal.open,   close: () => { inviteModal.open = false; } },
+        { isOpen: () => roleModal.open,     close: () => { roleModal.open = false; } },
+        { isOpen: () => nameModal.open,     close: () => { nameModal.open = false; } },
+        { isOpen: () => emailModal.open,    close: () => { emailModal.open = false; } },
+        { isOpen: () => passwordModal.open, close: () => { passwordModal.open = false; } },
+    ]);
 
     onMounted(fetchUsers);
     return {

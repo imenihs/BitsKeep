@@ -1,6 +1,7 @@
 import './bootstrap';
 import { createApp } from 'vue';
 import ProjectComboBox from './components/ProjectComboBox.vue';
+import ConfirmLeaveModal from './components/ConfirmLeaveModal.vue';
 
 const THEME_KEY = 'bitskeep-theme';
 
@@ -59,10 +60,12 @@ const page = container?.dataset?.page;
 if (container && page) {
     import(`./pages/${page}.js`).then(({ default: setup }) => {
         // Blade が返した HTML をそのまま Vue テンプレートとして再利用する。
-        const template = container.innerHTML;
+        // ConfirmLeaveModal を末尾に差し込むことで全ページで自前確認モーダルが使える。
+        const template = container.innerHTML + '<ConfirmLeaveModal />';
         const app = createApp({ template, setup });
         // 全ページで利用できる共通コンポーネントを登録
         app.component('ProjectComboBox', ProjectComboBox);
+        app.component('ConfirmLeaveModal', ConfirmLeaveModal);
         app.mount(container);
     }).catch(() => {
         console.error(`Page module not found: ${page}`);

@@ -2,9 +2,12 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { ask } = useConfirmModal();
 
     const locations      = ref([]);
     const loading        = ref(false);
@@ -77,8 +80,8 @@ export default function setup() {
         snapshot.value = clone(form);
         Object.assign(locationModal, { open: true, isEdit: true, editId: loc.id, form });
     };
-    const closeModal = () => {
-        if (locationModal.open && !same(locationModal.form, snapshot.value) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+    const closeModal = async () => {
+        if (locationModal.open && !same(locationModal.form, snapshot.value) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         locationModal.open = false;
     };
     const saveLocation = async () => {
@@ -100,15 +103,20 @@ export default function setup() {
         catch (e) { toastError(e.message); }
     };
     const restoreLocation = async (loc) => {
-        if (!confirm(`「${loc.code}」を復元しますか？`)) return;
+        if (!await ask(`「${loc.code}」を復元しますか？`)) return;
         try { await api.post(`/locations/${loc.id}/restore`); await fetchLocations(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
     const forceDeleteLocation = async (loc) => {
-        if (!confirm(`「${loc.code}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
+        if (!await ask(`「${loc.code}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
         try { await api.delete(`/locations/${loc.id}/force`); await fetchLocations(); toastSuccess('完全削除しました'); }
         catch (e) { toastError(e.message); }
     };
+
+    useModalEsc([
+        { isOpen: () => locationModal.open, close: closeModal },
+        { isOpen: () => archiveModal.open,  close: () => { archiveModal.open = false; } },
+    ]);
 
     onMounted(fetchLocations);
     watch(() => locationModal.form, (value) => {

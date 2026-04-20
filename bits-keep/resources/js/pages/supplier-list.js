@@ -3,6 +3,8 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useFormatter } from '../composables/useFormatter.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 const COLOR_PALETTE = [
     '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -14,6 +16,7 @@ const COLOR_PALETTE = [
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency } = useFormatter();
+    const { ask } = useConfirmModal();
     const suppliers = ref([]);
     const fetchError = ref('');
     const dirty = ref(false);
@@ -57,8 +60,8 @@ export default function setup() {
         snapshot.value = clone(form);
         Object.assign(modal, { open: true, isEdit: true, editId: s.id, form });
     };
-    const closeModal = () => {
-        if (modal.open && !same(modal.form, snapshot.value) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+    const closeModal = async () => {
+        if (modal.open && !same(modal.form, snapshot.value) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         modal.open = false;
     };
 
@@ -85,6 +88,10 @@ export default function setup() {
         try { await api.delete(`/suppliers/${s.id}/force`); await fetchSuppliers(); toastSuccess('完全削除しました'); }
         catch (e) { toastError(e.message); }
     };
+
+    useModalEsc([
+        { isOpen: () => modal.open, close: closeModal },
+    ]);
 
     onMounted(fetchSuppliers);
     watch(() => modal.form, (value) => {

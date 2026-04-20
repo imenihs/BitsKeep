@@ -6,9 +6,12 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { ask } = useConfirmModal();
     const libraries = ref([]);
     const fetchError = ref('');
     const dirty = ref(false);
@@ -39,8 +42,8 @@ export default function setup() {
         snapshot.value = clone(form);
         Object.assign(libModal, { open: true, isEdit: true, editId: l.id, form });
     };
-    const closeLibModal = () => {
-        if (libModal.open && !same(libModal.form, snapshot.value) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+    const closeLibModal = async () => {
+        if (libModal.open && !same(libModal.form, snapshot.value) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         libModal.open = false;
     };
 
@@ -53,10 +56,14 @@ export default function setup() {
     };
 
     const deleteLib = async (l) => {
-        if (!confirm(`「${l.name}」を削除しますか？\n紐づいている部品のリンクがNULLになります。`)) return;
+        if (!await ask(`「${l.name}」を削除しますか？\n紐づいている部品のリンクがNULLになります。`)) return;
         try { await api.delete(`/altium/libraries/${l.id}`); await fetchLibraries(); toastSuccess('削除しました'); }
         catch (e) { toastError(e.message); }
     };
+
+    useModalEsc([
+        { isOpen: () => libModal.open, close: closeLibModal },
+    ]);
 
     onMounted(fetchLibraries);
     watch(() => libModal.form, (value) => {

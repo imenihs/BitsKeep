@@ -7,9 +7,12 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { useModalEsc } from '../composables/useModalEsc.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { ask } = useConfirmModal();
     const dirty = ref(false);
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
 
@@ -21,8 +24,8 @@ export default function setup() {
 
     const clone = (value) => JSON.parse(JSON.stringify(value));
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    const closeModalWithConfirm = (modal, snapshot) => {
-        if (modal.open && !same(modal.form, snapshot) && !confirm('未保存の変更があります。閉じてもよいですか？')) return;
+    const closeModalWithConfirm = async (modal, snapshot) => {
+        if (modal.open && !same(modal.form, snapshot) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         modal.open = false;
     };
 
@@ -392,6 +395,14 @@ export default function setup() {
         }
         else if (tab === 'spec-types' && specTypes.value.length === 0) fetchSpecTypes();
     };
+
+    useModalEsc([
+        { isOpen: () => catModal.open,      close: () => closeCatModal() },
+        { isOpen: () => pkgGroupModal.open, close: () => closePkgGroupModal() },
+        { isOpen: () => pkgModal.open,      close: () => closePkgModal() },
+        { isOpen: () => stModal.open,       close: () => closeStModal() },
+        { isOpen: () => confirmModal.open,  close: () => { confirmModal.open = false; } },
+    ]);
 
     onMounted(() => {
         // 初期タブのデータだけ取得

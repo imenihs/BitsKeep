@@ -1,15 +1,18 @@
 import { onBeforeUnmount, watch } from 'vue';
+import { useConfirmModal } from './useConfirmModal.js';
 
-export function useNavigationConfirm(activeRef, message) {
+export function useNavigationConfirm(activeRef, confirmMessage) {
     let enabled = false;
+    const { ask } = useConfirmModal();
 
     const handleBeforeUnload = (event) => {
         if (!enabled) return;
+        // beforeunload はブラウザネイティブのダイアログが必須。カスタムモーダル不可。
         event.preventDefault();
-        event.returnValue = message;
+        event.returnValue = confirmMessage;
     };
 
-    const handleDocumentClick = (event) => {
+    const handleDocumentClick = async (event) => {
         if (!enabled) return;
 
         const target = event.target instanceof Element
@@ -22,15 +25,23 @@ export function useNavigationConfirm(activeRef, message) {
         const href = target.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-        if (!window.confirm(message)) {
-            event.preventDefault();
+        // リンククリックをいったん止めて自前モーダルで確認
+        event.preventDefault();
+        const confirmed = await ask(confirmMessage);
+        if (confirmed) {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.location.href = href;
         }
     };
 
-    const handlePopState = () => {
+    const handlePopState = async () => {
         if (!enabled) return;
-        if (!window.confirm(message)) {
-            history.pushState(null, '', location.href);
+        // ブラウザバックを一旦打ち消し、自前モーダルで確認
+        history.pushState(null, '', location.href);
+        const confirmed = await ask(confirmMessage);
+        if (confirmed) {
+            disable();
+            history.back();
         }
     };
 
