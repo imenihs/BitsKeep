@@ -59,15 +59,23 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs font-semibold">データシート（PDF・複数可）</label>
-            <button type="button" @click="analyzeDatasheet"
-              :disabled="analyzing || !datasheetFiles.length"
-              class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors"
-              :class="datasheetFiles.length
-                ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
-                : 'border-[var(--color-border)] opacity-40 cursor-not-allowed'">
-              <span v-if="analyzing">⏳ 解析中...</span>
-              <span v-else>✨ データシートから自動入力</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <!-- Gemini 自動解析ボタン -->
+              <button type="button" @click="analyzeDatasheet"
+                :disabled="analyzing || !datasheetFiles.length"
+                class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors"
+                :class="datasheetFiles.length
+                  ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
+                  : 'border-[var(--color-border)] opacity-40 cursor-not-allowed'">
+                <span v-if="analyzing">⏳ 解析中...</span>
+                <span v-else>✨ Geminiで自動入力</span>
+              </button>
+              <!-- ChatGPT 貼り付けボタン -->
+              <button type="button" @click="showChatGPTPaste = !showChatGPTPaste"
+                class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors border-[var(--color-border)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+                📋 ChatGPTから貼り付け
+              </button>
+            </div>
           </div>
           <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
           <div v-if="datasheetFiles.length" class="mt-2 space-y-1 text-[11px]">
@@ -80,10 +88,34 @@
           </div>
           <p class="text-[11px] opacity-50 mt-1">ファイルを選ぶと、現在のデータシート一式を選択した内容で置き換えます</p>
 
-          <!-- Gemini 解析結果レビューパネル -->
+          <!-- ChatGPT 貼り付けパネル -->
+          <div v-if="showChatGPTPaste && !helperResult" class="mt-3 rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)]" v-esc="dismissChatGPTPaste">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-semibold">📋 ChatGPT の出力を貼り付け</p>
+              <button type="button" @click="dismissChatGPTPaste" class="text-xs opacity-50 hover:opacity-100">✕ 閉じる</button>
+            </div>
+            <p class="text-xs opacity-60 mb-2">
+              ChatGPT にデータシート PDF を添付し、
+              <a href="{{ asset('') }}../../プロンプト/データシート解析プロンプト.md" target="_blank" class="link-text" rel="noreferrer">解析プロンプト</a>
+              を使って返ってきた JSON をここに貼り付けてください。
+            </p>
+            <textarea v-model="chatGPTPasteText" rows="8"
+              class="input-text w-full text-xs font-mono resize-y"
+              placeholder='{"part_number": "...", "manufacturer": "...", "specs": [...]}'>
+            </textarea>
+            <div class="flex gap-2 mt-2">
+              <button type="button" @click="parseChatGPTResult"
+                :disabled="!chatGPTPasteText.trim()"
+                class="btn-primary px-4 py-1.5 rounded text-xs disabled:opacity-50">解析して適用候補に表示</button>
+              <button type="button" @click="dismissChatGPTPaste"
+                class="px-4 py-1.5 rounded border border-[var(--color-border)] text-xs">キャンセル</button>
+            </div>
+          </div>
+
+          <!-- Gemini / ChatGPT 解析結果レビューパネル -->
           <div v-if="helperResult" class="mt-4 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-4">
             <div class="flex items-center justify-between mb-3">
-              <p class="text-sm font-semibold">✨ 解析結果 — 適用する項目を選んでください</p>
+              <p class="text-sm font-semibold">✨ 解析結果（適用する項目を選択）</p>
               <button type="button" @click="dismissHelperResult" class="text-xs opacity-50 hover:opacity-100">✕ 閉じる</button>
             </div>
 

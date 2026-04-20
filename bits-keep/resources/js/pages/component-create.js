@@ -222,9 +222,54 @@ export default function setup() {
         datasheetFiles.value = Array.from(event.target.files ?? []);
     };
 
-    // ── Gemini データシート解析ヘルパー ────────────────────────
+    // ── データシート解析ヘルパー共通 ─────────────────────────
     const analyzing    = ref(false);
-    const helperResult = ref(null); // 解析結果パネルの表示データ
+    const helperResult = ref(null); // 解析結果パネルの表示データ（Gemini / ChatGPT 共用）
+
+    // ── ChatGPT 貼り付けパネル ─────────────────────────────
+    const showChatGPTPaste = ref(false);
+    const chatGPTPasteText = ref('');
+
+    /**
+     * ChatGPT が返した JSON テキストをパースして helperResult にセットする。
+     * JSON にコードブロック（```json ... ```）が含まれていても除去して処理する。
+     */
+    const parseChatGPTResult = () => {
+        let raw = chatGPTPasteText.value.trim();
+        if (!raw) { toastError('テキストを貼り付けてください。'); return; }
+
+        // コードブロック除去
+        raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            toastError('JSON の形式が正しくありません。ChatGPT の出力をそのまま貼り付けてください。');
+            return;
+        }
+
+        if (!data.part_number && !data.manufacturer && !(data.specs ?? []).length) {
+            toastError('部品情報を読み取れませんでした。出力フォーマットを確認してください。');
+            return;
+        }
+
+        helperResult.value = {
+            part_number:  { value: data.part_number  ?? '', apply: !!data.part_number },
+            manufacturer: { value: data.manufacturer ?? '', apply: !!data.manufacturer },
+            common_name:  { value: data.common_name  ?? '', apply: !!data.common_name },
+            description:  { value: data.description  ?? '', apply: !!data.description },
+            specs: (data.specs ?? []).map(s => ({ name: s.name ?? '', value: s.value ?? '', unit: s.unit ?? '', spec_type_id: null, matched: false, apply: true })),
+        };
+
+        showChatGPTPaste.value = false;
+        chatGPTPasteText.value = '';
+    };
+
+    const dismissChatGPTPaste = () => {
+        showChatGPTPaste.value = false;
+        chatGPTPasteText.value = '';
+    };
 
     /**
      * PDFデータシートを Gemini で解析し、helperResult に結果をセットする。
@@ -507,6 +552,7 @@ export default function setup() {
         filteredSuppliersForRow, canCreateSupplierForRow, selectSupplier, commitSupplier,
         onImageChange, onDatasheetChange,
         analyzing, helperResult, analyzeDatasheet, applyHelperResult, dismissHelperResult,
+        showChatGPTPaste, chatGPTPasteText, parseChatGPTResult, dismissChatGPTPaste,
         submit, duplicateFromId,
     };
 }
