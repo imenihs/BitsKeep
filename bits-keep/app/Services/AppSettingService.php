@@ -105,6 +105,28 @@ class AppSettingService
         return null;
     }
 
+    public function getGeminiConfig(): array
+    {
+        $key = $this->get('gemini.api_key', env('GEMINI_API_KEY'));
+        $configured = ! empty($key);
+
+        return [
+            'configured'   => $configured,
+            'key_preview'  => $this->maskSecret($key),
+        ];
+    }
+
+    public function updateGeminiConfig(?string $apiKey, bool $clearKey = false): array
+    {
+        if ($clearKey) {
+            $this->delete('gemini.api_key');
+        } elseif ($apiKey !== null && $apiKey !== '') {
+            $this->set('gemini.api_key', trim($apiKey));
+        }
+
+        return $this->getGeminiConfig();
+    }
+
     private function maskSecret(?string $value): ?string
     {
         if (! $value) {

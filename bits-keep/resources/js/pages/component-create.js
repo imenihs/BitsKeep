@@ -222,6 +222,91 @@ export default function setup() {
         datasheetFiles.value = Array.from(event.target.files ?? []);
     };
 
+    // ── Gemini データシート解析ヘルパー ────────────────────────
+    const analyzing    = ref(false);
+    const helperResult = ref(null); // 解析結果パネルの表示データ
+
+    /**
+     * PDFデータシートを Gemini で解析し、helperResult に結果をセットする。
+     */
+    const analyzeDatasheet = async () => {
+        const file = datasheetFiles.value[0];
+        if (!file) { toastError('先にデータシートPDFを選択してください。'); return; }
+
+        analyzing.value = true;
+        helperResult.value = null;
+        try {
+            const fd = new FormData();
+            fd.append('pdf', file);
+            const r = await api.post('/component-helper/analyze-datasheet', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const data = r.data;
+            if (!data || (!data.part_number && !data.manufacturer && (!data.specs || data.specs.length === 0))) {
+                toastError('データシートから情報を抽出できませんでした。手動で入力してください。');
+                return;
+            }
+            // 各フィールドに「適用するか」のフラグを付けて表示
+            helperResult.value = {
+                part_number:  { value: data.part_number  ?? '', apply: !!data.part_number },
+                manufacturer: { value: data.manufacturer ?? '', apply: !!data.manufacturer },
+                common_name:  { value: data.common_name  ?? '', apply: !!data.common_name },
+                description:  { value: data.description  ?? '', apply: !!data.description },
+                specs: (data.specs ?? []).map(s => ({ ...s, apply: true })),
+            };
+        } catch (e) {
+            const msg = e.response?.data?.message ?? e.message ?? '';
+            if (e.response?.status === 403) {
+                toastError('Gemini APIキーが未設定です。連携設定から登録してください。');
+            } else {
+                toastError('解析に失敗しました。しばらく後で再試行してください。' + (msg ? `（${msg}）` : ''));
+            }
+        } finally {
+            analyzing.value = false;
+        }
+    };
+
+    /**
+     * 解析結果パネルで選択されたフィールドをフォームに書き込む。
+     */
+    const applyHelperResult = () => {
+        const r = helperResult.value;
+        if (!r) return;
+
+        if (r.part_number.apply  && r.part_number.value)  form.part_number  = r.part_number.value;
+        if (r.manufacturer.apply && r.manufacturer.value) {
+            form.manufacturer = r.manufacturer.value;
+            manufacturerQuery.value = r.manufacturer.value;
+        }
+        if (r.common_name.apply  && r.common_name.value)  form.common_name  = r.common_name.value;
+        if (r.description.apply  && r.description.value)  form.description  = r.description.value;
+
+        // スペック適用: apply=true のものだけ追加
+        const toAdd = r.specs.filter(s => s.apply);
+        for (const spec of toAdd) {
+            // spec_type_id が一致するものが既存スペックにあれば上書き、なければ追加
+            const existing = form.specs.find(s => s.spec_type_id && s.spec_type_id === spec.spec_type_id);
+            if (existing) {
+                existing.value = spec.value;
+                existing.unit  = spec.unit;
+            } else {
+                form.specs.push({
+                    spec_type_id:  spec.spec_type_id ?? '',
+                    value:         spec.value,
+                    unit:          spec.unit,
+                    value_numeric: Number(spec.value) || '',
+                    // matched=false の場合、ユーザーがあとから spec_type を選択する
+                    _gemini_name:  spec.matched ? null : spec.name,
+                });
+            }
+        }
+
+        toastSuccess('解析結果を適用しました。');
+        helperResult.value = null;
+    };
+
+    const dismissHelperResult = () => { helperResult.value = null; };
+
     const buildPayload = () => {
         const payload = new FormData();
 
@@ -421,6 +506,7 @@ export default function setup() {
         toggleCategory, selectPackage, addCategoryFromQuery, addPackageFromQuery,
         filteredSuppliersForRow, canCreateSupplierForRow, selectSupplier, commitSupplier,
         onImageChange, onDatasheetChange,
+        analyzing, helperResult, analyzeDatasheet, applyHelperResult, dismissHelperResult,
         submit, duplicateFromId,
     };
 }

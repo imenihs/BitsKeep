@@ -48,4 +48,28 @@ class IntegrationSettingsController extends Controller
 
         return ApiResponse::success($config, '連携設定を保存しました');
     }
+
+    public function showGemini(AppSettingService $settings): \Illuminate\Http\JsonResponse
+    {
+        return ApiResponse::success($settings->getGeminiConfig());
+    }
+
+    public function updateGemini(Request $request, AppSettingService $settings): \Illuminate\Http\JsonResponse
+    {
+        if (! $request->user()->isEditor()) {
+            return ApiResponse::forbidden();
+        }
+
+        $validated = $request->validate([
+            'api_key'       => ['nullable', 'string', 'not_regex:/\s/'],
+            'clear_api_key' => ['nullable', 'boolean'],
+        ]);
+
+        $config = $settings->updateGeminiConfig(
+            $validated['api_key'] ?? null,
+            (bool) ($validated['clear_api_key'] ?? false),
+        );
+
+        return ApiResponse::success($config, 'Gemini APIキーを保存しました');
+    }
 }

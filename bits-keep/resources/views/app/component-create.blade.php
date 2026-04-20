@@ -57,7 +57,18 @@
           <p class="text-[11px] opacity-50 mt-1">jpg / png / webp、5MBまで</p>
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1">データシート（PDF・複数可）</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold">データシート（PDF・複数可）</label>
+            <button type="button" @click="analyzeDatasheet"
+              :disabled="analyzing || !datasheetFiles.length"
+              class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors"
+              :class="datasheetFiles.length
+                ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
+                : 'border-[var(--color-border)] opacity-40 cursor-not-allowed'">
+              <span v-if="analyzing">⏳ 解析中...</span>
+              <span v-else>✨ データシートから自動入力</span>
+            </button>
+          </div>
           <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
           <div v-if="datasheetFiles.length" class="mt-2 space-y-1 text-[11px]">
             <div v-for="file in datasheetFiles" :key="file.name">@{{ file.name }}</div>
@@ -68,6 +79,62 @@
             </div>
           </div>
           <p class="text-[11px] opacity-50 mt-1">ファイルを選ぶと、現在のデータシート一式を選択した内容で置き換えます</p>
+
+          <!-- Gemini 解析結果レビューパネル -->
+          <div v-if="helperResult" class="mt-4 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-semibold">✨ 解析結果 — 適用する項目を選んでください</p>
+              <button type="button" @click="dismissHelperResult" class="text-xs opacity-50 hover:opacity-100">✕ 閉じる</button>
+            </div>
+
+            {{-- 基本情報フィールド --}}
+            <div class="space-y-2 mb-4">
+              <label v-if="helperResult.part_number.value" class="flex items-center gap-3 text-sm cursor-pointer">
+                <input type="checkbox" v-model="helperResult.part_number.apply" class="rounded" />
+                <span class="opacity-60 w-20 shrink-0">型番</span>
+                <span class="font-mono">@{{ helperResult.part_number.value }}</span>
+              </label>
+              <label v-if="helperResult.manufacturer.value" class="flex items-center gap-3 text-sm cursor-pointer">
+                <input type="checkbox" v-model="helperResult.manufacturer.apply" class="rounded" />
+                <span class="opacity-60 w-20 shrink-0">メーカー</span>
+                <span>@{{ helperResult.manufacturer.value }}</span>
+              </label>
+              <label v-if="helperResult.common_name.value" class="flex items-center gap-3 text-sm cursor-pointer">
+                <input type="checkbox" v-model="helperResult.common_name.apply" class="rounded" />
+                <span class="opacity-60 w-20 shrink-0">通称</span>
+                <span>@{{ helperResult.common_name.value }}</span>
+              </label>
+              <label v-if="helperResult.description.value" class="flex items-center gap-3 text-sm cursor-pointer">
+                <input type="checkbox" v-model="helperResult.description.apply" class="rounded" />
+                <span class="opacity-60 w-20 shrink-0">説明</span>
+                <span class="opacity-80 line-clamp-2">@{{ helperResult.description.value }}</span>
+              </label>
+            </div>
+
+            {{-- スペック一覧 --}}
+            <div v-if="helperResult.specs.length" class="mb-4">
+              <p class="text-xs font-semibold opacity-60 mb-2">スペック（{{ helperResult.specs.length }} 件）</p>
+              <div class="max-h-52 overflow-y-auto space-y-1">
+                <label v-for="(spec, i) in helperResult.specs" :key="i"
+                  class="flex items-center gap-3 text-sm cursor-pointer rounded px-2 py-1 hover:bg-[var(--color-primary)]/10">
+                  <input type="checkbox" v-model="spec.apply" class="rounded shrink-0" />
+                  <span class="flex-1 min-w-0">
+                    <span :class="spec.matched ? '' : 'opacity-50'" class="font-medium">@{{ spec.name }}</span>
+                    <span v-if="!spec.matched" class="ml-1 text-[10px] tag">未マッチ</span>
+                  </span>
+                  <span class="font-mono shrink-0">@{{ spec.value }}{{ spec.unit ? '\u00a0' + spec.unit : '' }}</span>
+                </label>
+              </div>
+              <p class="text-[11px] opacity-50 mt-2">「未マッチ」は既存のスペック種別と一致しなかった項目です。適用後に種別を手動で選択してください。</p>
+            </div>
+
+            <div class="flex gap-3">
+              <button type="button" @click="applyHelperResult"
+                class="btn-primary px-4 py-2 rounded text-sm">選択した項目を適用</button>
+              <button type="button" @click="dismissHelperResult"
+                class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+            </div>
+          </div>
         </div>
       </div>
       <div>

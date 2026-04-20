@@ -1,6 +1,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { api } from '../api.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
 
 export default function setup() {
     const appEl = document.getElementById('app');
@@ -8,6 +9,7 @@ export default function setup() {
     const loading = ref(true);
     const saving = ref(false);
     const dirty = ref(false);
+    const { ask } = useConfirmModal();
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
     const deletingToken = ref(false);
     const deletingRootPage = ref(false);
@@ -80,7 +82,7 @@ export default function setup() {
             saveError.value = 'このアカウントには連携設定を変更する権限がありません。editor 以上でログインしてください。';
             return;
         }
-        if (!notion.value.token_configured || !confirm('保存済みの Notion API トークンを削除しますか？')) return;
+        if (!notion.value.token_configured || !await ask('保存済みの Notion API トークンを削除しますか？')) return;
 
         deletingToken.value = true;
         saveMessage.value = '';
@@ -108,7 +110,7 @@ export default function setup() {
             saveError.value = 'このアカウントには連携設定を変更する権限がありません。editor 以上でログインしてください。';
             return;
         }
-        if (!notion.value.root_page_configured || !confirm('保存済みのルートページ URL を削除しますか？')) return;
+        if (!notion.value.root_page_configured || !await ask('保存済みのルートページ URL を削除しますか？')) return;
 
         deletingRootPage.value = true;
         saveMessage.value = '';
@@ -132,12 +134,63 @@ export default function setup() {
         }
     };
 
+    // ── Gemini APIキー設定 ────────────────────────────────
+    const gemini = ref({ configured: false, key_preview: null });
+    const geminiForm = ref({ api_key: '' });
+    const geminiSaving = ref(false);
+    const geminiDeleting = ref(false);
+    const geminiMessage = ref('');
+    const geminiError = ref('');
+
+    const fetchGeminiStatus = async () => {
+        try {
+            const r = await api.get('/settings/integrations/gemini');
+            gemini.value = r.data?.data ?? r.data ?? gemini.value;
+        } catch {
+            // Gemini設定取得失敗は非致命的。サイレントで継続。
+        }
+    };
+
+    const saveGemini = async () => {
+        if (!canEdit) { geminiError.value = 'editor以上の権限が必要です。'; return; }
+        geminiSaving.value = true;
+        geminiMessage.value = '';
+        geminiError.value = '';
+        try {
+            const r = await api.put('/settings/integrations/gemini', { api_key: geminiForm.value.api_key });
+            gemini.value = r.data?.data ?? r.data ?? gemini.value;
+            geminiForm.value.api_key = '';
+            geminiMessage.value = r.message || 'APIキーを保存しました';
+            dirty.value = false;
+        } catch (e) { geminiError.value = e.message; }
+        finally { geminiSaving.value = false; }
+    };
+
+    const clearGeminiKey = async () => {
+        if (!canEdit) { geminiError.value = 'editor以上の権限が必要です。'; return; }
+        if (!gemini.value.configured || !await ask('保存済みの Gemini APIキーを削除しますか？')) return;
+        geminiDeleting.value = true;
+        geminiMessage.value = '';
+        geminiError.value = '';
+        try {
+            const r = await api.put('/settings/integrations/gemini', { clear_api_key: true });
+            gemini.value = r.data?.data ?? r.data ?? gemini.value;
+            geminiMessage.value = 'APIキーを削除しました';
+        } catch (e) { geminiError.value = e.message; }
+        finally { geminiDeleting.value = false; }
+    };
+
     onMounted(() => {
         fetchStatus();
+        fetchGeminiStatus();
     });
 
     watch(form, (value) => {
         dirty.value = value.api_token.trim() !== '' || value.root_page_url !== initialRootPageUrl.value;
+    }, { deep: true });
+
+    watch(geminiForm, (value) => {
+        if (value.api_key.trim() !== '') dirty.value = true;
     }, { deep: true });
 
     return {
@@ -155,5 +208,13 @@ export default function setup() {
         saveError,
         statusError,
         fetchStatus,
+        gemini,
+        geminiForm,
+        geminiSaving,
+        geminiDeleting,
+        geminiMessage,
+        geminiError,
+        saveGemini,
+        clearGeminiKey,
     };
 }

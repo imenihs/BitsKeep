@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\StockOrderController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\ComponentHelperController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -114,8 +115,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get(   'projects/{project}/cost',                   [ProjectController::class, 'cost']);
 
     // ── ユーザー設定 ─────────────────────────────────────────
-    Route::get(   'settings/integrations/notion', [IntegrationSettingsController::class, 'showNotion']);
-    Route::put(   'settings/integrations/notion', [IntegrationSettingsController::class, 'updateNotion']);
+    Route::get(   'settings/integrations/notion',  [IntegrationSettingsController::class, 'showNotion']);
+    Route::put(   'settings/integrations/notion',  [IntegrationSettingsController::class, 'updateNotion']);
+    Route::get(   'settings/integrations/gemini',  [IntegrationSettingsController::class, 'showGemini']);
+    Route::put(   'settings/integrations/gemini',  [IntegrationSettingsController::class, 'updateGemini']);
+    Route::post(  'component-helper/analyze-datasheet', [ComponentHelperController::class, 'analyzeDatasheet']);
     Route::get(   'preferences/{key}', [PreferenceController::class, 'show']);
     Route::put(   'preferences/{key}', [PreferenceController::class, 'update']);
     Route::delete('preferences/{key}', [PreferenceController::class, 'destroy']);

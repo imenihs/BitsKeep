@@ -122,6 +122,62 @@
     </div>
   </section>
 
+  <!-- Gemini AI 設定 -->
+  <section class="rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-card-odd)] shadow-sm mt-6">
+    <div class="flex items-center gap-3 mb-5">
+      <p class="text-xs uppercase tracking-[0.2em] opacity-50">Google AI</p>
+      <h2 class="text-xl font-bold">Gemini APIキー</h2>
+      <span class="tag" :class="gemini.configured ? 'tag-ok' : ''">
+        @{{ gemini.configured ? '設定済み' : '未設定' }}
+      </span>
+    </div>
+
+    <p class="text-sm opacity-70 mb-5">
+      PDFデータシートをアップロードすると、Gemini AI が部品情報・スペック（定格・電気的特性など）を自動抽出し、部品登録フォームに入力します。<br>
+      APIキーは <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" class="link-text">Google AI Studio</a> から取得できます。
+    </p>
+
+    <div class="space-y-4">
+      {{-- 設定状態カード --}}
+      <div class="rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)] flex items-center gap-4">
+        <div class="flex-1">
+          <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-1">API キー</div>
+          <div class="flex items-center gap-2">
+            <span class="font-semibold">@{{ gemini.configured ? '設定済み' : '未設定' }}</span>
+            <span v-if="gemini.configured" class="tag tag-ok">保存済み</span>
+          </div>
+          <div v-if="gemini.key_preview" class="mt-1 font-mono text-sm break-all opacity-60">@{{ gemini.key_preview }}</div>
+        </div>
+        <button v-if="gemini.configured && canEdit" @click="clearGeminiKey" :disabled="geminiDeleting"
+          class="px-3 py-1.5 rounded-xl border border-[var(--color-tag-eol)] text-[var(--color-tag-eol)] text-xs disabled:opacity-50 shrink-0"
+          v-esc="() => {}">
+          @{{ geminiDeleting ? '削除中...' : 'キーを削除' }}
+        </button>
+      </div>
+
+      {{-- 設定フォーム --}}
+      <div class="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card-even)]">
+        <div class="font-semibold mb-3">APIキーを設定</div>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Gemini API キー</label>
+            <input v-model="geminiForm.api_key" type="password" class="input-text w-full px-3 py-2 text-sm"
+              placeholder="AIza... （空欄のままにすると既存設定を維持）" :disabled="!canEdit" />
+          </div>
+          <div v-if="geminiMessage" class="text-sm text-[var(--color-tag-ok)] font-semibold">@{{ geminiMessage }}</div>
+          <div v-if="geminiError" class="text-sm text-[var(--color-tag-eol)] font-semibold">@{{ geminiError }}</div>
+          <div class="pt-1">
+            <button @click="saveGemini" :disabled="geminiSaving || !canEdit || !geminiForm.api_key.trim()"
+              class="btn-primary px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
+              :title="!canEdit ? 'editor以上の権限が必要です' : ''">
+              @{{ geminiSaving ? '保存中...' : 'APIキーを保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   @include('partials.app-breadcrumbs', ['items' => [['label' => '連携設定', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
