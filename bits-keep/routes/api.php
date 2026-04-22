@@ -1,25 +1,25 @@
 <?php
 
 use App\Http\Controllers\Api\AltiumLinkController;
-use App\Http\Controllers\Api\CalcController;
-use App\Http\Controllers\Api\IntegrationSettingsController;
-use App\Http\Controllers\Api\PreferenceController;
-use App\Http\Controllers\Api\ProjectController;
-use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\CalcController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\ComponentController;
+use App\Http\Controllers\Api\ComponentHelperController;
 use App\Http\Controllers\Api\CsvImportController;
+use App\Http\Controllers\Api\IntegrationSettingsController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PackageGroupController;
+use App\Http\Controllers\Api\PreferenceController;
+use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\SpecTypeController;
 use App\Http\Controllers\Api\StockAlertController;
 use App\Http\Controllers\Api\StockOrderController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TransactionController;
-use App\Http\Controllers\Api\BackupController;
-use App\Http\Controllers\Api\ComponentHelperController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,7 +34,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::apiResource('categories', CategoryController::class);
     Route::post('categories/{category}/restore', [CategoryController::class, 'restore']);
     Route::delete('categories/{category}/force', [CategoryController::class, 'forceDestroy']);
-    Route::apiResource('packages',   PackageController::class);
+    Route::apiResource('packages', PackageController::class);
     Route::post('packages/{package}/restore', [PackageController::class, 'restore']);
     Route::delete('packages/{package}/force', [PackageController::class, 'forceDestroy']);
     Route::apiResource('package-groups', PackageGroupController::class);
@@ -55,6 +55,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('stock-alerts', [StockAlertController::class, 'index']);
     Route::apiResource('stock-orders', StockOrderController::class);
     Route::get('stock-orders/component/{component_id}/pending', [StockOrderController::class, 'pendingByComponent']);
+    Route::post('stock-orders/export/notion', [StockOrderController::class, 'exportNotion']);
 
     // ── 部品管理 ────────────────────────────────────────────
     Route::get('components/compare', [ComponentCompareController::class, 'compare']);
@@ -67,67 +68,69 @@ Route::middleware(['web', 'auth'])->group(function () {
     )->where('section', 'basic|specs|suppliers|attributes');
 
     // 入出庫
-    Route::get( 'components/{component}/transactions', [TransactionController::class, 'index']);
-    Route::post('components/{component}/stock-in',     [TransactionController::class, 'stockIn']);
-    Route::post('components/{component}/stock-out',    [TransactionController::class, 'stockOut']);
+    Route::get('components/{component}/transactions', [TransactionController::class, 'index']);
+    Route::post('components/{component}/stock-in', [TransactionController::class, 'stockIn']);
+    Route::post('components/{component}/stock-out', [TransactionController::class, 'stockOut']);
 
     // 類似部品検索
     Route::get('components/{component}/similar', [ComponentCompareController::class, 'similar']);
 
     // Altium連携
-    Route::get(   'components/{component}/altium-link', [AltiumLinkController::class, 'show']);
-    Route::put(   'components/{component}/altium-link', [AltiumLinkController::class, 'upsert']);
+    Route::get('components/{component}/altium-link', [AltiumLinkController::class, 'show']);
+    Route::put('components/{component}/altium-link', [AltiumLinkController::class, 'upsert']);
     Route::delete('components/{component}/altium-link', [AltiumLinkController::class, 'destroy']);
 
     // ── Altiumライブラリ管理 ─────────────────────────────────
-    Route::get(   'altium/libraries',          [AltiumLinkController::class, 'libraries']);
-    Route::post(  'altium/libraries',          [AltiumLinkController::class, 'storeLibrary']);
-    Route::put(   'altium/libraries/{library}', [AltiumLinkController::class, 'updateLibrary']);
+    Route::get('altium/libraries', [AltiumLinkController::class, 'libraries']);
+    Route::post('altium/libraries', [AltiumLinkController::class, 'storeLibrary']);
+    Route::put('altium/libraries/{library}', [AltiumLinkController::class, 'updateLibrary']);
     Route::delete('altium/libraries/{library}', [AltiumLinkController::class, 'destroyLibrary']);
 
     // ── CSVインポート ─────────────────────────────────────────
     Route::post('import/csv/preview', [CsvImportController::class, 'preview']);
-    Route::post('import/csv/commit',  [CsvImportController::class, 'commit']);
+    Route::post('import/csv/commit', [CsvImportController::class, 'commit']);
 
     // ── ユーザー管理（admin のみ） ────────────────────────────
-    Route::get(  'users',                   [UserController::class, 'index']);
-    Route::post( 'users/invite',            [UserController::class, 'invite']);
-    Route::patch('users/{user}/role',       [UserController::class, 'updateRole']);
-    Route::patch('users/{user}/active',     [UserController::class, 'updateActive']);
-    Route::patch('users/{user}/name',       [UserController::class, 'updateName']);
-    Route::patch('users/{user}/email',      [UserController::class, 'updateEmail']);
-    Route::patch('users/{user}/password',   [UserController::class, 'updatePassword']);
+    Route::get('users', [UserController::class, 'index']);
+    Route::post('users/invite', [UserController::class, 'invite']);
+    Route::patch('users/{user}/role', [UserController::class, 'updateRole']);
+    Route::patch('users/{user}/active', [UserController::class, 'updateActive']);
+    Route::patch('users/{user}/name', [UserController::class, 'updateName']);
+    Route::patch('users/{user}/email', [UserController::class, 'updateEmail']);
+    Route::patch('users/{user}/password', [UserController::class, 'updatePassword']);
 
     // ── 操作ログ（admin のみ） ────────────────────────────────
     Route::get('audit-logs', [AuditLogController::class, 'index']);
 
     // ── 案件管理 ─────────────────────────────────────────────
-    Route::get( 'projects/options',         [ProjectController::class, 'options']);
-    Route::get( 'project-businesses',       [ProjectController::class, 'businesses']);
-    Route::get( 'projects/sync/status',     [ProjectController::class, 'syncStatus']);
-    Route::post('projects/sync/notion',     [ProjectController::class, 'syncNotion']);
-    Route::get( 'projects/sync-runs',       [ProjectController::class, 'syncRuns']);
+    Route::get('projects/options', [ProjectController::class, 'options']);
+    Route::get('project-businesses', [ProjectController::class, 'businesses']);
+    Route::get('projects/sync/status', [ProjectController::class, 'syncStatus']);
+    Route::post('projects/sync/notion', [ProjectController::class, 'syncNotion']);
+    Route::get('projects/sync-runs', [ProjectController::class, 'syncRuns']);
     Route::apiResource('projects', ProjectController::class);
-    Route::get(   'projects/{project}/components',             [ProjectController::class, 'listComponents']);
-    Route::post(  'projects/{project}/components',             [ProjectController::class, 'addComponent']);
-    Route::patch( 'projects/{project}/components/{component}', [ProjectController::class, 'updateComponent']);
+    Route::get('projects/{project}/components', [ProjectController::class, 'listComponents']);
+    Route::post('projects/{project}/components', [ProjectController::class, 'addComponent']);
+    Route::patch('projects/{project}/components/{component}', [ProjectController::class, 'updateComponent']);
     Route::delete('projects/{project}/components/{component}', [ProjectController::class, 'removeComponent']);
-    Route::get(   'projects/{project}/cost',                   [ProjectController::class, 'cost']);
+    Route::get('projects/{project}/cost', [ProjectController::class, 'cost']);
 
     // ── ユーザー設定 ─────────────────────────────────────────
-    Route::get(   'settings/integrations/notion',  [IntegrationSettingsController::class, 'showNotion']);
-    Route::put(   'settings/integrations/notion',  [IntegrationSettingsController::class, 'updateNotion']);
-    Route::get(   'settings/integrations/gemini',  [IntegrationSettingsController::class, 'showGemini']);
-    Route::put(   'settings/integrations/gemini',  [IntegrationSettingsController::class, 'updateGemini']);
-    Route::post(  'component-helper/analyze-datasheet', [ComponentHelperController::class, 'analyzeDatasheet']);
-    Route::get(   'preferences/{key}', [PreferenceController::class, 'show']);
-    Route::put(   'preferences/{key}', [PreferenceController::class, 'update']);
+    Route::get('settings/integrations/notion', [IntegrationSettingsController::class, 'showNotion']);
+    Route::put('settings/integrations/notion', [IntegrationSettingsController::class, 'updateNotion']);
+    Route::get('settings/integrations/gemini', [IntegrationSettingsController::class, 'showGemini']);
+    Route::put('settings/integrations/gemini', [IntegrationSettingsController::class, 'updateGemini']);
+    Route::post('component-helper/chatgpt-jobs', [ComponentHelperController::class, 'createChatGptJob']);
+    Route::delete('component-helper/chatgpt-jobs/{token}', [ComponentHelperController::class, 'destroyChatGptJob']);
+    Route::post('component-helper/analyze-datasheet', [ComponentHelperController::class, 'analyzeDatasheet']);
+    Route::get('preferences/{key}', [PreferenceController::class, 'show']);
+    Route::put('preferences/{key}', [PreferenceController::class, 'update']);
     Route::delete('preferences/{key}', [PreferenceController::class, 'destroy']);
 
     // ── 計算ツール ───────────────────────────────────────────
     Route::post('calc/networks/search', [CalcController::class, 'networkSearch']);
 
     // ── バックアップ（管理者専用） ────────────────────────────
-    Route::get( 'backup/download', [BackupController::class, 'download']);
-    Route::post('backup/restore',  [BackupController::class, 'restore']);
+    Route::get('backup/download', [BackupController::class, 'download']);
+    Route::post('backup/restore', [BackupController::class, 'restore']);
 });

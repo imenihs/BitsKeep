@@ -90,7 +90,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">ユーザー招待</h2>
-        <button @click="inviteModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="inviteModal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
 
       <!-- 招待完了 -->
@@ -140,7 +140,7 @@
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">ロール変更</h2>
-        <button @click="roleModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="roleModal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -174,7 +174,7 @@
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">名前編集</h2>
-        <button @click="nameModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="nameModal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -195,7 +195,7 @@
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">メールアドレス変更</h2>
-        <button @click="emailModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="emailModal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -217,7 +217,7 @@
     <div class="modal-window modal-sm">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">パスワードリセット</h2>
-        <button @click="passwordModal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="passwordModal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <p class="text-sm font-medium">対象: @{{ passwordModal.user?.name }}</p>

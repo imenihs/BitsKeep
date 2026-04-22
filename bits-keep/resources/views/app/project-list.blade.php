@@ -63,6 +63,34 @@
         </a>
       </div>
     </div>
+    <div v-if="businessSyncResults.length" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div v-for="businessResult in businessSyncResults"
+        :key="`${businessResult.business_code}-${businessResult.business_name}`"
+        class="rounded-2xl border px-4 py-3 bg-[var(--color-bg)]"
+        :class="{
+          'border-[var(--color-tag-ok)]': businessResult.status === 'success',
+          'border-[var(--color-tag-warning)]': businessResult.status === 'warning',
+          'border-[var(--color-tag-eol)]': businessResult.status === 'error'
+        }">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-[11px] uppercase tracking-[0.16em] opacity-50">事業別同期</div>
+            <div class="mt-1 font-semibold break-words">[@{{ businessResult.business_code }}] @{{ businessResult.business_name }}</div>
+          </div>
+          <span class="inline-flex items-center rounded-full border px-2 py-1 text-[11px]"
+            :class="{
+              'border-[var(--color-tag-ok)] text-[var(--color-tag-ok)]': businessResult.status === 'success',
+              'border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]': businessResult.status === 'warning',
+              'border-[var(--color-tag-eol)] text-[var(--color-tag-eol)]': businessResult.status === 'error'
+            }">
+            @{{ businessResult.status === 'success' ? '同期済み' : (businessResult.status === 'warning' ? '要確認' : '失敗') }}
+          </span>
+        </div>
+        <div class="mt-3 text-2xl font-bold">@{{ businessResult.synced_count }}</div>
+        <div class="text-xs opacity-60">同期件数</div>
+        <div class="mt-2 text-xs opacity-80 break-words">@{{ businessResult.message }}</div>
+      </div>
+    </div>
   </section>
 
   <div v-if="supportError"
@@ -292,7 +320,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ modal.isEdit ? '案件編集' : '案件作成' }}</h2>
-        <button @click="modal.open = false" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="modal.open = false" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>

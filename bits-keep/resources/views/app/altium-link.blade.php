@@ -95,7 +95,7 @@
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ libModal.isEdit ? 'ライブラリ編集' : 'ライブラリ追加' }}</h2>
-        <button @click="closeLibModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closeLibModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>

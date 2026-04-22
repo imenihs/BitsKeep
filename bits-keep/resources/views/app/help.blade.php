@@ -139,14 +139,43 @@
             <tr><td>詳細パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別・値・単位を入力。複数追加可</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別・`typ / 範囲 / 最大 / 最小 / 3値` を選んで入力。基底単位換算は自動表示</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
-            <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可</td></tr>
+            <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
             <tr><td>カスタムフィールド</td><td></td><td class="opacity-80">任意のキーと値を自由に追加</td></tr>
           </tbody>
         </table>
         <p class="mb-5 opacity-80">フォームは上部と下部の両方に「保存」ボタンがあります。長いフォームを入力し終えた後、上に戻らず保存できます。未保存のまま別ページへ移動しようとすると確認ダイアログが表示されます。</p>
+
+        <h3 class="font-semibold mb-3">データシート解析補助</h3>
+        <p class="mb-2 opacity-80">現状の部品登録では、データシートからの補助入力に次の 3 系統があります。</p>
+        <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
+          <li><strong>ChatGPTで自動入力</strong> — Tampermonkey userscript 経由で <code>PDF選択 → 一時アップロード → ChatGPT Web 解析 → レビュー</code> まで自動化します</li>
+          <li><strong>ChatGPTから貼り付け</strong> — ChatGPT で PDF を読ませた結果 JSON を貼り付けてレビューします</li>
+          <li><strong>Geminiで解析</strong> — API 利用を許容する環境だけの任意導線です</li>
+        </ul>
+        <p class="mb-2 opacity-80">どちらの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・分類候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
+        <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
+          <li><strong>分類候補</strong> — `component_types[]` からデコードした複数候補を既存分類へ紐付けて選択</li>
+          <li><strong>パッケージ候補</strong> — `package_names[]` からデコードした複数候補の中から、既存の `パッケージ分類 / 詳細パッケージ` へ紐付けた 1 件を選択</li>
+          <li><strong>スペック候補</strong> — `spec_type` 未一致項目の修正、追加、削除</li>
+        </ul>
+        <p class="mb-3 opacity-80"><strong>ChatGPTで自動入力</strong> は <strong>Tampermonkey</strong> userscript を前提に、<strong>PDF選択 → BitsKeepへ一時アップロード → ChatGPT Web 解析 → 結果レビュー → 保存</strong> を自動化します。自動化が失敗した場合は、その場で <strong>ChatGPTから貼り付け</strong> へ切り替えられます。</p>
+        <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
+          <li>一時PDFは署名付き URL で ChatGPT タブへ渡されます</li>
+          <li>一時PDFの有効期限は 2 時間です</li>
+          <li>保存成功後は正式 datasheet へ確定され、一時 token は再利用できません</li>
+          <li>JSON 抽出失敗時は、取得済み応答テキストをコピーして手動貼り付けへ退避できます</li>
+        </ul>
+        <h4 class="font-medium mb-1 opacity-80">Tampermonkey 導入手順</h4>
+        <ol class="space-y-2 mb-5">
+          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><code>bits-keep/public/tampermonkey/bitskeep-chatgpt-helper.user.js</code> を Tampermonkey へインストールする</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><code>https://bits-keep.rwc.0t0.jp/*</code> と <code>https://chatgpt.com/*</code> への実行を許可する</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80">ChatGPT にログインした状態で部品登録画面を再読込する</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80">PDF を選択して <strong>ChatGPTで自動入力</strong> を押す</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80">自動化が失敗したら案内モーダルから <strong>ChatGPTから貼り付け</strong> へ切り替える</span></li>
+        </ol>
 
         <h3 class="font-semibold mb-3">既存部品を複製して登録する</h3>
         <p class="mb-2 opacity-80">同一メーカーの別パッケージ品など、似た部品を素早く登録するときに使います。</p>
@@ -408,8 +437,10 @@
         <h3 class="font-semibold mb-3">スペック種別</h3>
         <p class="mb-2 opacity-80">「静電容量」「耐圧」「周波数」など、スペック値の種類を定義します。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>各スペック種別に単位を1つ設定できます（例: 静電容量 → F）</li>
+          <li>各スペック種別に基準単位を1つ設定できます（例: 静電容量 → F、電流 → A）</li>
           <li>単位は省略可（無次元の場合や任意テキストで管理したい場合）</li>
+          <li>登録画面では、基準単位から `uA` `kΩ` `ns` のような読みやすい接頭語付き表示へ自動変換します</li>
+          <li>`typ / 範囲 / 最大 / 最小 / 3値` を扱え、検索は常に基準単位へ正規化して行います</li>
           <li>スペック種別も一覧での表示順を変更できます</li>
         </ul>
 

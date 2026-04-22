@@ -74,9 +74,20 @@ export default function setup() {
         fetchCompare(ids);
     });
 
-    // 差分ハイライト: 同一スペック種別で値が全部同じなら差分なし
-    const hasDiff = (specTypeId) => {
-        const values = components.value.map(c => c.specs[specTypeId]?.value_numeric);
+    // 差分ハイライト: 同一スペック軸（spec_type + profile）で値が全部同じなら差分なし
+    const hasDiff = (specAxisKey) => {
+        const values = components.value.map((component) => {
+            const spec = component.specs[specAxisKey];
+            if (!spec) return null;
+            return JSON.stringify({
+                value: spec.value ?? null,
+                unit: spec.unit ?? null,
+                profile: spec.value_profile ?? null,
+                typ: spec.value_numeric_typ ?? null,
+                min: spec.value_numeric_min ?? null,
+                max: spec.value_numeric_max ?? null,
+            });
+        });
         const nonNull = values.filter(v => v !== null && v !== undefined);
         if (nonNull.length < 2) return false;
         return new Set(nonNull).size > 1;
@@ -84,7 +95,7 @@ export default function setup() {
 
     const visibleSpecTypes = computed(() => (
         diffOnly.value
-            ? specTypes.value.filter((st) => hasDiff(st.id))
+            ? specTypes.value.filter((st) => hasDiff(st.key))
             : specTypes.value
     ));
 

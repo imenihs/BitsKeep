@@ -15,6 +15,7 @@ const purchaseUnitOptions = [
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { orderDraft, removeOrderItem, clearOrderDraft, replaceOrderDraft } = useStockOrderDraft();
+    const notionExportingSupplier = ref('');
 
     // 発注追跡（DB記録済み発注）
     const trackedOrders = ref([]);
@@ -61,6 +62,7 @@ export default function setup() {
                 order_date: new Date().toISOString().slice(0, 10),
             })));
             toastSuccess(`${exportable.length} 件を発注記録に保存しました`);
+            clearOrderDraft();
             await fetchTrackedOrders();
         } catch (e) {
             toastError(e.message);
@@ -150,6 +152,40 @@ export default function setup() {
         toastSuccess(`${supplierName} のCSVを出力しました`);
     };
 
+    const exportSupplierNotion = async (supplierName, group) => {
+        const exportableItems = group.items.filter((item) => Number(item.orderQty || 0) > 0);
+        if (!exportableItems.length) {
+            toastError(`${supplierName} は購入数量が 0 のため、Notion出力対象がありません`);
+            return;
+        }
+
+        notionExportingSupplier.value = supplierName;
+        try {
+            const response = await api.post('/stock-orders/export/notion', {
+                supplier_name: supplierName,
+                items: exportableItems.map((item) => ({
+                    name: item.name,
+                    part_number: item.partNumber,
+                    package_name: item.packageName ?? '',
+                    supplier_part_number: item.supplierPartNumber ?? '',
+                    purchase_unit_label: purchaseUnitLabel(item.purchaseUnit),
+                    quantity: Number(item.orderQty || 0),
+                    unit_price: Number(item.price || 0),
+                    subtotal: Number(item.price || 0) * Number(item.orderQty || 0),
+                })),
+            });
+            const pageUrl = response.data?.page_url ?? '';
+            if (pageUrl) {
+                window.open(pageUrl, '_blank', 'noopener');
+            }
+            toastSuccess(`${supplierName} をNotionへ出力しました`);
+        } catch (e) {
+            toastError(e.message ?? 'Notion出力に失敗しました');
+        } finally {
+            notionExportingSupplier.value = '';
+        }
+    };
+
     const removeItem = (itemId) => removeOrderItem(itemId);
     const clearAll = () => {
         clearOrderDraft();
@@ -168,6 +204,8 @@ export default function setup() {
         selectSupplier,
         purchaseUnitOptions,
         exportSupplierCsv,
+        exportSupplierNotion,
+        notionExportingSupplier,
         removeItem,
         clearAll,
         trackedOrders,

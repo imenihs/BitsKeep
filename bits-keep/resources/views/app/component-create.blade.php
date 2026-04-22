@@ -57,114 +57,45 @@
           <p class="text-[11px] opacity-50 mt-1">jpg / png / webp、5MBまで</p>
         </div>
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="block text-xs font-semibold">データシート（PDF・複数可）</label>
-            <div class="flex items-center gap-2">
-              <!-- Gemini 自動解析ボタン -->
-              <button type="button" @click="analyzeDatasheet"
-                :disabled="analyzing || !datasheetFiles.length"
-                class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors"
-                :class="datasheetFiles.length
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
-                  : 'border-[var(--color-border)] opacity-40 cursor-not-allowed'">
-                <span v-if="analyzing">⏳ 解析中...</span>
-                <span v-else>✨ Geminiで自動入力</span>
-              </button>
-              <!-- ChatGPT 貼り付けボタン -->
-              <button type="button" @click="showChatGPTPaste = !showChatGPTPaste"
-                class="flex items-center gap-1 px-3 py-1 rounded border text-xs transition-colors border-[var(--color-border)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-                📋 ChatGPTから貼り付け
-              </button>
-            </div>
-          </div>
+          <label class="block text-xs font-semibold mb-1">データシート（PDF・複数可）</label>
           <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
-          <div v-if="datasheetFiles.length" class="mt-2 space-y-1 text-[11px]">
-            <div v-for="file in datasheetFiles" :key="file.name">@{{ file.name }}</div>
-          </div>
-          <div v-else-if="currentDatasheets.length" class="mt-2 space-y-1 text-[11px]">
-            <div v-for="sheet in currentDatasheets" :key="sheet.url">
-              <a :href="sheet.url" target="_blank" rel="noreferrer" class="link-text">@{{ sheet.name }}</a>
-            </div>
-          </div>
-          <p class="text-[11px] opacity-50 mt-1">ファイルを選ぶと、現在のデータシート一式を選択した内容で置き換えます</p>
-
-          <!-- ChatGPT 貼り付けパネル -->
-          <div v-if="showChatGPTPaste && !helperResult" class="mt-3 rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)]" v-esc="dismissChatGPTPaste">
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-sm font-semibold">📋 ChatGPT の出力を貼り付け</p>
-              <button type="button" @click="dismissChatGPTPaste" class="text-xs opacity-50 hover:opacity-100">✕ 閉じる</button>
-            </div>
-            <p class="text-xs opacity-60 mb-2">
-              ChatGPT にデータシート PDF を添付し、
-              <a href="{{ asset('') }}../../プロンプト/データシート解析プロンプト.md" target="_blank" class="link-text" rel="noreferrer">解析プロンプト</a>
-              を使って返ってきた JSON をここに貼り付けてください。
-            </p>
-            <textarea v-model="chatGPTPasteText" rows="8"
-              class="input-text w-full text-xs font-mono resize-y"
-              placeholder='{"part_number": "...", "manufacturer": "...", "specs": [...]}'>
-            </textarea>
-            <div class="flex gap-2 mt-2">
-              <button type="button" @click="parseChatGPTResult"
-                :disabled="!chatGPTPasteText.trim()"
-                class="btn-primary px-4 py-1.5 rounded text-xs disabled:opacity-50">解析して適用候補に表示</button>
-              <button type="button" @click="dismissChatGPTPaste"
-                class="px-4 py-1.5 rounded border border-[var(--color-border)] text-xs">キャンセル</button>
-            </div>
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <button type="button" @click="beginAiAction('chatgpt')"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-primary)] bg-[var(--color-primary)] px-2 py-2 text-[11px] leading-tight text-white transition-colors hover:opacity-90">
+              🤖 ChatGPTで自動入力
+            </button>
+            <button type="button" @click="openChatGPTPaste"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-border)] px-2 py-2 text-[11px] leading-tight transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+              📋 ChatGPTから貼り付け
+            </button>
+            <button type="button" @click="beginAiAction('gemini')"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-primary)] px-2 py-2 text-[11px] leading-tight text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/10">
+              <span v-if="analyzing">⏳ 解析中...</span>
+              <span v-else>✨ Geminiで自動入力</span>
+            </button>
           </div>
 
-          <!-- Gemini / ChatGPT 解析結果レビューパネル -->
-          <div v-if="helperResult" class="mt-4 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <p class="text-sm font-semibold">✨ 解析結果（適用する項目を選択）</p>
-              <button type="button" @click="dismissHelperResult" class="text-xs opacity-50 hover:opacity-100">✕ 閉じる</button>
-            </div>
-
-            {{-- 基本情報フィールド --}}
-            <div class="space-y-2 mb-4">
-              <label v-if="helperResult.part_number.value" class="flex items-center gap-3 text-sm cursor-pointer">
-                <input type="checkbox" v-model="helperResult.part_number.apply" class="rounded" />
-                <span class="opacity-60 w-20 shrink-0">型番</span>
-                <span class="font-mono">@{{ helperResult.part_number.value }}</span>
-              </label>
-              <label v-if="helperResult.manufacturer.value" class="flex items-center gap-3 text-sm cursor-pointer">
-                <input type="checkbox" v-model="helperResult.manufacturer.apply" class="rounded" />
-                <span class="opacity-60 w-20 shrink-0">メーカー</span>
-                <span>@{{ helperResult.manufacturer.value }}</span>
-              </label>
-              <label v-if="helperResult.common_name.value" class="flex items-center gap-3 text-sm cursor-pointer">
-                <input type="checkbox" v-model="helperResult.common_name.apply" class="rounded" />
-                <span class="opacity-60 w-20 shrink-0">通称</span>
-                <span>@{{ helperResult.common_name.value }}</span>
-              </label>
-              <label v-if="helperResult.description.value" class="flex items-center gap-3 text-sm cursor-pointer">
-                <input type="checkbox" v-model="helperResult.description.apply" class="rounded" />
-                <span class="opacity-60 w-20 shrink-0">説明</span>
-                <span class="opacity-80 line-clamp-2">@{{ helperResult.description.value }}</span>
-              </label>
-            </div>
-
-            {{-- スペック一覧 --}}
-            <div v-if="helperResult.specs.length" class="mb-4">
-              <p class="text-xs font-semibold opacity-60 mb-2">スペック（{{ helperResult.specs.length }} 件）</p>
-              <div class="max-h-52 overflow-y-auto space-y-1">
-                <label v-for="(spec, i) in helperResult.specs" :key="i"
-                  class="flex items-center gap-3 text-sm cursor-pointer rounded px-2 py-1 hover:bg-[var(--color-primary)]/10">
-                  <input type="checkbox" v-model="spec.apply" class="rounded shrink-0" />
-                  <span class="flex-1 min-w-0">
-                    <span :class="spec.matched ? '' : 'opacity-50'" class="font-medium">@{{ spec.name }}</span>
-                    <span v-if="!spec.matched" class="ml-1 text-[10px] tag">未マッチ</span>
-                  </span>
-                  <span class="font-mono shrink-0">@{{ spec.value }}{{ spec.unit ? '\u00a0' + spec.unit : '' }}</span>
-                </label>
+          <div v-if="helperResult && helperResultSummary" class="mt-4 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm font-semibold">✨ 解析候補を保持中</p>
+                <p class="mt-1 text-[11px] opacity-60">
+                  基本情報 @{{ helperResultSummary.basicCount }} 件 /
+                  分類 @{{ helperResultSummary.categoryCount }} 件 /
+                  パッケージ @{{ helperResultSummary.packageCount }} 件 /
+                  スペック @{{ helperResultSummary.specCount }} 件
+                </p>
               </div>
-              <p class="text-[11px] opacity-50 mt-2">「未マッチ」は既存のスペック種別と一致しなかった項目です。適用後に種別を手動で選択してください。</p>
-            </div>
-
-            <div class="flex gap-3">
-              <button type="button" @click="applyHelperResult"
-                class="btn-primary px-4 py-2 rounded text-sm">選択した項目を適用</button>
-              <button type="button" @click="dismissHelperResult"
-                class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">キャンセル</button>
+              <div class="flex flex-col-reverse gap-2 sm:flex-row">
+                <button type="button" @click="discardHelperResult"
+                  class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+                  候補を破棄
+                </button>
+                <button type="button" @click="openHelperResultModal"
+                  class="btn-primary px-4 py-2 rounded text-sm">
+                  候補を確認
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -244,18 +175,91 @@
       </div>
       <button @click="addSpec" class="text-xs link-text">+ 追加</button>
     </div>
-    <div v-for="(spec, i) in form.specs" :key="i" class="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.8fr_1fr_auto] gap-2 mb-2 items-center">
-      <select v-model="spec.spec_type_id" class="input-text text-sm py-1 w-full">
-        <option value="">-- 種別 --</option>
-        <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-      </select>
-      <input v-model="spec.value" type="text" class="input-text text-sm py-1 w-full" placeholder="値" />
-      <select v-model="spec.unit" class="input-text text-sm py-1 w-full">
-        <option value="">単位</option>
-        <option v-for="u in getUnits(spec.spec_type_id)" :key="u.id" :value="u.unit">@{{ u.unit }}</option>
-      </select>
-      <input v-model="spec.value_numeric" type="number" step="any" class="input-text text-sm py-1 w-full" placeholder="数値化" />
-      <button @click="removeSpec(i)" class="text-[var(--color-tag-eol)] text-xs px-2">✕</button>
+    <div v-for="(spec, i) in form.specs" :key="i" class="spec-card mb-3 bg-[var(--color-card-odd)]">
+      <div class="spec-card-grid spec-card-grid--editor">
+        <div class="spec-card-field">
+          <label class="spec-card-label">種別</label>
+          <select v-model="spec.spec_type_id" class="input-text spec-card-control text-sm py-1 w-full">
+            <option value="">-- 種別 --</option>
+            <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
+          </select>
+        </div>
+        <div class="spec-card-field">
+          <label class="spec-card-label">値の種類</label>
+          <div class="spec-card-profile">
+            <button v-for="option in specProfileOptions" :key="`create-profile-${i}-${option.value}`" type="button"
+              @click="spec.value_profile = option.value"
+              class="spec-card-profile-button"
+              :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
+              @{{ option.label }}
+            </button>
+          </div>
+        </div>
+        <div class="spec-card-field">
+          <label class="spec-card-label">値</label>
+          <label v-if="spec.value_profile === 'typ'" class="spec-card-subfield">
+            <span class="spec-card-subfield-label">typ</span>
+            <input v-model="spec.value_typ" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="例: 1 / 1e-6" />
+          </label>
+          <label v-else-if="spec.value_profile === 'max_only'" class="spec-card-subfield">
+            <span class="spec-card-subfield-label">最大値</span>
+            <input v-model="spec.value_max" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="最大値" />
+          </label>
+          <label v-else-if="spec.value_profile === 'min_only'" class="spec-card-subfield">
+            <span class="spec-card-subfield-label">最小値</span>
+            <input v-model="spec.value_min" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="最小値" />
+          </label>
+          <div v-else-if="spec.value_profile === 'range'" class="spec-card-values--range">
+            <label class="spec-card-subfield">
+              <span class="spec-card-subfield-label">最小値</span>
+              <input v-model="spec.value_min" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="最小値" />
+            </label>
+            <span class="text-xs opacity-50 pb-3">〜</span>
+            <label class="spec-card-subfield">
+              <span class="spec-card-subfield-label">最大値</span>
+              <input v-model="spec.value_max" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="最大値" />
+            </label>
+          </div>
+          <div v-else class="spec-card-values--triple">
+            <label class="spec-card-subfield">
+              <span class="spec-card-subfield-label">min</span>
+              <input v-model="spec.value_min" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="min" />
+            </label>
+            <label class="spec-card-subfield">
+              <span class="spec-card-subfield-label">typ</span>
+              <input v-model="spec.value_typ" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="typ" />
+            </label>
+            <label class="spec-card-subfield">
+              <span class="spec-card-subfield-label">max</span>
+              <input v-model="spec.value_max" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="max" />
+            </label>
+          </div>
+        </div>
+        <div class="spec-card-field">
+          <label class="spec-card-label">単位</label>
+          <input v-model="spec.unit" type="text" class="input-text spec-card-control text-sm py-1 w-full" placeholder="例: uA / kΩ / ns" :list="`spec-unit-create-${i}`" />
+          <datalist :id="`spec-unit-create-${i}`">
+            <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`${i}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
+          </datalist>
+        </div>
+        <div class="spec-card-field">
+          <label class="spec-card-label">確認</label>
+          <div class="spec-card-preview spec-card-preview-panel text-[11px]">
+            <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック名を選択' }}</p>
+            <template v-if="specPreview(spec).hasNumeric">
+              <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
+              <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
+            </template>
+            <p v-else class="opacity-50 break-words">数値化できると基底換算を表示します。</p>
+          </div>
+        </div>
+        <div class="spec-card-field">
+          <label class="spec-card-label">操作</label>
+          <div class="spec-card-actions">
+            <button @click="removeSpec(i)" type="button" title="削除" aria-label="削除" class="spec-card-delete">✕</button>
+          </div>
+        </div>
+      </div>
     </div>
     <p v-if="!form.specs.length" class="text-xs opacity-40">スペックを追加してください</p>
   </section>
@@ -434,6 +438,433 @@
     <button @click="submit" :disabled="saving || {{ $canEdit ? 'false' : 'true' }}" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50">
       @{{ saving ? '保存中...' : (isEdit ? '更新する' : '登録する') }}
     </button>
+  </div>
+
+  <div v-if="analyzing" class="modal-overlay" style="z-index:8500" role="alertdialog" aria-modal="true" aria-busy="true">
+    <div class="modal-window modal-sm p-6 text-center" @click.stop>
+      <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+      <h3 class="mt-4 text-lg font-bold">Geminiで解析中</h3>
+      <p class="mt-2 text-sm opacity-70">データシートPDFを解析しています。完了までこのままお待ちください。</p>
+      <p class="mt-1 text-[11px] opacity-50">処理中は画面操作を受け付けません。</p>
+    </div>
+  </div>
+
+  <div v-if="showDatasheetManagerModal" class="modal-overlay" v-esc="closeDatasheetManager">
+    <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold">解析対象のPDFを選択</h3>
+          <p class="mt-2 text-sm opacity-70">複数PDFを選択したため、今回解析に使う1件だけを選びます。</p>
+        </div>
+        <button type="button" @click="closeDatasheetManager" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+
+      <div v-if="datasheetFiles.length" class="mt-5 space-y-2">
+        <div v-for="(file, index) in datasheetFiles" :key="`${file.name}-${index}`" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <p class="text-[11px] opacity-60 break-all">@{{ file.name }}</p>
+              <label class="mt-2 inline-flex items-center gap-2 text-[11px] opacity-70">
+                <input type="radio" v-model="datasheetTargetIndex" :value="index" />
+                <span>このPDFを AI 解析対象にする</span>
+              </label>
+            </div>
+            <span v-if="datasheetTargetIndex === index" class="inline-flex items-center rounded-full bg-[var(--color-primary)]/15 px-2 py-1 text-[10px] font-semibold text-[var(--color-primary)]">解析対象</span>
+          </div>
+          <p v-if="datasheetLabels[index]" class="mt-2 text-[11px] opacity-60">表示名: @{{ datasheetLabels[index] }}</p>
+        </div>
+      </div>
+
+      <div v-else class="mt-5 rounded-xl border border-dashed border-[var(--color-border)] px-4 py-6 text-sm opacity-60">
+        先に主画面のPDF選択ボックスからデータシートを選択してください。
+      </div>
+
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" @click="closeDatasheetManager" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+          閉じる
+        </button>
+        <button type="button" @click="confirmDatasheetTargetSelection" :disabled="!datasheetTargetLabel" class="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
+          このPDFで続行
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showChatGptRunModal" class="modal-overlay" v-esc="closeChatGptRun">
+    <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold">ChatGPT自動解析</h3>
+          <p class="mt-2 text-sm opacity-70">実行条件の確認、進行状況の把握、fallback への切り替えをこのモーダルに集約しています。</p>
+        </div>
+        <button type="button" @click="closeChatGptRun" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+
+      <div class="mt-5 grid gap-3 md:grid-cols-2">
+        <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+          <div class="text-[11px] opacity-55">解析対象PDF</div>
+          <div class="mt-1 text-sm font-semibold break-words">@{{ datasheetTargetLabel || '未選択' }}</div>
+          <p class="mt-2 text-[11px] opacity-60">複数PDFを選んだときだけ、解析に使う1件を選び直せます。</p>
+        </div>
+        <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+          <div class="text-[11px] opacity-55">実行前チェック</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span v-for="chip in chatGptStatusChips" :key="chip.label"
+              class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
+              :class="{
+                'bg-[var(--color-tag-ok)]/15 text-[var(--color-tag-ok)]': chip.tone === 'ok',
+                'bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]': chip.tone === 'warning',
+                'bg-[var(--color-tag-eol)]/15 text-[var(--color-tag-eol)]': chip.tone === 'danger',
+                'bg-[var(--color-primary)]/10 text-[var(--color-primary)]': chip.tone === 'neutral'
+              }">
+              @{{ chip.label }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <div class="text-sm font-semibold">次にやること</div>
+        <p class="mt-2 text-sm opacity-75">@{{ chatGptGuideReason || showChatGptRunHint }}</p>
+        <p v-if="chatGptJob.detail" class="mt-2 text-xs opacity-60">@{{ chatGptJob.detail }}</p>
+        <p v-if="chatGptJob.error" class="mt-2 text-xs text-[var(--color-tag-eol)]">@{{ chatGptJob.error }}</p>
+      </div>
+
+      <div class="mt-4 grid gap-2 md:grid-cols-4">
+        <div v-for="step in chatGptStepStates" :key="step.label"
+          class="rounded-xl border px-3 py-3 text-sm"
+          :class="{
+            'border-[var(--color-tag-ok)] bg-[var(--color-tag-ok)]/10': step.status === 'done',
+            'border-[var(--color-primary)] bg-[var(--color-primary)]/10': step.status === 'current',
+            'border-[var(--color-border)] opacity-70': step.status === 'pending'
+          }">
+          <div class="text-[11px] opacity-60">ステップ</div>
+          <div class="mt-1 font-semibold">@{{ step.label }}</div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-wrap gap-2">
+          <button v-if="datasheetFiles.length > 1" type="button" @click="openDatasheetManager" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+            解析対象を選び直す
+          </button>
+          <a href="{{ url('/tampermonkey/bitskeep-chatgpt-helper.user.js') }}" target="_blank" rel="noreferrer"
+            class="px-4 py-2 rounded border border-[var(--color-border)] text-sm no-underline text-inherit">
+            userscript を開く
+          </a>
+          <button type="button" @click="openPasteFallbackFromGuide" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+            手動貼り付けへ
+          </button>
+          <button type="button" v-if="chatGPTPasteText.trim()" @click="copyChatGptFallbackText" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+            応答テキストをコピー
+          </button>
+        </div>
+        <button type="button" @click="startChatGPTAutoFill"
+          :disabled="!canStartChatGptAutoFill"
+          class="btn-primary px-5 py-2 rounded text-sm disabled:opacity-50">
+          @{{ chatGptJob.state === 'idle' ? '解析を開始' : '再実行する' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ChatGPT 貼り付けモーダル -->
+  <div v-if="showHelperResultModal && helperResult" class="modal-overlay" v-esc="closeHelperResultModal">
+    <div class="modal-window modal-helper-review p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <div>
+          <h3 class="text-lg font-bold">解析候補を確認</h3>
+          <p class="mt-1 text-xs opacity-60">適用前に内容を修正できます。未マッチ項目はここで既存マスタへ紐付けてください。</p>
+        </div>
+        <button type="button" @click="closeHelperResultModal" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+
+      <div class="space-y-6">
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold">基本情報</h4>
+          </div>
+          <div class="space-y-3">
+            <label class="grid grid-cols-[auto_88px_1fr] gap-3 items-center text-sm">
+              <input type="checkbox" v-model="helperResult.part_number.apply" class="rounded" />
+              <span class="opacity-60">型番</span>
+              <input v-model="helperResult.part_number.value" type="text" class="input-text w-full" placeholder="型番" />
+            </label>
+            <label class="grid grid-cols-[auto_88px_1fr] gap-3 items-center text-sm">
+              <input type="checkbox" v-model="helperResult.manufacturer.apply" class="rounded" />
+              <span class="opacity-60">メーカー</span>
+              <input v-model="helperResult.manufacturer.value" type="text" class="input-text w-full" placeholder="メーカー" />
+            </label>
+            <label class="grid grid-cols-[auto_88px_1fr] gap-3 items-center text-sm">
+              <input type="checkbox" v-model="helperResult.common_name.apply" class="rounded" />
+              <span class="opacity-60">通称</span>
+              <input v-model="helperResult.common_name.value" type="text" class="input-text w-full" placeholder="通称・シリーズ名" />
+            </label>
+            <label class="grid grid-cols-[auto_88px_1fr] gap-3 items-start text-sm">
+              <input type="checkbox" v-model="helperResult.description.apply" class="rounded mt-3" />
+              <span class="opacity-60 mt-2">説明</span>
+              <textarea v-model="helperResult.description.value" class="input-text w-full min-h-24" placeholder="説明"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-semibold">部品種別 / 分類候補</h4>
+              <p class="text-[11px] opacity-60 mt-1">候補名を修正したり、既存の分類へ手動で紐付けできます。</p>
+            </div>
+            <button type="button" @click="addHelperCategory" class="text-xs link-text">+ 分類候補を追加</button>
+          </div>
+          <div v-if="helperResult.categories.length" class="space-y-2">
+            <div v-for="(category, index) in helperResult.categories" :key="`helper-category-${index}`"
+              class="grid grid-cols-1 md:grid-cols-[auto_1.1fr_1fr_auto] gap-2 items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" v-model="category.apply" class="rounded" />
+                <span class="opacity-70">適用</span>
+              </label>
+              <input v-model="category.name" type="text" class="input-text w-full" placeholder="分類候補名" />
+              <select v-model="category.category_id" @change="handleHelperCategorySelection(category)" class="input-text w-full">
+                <option value="">既存分類に未紐付け</option>
+                <option v-for="masterCategory in categories" :key="masterCategory.id" :value="masterCategory.id">@{{ masterCategory.name }}</option>
+              </select>
+              <div class="flex items-center justify-end gap-2">
+                <span v-if="category.matched" class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)]">一致</span>
+                <span v-else class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">未一致</span>
+                <button type="button" @click="removeHelperCategory(index)" class="text-[var(--color-tag-eol)] text-sm px-2">✕</button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-xs opacity-40">分類候補はまだありません</p>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h4 class="font-semibold">パッケージ候補</h4>
+              <p class="text-[11px] opacity-60 mt-1">複数候補の中から、この部品として登録する詳細パッケージを 1 つ選びます。</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" v-model="helperResult.package_apply" class="rounded" />
+                <span class="opacity-70">選択した候補を適用</span>
+              </label>
+              <button type="button" @click="addHelperPackage" class="text-xs link-text">+ パッケージ候補を追加</button>
+            </div>
+          </div>
+          <div v-if="helperResult.packages.length" class="space-y-2">
+            <div v-for="(packageCandidate, index) in helperResult.packages" :key="`helper-package-${index}`"
+              class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4 space-y-3">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input type="radio"
+                    v-model="helperResult.selected_package_index"
+                    :value="index"
+                    :disabled="!helperResult.package_apply" />
+                  <span class="opacity-70">この候補で登録</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span v-if="packageCandidate.matched" class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)]">一致</span>
+                  <span v-else class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">未一致</span>
+                  <button type="button" @click="removeHelperPackage(index)" class="text-[var(--color-tag-eol)] text-sm px-2">✕</button>
+                </div>
+              </div>
+
+              <label class="grid grid-cols-[88px_1fr] gap-3 items-center text-sm">
+                <span class="opacity-60">候補名</span>
+                <input v-model="packageCandidate.name" type="text" class="input-text w-full" placeholder="例: SOT-23 / SOP-8 / TO-220 / 0603" />
+              </label>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] font-semibold mb-1 opacity-70">パッケージ分類</label>
+                  <select v-model="packageCandidate.package_group_id" @change="handleHelperPackageGroupChange(packageCandidate)" class="input-text w-full">
+                    <option value="">未選択</option>
+                    <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold mb-1 opacity-70">詳細パッケージを絞り込み</label>
+                  <input v-model="packageCandidate.package_query" type="text" class="input-text w-full" :disabled="!packageCandidate.package_group_id" placeholder="例: SOT / 0603 / SOP" />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold mb-1 opacity-70">詳細パッケージ</label>
+                <select v-model="packageCandidate.package_id" @change="handleHelperPackageSelection(packageCandidate)" class="input-text w-full">
+                  <option value="">未選択</option>
+                  <option v-for="pkg in helperFilteredPackages(packageCandidate)" :key="pkg.id" :value="pkg.id">@{{ pkg.name }}</option>
+                </select>
+                <p class="text-[11px] opacity-50 mt-2" v-if="!packageCandidate.package_group_id">先にパッケージ分類を選択してください。</p>
+                <p class="text-[11px] opacity-50 mt-2" v-else-if="!helperFilteredPackages(packageCandidate).length">選択中の分類に該当する詳細パッケージがありません。</p>
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-xs opacity-40">パッケージ候補はまだありません</p>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-semibold">スペック候補</h4>
+              <p class="text-[11px] opacity-60 mt-1">値・単位・スペック種別を修正できます。不要な候補は削除してください。</p>
+            </div>
+            <button type="button" @click="addHelperSpec" class="text-xs link-text">+ スペック候補を追加</button>
+          </div>
+          <div v-if="helperResult.specs.length" class="space-y-2">
+            <div v-for="(spec, index) in helperResult.specs" :key="`helper-spec-${index}`"
+              class="spec-card bg-[var(--color-card-odd)] space-y-3">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" v-model="spec.apply" class="rounded" />
+                  <span class="opacity-70">この候補を適用</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span v-if="spec.matched" class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)]">一致</span>
+                  <span v-else class="text-[10px] px-2 py-1 rounded-full bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">未一致</span>
+                  <button type="button" @click="removeHelperSpec(index)" class="text-[var(--color-tag-eol)] text-sm px-2">✕</button>
+                </div>
+              </div>
+              <div class="spec-card-grid spec-card-grid--helper">
+                <div class="spec-card-field">
+                  <label class="spec-card-label">名前 / 紐付け</label>
+                  <input v-model="spec.name" type="text" class="input-text spec-card-control w-full" placeholder="スペック名" />
+                  <select v-model="spec.spec_type_id" @change="handleHelperSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
+                    <option value="">スペック種別を選択</option>
+                    <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
+                  </select>
+                </div>
+                <div class="spec-card-field">
+                  <label class="spec-card-label">値の種類</label>
+                  <div class="spec-card-profile">
+                    <button v-for="option in specProfileOptions" :key="`helper-profile-${index}-${option.value}`" type="button"
+                      @click="spec.value_profile = option.value"
+                      class="spec-card-profile-button"
+                      :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
+                      @{{ option.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="spec-card-field">
+                  <label class="spec-card-label">値</label>
+                  <label v-if="spec.value_profile === 'typ'" class="spec-card-subfield">
+                    <span class="spec-card-subfield-label">typ</span>
+                    <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="typ値" />
+                  </label>
+                  <label v-else-if="spec.value_profile === 'max_only'" class="spec-card-subfield">
+                    <span class="spec-card-subfield-label">最大値</span>
+                    <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+                  </label>
+                  <label v-else-if="spec.value_profile === 'min_only'" class="spec-card-subfield">
+                    <span class="spec-card-subfield-label">最小値</span>
+                    <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+                  </label>
+                  <div v-else-if="spec.value_profile === 'range'" class="spec-card-values--range">
+                    <label class="spec-card-subfield">
+                      <span class="spec-card-subfield-label">最小値</span>
+                      <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+                    </label>
+                    <span class="text-xs opacity-50 pb-3">〜</span>
+                    <label class="spec-card-subfield">
+                      <span class="spec-card-subfield-label">最大値</span>
+                      <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+                    </label>
+                  </div>
+                  <div v-else class="spec-card-values--triple">
+                    <label class="spec-card-subfield">
+                      <span class="spec-card-subfield-label">min</span>
+                      <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
+                    </label>
+                    <label class="spec-card-subfield">
+                      <span class="spec-card-subfield-label">typ</span>
+                      <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="typ" />
+                    </label>
+                    <label class="spec-card-subfield">
+                      <span class="spec-card-subfield-label">max</span>
+                      <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
+                    </label>
+                  </div>
+                </div>
+                <div class="spec-card-field">
+                  <label class="spec-card-label">単位</label>
+                  <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full" placeholder="単位" :list="`helper-spec-unit-${index}`" />
+                  <datalist :id="`helper-spec-unit-${index}`">
+                    <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`helper-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
+                  </datalist>
+                </div>
+                <div class="spec-card-field">
+                  <label class="spec-card-label">確認</label>
+                  <div class="spec-card-preview spec-card-preview-panel text-[11px]">
+                    <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || spec.name || 'スペック名を入力' }}</p>
+                    <template v-if="specPreview(spec).hasNumeric">
+                      <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
+                      <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
+                    </template>
+                    <p v-else class="opacity-50 break-words">数値化できると基底換算を表示します。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-xs opacity-40">スペック候補はまだありません</p>
+        </section>
+      </div>
+
+      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between mt-6">
+        <button type="button" @click="discardHelperResult" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+          候補を破棄
+        </button>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row">
+          <button type="button" @click="closeHelperResultModal" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+            後で確認する
+          </button>
+          <button type="button" @click="applyHelperResult" class="btn-primary px-4 py-2 rounded text-sm">
+            選択した候補を適用
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ChatGPT 貼り付けモーダル -->
+  <div v-if="showChatGPTPaste"
+    class="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6"
+    v-esc="dismissChatGPTPaste"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="chatgpt-paste-title">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+    <div class="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-2xl" @click.stop>
+      <div class="flex items-start justify-between gap-4 border-b border-[var(--color-border)] px-5 py-4">
+        <div>
+          <h2 id="chatgpt-paste-title" class="text-lg font-bold">ChatGPT の出力を貼り付け</h2>
+          <p class="mt-1 text-xs opacity-60">ChatGPT にデータシート PDF を添付し、`プロンプト/データシート解析プロンプト.md` の指示で返ってきた JSON をここに貼り付けてください。</p>
+        </div>
+        <button type="button" @click="dismissChatGPTPaste" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100 leading-none">✕</button>
+      </div>
+      <div class="space-y-4 px-5 py-5">
+        <textarea
+          ref="chatGPTPasteTextarea"
+          v-model="chatGPTPasteText"
+          rows="12"
+          class="input-text w-full resize-y text-xs font-mono min-h-72"
+          placeholder='{"part_number": "...", "manufacturer": "...", "specs": [...]}'>
+        </textarea>
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" @click="dismissChatGPTPaste" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+            キャンセル
+          </button>
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <button type="button" @click="chatGPTPasteText = ''" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+              内容をクリア
+            </button>
+            <button type="button" @click="parseChatGPTResult" :disabled="!chatGPTPasteText.trim()" class="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
+              解析して適用候補に表示
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- トースト -->

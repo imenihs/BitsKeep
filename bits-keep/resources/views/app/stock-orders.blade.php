@@ -87,16 +87,34 @@
 
     <section class="card p-5 bg-[var(--color-card-even)] block">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div class="text-lg font-bold">商社別CSV出力</div>
-        <div class="text-sm opacity-60">商社が選ばれている行ごとに出力</div>
+        <div class="text-lg font-bold">商社別出力</div>
+        <div class="text-sm opacity-60">商社ごとに CSV または Notion へ出力</div>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <button v-for="(group, supplierName) in exportGroups" :key="supplierName"
-          @click="exportSupplierCsv(supplierName, group)"
-          :disabled="supplierName === '未選択'"
-          class="btn btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
-          @{{ supplierName }} をCSV出力
-        </button>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div v-for="(group, supplierName) in exportGroups" :key="supplierName"
+          class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold">@{{ supplierName }}</div>
+              <div class="mt-1 text-xs opacity-60">@{{ group.items.length }} 件 / 合計 @{{ formatCurrency(group.total) }}</div>
+            </div>
+            <span v-if="supplierName === '未選択'" class="text-[11px] px-2 py-1 rounded-full bg-[var(--color-tag-warning)]/15 text-[var(--color-tag-warning)]">商社未選択</span>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button
+              @click="exportSupplierCsv(supplierName, group)"
+              :disabled="supplierName === '未選択'"
+              class="btn btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
+              CSV出力
+            </button>
+            <button
+              @click="exportSupplierNotion(supplierName, group)"
+              :disabled="supplierName === '未選択' || notionExportingSupplier === supplierName"
+              class="px-4 py-2 rounded text-sm border border-[var(--color-border)] disabled:opacity-50">
+              @{{ notionExportingSupplier === supplierName ? 'Notion出力中...' : 'Notion出力' }}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 

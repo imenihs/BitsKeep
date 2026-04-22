@@ -9,12 +9,13 @@ class ProjectSyncRun extends Model
 {
     protected $fillable = [
         'triggered_by', 'status', 'synced_count', 'error_count',
-        'error_detail', 'started_at', 'finished_at',
+        'error_detail', 'business_results', 'started_at', 'finished_at',
     ];
 
     protected $casts = [
-        'started_at'  => 'datetime',
+        'started_at' => 'datetime',
         'finished_at' => 'datetime',
+        'business_results' => 'array',
     ];
 
     public function triggeredBy(): BelongsTo

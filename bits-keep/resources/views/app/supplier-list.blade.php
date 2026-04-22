@@ -118,7 +118,7 @@
     <div class="modal-window modal-lg">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ modal.isEdit ? '商社編集' : '商社追加' }}</h2>
-        <button @click="closeModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closeModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>

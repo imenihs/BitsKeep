@@ -81,13 +81,14 @@ class NotionSyncService
         $errorCount = 0;
         $errors = [];
         $notices = [];
+        $businessResults = [];
 
         try {
             $config = app(AppSettingService::class)->getNotionConfig();
             if (! empty($config['root_page_id'])) {
-                $this->syncFromRootPage($config['root_page_id'], $syncedCount, $errorCount, $errors, $notices);
+                $this->syncFromRootPage($config['root_page_id'], $syncedCount, $errorCount, $errors, $notices, $businessResults);
             } else {
-                $syncedCount += $this->syncByWorkspaceSearch($errorCount, $errors, $notices);
+                $syncedCount += $this->syncByWorkspaceSearch($errorCount, $errors, $notices, $businessResults);
             }
 
             $run->update([
@@ -95,6 +96,7 @@ class NotionSyncService
                 'synced_count' => $syncedCount,
                 'error_count' => $errorCount,
                 'error_detail' => array_filter([...$errors, ...$notices]) ? implode("\n", array_filter([...$errors, ...$notices])) : null,
+                'business_results' => array_values($businessResults),
                 'finished_at' => now(),
             ]);
         } catch (\Exception $e) {
@@ -102,6 +104,7 @@ class NotionSyncService
                 'status' => 'error',
                 'error_count' => 1,
                 'error_detail' => $e->getMessage(),
+                'business_results' => array_values($businessResults),
                 'finished_at' => now(),
             ]);
             Log::error('NotionSync: 全体エラー', ['error' => $e->getMessage()]);
@@ -110,19 +113,35 @@ class NotionSyncService
         return $run->fresh();
     }
 
-    private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors, array &$notices): void
+    private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors, array &$notices, array &$businessResults): void
     {
         $businessPages = $this->findBusinessPages($rootPageId);
-        $foundBusinessPage = ! empty($businessPages);
-        $foundDatabase = false;
 
         foreach ($businessPages as $businessPage) {
             try {
-                $synced = $this->syncBusinessPage($businessPage['id'], $businessPage['business_code'], $businessPage['business_name'], $foundDatabase);
-                $syncedCount += $synced;
+                $result = $this->syncBusinessPage($businessPage['id'], $businessPage['business_code'], $businessPage['business_name']);
+                $syncedCount += $result['synced_count'];
+                $businessResults[] = $this->buildBusinessResult(
+                    $businessPage['business_code'],
+                    $businessPage['business_name'],
+                    $result['found_database']
+                        ? ($result['synced_count'] > 0 ? 'success' : 'warning')
+                        : 'warning',
+                    $result['synced_count'],
+                    $result['found_database']
+                        ? ($result['synced_count'] > 0 ? "{$result['synced_count']}件を同期しました。" : '案件レコードが0件でした。')
+                        : '`01_案件管理` データベースが見つかりませんでした。'
+                );
             } catch (\Exception $e) {
                 $errorCount++;
                 $errors[] = "[{$businessPage['business_code']}_{$businessPage['business_name']}] ".$e->getMessage();
+                $businessResults[] = $this->buildBusinessResult(
+                    $businessPage['business_code'],
+                    $businessPage['business_name'],
+                    'error',
+                    0,
+                    $e->getMessage()
+                );
                 Log::warning('NotionSync: 事業ページ同期失敗', [
                     'business_code' => $businessPage['business_code'],
                     'error' => $e->getMessage(),
@@ -130,20 +149,19 @@ class NotionSyncService
             }
         }
 
-        if (! $foundBusinessPage) {
+        if (empty($businessPages)) {
             $notices[] = '指定したルートページ配下に `010_`〜`099_` の事業ページが見つかりません。URLと共有範囲を確認してください。';
-        } elseif (! $foundDatabase) {
-            $notices[] = '事業ページは見つかりましたが、配下に `01_案件管理` データベースがありません。DB名と共有設定を確認してください。';
         } elseif ($syncedCount === 0 && $errorCount === 0) {
             $notices[] = '同期対象は見つかりましたが、案件レコードが0件でした。Notion側の案件データを確認してください。';
         }
     }
 
-    private function syncByWorkspaceSearch(int &$errorCount, array &$errors, array &$notices): int
+    private function syncByWorkspaceSearch(int &$errorCount, array &$errors, array &$notices, array &$businessResults): int
     {
         $synced = 0;
         $databases = $this->searchDatabasesByTitle('01_案件管理');
         $matchedDatabases = 0;
+        $groupedResults = [];
 
         foreach ($databases as $database) {
             $title = collect($database['title'] ?? [])->pluck('plain_text')->implode('');
@@ -163,13 +181,40 @@ class NotionSyncService
                     continue;
                 }
 
+                $key = $businessPage['business_code'];
+                if (! isset($groupedResults[$key])) {
+                    $groupedResults[$key] = [
+                        'business_code' => $businessPage['business_code'],
+                        'business_name' => $businessPage['business_name'],
+                        'synced_count' => 0,
+                        'status' => 'success',
+                        'messages' => [],
+                    ];
+                }
+
                 foreach ($this->queryDatabase($database['id']) as $record) {
                     $this->upsertProject($record, $businessPage['business_code'], $businessPage['business_name']);
                     $synced++;
+                    $groupedResults[$key]['synced_count']++;
                 }
             } catch (\Exception $e) {
                 $errorCount++;
                 $errors[] = '[workspace-search] '.$e->getMessage();
+                if (isset($businessPage['business_code'])) {
+                    $key = $businessPage['business_code'];
+                    if (! isset($groupedResults[$key])) {
+                        $groupedResults[$key] = [
+                            'business_code' => $businessPage['business_code'],
+                            'business_name' => $businessPage['business_name'],
+                            'synced_count' => 0,
+                            'status' => 'error',
+                            'messages' => [$e->getMessage()],
+                        ];
+                    } else {
+                        $groupedResults[$key]['status'] = 'error';
+                        $groupedResults[$key]['messages'][] = $e->getMessage();
+                    }
+                }
                 Log::warning('NotionSync: 検索同期失敗', ['error' => $e->getMessage()]);
             }
         }
@@ -180,6 +225,26 @@ class NotionSyncService
             $notices[] = '対象の `01_案件管理` データベースは見つかりましたが、案件レコードが0件でした。Notion側の案件データを確認してください。';
         }
 
+        foreach ($groupedResults as $result) {
+            $status = $result['status'];
+            $message = implode(' / ', array_filter($result['messages']));
+
+            if ($status !== 'error' && $result['synced_count'] === 0) {
+                $status = 'warning';
+                $message = $message !== '' ? $message : '案件レコードが0件でした。';
+            } elseif ($status === 'success') {
+                $message = $message !== '' ? $message : "{$result['synced_count']}件を同期しました。";
+            }
+
+            $businessResults[] = $this->buildBusinessResult(
+                $result['business_code'],
+                $result['business_name'],
+                $status,
+                $result['synced_count'],
+                $message
+            );
+        }
+
         return $synced;
     }
 
@@ -187,13 +252,13 @@ class NotionSyncService
      * 事業ページ配下の「01_案件管理」DBを検索し、案件をupsertする。
      * 返却値: 同期した件数
      */
-    private function syncBusinessPage(string $pageId, string $businessCode, string $businessName, bool &$foundDatabase = false): int
+    private function syncBusinessPage(string $pageId, string $businessCode, string $businessName): array
     {
         $synced = 0;
         $databaseIds = $this->findProjectDatabases($pageId);
+        $foundDatabase = ! empty($databaseIds);
 
         foreach ($databaseIds as $databaseId) {
-            $foundDatabase = true;
             $records = $this->queryDatabase($databaseId);
             foreach ($records as $record) {
                 $this->upsertProject($record, $businessCode, $businessName);
@@ -201,7 +266,21 @@ class NotionSyncService
             }
         }
 
-        return $synced;
+        return [
+            'synced_count' => $synced,
+            'found_database' => $foundDatabase,
+        ];
+    }
+
+    private function buildBusinessResult(string $businessCode, string $businessName, string $status, int $syncedCount, string $message): array
+    {
+        return [
+            'business_code' => $businessCode,
+            'business_name' => $businessName,
+            'status' => $status,
+            'synced_count' => $syncedCount,
+            'message' => $message,
+        ];
     }
 
     private function findBusinessPages(string $rootPageId, array &$visited = []): array

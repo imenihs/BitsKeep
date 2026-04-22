@@ -4,53 +4,57 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicFileController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn() => redirect()->route('components.index'));
+Route::get('/', fn () => redirect()->route('components.index'));
+
+Route::get('/component-helper/temp-datasheets/{token}', [\App\Http\Controllers\Api\ComponentHelperController::class, 'downloadTempDatasheet'])
+    ->middleware('signed')
+    ->name('component-helper.temp-datasheets.show');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/files/public/{path}', [PublicFileController::class, 'show'])
         ->where('path', '.*')
         ->name('public-files.show');
 
-    Route::get('/dashboard', fn() => view('app.dashboard'))->name('dashboard');
-    Route::get('/help',      fn() => view('app.help'))->name('help.index');
+    Route::get('/dashboard', fn () => view('app.dashboard'))->name('dashboard');
+    Route::get('/help', fn () => view('app.help'))->name('help.index');
 
     // 部品管理
-    Route::get('/components',         fn() => view('app.components-list'))->name('components.index');
-    Route::get('/components/create',  fn() => view('app.component-create'))->name('components.create');
-    Route::get('/components/{id}',    fn($id) => view('app.component-detail', compact('id')))->name('components.show');
-    Route::get('/components/{id}/edit', fn($id) => view('app.component-create', compact('id')))->name('components.edit');
+    Route::get('/components', fn () => view('app.components-list'))->name('components.index');
+    Route::get('/components/create', fn () => view('app.component-create'))->name('components.create');
+    Route::get('/components/{id}', fn ($id) => view('app.component-detail', compact('id')))->name('components.show');
+    Route::get('/components/{id}/edit', fn ($id) => view('app.component-create', compact('id')))->name('components.edit');
 
     // マスタ管理
-    Route::get('/master', fn() => view('app.master-list'))->name('master.index');
+    Route::get('/master', fn () => view('app.master-list'))->name('master.index');
 
     // 在庫・棚・商社
-    Route::get('/locations',   fn() => view('app.location-list'))->name('locations.index');
-    Route::get('/stock-alert', fn() => view('app.stock-alert'))->name('stock.alert');
-    Route::get('/stock-orders', fn() => view('app.stock-orders'))->name('stock.orders');
-    Route::get('/stock-in', fn() => view('app.stock-in'))->name('stock.in');
-    Route::get('/suppliers',   fn() => view('app.supplier-list'))->name('suppliers.index');
+    Route::get('/locations', fn () => view('app.location-list'))->name('locations.index');
+    Route::get('/stock-alert', fn () => view('app.stock-alert'))->name('stock.alert');
+    Route::get('/stock-orders', fn () => view('app.stock-orders'))->name('stock.orders');
+    Route::get('/stock-in', fn () => view('app.stock-in'))->name('stock.in');
+    Route::get('/suppliers', fn () => view('app.supplier-list'))->name('suppliers.index');
 
     // 案件管理
-    Route::get('/projects', fn() => view('app.project-list'))->name('projects.index');
-    Route::get('/settings/integrations', fn() => view('app.integration-settings'))->name('settings.integrations');
-    Route::get('/settings/home', fn() => view('app.home-settings'))->name('settings.home');
-    Route::get('/functions', fn() => view('app.function-catalog'))->name('functions.index');
+    Route::get('/projects', fn () => view('app.project-list'))->name('projects.index');
+    Route::get('/settings/integrations', fn () => view('app.integration-settings'))->name('settings.integrations');
+    Route::get('/settings/home', fn () => view('app.home-settings'))->name('settings.home');
+    Route::get('/functions', fn () => view('app.function-catalog'))->name('functions.index');
 
     // 比較
-    Route::get('/component-compare', fn() => view('app.component-compare'))->name('components.compare');
+    Route::get('/component-compare', fn () => view('app.component-compare'))->name('components.compare');
 
     // 設計ツール
-    Route::get('/tools/calc',     fn() => view('app.engineering-calc'))->name('tools.calc');
-    Route::get('/tools/design',   fn() => view('app.design-tools'))->name('tools.design');
-    Route::get('/tools/network',  fn() => view('app.resistance-calc'))->name('tools.network');
+    Route::get('/tools/calc', fn () => view('app.engineering-calc'))->name('tools.calc');
+    Route::get('/tools/design', fn () => view('app.design-tools'))->name('tools.design');
+    Route::get('/tools/network', fn () => view('app.resistance-calc'))->name('tools.network');
 
     // 管理機能（admin）
     Route::middleware('role:admin')->group(function () {
-        Route::get('/users',       fn() => view('app.user-list'))->name('users.index');
-        Route::get('/audit-logs',  fn() => view('app.audit-log'))->name('audit.index');
-        Route::get('/csv-import',  fn() => view('app.csv-import'))->name('csv.import');
-        Route::get('/altium',      fn() => view('app.altium-link'))->name('altium.index');
-        Route::get('/backup',      fn() => view('app.backup'))->name('backup.index');
+        Route::get('/users', fn () => view('app.user-list'))->name('users.index');
+        Route::get('/audit-logs', fn () => view('app.audit-log'))->name('audit.index');
+        Route::get('/csv-import', fn () => view('app.csv-import'))->name('csv.import');
+        Route::get('/altium', fn () => view('app.altium-link'))->name('altium.index');
+        Route::get('/backup', fn () => view('app.backup'))->name('backup.index');
     });
 });
 

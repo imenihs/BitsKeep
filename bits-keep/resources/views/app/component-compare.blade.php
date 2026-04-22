@@ -141,20 +141,21 @@
         <tr v-if="visibleSpecTypes.length > 0" class="bg-[var(--color-card-odd)]">
           <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">スペック</td>
         </tr>
-        <tr v-for="(st, i) in visibleSpecTypes" :key="st.id"
+        <tr v-for="(st, i) in visibleSpecTypes" :key="st.key"
           :class="[i % 2 === 0 ? '' : 'bg-[var(--color-card-even)]',
-                   hasDiff(st.id) ? 'ring-1 ring-inset ring-amber-400' : '']"
+                   hasDiff(st.key) ? 'ring-1 ring-inset ring-amber-400' : '']"
           class="border-b border-[var(--color-border)] hover:opacity-90">
-          <td class="py-2 pr-4 text-xs" :class="hasDiff(st.id) ? 'text-amber-600 font-medium' : 'opacity-60'">
-            @{{ st.name }}
-            <span v-if="hasDiff(st.id)" class="ml-1 text-amber-500 text-xs">⚠差分</span>
+          <td class="py-2 pr-4 text-xs" :class="hasDiff(st.key) ? 'text-amber-600 font-medium' : 'opacity-60'">
+            @{{ st.display_name }}
+            <span v-if="st.value_profile === 'triple'" class="ml-1 text-[10px] opacity-50">min/typ/max</span>
+            <span v-if="hasDiff(st.key)" class="ml-1 text-amber-500 text-xs">⚠差分</span>
           </td>
           <td v-for="comp in components" :key="comp.id"
-            :class="hasDiff(st.id) ? 'font-medium text-amber-700' : ''"
+            :class="hasDiff(st.key) ? 'font-medium text-amber-700' : ''"
             class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
-            <template v-if="comp.specs[st.id]?.value">
-              @{{ comp.specs[st.id].value }}
-              <span v-if="comp.specs[st.id].unit" class="opacity-60 text-xs">@{{ comp.specs[st.id].unit }}</span>
+            <template v-if="comp.specs[st.key]?.value">
+              @{{ comp.specs[st.key].value }}
+              <span v-if="comp.specs[st.key].unit" class="opacity-60 text-xs">@{{ comp.specs[st.key].unit }}</span>
             </template>
             <span v-else class="opacity-30">-</span>
           </td>
@@ -188,7 +189,7 @@
           <h2 class="text-lg font-bold">案件に追加</h2>
           <p class="mt-1 text-sm opacity-70">「@{{ drawer.part?.common_name || drawer.part?.part_number }}」を追加する案件を選択してください。</p>
         </div>
-        <button @click="drawer.open = false" class="opacity-60 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="drawer.open = false" aria-label="閉じる" title="閉じる" class="opacity-60 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="mt-5 space-y-3">
         <ProjectComboBox
@@ -214,7 +215,7 @@
           <h2 class="text-lg font-bold">比較する部品を追加</h2>
           <p class="mt-1 text-sm opacity-70">最大5件まで比較できます。型番または通称で絞り込んで追加してください。</p>
         </div>
-        <button @click="showAddModal = false" class="opacity-60 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="showAddModal = false" aria-label="閉じる" title="閉じる" class="opacity-60 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="mt-5">
         <input v-model="addSearch" @input="searchParts" type="text" placeholder="部品名・型番で検索"

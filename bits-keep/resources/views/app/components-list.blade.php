@@ -145,6 +145,12 @@
             </select>
           </div>
           <div>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">照合基準</label>
+            <select v-model="advSpecProfile" class="input-text w-full" :disabled="!advSpecTypeId">
+              <option v-for="option in specProfileOptions" :key="option.value" :value="option.value">@{{ option.label }}</option>
+            </select>
+          </div>
+          <div>
             <label class="block text-[11px] font-semibold opacity-60 mb-1">単位</label>
             <input v-model="advUnit" type="text" class="input-text w-full" placeholder="例: ohm, V" />
           </div>

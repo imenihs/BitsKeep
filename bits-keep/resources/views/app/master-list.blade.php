@@ -314,7 +314,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ catModal.isEdit ? '分類編集' : '分類追加' }}</h2>
-        <button @click="closeCatModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closeCatModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -345,7 +345,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? '詳細パッケージ編集' : '詳細パッケージ追加' }}</h2>
-        <button @click="closePkgModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closePkgModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -382,7 +382,7 @@
     <div class="modal-window modal-md">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgGroupModal.isEdit ? 'パッケージ分類編集' : 'パッケージ分類追加' }}</h2>
-        <button @click="closePkgGroupModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closePkgGroupModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
@@ -410,7 +410,7 @@
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック種別編集' : 'スペック種別追加' }}</h2>
-        <button @click="closeStModal" class="opacity-50 hover:opacity-100 text-xl">✕</button>
+        <button type="button" @click="closeStModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>

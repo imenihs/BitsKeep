@@ -2,10 +2,10 @@
 
 namespace App\Support;
 
-use RuntimeException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * ファイル管理ヘルパー
@@ -16,8 +16,9 @@ class FileStorage
 {
     // 許可する画像 MIME タイプ
     const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
     // 許可する PDF MIME タイプ
-    const PDF_MIMES   = ['application/pdf'];
+    const PDF_MIMES = ['application/pdf'];
 
     /**
      * 部品画像を保存して保存パスを返す
@@ -26,6 +27,7 @@ class FileStorage
     {
         self::validateMime($file, self::IMAGE_MIMES);
         $name = self::nextAvailableName('components/images', 'component', $file->getClientOriginalExtension());
+
         return self::storeVerified($file, 'components/images', $name);
     }
 
@@ -36,6 +38,7 @@ class FileStorage
     {
         self::validateMime($file, self::PDF_MIMES);
         $name = self::nextAvailableName('components/datasheets', 'datasheet', 'pdf');
+
         return self::storeVerified($file, 'components/datasheets', $name);
     }
 
@@ -43,6 +46,7 @@ class FileStorage
     {
         self::validateMime($file, self::IMAGE_MIMES);
         $name = self::nextAvailableName('components/images', self::buildStem($parts, 'component'), $file->getClientOriginalExtension());
+
         return self::storeVerified($file, 'components/images', $name);
     }
 
@@ -50,7 +54,34 @@ class FileStorage
     {
         self::validateMime($file, self::PDF_MIMES);
         $name = self::nextAvailableName('components/datasheets', self::buildStem($parts, 'datasheet'), 'pdf');
+
         return self::storeVerified($file, 'components/datasheets', $name);
+    }
+
+    public static function storeComponentDatasheetFromPathNamed(string $absolutePath, array $parts): string
+    {
+        if (! is_file($absolutePath)) {
+            throw new RuntimeException('保存元の一時PDFが見つかりません。');
+        }
+
+        $name = self::nextAvailableName('components/datasheets', self::buildStem($parts, 'datasheet'), 'pdf');
+        $targetPath = trim('components/datasheets/'.$name, '/');
+        $stream = fopen($absolutePath, 'rb');
+        if ($stream === false) {
+            throw new RuntimeException('一時PDFの読み込みに失敗しました。');
+        }
+
+        try {
+            $stored = Storage::disk('public')->put($targetPath, $stream);
+        } finally {
+            fclose($stream);
+        }
+
+        if (! $stored || ! Storage::disk('public')->exists($targetPath)) {
+            throw new RuntimeException('データシート保存に失敗しました。保存先の権限を確認してください。');
+        }
+
+        return $targetPath;
     }
 
     /**
@@ -59,7 +90,8 @@ class FileStorage
     public static function storePackageImage(UploadedFile $file): string
     {
         self::validateMime($file, self::IMAGE_MIMES);
-        $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $name = Str::uuid().'.'.$file->getClientOriginalExtension();
+
         return self::storeVerified($file, 'packages/images', $name);
     }
 
@@ -78,8 +110,11 @@ class FileStorage
      */
     public static function url(?string $path): ?string
     {
-        if (!$path) return null;
-        return url('/files/public/' . ltrim($path, '/'));
+        if (! $path) {
+            return null;
+        }
+
+        return url('/files/public/'.ltrim($path, '/'));
     }
 
     /**
@@ -87,11 +122,16 @@ class FileStorage
      */
     protected static function validateMime(UploadedFile $file, array $allowed): void
     {
-        if (!in_array($file->getMimeType(), $allowed, true)) {
+        if (! in_array($file->getMimeType(), $allowed, true)) {
             throw new \InvalidArgumentException(
-                '許可されていないファイル形式です: ' . $file->getMimeType()
+                '許可されていないファイル形式です: '.$file->getMimeType()
             );
         }
+    }
+
+    public static function validatePdfUpload(UploadedFile $file): void
+    {
+        self::validateMime($file, self::PDF_MIMES);
     }
 
     protected static function buildStem(array $parts, string $fallback): string
@@ -120,13 +160,13 @@ class FileStorage
         $base = trim($stem, '_');
         $candidate = "{$base}.{$extension}";
 
-        if (!$disk->exists("{$directory}/{$candidate}")) {
+        if (! $disk->exists("{$directory}/{$candidate}")) {
             return $candidate;
         }
 
         for ($i = 1; $i <= 99; $i++) {
             $candidate = sprintf('%s_%02d.%s', $base, $i, $extension);
-            if (!$disk->exists("{$directory}/{$candidate}")) {
+            if (! $disk->exists("{$directory}/{$candidate}")) {
                 return $candidate;
             }
         }
@@ -137,9 +177,9 @@ class FileStorage
     protected static function storeVerified(UploadedFile $file, string $directory, string $name): string
     {
         $storedPath = $file->storeAs($directory, $name, 'public');
-        $expectedPath = trim($directory . '/' . $name, '/');
+        $expectedPath = trim($directory.'/'.$name, '/');
 
-        if ($storedPath === false || !Storage::disk('public')->exists($expectedPath)) {
+        if ($storedPath === false || ! Storage::disk('public')->exists($expectedPath)) {
             throw new RuntimeException('ファイル保存に失敗しました。保存先の権限を確認してください。');
         }
 

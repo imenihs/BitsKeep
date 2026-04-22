@@ -83,8 +83,9 @@
           <div>
             <div v-if="part.datasheets?.length" class="flex flex-wrap gap-2">
               <a v-for="(sheet, i) in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
+                :title="sheet.original_name || sheet.display_name"
                 class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
-                📄 @{{ part.datasheets.length > 1 ? 'データシート ' + (i + 1) : 'データシート' }}
+                📄 @{{ sheet.display_name || sheet.original_name || (part.datasheets.length > 1 ? 'データシート ' + (i + 1) : 'データシート') }}
               </a>
             </div>
             <p v-else class="text-xs opacity-50">データシート未登録</p>
@@ -128,8 +129,11 @@
             </template>
             <!-- 登録スペック（分類によって内容が変わる） -->
             <template v-for="s in part.specs" :key="s.id">
-              <span class="list-label">@{{ s.spec_type?.name }}</span>
-              <span class="list-value">@{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}</span>
+              <span class="list-label">@{{ specDisplayName(s) }}</span>
+              <span class="list-value">
+                @{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}
+                <span v-if="s.value_profile === 'triple'" class="ml-1 text-[10px] opacity-50">min/typ/max</span>
+              </span>
             </template>
           </div>
           <!-- 説明（あれば） -->
@@ -441,10 +445,10 @@
   </div>
 
   <div v-if="editModal.open" class="modal-overlay" v-esc="closeEditModal">
-    <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto">
+    <div class="modal-window p-6 max-h-[85vh] overflow-y-auto" :class="editModal.section === 'specs' ? 'modal-2xl' : 'modal-lg'">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>
-        <button @click="closeEditModal" class="text-xl opacity-50 hover:opacity-100">✕</button>
+        <button type="button" @click="closeEditModal" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
 
       <div v-if="editModal.section === 'basic'" class="space-y-4">
@@ -544,29 +548,118 @@
         <!-- データシート追加 -->
         <div>
           <label class="block text-xs font-semibold mb-1">データシート（複数選択可。ファイルを選択すると既存をすべて置き換えます）</label>
-          <div v-if="part.datasheets?.length" class="mb-2 space-y-1">
-            <div v-for="(sheet, i) in part.datasheets" :key="sheet.id" class="flex items-center gap-2 text-xs opacity-70">
-              <span>📄</span><span>データシート @{{ i + 1 }}</span>
+          <div v-if="basicDatasheetFiles.length" class="mb-3 space-y-2">
+            <div v-for="(file, index) in basicDatasheetFiles" :key="`${file.name}-${index}`" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+              <p class="text-[11px] opacity-60 break-all">@{{ file.name }}</p>
+              <div class="mt-2">
+                <label class="block text-[11px] font-semibold mb-1 opacity-70">表示名</label>
+                <input v-model="basicDatasheetLabels[index]" type="text" class="input-text w-full text-xs" placeholder="例: 日本語版 / 英語版 / 旧版（未入力ならファイル名を表示）" />
+              </div>
+            </div>
+          </div>
+          <div v-else-if="editModal.form.datasheets?.length" class="mb-3 space-y-2">
+            <div v-for="sheet in editModal.form.datasheets" :key="sheet.id || sheet.url" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+              <a :href="sheet.url" target="_blank" rel="noreferrer" class="link-text text-[11px] break-all">@{{ sheet.original_name }}</a>
+              <div class="mt-2">
+                <label class="block text-[11px] font-semibold mb-1 opacity-70">表示名</label>
+                <input v-model="sheet.display_name" type="text" class="input-text w-full text-xs" placeholder="例: 日本語版 / 英語版 / 旧版（未入力ならファイル名を表示）" />
+              </div>
             </div>
           </div>
           <input type="file" accept="application/pdf" multiple
             class="text-sm"
-            @change="basicDatasheetFiles = Array.from($event.target.files)" />
+            @change="onBasicDatasheetsChange" />
         </div>
       </div>
 
       <div v-else-if="editModal.section === 'specs'" class="space-y-3">
-        <div v-for="(spec, index) in editModal.form.specs" :key="index" class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr_auto] gap-2 items-center">
-          <select v-model="spec.spec_type_id" class="input-text w-full">
-            <option value="">-- 種別 --</option>
-            <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-          </select>
-          <input v-model="spec.value" type="text" class="input-text w-full" placeholder="値" />
-          <input v-model="spec.unit" type="text" class="input-text w-full" placeholder="単位" />
-          <input v-model="spec.value_numeric" type="number" step="any" class="input-text w-full" placeholder="数値化" />
-          <button @click="editModal.form.specs.splice(index, 1)" class="text-[var(--color-tag-eol)] px-2">✕</button>
+        <div v-for="(spec, index) in editModal.form.specs" :key="index" class="spec-card bg-[var(--color-card-even)]">
+          <div class="spec-card-grid spec-card-grid--editor">
+            <div class="spec-card-field">
+              <label class="spec-card-label">種別</label>
+              <select v-model="spec.spec_type_id" class="input-text spec-card-control w-full">
+                <option value="">-- 種別 --</option>
+                <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
+              </select>
+            </div>
+            <div class="spec-card-field">
+              <label class="spec-card-label">値の種類</label>
+              <div class="spec-card-profile">
+                <button v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" type="button"
+                  @click="spec.value_profile = option.value"
+                  class="spec-card-profile-button"
+                  :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-odd)]'">
+                  @{{ option.label }}
+                </button>
+              </div>
+            </div>
+            <div class="spec-card-field">
+              <label class="spec-card-label">値</label>
+              <label v-if="spec.value_profile === 'typ'" class="spec-card-subfield">
+                <span class="spec-card-subfield-label">typ</span>
+                <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="例: 1 / 1e-6" />
+              </label>
+              <label v-else-if="spec.value_profile === 'max_only'" class="spec-card-subfield">
+                <span class="spec-card-subfield-label">最大値</span>
+                <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+              </label>
+              <label v-else-if="spec.value_profile === 'min_only'" class="spec-card-subfield">
+                <span class="spec-card-subfield-label">最小値</span>
+                <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+              </label>
+              <div v-else-if="spec.value_profile === 'range'" class="spec-card-values--range">
+                <label class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">最小値</span>
+                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+                </label>
+                <span class="text-xs opacity-50 pb-3">〜</span>
+                <label class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">最大値</span>
+                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+                </label>
+              </div>
+              <div v-else class="spec-card-values--triple">
+                <label class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">min</span>
+                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
+                </label>
+                <label class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">typ</span>
+                  <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="typ" />
+                </label>
+                <label class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">max</span>
+                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
+                </label>
+              </div>
+            </div>
+            <div class="spec-card-field">
+              <label class="spec-card-label">単位</label>
+              <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full" placeholder="例: uA / kΩ / ns" :list="`spec-unit-detail-${index}`" />
+              <datalist :id="`spec-unit-detail-${index}`">
+                <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`detail-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
+              </datalist>
+            </div>
+            <div class="spec-card-field">
+              <label class="spec-card-label">確認</label>
+              <div class="spec-card-preview spec-card-preview-panel text-[11px]">
+                <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック名を選択' }}</p>
+                <template v-if="specPreview(spec).hasNumeric">
+                  <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
+                  <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
+                </template>
+                <p v-else class="opacity-50 break-words">数値化できると基底換算を表示します。</p>
+              </div>
+            </div>
+            <div class="spec-card-field">
+              <label class="spec-card-label">操作</label>
+              <div class="spec-card-actions">
+                <button @click="editModal.form.specs.splice(index, 1)" type="button" title="削除" aria-label="削除" class="spec-card-delete">✕</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <button @click="editModal.form.specs.push({ spec_type_id: '', value: '', unit: '', value_numeric: '' })" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ スペック追加</button>
+        <button @click="editModal.form.specs.push(createEmptySpecRow())" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ スペック追加</button>
       </div>
 
       <!-- カスタムフィールド編集 -->

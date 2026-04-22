@@ -5,19 +5,20 @@
 const BASE = '/api';
 
 async function request(method, path, body = null, isFormData = false) {
+    const useFormData = isFormData || (typeof FormData !== 'undefined' && body instanceof FormData);
     const headers = {
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
         'Accept': 'application/json',
     };
-    if (!isFormData) {
+    if (!useFormData) {
         headers['Content-Type'] = 'application/json';
     }
 
     const res = await fetch(BASE + path, {
         method,
         headers,
-        body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+        body: body === null || body === undefined ? undefined : (useFormData ? body : JSON.stringify(body)),
         credentials: 'same-origin',
     });
 

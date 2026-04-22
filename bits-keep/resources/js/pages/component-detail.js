@@ -4,6 +4,15 @@ import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
+import {
+    buildSpecDraftFromApi,
+    buildSpecPayload,
+    createEmptySpecRow,
+    getSpecDisplayName,
+    getSpecUnitSuggestions,
+    normalizeSpecDraft,
+    SPEC_PROFILE_OPTIONS,
+} from '../utils/specValue.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -28,8 +37,10 @@ export default function setup() {
     const showAllTransactions = ref(false);
     const basicImageFile = ref(null);
     const basicDatasheetFiles = ref([]);
+    const basicDatasheetLabels = ref([]);
     const editModalSnapshot = ref('');
     const packageFilterQuery = ref('');
+    const specProfileOptions = SPEC_PROFILE_OPTIONS;
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -44,6 +55,13 @@ export default function setup() {
         { value: 'last_time', label: '在庫限り' }, { value: 'nrnd', label: '新規非推奨' },
     ];
     const stockConditionLabel = { new: '新品', used: '中古' };
+
+    const createDatasheetDraft = (sheet = {}) => ({
+        id: sheet.id ?? '',
+        original_name: sheet.original_name ?? '',
+        display_name: sheet.display_name ?? '',
+        url: sheet.url ?? '',
+    });
 
     const fetchPart = async () => {
         loading.value = true;
@@ -87,6 +105,7 @@ export default function setup() {
         const p = part.value;
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
+        basicDatasheetLabels.value = [];
         packageFilterQuery.value = '';
         detailCategoryQuery.value = '';
         const forms = {
@@ -101,11 +120,17 @@ export default function setup() {
                     category_ids: p.categories.map(c => c.id),
                     package_group_id: p.package_group?.id ?? p.package?.package_group_id ?? '',
                     package_id: p.package?.id ?? p.packages?.[0]?.id ?? '',
+                    datasheets: (p.datasheets ?? []).map((sheet) => createDatasheetDraft({
+                        id: sheet.id,
+                        original_name: sheet.original_name ?? '',
+                        display_name: sheet.display_name ?? '',
+                        url: sheet.url ?? '',
+                    })),
                 },
             },
             specs: {
                 title: 'スペックを編集',
-                form: { specs: p.specs.map(s => ({ spec_type_id: s.spec_type_id, value: s.value ?? '', unit: s.unit ?? '', value_numeric: s.value_numeric ?? '' })) },
+                form: { specs: p.specs.map((s) => buildSpecDraftFromApi(s)) },
             },
             attributes: {
                 title: 'カスタムフィールドを編集',
@@ -144,9 +169,15 @@ export default function setup() {
         editModal.value.open = false;
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
+        basicDatasheetLabels.value = [];
         packageFilterQuery.value = '';
         detailCategoryQuery.value = '';
         editModalSnapshot.value = '';
+    };
+
+    const onBasicDatasheetsChange = (event) => {
+        basicDatasheetFiles.value = Array.from(event.target.files ?? []);
+        basicDatasheetLabels.value = basicDatasheetFiles.value.map((_, index) => basicDatasheetLabels.value[index] ?? '');
     };
 
     // セクション保存（PATCH / ファイルありの場合は multipart POST + _method=PATCH）
@@ -164,16 +195,29 @@ export default function setup() {
                 (form.category_ids ?? []).forEach(id => fd.append('category_ids[]', id));
                 // ファイル項目
                 if (basicImageFile.value) fd.append('image', basicImageFile.value);
-                basicDatasheetFiles.value.forEach((file, index) => fd.append(`datasheets[${index}]`, file));
+                basicDatasheetFiles.value.forEach((file, index) => {
+                    fd.append(`datasheets[${index}]`, file);
+                    fd.append(`datasheet_labels[${index}]`, basicDatasheetLabels.value[index] ?? '');
+                });
+                if (basicDatasheetFiles.value.length === 0) {
+                    (form.datasheets ?? []).forEach((sheet, index) => {
+                        fd.append(`existing_datasheets[${index}][id]`, String(sheet.id ?? ''));
+                        fd.append(`existing_datasheets[${index}][display_name]`, sheet.display_name ?? '');
+                    });
+                }
                 await api.uploadPut(`/components/${componentId}`, fd);
             } else {
                 // ファイルなし → 通常 JSON PATCH（_newImage/_newDatasheets は除外）
-                await api.patch(`/components/${componentId}/${editModal.value.section}`, form);
+                const payload = editModal.value.section === 'specs'
+                    ? { specs: (form.specs ?? []).map((spec) => buildSpecPayload(spec)) }
+                    : form;
+                await api.patch(`/components/${componentId}/${editModal.value.section}`, payload);
             }
             toastSuccess('保存しました');
             editModal.value.open = false;
             basicImageFile.value = null;
             basicDatasheetFiles.value = [];
+            basicDatasheetLabels.value = [];
             editModalSnapshot.value = '';
             await fetchPart();
         } catch (e) {
@@ -354,6 +398,13 @@ export default function setup() {
         }
     };
 
+    const getSpecTypeById = (specTypeId) =>
+        specTypes.value.find((item) => Number(item.id) === Number(specTypeId)) ?? null;
+
+    const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(getSpecTypeById(specTypeId));
+    const specPreview = (spec) => normalizeSpecDraft(spec, getSpecTypeById(spec.spec_type_id));
+    const specDisplayName = (spec) => getSpecDisplayName(spec, getSpecTypeById(spec?.spec_type_id));
+
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
@@ -362,9 +413,10 @@ export default function setup() {
         outgoingTransactions, incomingTransactions,
         formatTransactionTimestamp,
         canSaveEditModal,
+        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
         detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,
-        basicImageFile, basicDatasheetFiles,
+        basicImageFile, basicDatasheetFiles, basicDatasheetLabels, onBasicDatasheetsChange,
         editModal, openEdit, closeEditModal, saveSection,
         stockOutModal, openStockOut, submitStockOut,
         stockInModal, submitStockIn,

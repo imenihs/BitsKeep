@@ -5,14 +5,11 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentSupplier;
-use App\Models\InventoryBlock;
 use App\Models\Location;
 use App\Models\Package;
 use App\Models\PackageGroup;
 use App\Models\SpecType;
 use App\Models\Supplier;
-use App\Models\SupplierPriceBreak;
-use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -340,6 +337,10 @@ class BitsKeepDemoSeeder extends Seeder
                         'value' => $spec['value'],
                         'unit' => $spec['unit'],
                         'value_numeric' => $spec['value_numeric'],
+                        'value_profile' => 'typ',
+                        'value_mode' => 'single',
+                        'value_numeric_typ' => $spec['value_numeric'],
+                        'normalized_unit' => $spec['unit'],
                     ]);
                 }
 

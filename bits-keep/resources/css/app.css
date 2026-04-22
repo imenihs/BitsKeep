@@ -480,3 +480,217 @@ img.thumbnail {
 .modal-window.modal-xl {
     max-width: 48rem;
 }
+
+.modal-window.modal-2xl {
+    max-width: 72rem;
+}
+
+.modal-window.modal-helper-review {
+    width: min(calc(100vw - 2rem), 88rem);
+}
+
+.spec-card {
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 0.875rem;
+}
+
+.spec-card-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.spec-card-field {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.spec-card-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    opacity: 0.7;
+}
+
+.spec-card-help {
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    opacity: 0.58;
+}
+
+.spec-card-profile {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.25rem;
+    min-height: 3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.875rem;
+    background: var(--color-bg);
+    align-items: stretch;
+}
+
+.spec-card-profile-button {
+    min-height: calc(3rem - 0.5rem);
+    border-radius: 0.625rem;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.spec-card-control {
+    min-height: 3rem;
+}
+
+.spec-card-values--range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.spec-card-values--triple {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.spec-card-subfield {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.spec-card-subfield-label {
+    font-size: 0.625rem;
+    line-height: 1.2;
+    opacity: 0.55;
+}
+
+.spec-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.spec-card-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.spec-card-preview-panel {
+    min-height: 3rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: var(--color-bg);
+}
+
+.spec-card-delete {
+    min-height: 3rem;
+    width: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    color: var(--color-tag-eol);
+    font-size: 1.125rem;
+    line-height: 1;
+}
+
+@media (min-width: 640px) {
+    .spec-card-values--triple {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+    .spec-card-grid--editor {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        align-items: end;
+    }
+
+    .spec-card-grid--editor > :nth-child(1) {
+        grid-column: span 2;
+    }
+
+    .spec-card-grid--editor > :nth-child(2) {
+        grid-column: span 2;
+    }
+
+    .spec-card-grid--editor > :nth-child(3) {
+        grid-column: span 4;
+    }
+
+    .spec-card-grid--editor > :nth-child(4) {
+        grid-column: span 2;
+    }
+
+    .spec-card-grid--editor > :nth-child(5) {
+        grid-column: span 5;
+    }
+
+    .spec-card-grid--editor > :nth-child(6) {
+        grid-column: span 1;
+    }
+
+    .spec-card-grid--helper {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        align-items: end;
+    }
+
+    .spec-card-grid--helper > :nth-child(1) {
+        grid-column: span 3;
+    }
+
+    .spec-card-grid--helper > :nth-child(2) {
+        grid-column: span 3;
+    }
+
+    .spec-card-grid--helper > :nth-child(3) {
+        grid-column: span 5;
+    }
+
+    .spec-card-grid--helper > :nth-child(4) {
+        grid-column: span 3;
+    }
+
+    .spec-card-grid--helper > :nth-child(5) {
+        grid-column: span 8;
+    }
+}
+
+@media (min-width: 1024px) {
+    .spec-card-grid--editor {
+        grid-template-columns:
+            minmax(10rem, 1.05fr)
+            minmax(13rem, 1.1fr)
+            minmax(15rem, 1.35fr)
+            minmax(8rem, 0.75fr)
+            minmax(14rem, 1fr)
+            auto;
+        align-items: end;
+    }
+
+}
+
+@media (min-width: 1280px) {
+    .spec-card-grid--helper {
+        grid-template-columns:
+            minmax(11rem, 1fr)
+            minmax(11.5rem, 1fr)
+            minmax(13rem, 1.2fr)
+            minmax(7.5rem, 0.7fr)
+            minmax(12rem, 1.05fr);
+        align-items: end;
+    }
+}

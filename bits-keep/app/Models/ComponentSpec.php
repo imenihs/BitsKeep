@@ -7,9 +7,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ComponentSpec extends Model
 {
-    protected $fillable = ['component_id', 'spec_type_id', 'value', 'unit', 'value_numeric'];
+    protected $fillable = [
+        'component_id',
+        'spec_type_id',
+        'value',
+        'unit',
+        'value_profile',
+        'value_mode',
+        'value_numeric',
+        'value_numeric_typ',
+        'value_numeric_min',
+        'value_numeric_max',
+        'normalized_unit',
+    ];
 
-    protected $casts = ['value_numeric' => 'float'];
+    protected $casts = [
+        'value_numeric' => 'float',
+        'value_numeric_typ' => 'float',
+        'value_numeric_min' => 'float',
+        'value_numeric_max' => 'float',
+    ];
 
     public function component(): BelongsTo
     {

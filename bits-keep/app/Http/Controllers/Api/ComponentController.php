@@ -10,11 +10,14 @@ use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentDatasheet;
 use App\Models\Package;
+use App\Models\SpecType;
+use App\Services\SpecValueNormalizerService;
+use App\Services\TempDatasheetService;
 use App\Support\FileStorage;
-use RuntimeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ComponentController extends Controller
 {
@@ -64,7 +67,7 @@ class ComponentController extends Controller
 
         // メーカーフィルタ
         if ($manufacturer = $request->input('manufacturer')) {
-            $query->where('manufacturer', 'ilike', '%' . $manufacturer . '%');
+            $query->where('manufacturer', 'ilike', '%'.$manufacturer.'%');
         }
 
         // パッケージフィルタ
@@ -78,23 +81,54 @@ class ComponentController extends Controller
             $query->whereHas('package', fn ($q) => $q->where('package_group_id', $packageGroupId));
         }
 
-        // スペック数値範囲フィルタ（spec_type_id + min + max）
+        // スペック数値フィルタ（spec_type_id + profile + min/max）
         if ($specTypeId = $request->input('spec_type_id')) {
-            $query->whereHas('specs', function ($q) use ($request, $specTypeId) {
+            $specType = SpecType::with('units')->find($specTypeId);
+            $normalizer = app(SpecValueNormalizerService::class);
+            $queryMin = $normalizer->normalizeSearchBound($specType, $request->input('spec_min'), $request->input('spec_unit'));
+            $queryMax = $normalizer->normalizeSearchBound($specType, $request->input('spec_max'), $request->input('spec_unit'));
+            $queryUnit = (string) $request->input('spec_unit', '');
+            $queryProfile = (string) $request->input('spec_profile', 'typ');
+
+            $query->whereHas('specs', function ($q) use ($specTypeId, $queryMin, $queryMax, $queryUnit, $queryProfile) {
                 $q->where('spec_type_id', $specTypeId);
-                if ($unit = $request->input('spec_unit')) {
-                    $q->where('unit', 'ilike', '%' . $unit . '%');
+
+                [$allowedProfiles, $numericColumn, $minColumn, $maxColumn] = match ($queryProfile) {
+                    'range' => [['range', 'triple'], null, 'value_numeric_min', 'value_numeric_max'],
+                    'max_only' => [['max_only', 'triple'], 'value_numeric_max', null, null],
+                    'min_only' => [['min_only', 'triple'], 'value_numeric_min', null, null],
+                    default => [['typ', 'triple'], 'value_numeric_typ', null, null],
+                };
+
+                $q->whereIn('value_profile', $allowedProfiles);
+
+                if ($queryMin === null && $queryMax === null && $queryUnit !== '') {
+                    $q->where(function ($unitQuery) use ($queryUnit) {
+                        $unitQuery->where('unit', 'ilike', '%'.$queryUnit.'%')
+                            ->orWhere('normalized_unit', 'ilike', '%'.$queryUnit.'%');
+                    });
                 }
-                if ($min = $request->input('spec_min')) {
-                    $q->where('value_numeric', '>=', (float) $min);
+
+                if ($queryProfile === 'range') {
+                    if ($queryMin !== null) {
+                        $q->whereRaw("{$maxColumn} >= ?", [$queryMin]);
+                    }
+                    if ($queryMax !== null) {
+                        $q->whereRaw("{$minColumn} <= ?", [$queryMax]);
+                    }
+
+                    return;
                 }
-                if ($max = $request->input('spec_max')) {
-                    $q->where('value_numeric', '<=', (float) $max);
+
+                if ($queryMin !== null) {
+                    $q->whereRaw("{$numericColumn} >= ?", [$queryMin]);
+                }
+                if ($queryMax !== null) {
+                    $q->whereRaw("{$numericColumn} <= ?", [$queryMax]);
                 }
             });
-        }
-        elseif ($unit = $request->input('spec_unit')) {
-            $query->whereHas('specs', fn ($q) => $q->where('unit', 'ilike', '%' . $unit . '%'));
+        } elseif ($unit = $request->input('spec_unit')) {
+            $query->whereHas('specs', fn ($q) => $q->where('unit', 'ilike', '%'.$unit.'%'));
         }
 
         // 在庫数下限フィルタ
@@ -155,7 +189,7 @@ class ComponentController extends Controller
                     ]);
                 }
                 $component = Component::create($data);
-                if ($request->filled('duplicate_from_component_id') && !$request->hasFile('image')) {
+                if ($request->filled('duplicate_from_component_id') && ! $request->hasFile('image')) {
                     $source = Component::with('datasheets')->find($request->integer('duplicate_from_component_id'));
                     if ($source) {
                         $component->image_path = $source->image_path;
@@ -165,8 +199,11 @@ class ComponentController extends Controller
                                 'file_path' => $sheet->file_path,
                                 'original_name' => $sheet->original_name,
                                 'sort_order' => $index,
+                                'note' => $sheet->note,
                             ]);
                         }
+                        $component->datasheet_path = $source->datasheets->sortBy('sort_order')->first()?->file_path;
+                        $component->save();
                     }
                 }
                 $this->syncDatasheets($component, $request);
@@ -274,15 +311,7 @@ class ComponentController extends Controller
 
                 case 'specs':
                     // 送信された specs 配列で全置換
-                    $component->specs()->delete();
-                    foreach ($request->specs as $spec) {
-                        $component->specs()->create([
-                            'spec_type_id' => $spec['spec_type_id'],
-                            'value' => $spec['value'] ?? null,
-                            'unit' => $spec['unit'] ?? null,
-                            'value_numeric' => $spec['value_numeric'] ?? null,
-                        ]);
-                    }
+                    $this->syncSpecs($component, (array) $request->input('specs', []));
                     $component->save();
                     break;
 
@@ -292,9 +321,11 @@ class ComponentController extends Controller
                     foreach ($request->input('attributes', []) as $attr) {
                         $key = trim((string) ($attr['key'] ?? ''));
                         $value = trim((string) ($attr['value'] ?? ''));
-                        if ($key === '' || $value === '') continue;
+                        if ($key === '' || $value === '') {
+                            continue;
+                        }
                         $component->customAttributes()->create([
-                            'key'   => $key,
+                            'key' => $key,
                             'value' => $value,
                         ]);
                     }
@@ -334,15 +365,7 @@ class ComponentController extends Controller
             $component->categories()->sync($request->category_ids ?? []);
         }
         if ($request->has('specs')) {
-            $component->specs()->delete();
-            foreach ($request->specs as $spec) {
-                $component->specs()->create([
-                    'spec_type_id' => $spec['spec_type_id'],
-                    'value' => $spec['value'] ?? null,
-                    'unit' => $spec['unit'] ?? null,
-                    'value_numeric' => $spec['value_numeric'] ?? null,
-                ]);
-            }
+            $this->syncSpecs($component, (array) $request->input('specs', []));
         }
         if ($request->has('suppliers')) {
             $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());
@@ -389,12 +412,49 @@ class ComponentController extends Controller
         }
     }
 
+    private function syncSpecs(Component $component, array $specs): void
+    {
+        $component->specs()->delete();
+
+        if ($specs === []) {
+            return;
+        }
+
+        $specTypeMap = SpecType::with('units')
+            ->whereIn('id', collect($specs)->pluck('spec_type_id')->filter()->map(fn ($id) => (int) $id)->unique()->values())
+            ->get()
+            ->keyBy('id');
+
+        /** @var SpecValueNormalizerService $normalizer */
+        $normalizer = app(SpecValueNormalizerService::class);
+
+        foreach ($specs as $spec) {
+            $normalized = $normalizer->normalizeSpecPayload(
+                $specTypeMap->get((int) ($spec['spec_type_id'] ?? 0)),
+                (array) $spec
+            );
+
+            $component->specs()->create([
+                'spec_type_id' => $spec['spec_type_id'],
+                'value' => $normalized['value'] ?? null,
+                'unit' => $normalized['unit'] ?? null,
+                'value_profile' => $normalized['value_profile'] ?? 'typ',
+                'value_mode' => $normalized['value_mode'] ?? 'single',
+                'value_numeric' => $normalized['value_numeric'] ?? null,
+                'value_numeric_typ' => $normalized['value_numeric_typ'] ?? null,
+                'value_numeric_min' => $normalized['value_numeric_min'] ?? null,
+                'value_numeric_max' => $normalized['value_numeric_max'] ?? null,
+                'normalized_unit' => $normalized['normalized_unit'] ?? null,
+            ]);
+        }
+    }
+
     private function syncAltiumLink(Component $component, array $altium): void
     {
         $payload = [
-            'sch_library_id' => !empty($altium['sch_library_id']) ? (int) $altium['sch_library_id'] : null,
+            'sch_library_id' => ! empty($altium['sch_library_id']) ? (int) $altium['sch_library_id'] : null,
             'sch_symbol' => $altium['sch_symbol'] ?? null,
-            'pcb_library_id' => !empty($altium['pcb_library_id']) ? (int) $altium['pcb_library_id'] : null,
+            'pcb_library_id' => ! empty($altium['pcb_library_id']) ? (int) $altium['pcb_library_id'] : null,
             'pcb_footprint' => $altium['pcb_footprint'] ?? null,
         ];
 
@@ -404,6 +464,7 @@ class ComponentController extends Controller
             if ($component->altiumLink) {
                 $component->altiumLink()->delete();
             }
+
             return;
         }
 
@@ -423,30 +484,106 @@ class ComponentController extends Controller
             $files[] = $request->file('datasheet');
         }
 
-        if ($files === []) {
+        $tempTokens = array_values(array_filter(array_map(
+            fn ($value) => trim((string) $value),
+            (array) $request->input('temp_datasheet_tokens', [])
+        )));
+
+        if ($files === [] && $tempTokens === []) {
+            $this->syncExistingDatasheetLabels($component, $request);
+
             return;
         }
 
-        foreach ($component->datasheets as $sheet) {
-            FileStorage::delete($sheet->file_path);
-        }
-        $component->datasheets()->delete();
+        $labels = array_values((array) $request->input('datasheet_labels', []));
+        $tempLabels = array_values((array) $request->input('temp_datasheet_labels', []));
 
+        $createdSheets = [];
         foreach (array_values($files) as $index => $file) {
             $path = FileStorage::storeComponentDatasheetNamed($file, [
                 $request->input('part_number', $component->part_number),
                 $request->input('common_name', $component->common_name),
                 $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
             ]);
-            $component->datasheets()->create([
+            $createdSheets[] = [
                 'file_path' => $path,
                 'original_name' => $file->getClientOriginalName(),
+                'note' => $this->normalizeDatasheetDisplayName($labels[$index] ?? null),
+            ];
+        }
+
+        if ($tempTokens !== []) {
+            $claimedTempSheets = app(TempDatasheetService::class)->claimMany(
+                $tempTokens,
+                $tempLabels,
+                [
+                    $request->input('part_number', $component->part_number),
+                    $request->input('common_name', $component->common_name),
+                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                ]
+            );
+
+            foreach ($claimedTempSheets as $sheet) {
+                $createdSheets[] = [
+                    'file_path' => $sheet['file_path'],
+                    'original_name' => $sheet['original_name'],
+                    'note' => $this->normalizeDatasheetDisplayName($sheet['display_name'] ?? null),
+                ];
+            }
+        }
+
+        $oldDatasheetPaths = $component->datasheets->pluck('file_path')->all();
+        $component->datasheets()->delete();
+
+        foreach ($createdSheets as $index => $sheet) {
+            $component->datasheets()->create([
+                'file_path' => $sheet['file_path'],
+                'original_name' => $sheet['original_name'],
                 'sort_order' => $index,
+                'note' => $sheet['note'],
             ]);
+        }
+
+        foreach ($oldDatasheetPaths as $oldPath) {
+            FileStorage::delete($oldPath);
         }
 
         $component->datasheet_path = $component->datasheets()->orderBy('sort_order')->value('file_path');
         $component->save();
+    }
+
+    private function syncExistingDatasheetLabels(Component $component, Request $request): void
+    {
+        $entries = $request->input('existing_datasheets');
+        if (! is_array($entries) || $entries === []) {
+            return;
+        }
+
+        $sheets = $component->datasheets()->get()->keyBy('id');
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $sheetId = (int) ($entry['id'] ?? 0);
+            if ($sheetId <= 0 || ! $sheets->has($sheetId)) {
+                continue;
+            }
+
+            $sheet = $sheets->get($sheetId);
+            $displayName = $this->normalizeDatasheetDisplayName($entry['display_name'] ?? null);
+            if ($sheet->note !== $displayName) {
+                $sheet->note = $displayName;
+                $sheet->save();
+            }
+        }
+    }
+
+    private function normalizeDatasheetDisplayName(mixed $value): ?string
+    {
+        $trimmed = trim((string) ($value ?? ''));
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function decorateComponent(Component $component): Component
@@ -487,8 +624,13 @@ class ComponentController extends Controller
         $component->datasheet_url = FileStorage::url($primarySheet?->file_path);
         $component->datasheet_path = $primarySheet?->file_path;
         if ($component->relationLoaded('datasheets')) {
-            $component->datasheets->transform(function (ComponentDatasheet $sheet) {
+            $datasheetCount = $component->datasheets->count();
+            $component->datasheets->transform(function (ComponentDatasheet $sheet, int $index) use ($datasheetCount) {
                 $sheet->url = FileStorage::url($sheet->file_path);
+                $sheet->display_name = $sheet->note
+                    ?: ($sheet->original_name
+                        ?: 'データシート'.($datasheetCount > 1 ? ' '.($index + 1) : ''));
+
                 return $sheet;
             });
         }
@@ -505,20 +647,20 @@ class ComponentController extends Controller
 
     private function assertPackageSelection(mixed $packageGroupId, mixed $packageId): void
     {
-        if ($packageGroupId && !$packageId) {
+        if ($packageGroupId && ! $packageId) {
             throw ValidationException::withMessages(['package_id' => '詳細パッケージを選択してください。']);
         }
 
-        if ($packageId && !$packageGroupId) {
+        if ($packageId && ! $packageGroupId) {
             throw ValidationException::withMessages(['package_group_id' => '先にパッケージ分類を選択してください。']);
         }
 
-        if (!$packageId) {
+        if (! $packageId) {
             return;
         }
 
         $package = Package::find($packageId);
-        if (!$package) {
+        if (! $package) {
             throw ValidationException::withMessages(['package_id' => '選択した詳細パッケージが存在しません。']);
         }
 

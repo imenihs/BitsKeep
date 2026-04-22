@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 import { useFormatter } from '../composables/useFormatter.js';
+import { SPEC_PROFILE_OPTIONS } from '../utils/specValue.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -19,6 +20,7 @@ export default function setup() {
     const advPackageId     = ref('');
     const advPackageQuery  = ref('');
     const advSpecTypeId    = ref('');
+    const advSpecProfile   = ref('typ');
     const advUnit          = ref('');
     const advMin           = ref('');
     const advMax           = ref('');
@@ -44,6 +46,7 @@ export default function setup() {
     const alertCount = ref(0);
     const listError = ref('');
     const masterError = ref('');
+    const specProfileOptions = SPEC_PROFILE_OPTIONS;
 
     // ── 比較リスト ────────────────────────────────────────────
     const compareList = ref([]);
@@ -98,6 +101,8 @@ export default function setup() {
         if (advSpecTypeId.value) {
             const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
             chips.push({ key: 'specType', label: `スペック: ${specName}` });
+            const profileLabel = specProfileOptions.find((item) => item.value === advSpecProfile.value)?.label ?? advSpecProfile.value;
+            chips.push({ key: 'specProfile', label: `照合基準: ${profileLabel}` });
         }
         if (advUnit.value) chips.push({ key: 'unit', label: `単位: ${advUnit.value}` });
         if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
@@ -134,7 +139,7 @@ export default function setup() {
         filterStatus.value = ''; advancedOpen.value = false;
         favoriteOnly.value = false;
         advManufacturer.value = ''; advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = '';
-        advSpecTypeId.value = ''; advUnit.value = ''; advMin.value = '';
+        advSpecTypeId.value = ''; advSpecProfile.value = 'typ'; advUnit.value = ''; advMin.value = '';
         advMax.value = ''; advMinStock.value = '';
         advInventoryState.value = ''; advPurchasedFrom.value = ''; advPurchasedTo.value = '';
     };
@@ -149,6 +154,7 @@ export default function setup() {
         else if (key === 'packageGroup') { advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = ''; }
         else if (key === 'package') advPackageId.value = '';
         else if (key === 'specType') advSpecTypeId.value = '';
+        else if (key === 'specProfile') advSpecProfile.value = 'typ';
         else if (key === 'unit') advUnit.value = '';
         else if (key === 'specMin') advMin.value = '';
         else if (key === 'specMax') advMax.value = '';
@@ -180,6 +186,7 @@ export default function setup() {
             if (advPackageGroupId.value)     params.set('package_group_id', advPackageGroupId.value);
             if (advPackageId.value)          params.set('package_id', advPackageId.value);
             if (advSpecTypeId.value)         params.set('spec_type_id', advSpecTypeId.value);
+            if (advSpecTypeId.value && advSpecProfile.value) params.set('spec_profile', advSpecProfile.value);
             if (advUnit.value)               params.set('spec_unit', advUnit.value);
             if (advMin.value)                params.set('spec_min', advMin.value);
             if (advMax.value)                params.set('spec_max', advMax.value);
@@ -230,7 +237,7 @@ export default function setup() {
     };
 
     // フィルタ変更でページリセット
-    watch([searchQuery, filterCategories, filterStatus, favoriteOnly, advManufacturer, advPackageGroupId, advPackageId, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
+    watch([searchQuery, filterCategories, filterStatus, favoriteOnly, advManufacturer, advPackageGroupId, advPackageId, advSpecTypeId, advSpecProfile, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo, sortOrder], () => {
         page.value = 1;
         fetchParts();
     });
@@ -266,12 +273,13 @@ export default function setup() {
 
     return {
         toasts, searchQuery, filterCategories, filterStatus, favoriteOnly,
-        advancedOpen, advManufacturer, packageGroups, advPackageGroupId, advPackageId, advPackageQuery, filteredAdvancedPackages, advSpecTypeId, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
+        advancedOpen, advManufacturer, packageGroups, advPackageGroupId, advPackageId, advPackageQuery, filteredAdvancedPackages, advSpecTypeId, advSpecProfile, advUnit, advMin, advMax, advMinStock, advInventoryState, advPurchasedFrom, advPurchasedTo,
         sortOrder,
         page, perPage, total, lastPage,
         parts, categories, packages, specTypes, loading, alertCount, listError, masterError, fetchMasters,
         compareList, toggleCompare, inCompare,
         compareUrl,
+        specProfileOptions,
         selectedCategoryNames, activeFilterChips, hasFilter, clearFilters, removeFilterChip, fetchParts, emptyState, isFiltered,
         favoriteIds, handleToggleFavorite, isFavorite,
         procurementLabel, procurementClass,

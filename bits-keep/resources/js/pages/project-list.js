@@ -222,6 +222,8 @@ export default function setup() {
         }
 
         const run = lastSyncRun.value;
+        const businessResults = Array.isArray(run.business_results) ? run.business_results : [];
+        const blockingBusinesses = businessResults.filter((item) => item.status === 'error' || Number(item.synced_count || 0) === 0);
 
         if (run.status === 'running') {
             return {
@@ -240,6 +242,18 @@ export default function setup() {
                 badge: '0件',
                 title: '同期対象が見つからない',
                 summary: run.error_detail,
+                actionLabel: '再同期',
+                actionType: 'sync',
+            };
+        }
+
+        if (run.status === 'success' && blockingBusinesses.length > 0) {
+            const first = blockingBusinesses[0];
+            return {
+                tone: 'warning',
+                badge: '要確認',
+                title: `${run.synced_count}件を同期済み / 一部事業を確認`,
+                summary: `[${first.business_code}] ${first.business_name}: ${first.message || '0件でした'}`,
                 actionLabel: '再同期',
                 actionType: 'sync',
             };
@@ -273,12 +287,17 @@ export default function setup() {
         fetchSyncStatus();
     };
 
+    const businessSyncResults = computed(() => {
+        if (!Array.isArray(lastSyncRun.value?.business_results)) return [];
+        return lastSyncRun.value.business_results;
+    });
+
     onMounted(() => { fetchProjects(); reloadSupportData(); });
 
     return {
         toasts, projects, meta, loading, filters, modal, businesses,
         detailProject, costSummary, addCompForm,
-        syncing, lastSyncRun, syncPanel, syncConfig, supportError, detailError, reloadSupportData,
+        syncing, lastSyncRun, syncPanel, syncConfig, supportError, detailError, reloadSupportData, businessSyncResults,
         fetchProjects, openDetail, openAdd, openEdit, save, deleteProject,
         searchComponents, selectComp, addComponent, removeComponent,
         statusLabel, statusClass, sourceLabel, sourceClass,

@@ -12,8 +12,8 @@ use Illuminate\Support\Collection;
 class SpecTypeMatchingService
 {
     /**
-     * @param  array<array{name: string, value: string, unit: string}>  $specs
-     * @return array<array{name: string, value: string, unit: string, spec_type_id: int|null, matched: bool}>
+     * @param  array<int, array<string, mixed>>  $specs
+     * @return array<int, array<string, mixed>>
      */
     public function match(array $specs): array
     {
@@ -22,8 +22,8 @@ class SpecTypeMatchingService
         }
 
         // DB から全 spec_type を取得（アーカイブ済みは除外）
-        $specTypes = SpecType::select('id', 'name', 'symbol', 'unit')
-            ->whereNull('deleted_at')
+        $specTypes = SpecType::query()
+            ->select('id', 'name')
             ->get();
 
         return array_map(fn ($spec) => $this->matchOne($spec, $specTypes), $specs);
@@ -32,29 +32,33 @@ class SpecTypeMatchingService
     private function matchOne(array $spec, Collection $specTypes): array
     {
         $name = $spec['name'] ?? '';
-
-        // 1. 完全一致（大文字小文字・スペース無視）
         $normalized = $this->normalize($name);
-        $matched = $specTypes->first(
-            fn ($st) => $this->normalize($st->name) === $normalized
-                     || $this->normalize($st->symbol ?? '') === $normalized
-        );
+        $matched = null;
 
-        // 2. 部分一致（Geminiが長い条件名を返した場合に備える）
-        if (! $matched) {
+        if ($normalized !== '') {
+            // 1. 完全一致（大文字小文字・スペース無視）
             $matched = $specTypes->first(
-                fn ($st) => str_contains($normalized, $this->normalize($st->name))
-                         || str_contains($normalized, $this->normalize($st->symbol ?? ''))
+                fn ($st) => $this->normalize($st->name) === $normalized
             );
+
+            // 2. 部分一致（Geminiが長い条件名を返した場合に備える）
+            if (! $matched) {
+                $matched = $specTypes->first(function ($st) use ($normalized) {
+                    $specTypeName = $this->normalize($st->name);
+
+                    return $specTypeName !== ''
+                        && (str_contains($normalized, $specTypeName) || str_contains($specTypeName, $normalized));
+                });
+            }
         }
 
-        return [
-            'name'         => $name,
-            'value'        => $spec['value'] ?? '',
-            'unit'         => $spec['unit'] ?? '',
+        return array_merge($spec, [
+            'name' => $name,
+            'value' => $spec['value'] ?? '',
+            'unit' => $spec['unit'] ?? '',
             'spec_type_id' => $matched?->id,
-            'matched'      => $matched !== null,
-        ];
+            'matched' => $matched !== null,
+        ]);
     }
 
     private function normalize(string $s): string
