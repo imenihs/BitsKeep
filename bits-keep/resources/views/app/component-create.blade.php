@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  @include('partials.theme-init')
+@include('partials.theme-init')
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>部品登録/編集 - BitsKeep</title>
@@ -9,9 +9,11 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
+@php($chatGptHelperUrl = url('/tampermonkey/bitskeep-chatgpt-helper.user.js').'?v='.filemtime(public_path('tampermonkey/bitskeep-chatgpt-helper.user.js')))
+@php($chatGptHelperMinVersion = config('services.chatgpt_helper.min_version'))
 @php($canEdit = auth()->user()->isEditor())
 @include('partials.app-header', ['current' => isset($id) ? '部品編集' : '部品登録'])
-<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" data-can-create-supplier="{{ auth()->user()->isAdmin() ? '1' : '0' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
+<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" data-can-create-supplier="{{ auth()->user()->isAdmin() ? '1' : '0' }}" data-chatgpt-helper-min-version="{{ $chatGptHelperMinVersion }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [
     ['label' => '部品一覧', 'url' => route('components.index')],
     ['label' => isset($id) ? '部品編集' : '部品登録', 'current' => true],
@@ -61,7 +63,12 @@
           <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
           <div class="mt-3 grid grid-cols-3 gap-2">
             <button type="button" @click="beginAiAction('chatgpt')"
-              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-primary)] bg-[var(--color-primary)] px-2 py-2 text-[11px] leading-tight text-white transition-colors hover:opacity-90">
+              :disabled="!hasDatasheetForAi"
+              :title="hasDatasheetForAi ? '' : '先にデータシートPDFを選択してください'"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border px-2 py-2 text-[11px] leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              :class="hasDatasheetForAi
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:opacity-90'
+                : 'border-[var(--color-border)] bg-[var(--color-card-even)] text-[var(--color-text)]'">
               🤖 ChatGPTで自動入力
             </button>
             <button type="button" @click="openChatGPTPaste"
@@ -69,7 +76,12 @@
               📋 ChatGPTから貼り付け
             </button>
             <button type="button" @click="beginAiAction('gemini')"
-              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-primary)] px-2 py-2 text-[11px] leading-tight text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary)]/10">
+              :disabled="!hasDatasheetForAi || analyzing"
+              :title="hasDatasheetForAi ? '' : '先にデータシートPDFを選択してください'"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border px-2 py-2 text-[11px] leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              :class="hasDatasheetForAi
+                ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
+                : 'border-[var(--color-border)] text-[var(--color-text)]'">
               <span v-if="analyzing">⏳ 解析中...</span>
               <span v-else>✨ Geminiで自動入力</span>
             </button>
@@ -449,6 +461,20 @@
     </div>
   </div>
 
+  <div v-if="isChatGptJobBusy && !showChatGptRunModal" class="modal-overlay" style="z-index:8450" role="alertdialog" aria-modal="true" aria-busy="true">
+    <div class="modal-window modal-sm p-6 text-center" @click.stop>
+      <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
+      <h3 class="mt-4 text-lg font-bold">ChatGPTで解析中</h3>
+      <p class="mt-2 text-sm opacity-70">ChatGPT タブでデータシートを解析しています。完了までこの画面は操作できません。</p>
+      <p class="mt-2 text-xs opacity-60">@{{ chatGptJob.detail || '処理状況を確認しています。' }}</p>
+      <p class="mt-1 text-[11px] opacity-50">解析完了後は候補確認モーダルを表示します。</p>
+      <button type="button" @click="hardResetChatGptJob" class="mt-4 inline-flex min-h-11 items-center justify-center rounded border border-[var(--color-tag-eol)] px-4 py-2 text-sm font-medium text-[var(--color-tag-eol)]">
+        ジョブを破棄してリセット
+      </button>
+      <p class="mt-2 text-[11px] opacity-45">止まったときはこのボタンで前回ジョブを破棄して、最初からやり直してください。</p>
+    </div>
+  </div>
+
   <div v-if="showDatasheetManagerModal" class="modal-overlay" v-esc="closeDatasheetManager">
     <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-start justify-between gap-4">
@@ -490,14 +516,84 @@
     </div>
   </div>
 
+  <div v-if="showChatGptHelperUpdateModal" class="modal-overlay" v-esc="closeChatGptHelperUpdateModal">
+    <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold">@{{ chatGptHelperCheckStatus === 'success' ? 'Tampermonkey helper は最新です' : (chatGptHelperIssue ? chatGptHelperIssue.title : 'Tampermonkey helper を確認しました') }}</h3>
+          <p class="mt-2 text-sm opacity-75">
+            @{{ chatGptHelperCheckStatus === 'success' ? '更新済み helper を検出しました。ChatGPT自動入力を続行できます。' : (chatGptHelperIssue ? chatGptHelperIssue.body : '更新済み helper を検出しました。ChatGPT自動入力を続行できます。') }}
+          </p>
+        </div>
+        <button type="button" @click="closeChatGptHelperUpdateModal" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+
+      <div v-if="chatGptHelperCheckStatus !== 'success'" class="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <div class="text-sm font-semibold">更新手順</div>
+        <ol class="mt-3 space-y-2 text-sm opacity-80">
+          <li>1. 下の <strong>userscript を更新</strong> を押す</li>
+          <li>2. Tampermonkey の画面で <strong>再インストール</strong> または <strong>更新</strong> を承認する</li>
+          <li>3. 下の <strong>再読込して反映</strong> を押し、この部品登録画面に更新版を反映する</li>
+          <li>4. 再読込後に `helper v{{ $chatGptHelperMinVersion }}` 以上の成功トーストが出れば完了。旧版のままならこのダイアログが再表示される</li>
+        </ol>
+        <p class="mt-3 text-xs opacity-60">Tampermonkey の更新は、いま開いている BitsKeep 画面へ自動反映されません。更新後はこの画面の再読込が必要です。</p>
+        <p v-if="chatGptJob.helperVersion" class="mt-3 text-xs opacity-60">現在検出中の helper: v@{{ chatGptJob.helperVersion }}</p>
+        <p v-else class="mt-3 text-xs opacity-60">現在検出中の helper: 不明</p>
+      </div>
+
+      <div v-if="chatGptHelperCheckMessage" class="mt-4 rounded-2xl border p-4"
+        :class="chatGptHelperCheckStatus === 'success'
+          ? 'border-[var(--color-tag-ok)] bg-[var(--color-tag-ok)]/10'
+          : 'border-[var(--color-tag-warning)] bg-[var(--color-tag-warning)]/10'">
+        <div class="text-sm font-semibold">
+          @{{ chatGptHelperCheckStatus === 'success' ? '確認結果' : '再確認結果' }}
+        </div>
+        <p class="mt-2 text-sm opacity-80">@{{ chatGptHelperCheckMessage }}</p>
+      </div>
+
+      <div v-if="chatGptHelperCheckStatus === 'success'" class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" @click="closeChatGptHelperUpdateModal"
+          class="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-5 py-2 text-sm font-medium leading-none">
+          閉じる
+        </button>
+        <div class="flex justify-end">
+          <button type="button" @click="openChatGptRun"
+            class="btn-primary inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded px-5 py-2 text-sm font-medium leading-none">
+            ChatGPT自動解析を開く
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="mt-6 flex flex-col gap-3">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <a href="{{ $chatGptHelperUrl }}" target="_blank" rel="noreferrer"
+            class="btn-primary inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded px-5 py-2 text-sm font-medium leading-none no-underline text-inherit">
+            userscript を更新
+          </a>
+          <button type="button" @click="reloadForChatGptHelperUpdate"
+            class="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded border border-[var(--color-primary)] px-5 py-2 text-sm font-medium leading-none text-[var(--color-primary)]">
+            再読込して反映
+          </button>
+        </div>
+        <div class="flex justify-start sm:justify-end">
+          <button type="button" @click="closeChatGptHelperUpdateModal"
+            class="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-5 py-2 text-sm font-medium leading-none">
+          あとで
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div v-if="showChatGptRunModal" class="modal-overlay" v-esc="closeChatGptRun">
     <div class="modal-window modal-lg p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-start justify-between gap-4">
         <div>
           <h3 class="text-lg font-bold">ChatGPT自動解析</h3>
           <p class="mt-2 text-sm opacity-70">実行条件の確認、進行状況の把握、fallback への切り替えをこのモーダルに集約しています。</p>
+          <p v-if="isChatGptJobBusy" class="mt-2 text-xs text-[var(--color-tag-warning)]">解析中はこのモーダルを閉じず、部品登録画面の操作をロックしています。</p>
         </div>
-        <button type="button" @click="closeChatGptRun" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+        <button type="button" @click="closeChatGptRun" :disabled="!canDismissChatGptRun" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-20">✕</button>
       </div>
 
       <div class="mt-5 grid gap-3 md:grid-cols-2">
@@ -526,6 +622,9 @@
       <div class="mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
         <div class="text-sm font-semibold">次にやること</div>
         <p class="mt-2 text-sm opacity-75">@{{ chatGptGuideReason || showChatGptRunHint }}</p>
+        <p v-if="chatGptJob.connected && chatGptJob.helperVersion && !isChatGptHelperVersionCompatible()" class="mt-2 text-xs text-[var(--color-tag-warning)]">
+          userscript が旧版です。下の「userscript を更新」を押し、Tampermonkey の更新画面で置き換えてください。
+        </p>
         <p v-if="chatGptJob.detail" class="mt-2 text-xs opacity-60">@{{ chatGptJob.detail }}</p>
         <p v-if="chatGptJob.error" class="mt-2 text-xs text-[var(--color-tag-eol)]">@{{ chatGptJob.error }}</p>
       </div>
@@ -545,22 +644,29 @@
 
       <div class="mt-6 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex flex-wrap gap-2">
-          <button v-if="datasheetFiles.length > 1" type="button" @click="openDatasheetManager" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+          <button v-if="datasheetFiles.length > 1" type="button" @click="openDatasheetManager" :disabled="isChatGptJobBusy" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm disabled:cursor-not-allowed disabled:opacity-40">
             解析対象を選び直す
           </button>
-          <a href="{{ url('/tampermonkey/bitskeep-chatgpt-helper.user.js') }}" target="_blank" rel="noreferrer"
+          <a href="{{ $chatGptHelperUrl }}" target="_blank" rel="noreferrer"
+            :class="isChatGptJobBusy ? 'pointer-events-none opacity-40' : ''"
             class="px-4 py-2 rounded border border-[var(--color-border)] text-sm no-underline text-inherit">
-            userscript を開く
+            userscript を更新
           </a>
-          <button type="button" @click="openPasteFallbackFromGuide" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+          <button type="button" @click="openChatGptHelperUpdateModal" :disabled="isChatGptJobBusy" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm disabled:cursor-not-allowed disabled:opacity-40">
+            更新手順
+          </button>
+          <button type="button" @click="openPasteFallbackFromGuide" :disabled="isChatGptJobBusy" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm disabled:cursor-not-allowed disabled:opacity-40">
             手動貼り付けへ
           </button>
-          <button type="button" v-if="chatGPTPasteText.trim()" @click="copyChatGptFallbackText" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm">
+          <button type="button" @click="hardResetChatGptJob" class="px-4 py-2 rounded border border-[var(--color-tag-eol)] text-sm text-[var(--color-tag-eol)]">
+            ジョブを破棄してリセット
+          </button>
+          <button type="button" v-if="chatGPTPasteText.trim()" @click="copyChatGptFallbackText" :disabled="isChatGptJobBusy" class="px-4 py-2 rounded border border-[var(--color-border)] text-sm disabled:cursor-not-allowed disabled:opacity-40">
             応答テキストをコピー
           </button>
         </div>
         <button type="button" @click="startChatGPTAutoFill"
-          :disabled="!canStartChatGptAutoFill"
+          :disabled="!canStartChatGptAutoFill || isChatGptJobBusy"
           class="btn-primary px-5 py-2 rounded text-sm disabled:opacity-50">
           @{{ chatGptJob.state === 'idle' ? '解析を開始' : '再実行する' }}
         </button>

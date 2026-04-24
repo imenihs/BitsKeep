@@ -38,6 +38,11 @@ body {
     font-family: 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic', sans-serif;
 }
 
+html.modal-open,
+body.modal-open {
+    overflow: hidden;
+}
+
 .app-shell-header {
     position: sticky;
     top: 0;
@@ -449,6 +454,7 @@ img.thumbnail {
     padding: 1rem;
     background: rgb(15 23 42 / 0.45);
     backdrop-filter: blur(2px);
+    overscroll-behavior: contain;
 }
 
 .modal-overlay.modal-top {
@@ -463,6 +469,7 @@ img.thumbnail {
     background: var(--color-card-odd);
     color: var(--color-text);
     box-shadow: 0 24px 60px rgb(15 23 42 / 0.22);
+    overscroll-behavior: contain;
 }
 
 .modal-window.modal-sm {

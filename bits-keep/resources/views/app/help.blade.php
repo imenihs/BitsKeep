@@ -168,13 +168,22 @@
           <li>保存成功後は正式 datasheet へ確定され、一時 token は再利用できません</li>
           <li>JSON 抽出失敗時は、取得済み応答テキストをコピーして手動貼り付けへ退避できます</li>
         </ul>
+        @php($chatGptHelperUrl = url('/tampermonkey/bitskeep-chatgpt-helper.user.js').'?v='.filemtime(public_path('tampermonkey/bitskeep-chatgpt-helper.user.js')))
+        @php($chatGptHelperMinVersion = config('services.chatgpt_helper.min_version'))
         <h4 class="font-medium mb-1 opacity-80">Tampermonkey 導入手順</h4>
         <ol class="space-y-2 mb-5">
-          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><code>bits-keep/public/tampermonkey/bitskeep-chatgpt-helper.user.js</code> を Tampermonkey へインストールする</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><a href="{{ $chatGptHelperUrl }}" target="_blank" rel="noreferrer" class="link-text">userscript を開く</a> から Tampermonkey へインストールする</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><code>https://bits-keep.rwc.0t0.jp/*</code> と <code>https://chatgpt.com/*</code> への実行を許可する</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80">ChatGPT にログインした状態で部品登録画面を再読込する</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80">PDF を選択して <strong>ChatGPTで自動入力</strong> を押す</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80">自動化が失敗したら案内モーダルから <strong>ChatGPTから貼り付け</strong> へ切り替える</span></li>
+        </ol>
+        <h4 class="font-medium mb-1 opacity-80">userscript 更新手順</h4>
+        <ol class="space-y-2 mb-5">
+          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80">部品登録画面の <strong>ChatGPT自動解析</strong> モーダルで <strong>userscript を更新</strong> を押す</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80">Tampermonkey の更新確認画面で <strong>再インストール</strong> または <strong>更新</strong> を承認する</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>再読込して反映</strong> を押して、部品登録画面へ更新版 userscript を反映する</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80">再読込後に <strong>helper v{{ $chatGptHelperMinVersion }}</strong> 以上の成功トーストが出れば更新完了。旧版のままなら更新ダイアログが再表示される</span></li>
         </ol>
 
         <h3 class="font-semibold mb-3">既存部品を複製して登録する</h3>

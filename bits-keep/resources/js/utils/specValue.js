@@ -17,6 +17,11 @@ const PREFIX_FACTORS = {
     f: 1e-15,
 };
 
+const ENGINEERING_VALUE_PREFIX_FACTORS = {
+    ...PREFIX_FACTORS,
+    K: 1e3,
+};
+
 const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
 const RANGE_SPLIT_PATTERN = /\s*(?:〜|~|～|to)\s*/iu;
 const TRIPLE_SPLIT_PATTERN = /\s*(?:\/|／|\|)\s*/u;
@@ -180,8 +185,8 @@ export const normalizeSpecDraft = (spec, specType) => {
     const profileLabel = getSpecProfileLabel(payload.value_profile);
 
     if (payload.value_profile === 'range') {
-        const min = parseNumber(payload.value_min);
-        const max = parseNumber(payload.value_max);
+        const min = parseEngineeringNumber(payload.value_min);
+        const max = parseEngineeringNumber(payload.value_max);
         if (min === null || max === null) {
             return {
                 hasNumeric: false,
@@ -191,10 +196,11 @@ export const normalizeSpecDraft = (spec, specType) => {
             };
         }
 
-        const orderedMin = Math.min(min, max);
-        const orderedMax = Math.max(min, max);
-        const canonicalMin = orderedMin * factor;
-        const canonicalMax = orderedMax * factor;
+        let canonicalMin = min.value * min.factor * factor;
+        let canonicalMax = max.value * max.factor * factor;
+        if (canonicalMin > canonicalMax) {
+            [canonicalMin, canonicalMax] = [canonicalMax, canonicalMin];
+        }
         const humanized = humanizeRange(canonicalMin, canonicalMax, normalizedUnit, resolvedUnit);
 
         return {
@@ -207,9 +213,9 @@ export const normalizeSpecDraft = (spec, specType) => {
     }
 
     if (payload.value_profile === 'triple') {
-        const min = parseNumber(payload.value_min);
-        const typ = parseNumber(payload.value_typ);
-        const max = parseNumber(payload.value_max);
+        const min = parseEngineeringNumber(payload.value_min);
+        const typ = parseEngineeringNumber(payload.value_typ);
+        const max = parseEngineeringNumber(payload.value_max);
         if (min === null || typ === null || max === null) {
             return {
                 hasNumeric: false,
@@ -219,9 +225,9 @@ export const normalizeSpecDraft = (spec, specType) => {
             };
         }
 
-        const canonicalMin = min * factor;
-        const canonicalTyp = typ * factor;
-        const canonicalMax = max * factor;
+        const canonicalMin = min.value * min.factor * factor;
+        const canonicalTyp = typ.value * typ.factor * factor;
+        const canonicalMax = max.value * max.factor * factor;
         const humanized = humanizeTriple(canonicalMin, canonicalTyp, canonicalMax, normalizedUnit, resolvedUnit);
 
         return {
@@ -237,7 +243,7 @@ export const normalizeSpecDraft = (spec, specType) => {
         : payload.value_profile === 'min_only' ? 'value_min'
             : 'value_typ';
     const rawValue = payload[singleKey];
-    const number = parseNumber(rawValue);
+    const number = parseEngineeringNumber(rawValue);
     if (number === null) {
         return {
             hasNumeric: false,
@@ -247,7 +253,7 @@ export const normalizeSpecDraft = (spec, specType) => {
         };
     }
 
-    const canonical = number * factor;
+    const canonical = number.value * number.factor * factor;
     const humanized = humanizeSingle(canonical, normalizedUnit, resolvedUnit);
     const kindLabel = payload.value_profile === 'max_only'
         ? 'max'
@@ -475,21 +481,45 @@ const extractInlineUnit = (value) => {
 
 const pregMatch = (pattern, value) => pattern.test(value);
 
-const parseNumber = (value) => {
+const parseEngineeringNumber = (value) => {
     const normalized = cleanText(value)
         .replace(/,/g, '')
         .replace(/\s+/g, '');
 
     if (!normalized) return null;
-    if (!/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(normalized)) {
+
+    const matches = normalized.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([YZEPTGMkKmunpfµμ]?)$/u);
+    if (!matches) {
         return null;
     }
 
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : null;
+    const parsed = Number(matches[1]);
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+
+    const rawPrefix = matches[2] || '';
+    const prefix = rawPrefix === 'µ' || rawPrefix === 'μ' ? 'u' : rawPrefix;
+    if (!Object.hasOwn(ENGINEERING_VALUE_PREFIX_FACTORS, prefix)) {
+        return null;
+    }
+
+    return {
+        value: parsed,
+        factor: ENGINEERING_VALUE_PREFIX_FACTORS[prefix],
+    };
 };
 
-const normalizeUnitLabel = (value) => cleanText(value).replaceAll('μ', 'u').replaceAll('µ', 'u');
+const normalizeUnitLabel = (value) => {
+    const normalized = cleanText(value)
+        .replaceAll('μ', 'u')
+        .replaceAll('µ', 'u')
+        .replaceAll('Ω', 'Ω')
+        .replace(/\bohms?\b/iu, 'Ω')
+        .replace(/\bohm\b/iu, 'Ω');
+
+    return normalized.replace(/^K(?=[A-Za-zΩ])/u, 'k');
+};
 
 const buildRangeLabel = (min, max) => [cleanText(min), cleanText(max)].filter(Boolean).join(' 〜 ');
 const buildTripleLabel = (min, typ, max) => [cleanText(min), cleanText(typ), cleanText(max)].filter(Boolean).join(' / ');

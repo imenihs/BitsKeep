@@ -27,6 +27,14 @@ class ComponentHelperController extends Controller
         DatasheetPromptService $promptService,
         TempDatasheetService $tempDatasheets
     ): JsonResponse {
+        $startedAt = microtime(true);
+        Log::info('ComponentHelper createChatGptJob start', [
+            'user_id' => $request->user()?->id,
+            'content_length' => $request->server('CONTENT_LENGTH'),
+            'target_index' => $request->input('target_index'),
+            'datasheet_count' => count((array) $request->file('datasheets', [])),
+        ]);
+
         $request->validate([
             'datasheets' => ['required', 'array', 'min:1'],
             'datasheets.*' => ['file', 'mimes:pdf', 'max:20480'],
@@ -44,6 +52,10 @@ class ComponentHelperController extends Controller
         try {
             $entries = $tempDatasheets->createMany($files, (array) $request->input('datasheet_labels', []));
         } catch (\InvalidArgumentException $e) {
+            Log::warning('ComponentHelper createChatGptJob validation/runtime failure', [
+                'message' => $e->getMessage(),
+                'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+            ]);
             return ApiResponse::validationError(['datasheets' => [$e->getMessage()]]);
         } catch (\RuntimeException $e) {
             Log::error('ComponentHelper createChatGptJob failed', ['message' => $e->getMessage()]);
@@ -54,8 +66,16 @@ class ComponentHelperController extends Controller
         $targetEntry = $entries[$targetIndex];
         $expiresAt = Carbon::parse($targetEntry['expires_at']);
 
+        Log::info('ComponentHelper createChatGptJob success', [
+            'user_id' => $request->user()?->id,
+            'job_id' => $jobId = (string) Str::uuid(),
+            'datasheet_count' => count($entries),
+            'target_index' => $targetIndex,
+            'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+        ]);
+
         return ApiResponse::success([
-            'job_id' => (string) Str::uuid(),
+            'job_id' => $jobId,
             'prompt_text' => $promptService->getPromptText(),
             'target_index' => $targetIndex,
             'temp_upload_token' => $targetEntry['token'],

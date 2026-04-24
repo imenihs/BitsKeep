@@ -25,6 +25,26 @@ class SpecValueNormalizerService
         'f' => 1e-15,
     ];
 
+    private const ENGINEERING_VALUE_PREFIX_FACTORS = [
+        'Y' => 1e24,
+        'Z' => 1e21,
+        'E' => 1e18,
+        'P' => 1e15,
+        'T' => 1e12,
+        'G' => 1e9,
+        'M' => 1e6,
+        'k' => 1e3,
+        'K' => 1e3,
+        '' => 1.0,
+        'm' => 1e-3,
+        'u' => 1e-6,
+        'µ' => 1e-6,
+        'μ' => 1e-6,
+        'n' => 1e-9,
+        'p' => 1e-12,
+        'f' => 1e-15,
+    ];
+
     private const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
 
     private const RANGE_SPLIT_PATTERN = '/\s*(?:〜|~|～|to)\s*/iu';
@@ -94,7 +114,7 @@ class SpecValueNormalizerService
 
     public function normalizeSearchBound(?SpecType $specType, mixed $value, ?string $unit): ?float
     {
-        $parsedValue = $this->parseNumber($value);
+        $parsedValue = $this->parseEngineeringNumber($value);
         if ($parsedValue === null) {
             return null;
         }
@@ -103,7 +123,7 @@ class SpecValueNormalizerService
         $baseUnit = trim((string) ($specType?->base_unit ?? ''));
         $factor = $this->resolveFactor($specType, $normalizedUnit, $baseUnit);
 
-        return $parsedValue * $factor;
+        return $parsedValue['value'] * $parsedValue['factor'] * $factor;
     }
 
     /**
@@ -149,8 +169,8 @@ class SpecValueNormalizerService
 
     private function normalizeSinglePayload(string $profile, string $rawValue, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
     {
-        $number = $this->parseNumber($rawValue);
-        if ($number === null) {
+        $parsed = $this->parseEngineeringNumber($rawValue);
+        if ($parsed === null) {
             return [
                 'value_profile' => $profile,
                 'value' => trim($rawValue),
@@ -164,7 +184,7 @@ class SpecValueNormalizerService
             ];
         }
 
-        $canonical = $number * $factor;
+        $canonical = $parsed['value'] * $parsed['factor'] * $factor;
         [$displayValue, $displayUnit] = $this->humanizeSingle($canonical, $normalizedUnit, $resolvedUnit);
 
         return [
@@ -182,8 +202,8 @@ class SpecValueNormalizerService
 
     private function normalizeRangePayload(string $rawMin, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
     {
-        $min = $this->parseNumber($rawMin);
-        $max = $this->parseNumber($rawMax);
+        $min = $this->parseEngineeringNumber($rawMin);
+        $max = $this->parseEngineeringNumber($rawMax);
 
         if ($min === null || $max === null) {
             return [
@@ -199,12 +219,12 @@ class SpecValueNormalizerService
             ];
         }
 
-        if ($min > $max) {
-            [$min, $max] = [$max, $min];
+        $canonicalMin = $min['value'] * $min['factor'] * $factor;
+        $canonicalMax = $max['value'] * $max['factor'] * $factor;
+        if ($canonicalMin > $canonicalMax) {
+            [$canonicalMin, $canonicalMax] = [$canonicalMax, $canonicalMin];
         }
 
-        $canonicalMin = $min * $factor;
-        $canonicalMax = $max * $factor;
         [$displayMin, $displayMax, $displayUnit] = $this->humanizeRange($canonicalMin, $canonicalMax, $normalizedUnit, $resolvedUnit);
 
         return [
@@ -222,9 +242,9 @@ class SpecValueNormalizerService
 
     private function normalizeTriplePayload(string $rawMin, string $rawTyp, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
     {
-        $min = $this->parseNumber($rawMin);
-        $typ = $this->parseNumber($rawTyp);
-        $max = $this->parseNumber($rawMax);
+        $min = $this->parseEngineeringNumber($rawMin);
+        $typ = $this->parseEngineeringNumber($rawTyp);
+        $max = $this->parseEngineeringNumber($rawMax);
 
         if ($min === null || $typ === null || $max === null) {
             return [
@@ -240,13 +260,12 @@ class SpecValueNormalizerService
             ];
         }
 
-        if ($min > $max) {
-            [$min, $max] = [$max, $min];
+        $canonicalMin = $min['value'] * $min['factor'] * $factor;
+        $canonicalTyp = $typ['value'] * $typ['factor'] * $factor;
+        $canonicalMax = $max['value'] * $max['factor'] * $factor;
+        if ($canonicalMin > $canonicalMax) {
+            [$canonicalMin, $canonicalMax] = [$canonicalMax, $canonicalMin];
         }
-
-        $canonicalMin = $min * $factor;
-        $canonicalTyp = $typ * $factor;
-        $canonicalMax = $max * $factor;
         [$displayMin, $displayTyp, $displayMax, $displayUnit] = $this->humanizeTriple($canonicalMin, $canonicalTyp, $canonicalMax, $normalizedUnit, $resolvedUnit);
 
         return [
@@ -499,9 +518,45 @@ class SpecValueNormalizerService
         return is_finite($parsed) ? $parsed : null;
     }
 
+    /**
+     * @return array{value: float, factor: float}|null
+     */
+    private function parseEngineeringNumber(mixed $value): ?array
+    {
+        $normalized = trim((string) $value);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $normalized = str_replace(['，', ',', '−', '–', '—'], ['', '', '-', '-', '-'], $normalized);
+        $normalized = preg_replace('/\s+/u', '', $normalized) ?? $normalized;
+
+        if (preg_match('/^([+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?)([YZEPTGMkKmunpfµμ]?)$/u', $normalized, $matches) !== 1) {
+            return null;
+        }
+
+        $parsed = (float) $matches[1];
+        if (! is_finite($parsed)) {
+            return null;
+        }
+
+        $prefix = (string) ($matches[2] ?? '');
+        if (! array_key_exists($prefix, self::ENGINEERING_VALUE_PREFIX_FACTORS)) {
+            return null;
+        }
+
+        return [
+            'value' => $parsed,
+            'factor' => self::ENGINEERING_VALUE_PREFIX_FACTORS[$prefix],
+        ];
+    }
+
     private function normalizeUnitLabel(string $unit): string
     {
-        return trim(str_replace(['μ', 'µ'], 'u', $unit));
+        $normalized = trim(str_replace(['μ', 'µ', 'Ω'], ['u', 'u', 'Ω'], $unit));
+        $normalized = preg_replace('/\bohms?\b/iu', 'Ω', $normalized) ?? $normalized;
+
+        return preg_replace('/^K(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
     }
 
     private function formatDecimal(float $value, int $scale): string

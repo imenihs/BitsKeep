@@ -57,4 +57,8 @@ return [
         ],
     ],
 
+    'chatgpt_helper' => [
+        'min_version' => env('CHATGPT_HELPER_MIN_VERSION', '0.1.34'),
+    ],
+
 ];
