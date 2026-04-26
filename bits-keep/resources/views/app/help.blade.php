@@ -139,7 +139,7 @@
             <tr><td>詳細パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> を指定して入力。候補にない種別は行内の「+」から追加でき、基底単位換算は自動表示</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にない種別は行内の「+」から追加可能</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
             <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
