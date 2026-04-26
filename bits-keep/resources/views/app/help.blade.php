@@ -85,7 +85,7 @@
         <ol class="space-y-3">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><strong>分類を登録する</strong> — 「マスタ管理 → 分類」で「抵抗」「コンデンサ」「FPGA」などを追加します。部品には複数の分類を付けられます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><strong>パッケージ分類と詳細パッケージを登録する</strong> — 「マスタ管理 → パッケージ分類」で「SMD」「THT」を追加し、その配下に「0402」「SOT-23」などを追加します。</span></li>
-          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>スペック種別を登録する</strong> — 「マスタ管理 → スペック種別」で「静電容量」「耐圧」「周波数」などを追加します。単位（F・V・Hz など）も設定できます。</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>スペック種別を登録する</strong> — 「マスタ管理 → スペック種別」で「静電容量」「耐圧」「周波数」などを追加します。英語名・記号・alias・基準単位も設定できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80"><strong>商社を登録する</strong> — 「商社管理」で仕入先を追加します。リードタイムや送料無料閾値も登録できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80"><strong>保管棚を登録する</strong> — 「保管棚管理」で棚を追加します。グループ（例: メインラック）でまとめて管理できます。</span></li>
         </ol>
@@ -139,7 +139,7 @@
             <tr><td>詳細パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別・`typ / 範囲 / 最大 / 最小 / 3値` を選んで入力。基底単位換算は自動表示</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック種別を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> を指定して入力。候補にない種別は行内の「+」から追加でき、基底単位換算は自動表示</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
             <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
@@ -159,8 +159,9 @@
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li><strong>分類候補</strong> — `component_types[]` からデコードした複数候補を既存分類へ紐付けて選択</li>
           <li><strong>パッケージ候補</strong> — `package_names[]` からデコードした複数候補の中から、既存の `パッケージ分類 / 詳細パッケージ` へ紐付けた 1 件を選択</li>
-          <li><strong>スペック候補</strong> — `spec_type` 未一致項目の修正、追加、削除</li>
+          <li><strong>スペック候補</strong> — <code>name / name_ja / name_en / symbol</code> を使って既存スペック種別へ照合し、未一致項目はレビュー画面の「+」から追加、削除</li>
         </ul>
+        <p class="mb-3 opacity-80">データシート上の元表記は <strong>抽出名</strong> として確認用に表示されますが、保存される正本はスペック種別です。表記ゆれはスペック種別の alias に寄せて管理します。</p>
         <p class="mb-3 opacity-80"><strong>ChatGPTで自動入力</strong> は <strong>Tampermonkey</strong> userscript を前提に、<strong>PDF選択 → BitsKeepへ一時アップロード → ChatGPT Web 解析 → 結果レビュー → 保存</strong> を自動化します。自動化が失敗した場合は、その場で <strong>ChatGPTから貼り付け</strong> へ切り替えられます。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li>一時PDFは署名付き URL で ChatGPT タブへ渡されます</li>
@@ -444,12 +445,16 @@
         <p class="mb-5 opacity-80">パッケージ分類を選ぶと詳細パッケージの候補が自動で絞り込まれます。</p>
 
         <h3 class="font-semibold mb-3">スペック種別</h3>
-        <p class="mb-2 opacity-80">「静電容量」「耐圧」「周波数」など、スペック値の種類を定義します。</p>
+        <p class="mb-2 opacity-80">「静電容量」「耐圧」「周波数」など、検索・比較したい仕様項目を定義します。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>各スペック種別に基準単位を1つ設定できます（例: 静電容量 → F、電流 → A）</li>
+          <li>各スペック種別に日本語名・英語名・記号・alias・基準単位を設定できます</li>
+          <li>英語名・記号・alias は、英語データシートや略記号から同じ種別へ照合するために使います</li>
+          <li>記号は HTML ではなく <code>h_FE</code> <code>V_CBO</code> のように保存します。<code>_</code> は下付き、<code>~</code> は上付き表示用の記法です</li>
+          <li>基準単位は1つ設定できます（例: 静電容量 → F、電流 → A）</li>
           <li>単位は省略可（無次元の場合や任意テキストで管理したい場合）</li>
           <li>登録画面では、基準単位から `uA` `kΩ` `ns` のような読みやすい接頭語付き表示へ自動変換します</li>
-          <li>`typ / 範囲 / 最大 / 最小 / 3値` を扱え、検索は常に基準単位へ正規化して行います</li>
+          <li>部品登録画面のスペック行に自由な「名前」欄はありません。必ずスペック種別を選び、候補にない場合だけその場の追加モーダルで種別を登録します</li>
+          <li><code>typ / 範囲 / 最大 / 最小 / 3値</code> を扱え、検索は常に基準単位へ正規化して行います</li>
           <li>スペック種別も一覧での表示順を変更できます</li>
         </ul>
 
@@ -621,7 +626,8 @@
             <tr><td class="py-2">商社を選択できない</td><td class="py-2 opacity-80">「<a href="#supplier" class="underline">商社管理</a>」で先に商社を登録する（管理者のみ）</td></tr>
             <tr><td class="py-2">パッケージが候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → パッケージ分類 → 詳細パッケージ</a>」に追加する</td></tr>
             <tr><td class="py-2">分類が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → 分類</a>」に追加する</td></tr>
-            <tr><td class="py-2">スペックの単位が出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック種別</a>」で単位を設定する</td></tr>
+            <tr><td class="py-2">スペック種別が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック種別</a>」に追加する。部品登録・詳細編集のスペック行からも管理者ならその場で追加できます</td></tr>
+            <tr><td class="py-2">スペックの単位が出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック種別</a>」で基準単位を設定する</td></tr>
             <tr><td class="py-2">入力を間違えて保存してしまった</td><td class="py-2 opacity-80">部品詳細の「編集」で修正する。管理者は「<a href="#auditlog" class="underline">操作ログ</a>」で変更前の値を確認できる</td></tr>
             <tr><td class="py-2">Notion 同期が失敗する</td><td class="py-2 opacity-80">「<a href="#notion" class="underline">連携設定</a>」でトークンと DB ID を再確認。Notion 側でインテグレーションへのアクセス許可も確認する</td></tr>
             <tr><td class="py-2">発注リストが消えた</td><td class="py-2 opacity-80">発注画面はブラウザの LocalStorage を使っています。LocalStorage をクリアすると消えます</td></tr>
