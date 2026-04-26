@@ -125,7 +125,21 @@ export default function setup() {
         return !packages.value.some((item) => item.package_group_id === Number(form.package_group_id) && item.name.toLowerCase() === q.toLowerCase());
     });
     const canCreateSupplier = computed(() => appEl?.dataset?.canCreateSupplier === '1');
+    const canCreateSpecType = computed(() => appEl?.dataset?.canCreateSpecType === '1');
     const specProfileOptions = SPEC_PROFILE_OPTIONS;
+    const createInlineSpecTypeForm = () => ({
+        name_ja: '',
+        name_en: '',
+        symbol: '',
+        unit: '',
+        aliases_text: '',
+    });
+    const inlineSpecTypeModal = reactive({
+        open: false,
+        saving: false,
+        targetSpec: null,
+        form: createInlineSpecTypeForm(),
+    });
 
     const syncManufacturerQuery = () => {
         manufacturerQuery.value = form.manufacturer ?? '';
@@ -141,7 +155,101 @@ export default function setup() {
     const removeSpec = (i) => form.specs.splice(i, 1);
     const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(specTypes.value.find(st => st.id == specTypeId));
     const specDisplayName = (spec) => getSpecDisplayName(spec, findSpecTypeById(spec?.spec_type_id));
-    const specIdentityKey = (spec) => `${Number(spec?.spec_type_id ?? 0)}:${normalizeSpecProfile(spec?.value_profile)}`;
+    const specTypeOptionLabel = (specType) => {
+        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
+        const symbol = String(specType?.symbol ?? '').trim();
+        const english = String(specType?.name_en ?? '').trim();
+        const suffix = [symbol, english].filter(Boolean).join(' / ');
+
+        return suffix ? `${primary} (${suffix})` : primary;
+    };
+    const specIdentityKey = (spec) => {
+        const typeId = Number(spec?.spec_type_id ?? 0);
+        const sourceKey = [
+            spec?.name_ja,
+            spec?.symbol,
+            spec?.name_en,
+            spec?.name,
+        ].map((value) => String(value ?? '').trim().toLowerCase()).find(Boolean);
+
+        return `${typeId || sourceKey || 'no-type'}:${normalizeSpecProfile(spec?.value_profile)}`;
+    };
+    const handleSpecTypeSelection = (spec) => {
+        const selected = findSpecTypeById(spec?.spec_type_id);
+        if (selected) {
+            spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
+        } else {
+            spec.spec_type_name = '';
+        }
+    };
+    const buildSpecTypeAliases = (aliasesText, extraAliases = [], excludedValues = []) => {
+        const excluded = new Set(excludedValues.map((value) => normalizeHelperText(value)).filter(Boolean));
+        const seen = new Set;
+
+        return [
+            ...String(aliasesText ?? '').split(/\r?\n/u),
+            ...extraAliases,
+        ].map((value) => String(value ?? '').trim())
+            .filter((value) => {
+                const key = normalizeHelperText(value);
+                if (!key || excluded.has(key) || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .map((alias) => ({ alias }));
+    };
+    const sortSpecTypes = (items) => [...items].sort((a, b) => {
+        const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+        return sortOrder || String(a.name_ja ?? a.name ?? '').localeCompare(String(b.name_ja ?? b.name ?? ''), 'ja');
+    });
+    const openInlineSpecTypeModal = (spec = null) => {
+        if (!canCreateSpecType.value) return;
+
+        const selected = findSpecTypeById(spec?.spec_type_id);
+        const rawName = String(spec?.name ?? '').trim();
+        const nameJa = String(spec?.name_ja ?? '').trim()
+            || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
+            || rawName;
+        const aliases = [rawName].filter((value) => value && normalizeHelperText(value) !== normalizeHelperText(nameJa));
+
+        inlineSpecTypeModal.targetSpec = spec;
+        inlineSpecTypeModal.form = {
+            name_ja: nameJa,
+            name_en: String(spec?.name_en ?? '').trim(),
+            symbol: String(spec?.symbol ?? '').trim(),
+            unit: String(spec?.unit ?? '').trim(),
+            aliases_text: aliases.join('\n'),
+        };
+        inlineSpecTypeModal.open = true;
+    };
+    const closeInlineSpecTypeModal = (force = false) => {
+        if (inlineSpecTypeModal.saving && force !== true) return;
+        inlineSpecTypeModal.open = false;
+        inlineSpecTypeModal.targetSpec = null;
+        inlineSpecTypeModal.form = createInlineSpecTypeForm();
+    };
+    const changeSpecProfile = (spec, profile) => {
+        const previous = normalizeSpecProfile(spec?.value_profile);
+        const next = normalizeSpecProfile(profile);
+        const typ = String(spec.value_typ ?? '').trim();
+        const min = String(spec.value_min ?? '').trim();
+        const max = String(spec.value_max ?? '').trim();
+        const fallback = typ || max || min;
+
+        if (next === 'typ' && !typ) {
+            spec.value_typ = fallback;
+        } else if (next === 'max_only' && !max) {
+            spec.value_max = previous === 'typ' && typ ? typ : fallback;
+        } else if (next === 'min_only' && !min) {
+            spec.value_min = previous === 'typ' && typ ? typ : fallback;
+        } else if ((next === 'range' || next === 'triple') && !typ && previous === 'max_only' && max) {
+            spec.value_typ = max;
+        } else if (next === 'triple' && !typ && previous === 'min_only' && min) {
+            spec.value_typ = min;
+        }
+
+        spec.value_profile = next;
+    };
     const addCustomAttribute = () => form.custom_attributes.push({ key: '', value: '' });
     const removeCustomAttribute = (i) => form.custom_attributes.splice(i, 1);
 
@@ -172,6 +280,66 @@ export default function setup() {
         } catch (e) {
             toastError(e.message);
             return null;
+        }
+    };
+
+    const createSpecTypeFromDraft = async (spec) => {
+        const nameJa = String(spec?.name_ja ?? spec?.spec_type_name ?? spec?.name ?? '').trim();
+        const name = nameJa || String(spec?.name ?? '').trim();
+        if (!name) return null;
+
+        const existing = matchByName(name, specTypes.value, specTypeSearchText);
+        if (existing) return existing;
+
+        try {
+            const res = await api.post('/spec-types', {
+                name,
+                name_ja: nameJa || name,
+                name_en: String(spec?.name_en ?? '').trim(),
+                symbol: String(spec?.symbol ?? '').trim(),
+                unit: String(spec?.unit ?? '').trim(),
+                aliases: buildSpecTypeAliases(
+                    spec?.aliases_text ?? '',
+                    [spec?.name],
+                    [name, nameJa, spec?.name_en, spec?.symbol]
+                ),
+                sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
+            });
+            specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
+            toastSuccess(`スペック種別を追加しました: ${name}`);
+            return res.data;
+        } catch (e) {
+            await fetchSpecTypesForInlineCreate();
+            const matchedAfterReload = matchByName(name, specTypes.value, specTypeSearchText);
+            if (matchedAfterReload) return matchedAfterReload;
+            toastError(e.message);
+            return null;
+        }
+    };
+
+    const saveInlineSpecType = async () => {
+        if (inlineSpecTypeModal.saving) return;
+
+        const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
+        if (!nameJa) {
+            toastError('スペック種別の日本語名を入力してください');
+            return;
+        }
+
+        inlineSpecTypeModal.saving = true;
+        try {
+            const created = await createSpecTypeFromDraft(inlineSpecTypeModal.form);
+            if (!created) return;
+
+            const targetSpec = inlineSpecTypeModal.targetSpec;
+            if (targetSpec) {
+                targetSpec.spec_type_id = created.id;
+                targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
+                targetSpec.matched = true;
+            }
+            closeInlineSpecTypeModal(true);
+        } finally {
+            inlineSpecTypeModal.saving = false;
         }
     };
 
@@ -309,6 +477,7 @@ export default function setup() {
         || showChatGptRunModal.value
         || showHelperResultModal.value
         || showChatGptHelperUpdateModal.value
+        || inlineSpecTypeModal.open
         || showChatGPTPaste.value
     ));
     const syncScrollLock = (isLocked) => {
@@ -384,6 +553,23 @@ export default function setup() {
         return matched ?? null;
     };
 
+    const specTypeSearchText = (item) => [
+        item?.name,
+        item?.name_ja,
+        item?.name_en,
+        item?.symbol,
+        ...(item?.aliases ?? []).map((alias) => alias.alias),
+    ].filter(Boolean).join(' ');
+
+    const fetchSpecTypesForInlineCreate = async () => {
+        try {
+            const res = await api.get('/spec-types');
+            specTypes.value = res.data ?? [];
+        } catch {
+            // 保存時の本筋を邪魔しない。作成失敗時は呼び出し元でエラーを表示する。
+        }
+    };
+
     const findCategoryById = (categoryId) =>
         categories.value.find((item) => Number(item.id) === Number(categoryId)) ?? null;
 
@@ -431,13 +617,20 @@ export default function setup() {
 
     const createHelperSpecCandidate = (overrides = {}) => {
         const rawName = String(overrides.name ?? '').trim();
+        const rawNameJa = String(overrides.name_ja ?? rawName).trim();
+        const rawNameEn = String(overrides.name_en ?? '').trim();
+        const rawSymbol = String(overrides.symbol ?? '').trim();
         const matchedSpecType = overrides.spec_type_id
             ? findSpecTypeById(overrides.spec_type_id)
-            : matchByName(rawName, specTypes.value);
+            : matchByName(rawNameJa || rawNameEn || rawSymbol || rawName, specTypes.value, specTypeSearchText);
         const draft = buildSpecDraftFromApi(overrides);
 
         return {
-            name: rawName || matchedSpecType?.name || '',
+            name: rawName,
+            name_ja: rawNameJa,
+            name_en: rawNameEn,
+            symbol: rawSymbol,
+            spec_type_name: matchedSpecType?.name_ja ?? matchedSpecType?.name ?? rawNameJa,
             value_profile: draft.value_profile,
             value_typ: draft.value_typ,
             value_min: draft.value_min,
@@ -481,41 +674,62 @@ export default function setup() {
         )];
     };
 
-    const extractPackageNames = (data) => {
-        const names = [];
+    const extractPackageCandidates = (data) => {
+        const candidates = [];
+        const addCandidate = (value) => {
+            if (typeof value === 'string') {
+                const name = value.trim();
+                if (name) candidates.push({ name });
+                return;
+            }
+
+            if (!value || typeof value !== 'object') return;
+            const name = String(value.name ?? value.package_name ?? value.package ?? value.type ?? '').trim();
+            const packageId = value.package_id ?? '';
+            const packageGroupId = value.package_group_id ?? value.group_id ?? '';
+            if (name || packageId) {
+                candidates.push({
+                    name,
+                    package_id: packageId,
+                    package_group_id: packageGroupId,
+                });
+            }
+        };
 
         if (Array.isArray(data?.package_names)) {
-            names.push(...data.package_names);
+            data.package_names.forEach(addCandidate);
         }
 
         if (Array.isArray(data?.packages)) {
-            names.push(...data.packages.map((item) => (typeof item === 'string' ? item : item?.name ?? '')));
+            data.packages.forEach(addCandidate);
         }
 
         if (typeof data?.package_name === 'string') {
-            names.push(data.package_name);
+            addCandidate(data.package_name);
         }
 
         if (typeof data?.package === 'string') {
-            names.push(data.package);
-        } else if (data?.package?.name) {
-            names.push(data.package.name);
+            addCandidate(data.package);
+        } else {
+            addCandidate(data?.package);
         }
 
         if (typeof data?.package_type === 'string') {
-            names.push(data.package_type);
+            addCandidate(data.package_type);
         }
 
-        return [...new Set(
-            names
-                .map((value) => String(value ?? '').trim())
-                .filter(Boolean)
-        )];
+        const seen = new Set;
+        return candidates.filter((candidate) => {
+            const key = `${candidate.package_id || ''}:${String(candidate.name ?? '').toLowerCase()}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     };
 
     const buildHelperResult = (data) => {
         const source = data ?? {};
-        const packageCandidates = extractPackageNames(source).map((name) => createHelperPackageCandidate({ name }));
+        const packageCandidates = extractPackageCandidates(source).map((candidate) => createHelperPackageCandidate(candidate));
         const preferredPackageIndex = packageCandidates.findIndex((item) => item.package_id);
         const selectedPackageIndex = preferredPackageIndex >= 0 ? preferredPackageIndex : (packageCandidates.length ? 0 : null);
 
@@ -626,9 +840,7 @@ export default function setup() {
     const handleHelperSpecTypeSelection = (spec) => {
         const matchedType = findSpecTypeById(spec.spec_type_id);
         spec.matched = !!matchedType;
-        if (matchedType && !String(spec.name ?? '').trim()) {
-            spec.name = matchedType.name;
-        }
+        spec.spec_type_name = matchedType?.name_ja ?? matchedType?.name ?? '';
     };
 
     const handleHelperPackageGroupChange = (packageCandidate) => {
@@ -684,6 +896,7 @@ export default function setup() {
     const navigationGuardActive = computed(() => (
         dirty.value
         || showHelperResultModal.value
+        || inlineSpecTypeModal.open
         || !!helperResult.value
         || showChatGPTPaste.value
         || !!String(chatGPTPasteText.value ?? '').trim()
@@ -1717,8 +1930,10 @@ export default function setup() {
             const selectedPackage = selectedPackageIndex === null ? null : r.packages?.[selectedPackageIndex] ?? null;
 
             if (selectedPackage?.package_id) {
-                form.package_group_id = selectedPackage.package_group_id ? String(selectedPackage.package_group_id) : '';
-                form.package_id = String(selectedPackage.package_id);
+                const matchedPackage = findPackageById(selectedPackage.package_id);
+                form.package_group_id = String(matchedPackage?.package_group_id ?? selectedPackage.package_group_id ?? '');
+                form.package_id = String(matchedPackage?.id ?? selectedPackage.package_id);
+                packageQuery.value = matchedPackage?.name ?? selectedPackage.name ?? '';
                 appliedCount++;
             } else if ((r.packages ?? []).some((item) => String(item.name ?? '').trim() !== '' || item.package_id)) {
                 skippedPackage = true;
@@ -1729,13 +1944,15 @@ export default function setup() {
 
         for (const spec of r.specs ?? []) {
             if (!spec.apply) continue;
-            if (!spec.spec_type_id) {
-                skippedSpecs++;
-                continue;
-            }
 
             const existing = form.specs.find((item) => specIdentityKey(item) === specIdentityKey(spec));
             if (existing) {
+                existing.name = spec.name || existing.name;
+                existing.name_ja = spec.name_ja || existing.name_ja;
+                existing.name_en = spec.name_en || existing.name_en;
+                existing.symbol = spec.symbol || existing.symbol;
+                existing.spec_type_id = spec.spec_type_id || existing.spec_type_id;
+                existing.spec_type_name = spec.spec_type_name || existing.spec_type_name;
                 existing.value_profile = normalizeSpecProfile(spec.value_profile);
                 existing.value_typ = spec.value_typ;
                 existing.value_min = spec.value_min;
@@ -1744,7 +1961,12 @@ export default function setup() {
             } else {
                 form.specs.push({
                     ...createEmptySpecRow(),
+                    name: spec.name ?? '',
+                    name_ja: spec.name_ja ?? '',
+                    name_en: spec.name_en ?? '',
+                    symbol: spec.symbol ?? '',
                     spec_type_id: spec.spec_type_id,
+                    spec_type_name: spec.spec_type_name ?? '',
                     value_profile: normalizeSpecProfile(spec.value_profile),
                     value_typ: spec.value_typ,
                     value_min: spec.value_min,
@@ -1753,6 +1975,9 @@ export default function setup() {
                 });
             }
             appliedCount++;
+            if (!spec.spec_type_id) {
+                skippedSpecs++;
+            }
         }
 
         if (appliedCount === 0) {
@@ -1762,11 +1987,11 @@ export default function setup() {
 
         const warnings = [];
         if (skippedCategories > 0) warnings.push(`分類 ${skippedCategories} 件`);
-        if (skippedSpecs > 0) warnings.push(`スペック ${skippedSpecs} 件`);
+        if (skippedSpecs > 0) warnings.push(`スペック種別未選択 ${skippedSpecs} 件`);
         if (skippedPackage) warnings.push('パッケージ 1 件');
 
         if (warnings.length > 0) {
-            toastSuccess(`解析結果を適用しました（一部未反映: ${warnings.join(' / ')}）`);
+            toastSuccess(`解析結果を適用しました（要確認: ${warnings.join(' / ')}）`);
         } else {
             toastSuccess('解析結果を適用しました。');
         }
@@ -1853,12 +2078,38 @@ export default function setup() {
         return payload;
     };
 
+    const validateBeforeSubmit = () => {
+        const missingSpecTypeRows = form.specs
+            .map((spec, index) => ({ spec, index }))
+            .filter(({ spec }) => !spec.spec_type_id);
+
+        if (missingSpecTypeRows.length > 0) {
+            const labels = missingSpecTypeRows
+                .slice(0, 4)
+                .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
+            const suffix = missingSpecTypeRows.length > labels.length ? ` ほか${missingSpecTypeRows.length - labels.length}件` : '';
+            toastError(`スペック種別が未選択です: ${labels.join('、')}${suffix}`);
+            return false;
+        }
+
+        return true;
+    };
+
+    const resolveSpecTypesBeforeSubmit = async () => {
+        for (const spec of form.specs) {
+            handleSpecTypeSelection(spec);
+        }
+    };
+
     // ── 保存 ──────────────────────────────────────────────
     const submit = async () => {
         saving.value = true;
-        const payload = buildPayload();
 
         try {
+            await resolveSpecTypesBeforeSubmit();
+            if (!validateBeforeSubmit()) return;
+
+            const payload = buildPayload();
             if (isEdit) {
                 await api.uploadPut(`/components/${editId}`, payload);
                 toastSuccess('更新しました');
@@ -2085,8 +2336,8 @@ export default function setup() {
         manufacturerSuggestionsOpen,
         categoryQuery, filteredCategories, canCreateCategory,
         packageQuery, filteredPackages, canCreatePackage,
-        specProfileOptions,
-        addSpec, removeSpec, getUnitSuggestions, specPreview, specDisplayName, addCustomAttribute, removeCustomAttribute,
+        specProfileOptions, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
+        addSpec, removeSpec, getUnitSuggestions, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile, addCustomAttribute, removeCustomAttribute,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         selectManufacturer, commitManufacturer,
         toggleCategory, selectPackage, addCategoryFromQuery, addPackageFromQuery,

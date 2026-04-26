@@ -23,6 +23,10 @@ export default function setup() {
 
     const clone = (value) => JSON.parse(JSON.stringify(value));
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const splitActive = (items) => items.filter((item) => !item.deleted_at);
+    const splitArchived = (items) => items.filter((item) => item.deleted_at);
+    const nextSortOrder = (items) => (splitActive(items).at(-1)?.sort_order ?? 0) + 10;
+    const copyName = (name) => `${name} コピー`;
     const closeModalWithConfirm = async (modal, snapshot) => {
         if (modal.open && !same(modal.form, snapshot) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         modal.open = false;
@@ -66,6 +70,11 @@ export default function setup() {
 
     // ── 分類 ─────────────────────────────────────────────
     const categories = ref([]);
+    const activeCategories = computed({
+        get: () => splitActive(categories.value),
+        set: (items) => { categories.value = [...items, ...splitArchived(categories.value)]; },
+    });
+    const archivedCategories = computed(() => splitArchived(categories.value));
     const catSnapshot = ref(null);
     const catModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -79,7 +88,7 @@ export default function setup() {
     };
 
     const openCatAdd = () => {
-        const form = { name: '', description: '', sort_order: (categories.value.at(-1)?.sort_order ?? 0) + 10 };
+        const form = { name: '', description: '', sort_order: nextSortOrder(categories.value) };
         catSnapshot.value = clone(form);
         Object.assign(catModal, { open: true, isEdit: false, editId: null, form });
     };
@@ -87,6 +96,11 @@ export default function setup() {
         const form = { name: c.name, description: c.description ?? '', sort_order: c.sort_order ?? 0 };
         catSnapshot.value = clone(form);
         Object.assign(catModal, { open: true, isEdit: true, editId: c.id, form });
+    };
+    const openCatDuplicate = (c) => {
+        const form = { name: copyName(c.name), description: c.description ?? '', sort_order: nextSortOrder(categories.value) };
+        catSnapshot.value = clone(form);
+        Object.assign(catModal, { open: true, isEdit: false, editId: null, form });
     };
 
     const saveCategory = async () => {
@@ -117,15 +131,6 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
-    const forceDeleteCategory = (c) => openConfirm({
-        title: '分類を完全削除しますか？',
-        message: `「${c.name}」を完全削除します。\nこの操作は元に戻せません。`,
-        actionLabel: '完全削除する',
-        onConfirm: async () => {
-            try { await api.delete(`/categories/${c.id}/force`); await fetchCategories(); toastSuccess('完全削除しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
     const moveCategory = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= categories.value.length) return;
@@ -144,6 +149,11 @@ export default function setup() {
 
     // ── パッケージ ────────────────────────────────────────
     const packageGroups = ref([]);
+    const activePackageGroups = computed({
+        get: () => splitActive(packageGroups.value),
+        set: (items) => { packageGroups.value = [...items, ...splitArchived(packageGroups.value)]; },
+    });
+    const archivedPackageGroups = computed(() => splitArchived(packageGroups.value));
     const pkgGroupSnapshot = ref(null);
     const pkgGroupModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -157,7 +167,7 @@ export default function setup() {
     };
 
     const openPkgGroupAdd = () => {
-        const form = { name: '', description: '', sort_order: (packageGroups.value.at(-1)?.sort_order ?? 0) + 10 };
+        const form = { name: '', description: '', sort_order: nextSortOrder(packageGroups.value) };
         pkgGroupSnapshot.value = clone(form);
         Object.assign(pkgGroupModal, { open: true, isEdit: false, editId: null, form });
     };
@@ -165,6 +175,11 @@ export default function setup() {
         const form = { name: group.name, description: group.description ?? '', sort_order: group.sort_order ?? 0 };
         pkgGroupSnapshot.value = clone(form);
         Object.assign(pkgGroupModal, { open: true, isEdit: true, editId: group.id, form });
+    };
+    const openPkgGroupDuplicate = (group) => {
+        const form = { name: copyName(group.name), description: group.description ?? '', sort_order: nextSortOrder(packageGroups.value) };
+        pkgGroupSnapshot.value = clone(form);
+        Object.assign(pkgGroupModal, { open: true, isEdit: false, editId: null, form });
     };
 
     const savePackageGroup = async () => {
@@ -195,15 +210,6 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
-    const forceDeletePackageGroup = (group) => openConfirm({
-        title: 'パッケージ分類を完全削除しますか？',
-        message: `「${group.name}」を完全削除します。\nこの操作は元に戻せません。`,
-        actionLabel: '完全削除する',
-        onConfirm: async () => {
-            try { await api.delete(`/package-groups/${group.id}/force`); await fetchPackageGroups(); toastSuccess('完全削除しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
     const movePackageGroup = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= packageGroups.value.length) return;
@@ -221,6 +227,11 @@ export default function setup() {
     };
 
     const packages = ref([]);
+    const activePackages = computed({
+        get: () => splitActive(packages.value),
+        set: (items) => { packages.value = [...items, ...splitArchived(packages.value)]; },
+    });
+    const archivedPackages = computed(() => splitArchived(packages.value));
     const pkgSnapshot = ref(null);
     const pkgModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -234,7 +245,7 @@ export default function setup() {
     };
 
     const openPkgAdd = () => {
-        const form = { package_group_id: '', name: '', description: '', sort_order: (packages.value.at(-1)?.sort_order ?? 0) + 10 };
+        const form = { package_group_id: '', name: '', description: '', sort_order: nextSortOrder(packages.value) };
         pkgSnapshot.value = clone(form);
         Object.assign(pkgModal, { open: true, isEdit: false, editId: null, form });
     };
@@ -242,6 +253,11 @@ export default function setup() {
         const form = { package_group_id: p.package_group_id ?? '', name: p.name, description: p.description ?? '', sort_order: p.sort_order ?? 0 };
         pkgSnapshot.value = clone(form);
         Object.assign(pkgModal, { open: true, isEdit: true, editId: p.id, form });
+    };
+    const openPkgDuplicate = (p) => {
+        const form = { package_group_id: p.package_group_id ?? '', name: copyName(p.name), description: p.description ?? '', sort_order: nextSortOrder(packages.value) };
+        pkgSnapshot.value = clone(form);
+        Object.assign(pkgModal, { open: true, isEdit: false, editId: null, form });
     };
 
     const savePackage = async () => {
@@ -272,15 +288,6 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
-    const forceDeletePackage = (p) => openConfirm({
-        title: 'パッケージを完全削除しますか？',
-        message: `「${p.name}」を完全削除します。\nこの操作は元に戻せません。`,
-        actionLabel: '完全削除する',
-        onConfirm: async () => {
-            try { await api.delete(`/packages/${p.id}/force`); await fetchPackages(); toastSuccess('完全削除しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
     const movePackage = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= packages.value.length) return;
@@ -299,10 +306,15 @@ export default function setup() {
 
     // ── スペック種別 ──────────────────────────────────────
     const specTypes = ref([]);
+    const activeSpecTypes = computed({
+        get: () => splitActive(specTypes.value),
+        set: (items) => { specTypes.value = [...items, ...splitArchived(specTypes.value)]; },
+    });
+    const archivedSpecTypes = computed(() => splitArchived(specTypes.value));
     const stSnapshot = ref(null);
     const stModal = reactive({
         open: false, isEdit: false, editId: null,
-        form: { name: '', description: '', value_type: 'numeric', sort_order: 0, unit: '' }
+        form: { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: 0, unit: '' }
     });
 
     const fetchSpecTypes = async () => {
@@ -312,13 +324,15 @@ export default function setup() {
     };
 
     const openStAdd = () => {
-        const form = { name: '', description: '', value_type: 'numeric', sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10, unit: '' };
+        const form = { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: nextSortOrder(specTypes.value), unit: '' };
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
     };
     const openStEdit = (s) => {
         const form = {
-            name: s.name, description: s.description ?? '',
+            name: s.name, name_ja: s.name_ja ?? s.name, name_en: s.name_en ?? '', symbol: s.symbol ?? '',
+            aliases_text: (s.aliases ?? []).map((alias) => alias.alias).join('\n'),
+            description: s.description ?? '',
             value_type: s.value_type ?? 'numeric',
             sort_order: s.sort_order ?? 0,
             unit: s.units?.[0]?.unit ?? '',
@@ -326,16 +340,51 @@ export default function setup() {
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: true, editId: s.id, form });
     };
+    const openStDuplicate = (s) => {
+        const form = {
+            name: copyName(s.name), name_ja: copyName(s.name_ja ?? s.name), name_en: s.name_en ?? '', symbol: s.symbol ?? '',
+            aliases_text: (s.aliases ?? []).map((alias) => alias.alias).join('\n'),
+            description: s.description ?? '',
+            value_type: s.value_type ?? 'numeric',
+            sort_order: nextSortOrder(specTypes.value),
+            unit: s.units?.[0]?.unit ?? '',
+        };
+        stSnapshot.value = clone(form);
+        Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
+    };
 
     const saveSpecType = async () => {
         try {
-            const payload = { ...stModal.form };
+            const payload = {
+                ...stModal.form,
+                name: stModal.form.name_ja || stModal.form.name,
+                aliases: String(stModal.form.aliases_text ?? '')
+                    .split(/\r?\n/u)
+                    .map((alias) => ({ alias: alias.trim() }))
+                    .filter((item) => item.alias),
+            };
+            delete payload.aliases_text;
             if (stModal.isEdit) await api.put(`/spec-types/${stModal.editId}`, payload);
             else await api.post('/spec-types', payload);
             toastSuccess('保存しました'); stModal.open = false; stSnapshot.value = clone(stModal.form); await fetchSpecTypes();
         } catch (e) { toastError(e.message); }
     };
     const closeStModal = () => closeModalWithConfirm(stModal, stSnapshot.value);
+    const buildSpecTypeUpdatePayload = (item, sortOrder = item.sort_order ?? 0) => ({
+        name: item.name_ja || item.name,
+        name_ja: item.name_ja ?? item.name ?? '',
+        name_en: item.name_en ?? '',
+        symbol: item.symbol ?? '',
+        aliases: (item.aliases ?? []).map((alias) => ({
+            alias: alias.alias,
+            locale: alias.locale ?? null,
+            kind: alias.kind ?? null,
+        })),
+        description: item.description ?? '',
+        value_type: item.value_type ?? 'numeric',
+        unit: item.units?.[0]?.unit ?? '',
+        sort_order: sortOrder,
+    });
 
     const archiveSpecType = (s) => openConfirm({
         title: 'スペック種別をアーカイブしますか？',
@@ -356,15 +405,6 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
-    const forceDeleteSpecType = (s) => openConfirm({
-        title: 'スペック種別を完全削除しますか？',
-        message: `「${s.name}」を完全削除します。\nこの操作は元に戻せません。`,
-        actionLabel: '完全削除する',
-        onConfirm: async () => {
-            try { await api.delete(`/spec-types/${s.id}/force`); await fetchSpecTypes(); toastSuccess('完全削除しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
     const moveSpecType = async (index, delta) => {
         const target = index + delta;
         if (target < 0 || target >= specTypes.value.length) return;
@@ -372,11 +412,7 @@ export default function setup() {
         [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
         try {
             await Promise.all(ordered.map((item, idx) => api.put(`/spec-types/${item.id}`, {
-                name: item.name,
-                description: item.description ?? '',
-                value_type: item.value_type ?? 'numeric',
-                unit: item.units?.[0]?.unit ?? '',
-                sort_order: (idx + 1) * 10,
+                ...buildSpecTypeUpdatePayload(item, (idx + 1) * 10),
             })));
             toastSuccess('並び順を更新しました');
             await fetchSpecTypes();
@@ -417,10 +453,10 @@ export default function setup() {
     });
 
     // DnDインスタンスはすべてのrefが揃ったここで生成する
-    const catDnD = makeDnD(categories,    (c) => ({ url: `/categories/${c.id}`,     body: { name: c.name, color: c.color ?? null } }), fetchCategories);
-    const pgDnD  = makeDnD(packageGroups, (g) => ({ url: `/package-groups/${g.id}`, body: { name: g.name, description: g.description ?? '' } }), fetchPackageGroups);
-    const pkgDnD = makeDnD(packages,      (p) => ({ url: `/packages/${p.id}`,       body: { name: p.name, description: p.description ?? '' } }), fetchPackages);
-    const stDnD  = makeDnD(specTypes,     (s) => ({ url: `/spec-types/${s.id}`,     body: { name: s.name, description: s.description ?? '', value_type: s.value_type ?? 'numeric', unit: s.units?.[0]?.unit ?? '' } }), fetchSpecTypes);
+    const catDnD = makeDnD(activeCategories,    (c) => ({ url: `/categories/${c.id}`,     body: { name: c.name, color: c.color ?? null } }), fetchCategories);
+    const pgDnD  = makeDnD(activePackageGroups, (g) => ({ url: `/package-groups/${g.id}`, body: { name: g.name, description: g.description ?? '' } }), fetchPackageGroups);
+    const pkgDnD = makeDnD(activePackages,      (p) => ({ url: `/packages/${p.id}`,       body: { package_group_id: p.package_group_id ?? '', name: p.name, description: p.description ?? '' } }), fetchPackages);
+    const stDnD  = makeDnD(activeSpecTypes,     (s) => ({ url: `/spec-types/${s.id}`,     body: buildSpecTypeUpdatePayload(s) }), fetchSpecTypes);
 
     return {
         toasts, fetchError, activeTab, switchTab, canEdit, isAdmin, closeCatModal, closePkgGroupModal, closePkgModal, closeStModal,
@@ -428,12 +464,12 @@ export default function setup() {
         dragSrc, dragTarget, catDnD, pgDnD, pkgDnD, stDnD,
         fetchCategories, fetchPackageGroups, fetchPackages, fetchSpecTypes,
         // 分類
-        categories, catModal, openCatAdd, openCatEdit, saveCategory, archiveCategory, restoreCategory, forceDeleteCategory, moveCategory,
+        categories, activeCategories, archivedCategories, catModal, openCatAdd, openCatEdit, openCatDuplicate, saveCategory, archiveCategory, restoreCategory, moveCategory,
         // パッケージ分類
-        packageGroups, pkgGroupModal, openPkgGroupAdd, openPkgGroupEdit, savePackageGroup, archivePackageGroup, restorePackageGroup, forceDeletePackageGroup, movePackageGroup,
+        packageGroups, activePackageGroups, archivedPackageGroups, pkgGroupModal, openPkgGroupAdd, openPkgGroupEdit, openPkgGroupDuplicate, savePackageGroup, archivePackageGroup, restorePackageGroup, movePackageGroup,
         // パッケージ
-        packages, pkgModal, openPkgAdd, openPkgEdit, savePackage, archivePackage, restorePackage, forceDeletePackage, movePackage,
+        packages, activePackages, archivedPackages, pkgModal, openPkgAdd, openPkgEdit, openPkgDuplicate, savePackage, archivePackage, restorePackage, movePackage,
         // スペック種別
-        specTypes, stModal, openStAdd, openStEdit, saveSpecType, archiveSpecType, restoreSpecType, forceDeleteSpecType, moveSpecType,
+        specTypes, activeSpecTypes, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType,
     };
 }

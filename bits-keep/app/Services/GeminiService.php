@@ -221,7 +221,7 @@ class GeminiService
     {
         $specs = [];
         foreach ($raw['specs'] ?? [] as $item) {
-            if (empty($item['name'])) {
+            if (empty($item['name']) && empty($item['name_ja']) && empty($item['name_en']) && empty($item['symbol'])) {
                 continue;
             }
             $profile = $this->normalizeProfile((string) ($item['value_profile'] ?? $item['profile'] ?? $item['value_mode'] ?? ''));
@@ -243,7 +243,10 @@ class GeminiService
             }
 
             $specs[] = [
-                'name' => (string) ($item['name'] ?? ''),
+                'name' => (string) ($item['name'] ?? $item['name_ja'] ?? ''),
+                'name_ja' => (string) ($item['name_ja'] ?? $item['name'] ?? ''),
+                'name_en' => (string) ($item['name_en'] ?? ''),
+                'symbol' => (string) ($item['symbol'] ?? ''),
                 'value_profile' => $profile,
                 'value' => $value,
                 'value_typ' => $valueTyp,

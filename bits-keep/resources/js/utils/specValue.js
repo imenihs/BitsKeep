@@ -43,7 +43,12 @@ export const SPEC_PROFILE_OPTIONS = [
 ];
 
 export const createEmptySpecRow = () => ({
+    name: '',
+    name_ja: '',
+    name_en: '',
+    symbol: '',
     spec_type_id: '',
+    spec_type_name: '',
     value_profile: 'typ',
     value: '',
     value_typ: '',
@@ -75,11 +80,15 @@ export const getSpecDisplayName = (specOrProfile, specType = null) => {
         : normalizeSpecProfile(specOrProfile?.value_profile);
     const baseName = typeof specType === 'string'
         ? specType
-        : specType?.name
-            ?? specOrProfile?.spec_type?.name
-            ?? specOrProfile?.specType?.name
-            ?? specOrProfile?.spec_type_name
-            ?? '';
+        : (
+            cleanText(specType?.name_ja)
+            || cleanText(specType?.name)
+            || cleanText(specOrProfile?.spec_type?.name_ja)
+            || cleanText(specOrProfile?.specType?.name_ja)
+            || cleanText(specOrProfile?.spec_type?.name)
+            || cleanText(specOrProfile?.specType?.name)
+            || cleanText(specOrProfile?.spec_type_name)
+        );
 
     if (!baseName) return '';
 
@@ -93,7 +102,12 @@ export const getSpecDisplayName = (specOrProfile, specType = null) => {
 export const buildSpecDraftFromApi = (spec = {}) => {
     const draft = {
         ...createEmptySpecRow(),
+        name: cleanText(spec.name ?? spec.spec_name ?? ''),
+        name_ja: cleanText(spec.name_ja ?? ''),
+        name_en: cleanText(spec.name_en ?? ''),
+        symbol: cleanText(spec.symbol ?? ''),
         spec_type_id: spec.spec_type_id ?? '',
+        spec_type_name: cleanText(spec.spec_type_name ?? spec.spec_type?.name_ja ?? spec.specType?.name_ja ?? spec.spec_type?.name ?? spec.specType?.name ?? ''),
         unit: normalizeUnitLabel(spec.unit ?? ''),
         value_numeric_typ: spec.value_numeric_typ ?? '',
         value_numeric_min: spec.value_numeric_min ?? '',
@@ -216,7 +230,7 @@ export const normalizeSpecDraft = (spec, specType) => {
         const min = parseEngineeringNumber(payload.value_min);
         const typ = parseEngineeringNumber(payload.value_typ);
         const max = parseEngineeringNumber(payload.value_max);
-        if (min === null || typ === null || max === null) {
+        if (min === null && typ === null && max === null) {
             return {
                 hasNumeric: false,
                 profileLabel,
@@ -225,16 +239,24 @@ export const normalizeSpecDraft = (spec, specType) => {
             };
         }
 
-        const canonicalMin = min.value * min.factor * factor;
-        const canonicalTyp = typ.value * typ.factor * factor;
-        const canonicalMax = max.value * max.factor * factor;
-        const humanized = humanizeTriple(canonicalMin, canonicalTyp, canonicalMax, normalizedUnit, resolvedUnit);
+        let canonicalMin = min === null ? null : min.value * min.factor * factor;
+        const canonicalTyp = typ === null ? null : typ.value * typ.factor * factor;
+        let canonicalMax = max === null ? null : max.value * max.factor * factor;
+        if (canonicalMin !== null && canonicalMax !== null && canonicalMin > canonicalMax) {
+            [canonicalMin, canonicalMax] = [canonicalMax, canonicalMin];
+        }
+        const humanized = humanizeValues({ min: canonicalMin, typ: canonicalTyp, max: canonicalMax }, normalizedUnit, resolvedUnit);
+        const canonicalParts = [
+            canonicalMin === null ? '' : `min: ${formatScientific(canonicalMin)} ${normalizedUnit}`.trim(),
+            canonicalTyp === null ? '' : `typ: ${formatScientific(canonicalTyp)} ${normalizedUnit}`.trim(),
+            canonicalMax === null ? '' : `max: ${formatScientific(canonicalMax)} ${normalizedUnit}`.trim(),
+        ].filter(Boolean);
 
         return {
             hasNumeric: true,
             profileLabel,
-            canonicalText: `min: ${formatScientific(canonicalMin)} ${normalizedUnit} / typ: ${formatScientific(canonicalTyp)} ${normalizedUnit} / max: ${formatScientific(canonicalMax)} ${normalizedUnit}`.trim(),
-            recommendedText: `${humanized.min} / ${humanized.typ} / ${humanized.max} ${humanized.unit}`.trim(),
+            canonicalText: canonicalParts.join(' / '),
+            recommendedText: `${buildTripleLabel(humanized.min, humanized.typ, humanized.max)} ${humanized.unit}`.trim(),
             recommendedUnit: humanized.unit,
         };
     }
@@ -417,6 +439,33 @@ const humanizeTriple = (canonicalMin, canonicalTyp, canonicalMax, normalizedUnit
         min: formatDisplayNumber(canonicalMin / factor),
         typ: formatDisplayNumber(canonicalTyp / factor),
         max: formatDisplayNumber(canonicalMax / factor),
+        unit: `${prefix}${normalizedUnit}`,
+    };
+};
+
+const humanizeValues = (values, normalizedUnit, fallbackUnit) => {
+    const presentValues = Object.values(values).filter((value) => value !== null && Number.isFinite(Number(value)));
+    const unit = fallbackUnit || normalizedUnit || '';
+    if (!presentValues.length) {
+        return { min: '', typ: '', max: '', unit };
+    }
+
+    if (!canHumanize(normalizedUnit)) {
+        return {
+            min: values.min === null ? '' : formatDisplayNumber(values.min),
+            typ: values.typ === null ? '' : formatDisplayNumber(values.typ),
+            max: values.max === null ? '' : formatDisplayNumber(values.max),
+            unit,
+        };
+    }
+
+    const prefix = choosePrefix(Math.max(...presentValues.map((value) => Math.abs(value))));
+    const factor = PREFIX_FACTORS[prefix] ?? 1;
+
+    return {
+        min: values.min === null ? '' : formatDisplayNumber(values.min / factor),
+        typ: values.typ === null ? '' : formatDisplayNumber(values.typ / factor),
+        max: values.max === null ? '' : formatDisplayNumber(values.max / factor),
         unit: `${prefix}${normalizedUnit}`,
     };
 };

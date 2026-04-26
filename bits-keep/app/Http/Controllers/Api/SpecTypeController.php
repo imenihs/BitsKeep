@@ -14,7 +14,7 @@ class SpecTypeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = SpecType::with('units')->withCount('componentSpecs as usage_count');
+        $query = SpecType::with(['units', 'aliases'])->withCount('componentSpecs as usage_count');
         if ($request->boolean('include_archived')) {
             $query->withTrashed();
         }
@@ -29,7 +29,11 @@ class SpecTypeController extends Controller
     public function store(StoreSpecTypeRequest $request)
     {
         return DB::transaction(function () use ($request) {
-            $specType = SpecType::create($request->safe()->except('unit'));
+            $payload = $this->normalizePayload($request->safe()->except(['unit', 'aliases']));
+            if ($request->filled('unit') && empty($payload['base_unit'])) {
+                $payload['base_unit'] = $request->string('unit')->toString();
+            }
+            $specType = SpecType::create($payload);
 
             if ($request->filled('unit')) {
                 $specType->units()->create([
@@ -38,20 +42,25 @@ class SpecTypeController extends Controller
                     'sort_order' => 0,
                 ]);
             }
+            $this->syncAliases($specType, (array) $request->input('aliases', []));
 
-            return ApiResponse::created($specType->load('units'));
+            return ApiResponse::created($specType->load(['units', 'aliases']));
         });
     }
 
     public function show(SpecType $specType)
     {
-        return ApiResponse::success($specType->load('units'));
+        return ApiResponse::success($specType->load(['units', 'aliases']));
     }
 
     public function update(StoreSpecTypeRequest $request, SpecType $specType)
     {
         return DB::transaction(function () use ($request, $specType) {
-            $specType->update($request->safe()->except('unit'));
+            $payload = $this->normalizePayload($request->safe()->except(['unit', 'aliases']));
+            if ($request->has('unit')) {
+                $payload['base_unit'] = $request->filled('unit') ? $request->string('unit')->toString() : null;
+            }
+            $specType->update($payload);
 
             if ($request->has('unit')) {
                 $specType->units()->delete();
@@ -63,8 +72,11 @@ class SpecTypeController extends Controller
                     ]);
                 }
             }
+            if ($request->has('aliases')) {
+                $this->syncAliases($specType, (array) $request->input('aliases', []));
+            }
 
-            return ApiResponse::success($specType->load('units'));
+            return ApiResponse::success($specType->load(['units', 'aliases']));
         });
     }
 
@@ -79,7 +91,7 @@ class SpecTypeController extends Controller
         $model = SpecType::withTrashed()->findOrFail($specType);
         $model->restore();
 
-        return ApiResponse::success($model->load('units'));
+        return ApiResponse::success($model->load(['units', 'aliases']));
     }
 
     public function forceDestroy(int $specType)
@@ -95,5 +107,45 @@ class SpecTypeController extends Controller
         $model->forceDelete();
 
         return ApiResponse::noContent();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizePayload(array $payload): array
+    {
+        $nameJa = trim((string) ($payload['name_ja'] ?? ''));
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($nameJa === '' && $name !== '') {
+            $payload['name_ja'] = $name;
+        }
+        if ($name === '' && $nameJa !== '') {
+            $payload['name'] = $nameJa;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>|string>  $aliases
+     */
+    private function syncAliases(SpecType $specType, array $aliases): void
+    {
+        $specType->aliases()->delete();
+
+        foreach (array_values($aliases) as $index => $entry) {
+            $alias = is_array($entry) ? trim((string) ($entry['alias'] ?? '')) : trim((string) $entry);
+            if ($alias === '') {
+                continue;
+            }
+
+            $specType->aliases()->create([
+                'alias' => $alias,
+                'locale' => is_array($entry) ? ($entry['locale'] ?? null) : null,
+                'kind' => is_array($entry) ? ($entry['kind'] ?? null) : null,
+                'sort_order' => ($index + 1) * 10,
+            ]);
+        }
     }
 }

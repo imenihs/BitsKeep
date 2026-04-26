@@ -10,7 +10,7 @@
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 @include('partials.app-header', ['current' => '部品詳細'])
-<div id="app" data-page="component-detail" data-id="{{ $id }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
+<div id="app" data-page="component-detail" data-id="{{ $id }}" data-can-create-spec-type="{{ auth()->user()->isAdmin() ? '1' : '0' }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
 
   @include('partials.app-breadcrumbs', ['items' => [
     ['label' => '部品一覧', 'url' => route('components.index')],
@@ -577,16 +577,20 @@
           <div class="spec-card-grid spec-card-grid--editor">
             <div class="spec-card-field">
               <label class="spec-card-label">種別</label>
-              <select v-model="spec.spec_type_id" class="input-text spec-card-control w-full">
-                <option value="">-- 種別 --</option>
-                <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-              </select>
+              <div class="spec-type-picker">
+                <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
+                  <option value="">スペック種別を選択</option>
+                  <option v-for="st in specTypes" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+                </select>
+                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+              </div>
+              <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">値の種類</label>
               <div class="spec-card-profile">
                 <button v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" type="button"
-                  @click="spec.value_profile = option.value"
+                  @click="changeSpecProfile(spec, option.value)"
                   class="spec-card-profile-button"
                   :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-odd)]'">
                   @{{ option.label }}
@@ -716,6 +720,46 @@
         <button @click="closeEditModal" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
         <button @click="saveSection()" :disabled="!canSaveEditModal"
           class="btn btn-primary text-sm px-5 py-3 rounded disabled:opacity-40 disabled:cursor-not-allowed">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- スペック種別追加モーダル -->
+  <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
+    <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h3 class="text-lg font-bold">スペック種別を追加</h3>
+        <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-semibold mb-1">日本語名 <span class="text-[var(--color-tag-eol)]">*</span></label>
+          <input v-model="inlineSpecTypeModal.form.name_ja" type="text" class="input-text w-full" placeholder="例: コレクタ-ベース間電圧" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">英語名</label>
+          <input v-model="inlineSpecTypeModal.form.name_en" type="text" class="input-text w-full" placeholder="例: Collector-Base Voltage" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1">記号</label>
+            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: V_CBO / h_FE" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">基底単位</label>
+            <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: V / A / Ω" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">alias</label>
+          <textarea v-model="inlineSpecTypeModal.form.aliases_text" rows="3" class="input-text w-full" placeholder="1行に1つ。データシート上の別表記など"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-5">
+        <button type="button" @click="closeInlineSpecTypeModal()" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button type="button" @click="saveInlineSpecType" :disabled="inlineSpecTypeModal.saving" class="btn btn-primary text-sm px-5 py-3 rounded disabled:opacity-40">
+          @{{ inlineSpecTypeModal.saving ? '保存中...' : '保存して選択' }}
+        </button>
       </div>
     </div>
   </div>

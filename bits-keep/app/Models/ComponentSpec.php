@@ -10,6 +10,7 @@ class ComponentSpec extends Model
     protected $fillable = [
         'component_id',
         'spec_type_id',
+        'display_name',
         'value',
         'unit',
         'value_profile',

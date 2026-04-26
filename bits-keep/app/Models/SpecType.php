@@ -10,7 +10,7 @@ class SpecType extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['name', 'base_unit', 'description', 'sort_order'];
+    protected $fillable = ['name', 'name_ja', 'name_en', 'symbol', 'base_unit', 'description', 'sort_order'];
 
     // 単位候補
     public function units(): HasMany
@@ -22,5 +22,10 @@ class SpecType extends Model
     public function componentSpecs(): HasMany
     {
         return $this->hasMany(ComponentSpec::class);
+    }
+
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(SpecTypeAlias::class)->orderBy('sort_order');
     }
 }

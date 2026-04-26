@@ -23,7 +23,8 @@ class SpecTypeMatchingService
 
         // DB から全 spec_type を取得（アーカイブ済みは除外）
         $specTypes = SpecType::query()
-            ->select('id', 'name')
+            ->with('aliases')
+            ->select('id', 'name', 'name_ja', 'name_en', 'symbol')
             ->get();
 
         return array_map(fn ($spec) => $this->matchOne($spec, $specTypes), $specs);
@@ -31,38 +32,72 @@ class SpecTypeMatchingService
 
     private function matchOne(array $spec, Collection $specTypes): array
     {
-        $name = $spec['name'] ?? '';
-        $normalized = $this->normalize($name);
+        $names = array_filter([
+            $spec['name'] ?? '',
+            $spec['name_ja'] ?? '',
+            $spec['name_en'] ?? '',
+            $spec['symbol'] ?? '',
+        ], fn ($value) => trim((string) $value) !== '');
         $matched = null;
 
-        if ($normalized !== '') {
-            // 1. 完全一致（大文字小文字・スペース無視）
-            $matched = $specTypes->first(
-                fn ($st) => $this->normalize($st->name) === $normalized
-            );
+        foreach ($names as $name) {
+            $normalized = $this->normalize((string) $name);
+            if ($normalized === '') {
+                continue;
+            }
 
-            // 2. 部分一致（Geminiが長い条件名を返した場合に備える）
+            $matched = $specTypes->first(fn ($st) => in_array($normalized, $this->normalizedNames($st), true));
+
             if (! $matched) {
                 $matched = $specTypes->first(function ($st) use ($normalized) {
-                    $specTypeName = $this->normalize($st->name);
-
-                    return $specTypeName !== ''
-                        && (str_contains($normalized, $specTypeName) || str_contains($specTypeName, $normalized));
+                    foreach ($this->normalizedNames($st) as $candidate) {
+                        if ($candidate !== '' && (str_contains($normalized, $candidate) || str_contains($candidate, $normalized))) {
+                            return true;
+                        }
+                    }
+                    return false;
                 });
+            }
+
+            if ($matched) {
+                break;
             }
         }
 
         return array_merge($spec, [
-            'name' => $name,
+            'name' => (string) ($spec['name'] ?? $spec['name_ja'] ?? ''),
+            'name_ja' => (string) ($spec['name_ja'] ?? ''),
+            'name_en' => (string) ($spec['name_en'] ?? ''),
+            'symbol' => (string) ($spec['symbol'] ?? ''),
             'value' => $spec['value'] ?? '',
             'unit' => $spec['unit'] ?? '',
             'spec_type_id' => $matched?->id,
+            'spec_type_name' => $matched?->name_ja ?? $matched?->name ?? '',
             'matched' => $matched !== null,
         ]);
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function normalizedNames(SpecType $specType): array
+    {
+        return collect([
+            $specType->name,
+            $specType->name_ja,
+            $specType->name_en,
+            $specType->symbol,
+            ...$specType->aliases->pluck('alias')->all(),
+        ])
+            ->map(fn ($value) => $this->normalize((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function normalize(string $s): string
     {
-        return strtolower(preg_replace('/[\s\(\)\[\]_\-\.]/u', '', $s));
+        return strtolower(preg_replace('/[\s\(\)\[\]_\-\.~]/u', '', $s));
     }
 }

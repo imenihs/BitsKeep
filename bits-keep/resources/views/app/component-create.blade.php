@@ -13,7 +13,7 @@
 @php($chatGptHelperMinVersion = config('services.chatgpt_helper.min_version'))
 @php($canEdit = auth()->user()->isEditor())
 @include('partials.app-header', ['current' => isset($id) ? '部品編集' : '部品登録'])
-<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" data-can-create-supplier="{{ auth()->user()->isAdmin() ? '1' : '0' }}" data-chatgpt-helper-min-version="{{ $chatGptHelperMinVersion }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
+<div id="app" data-page="component-create" data-id="{{ $id ?? '' }}" data-can-create-supplier="{{ auth()->user()->isAdmin() ? '1' : '0' }}" data-can-create-spec-type="{{ auth()->user()->isAdmin() ? '1' : '0' }}" data-chatgpt-helper-min-version="{{ $chatGptHelperMinVersion }}" class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [
     ['label' => '部品一覧', 'url' => route('components.index')],
     ['label' => isset($id) ? '部品編集' : '部品登録', 'current' => true],
@@ -191,16 +191,20 @@
       <div class="spec-card-grid spec-card-grid--editor">
         <div class="spec-card-field">
           <label class="spec-card-label">種別</label>
-          <select v-model="spec.spec_type_id" class="input-text spec-card-control text-sm py-1 w-full">
-            <option value="">-- 種別 --</option>
-            <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-          </select>
+          <div class="spec-type-picker">
+            <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control text-sm py-1 w-full">
+              <option value="">スペック種別を選択</option>
+              <option v-for="st in specTypes" :key="`type-${i}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+            </select>
+            <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+          </div>
+          <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
         </div>
         <div class="spec-card-field">
           <label class="spec-card-label">値の種類</label>
           <div class="spec-card-profile">
             <button v-for="option in specProfileOptions" :key="`create-profile-${i}-${option.value}`" type="button"
-              @click="spec.value_profile = option.value"
+              @click="changeSpecProfile(spec, option.value)"
               class="spec-card-profile-button"
               :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
               @{{ option.label }}
@@ -833,18 +837,24 @@
               </div>
               <div class="spec-card-grid spec-card-grid--helper">
                 <div class="spec-card-field">
-                  <label class="spec-card-label">名前 / 紐付け</label>
-                  <input v-model="spec.name" type="text" class="input-text spec-card-control w-full" placeholder="スペック名" />
-                  <select v-model="spec.spec_type_id" @change="handleHelperSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
-                    <option value="">スペック種別を選択</option>
-                    <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>
-                  </select>
+                  <label class="spec-card-label">種別</label>
+                  <div class="spec-type-picker">
+                    <select v-model="spec.spec_type_id" @change="handleHelperSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
+                      <option value="">スペック種別を選択</option>
+                      <option v-for="st in specTypes" :key="`helper-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+                    </select>
+                    <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+                  </div>
+                  <div class="space-y-1">
+                    <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
+                    <p v-if="spec.name_ja || spec.name_en || spec.symbol" class="spec-card-help">候補: @{{ [spec.name_ja, spec.name_en, spec.symbol].filter(Boolean).join(' / ') }}</p>
+                  </div>
                 </div>
                 <div class="spec-card-field">
                   <label class="spec-card-label">値の種類</label>
                   <div class="spec-card-profile">
                     <button v-for="option in specProfileOptions" :key="`helper-profile-${index}-${option.value}`" type="button"
-                      @click="spec.value_profile = option.value"
+                      @click="changeSpecProfile(spec, option.value)"
                       class="spec-card-profile-button"
                       :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
                       @{{ option.label }}
@@ -901,7 +911,7 @@
                 <div class="spec-card-field">
                   <label class="spec-card-label">確認</label>
                   <div class="spec-card-preview spec-card-preview-panel text-[11px]">
-                    <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || spec.name || 'スペック名を入力' }}</p>
+                    <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック種別を選択' }}</p>
                     <template v-if="specPreview(spec).hasNumeric">
                       <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
                       <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
@@ -928,6 +938,46 @@
             選択した候補を適用
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スペック種別追加モーダル -->
+  <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
+    <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h3 class="text-lg font-bold">スペック種別を追加</h3>
+        <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-semibold mb-1">日本語名 <span class="text-[var(--color-tag-eol)]">*</span></label>
+          <input v-model="inlineSpecTypeModal.form.name_ja" type="text" class="input-text w-full" placeholder="例: コレクタ-ベース間電圧" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">英語名</label>
+          <input v-model="inlineSpecTypeModal.form.name_en" type="text" class="input-text w-full" placeholder="例: Collector-Base Voltage" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1">記号</label>
+            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: V_CBO / h_FE" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">基底単位</label>
+            <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: V / A / Ω" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">alias</label>
+          <textarea v-model="inlineSpecTypeModal.form.aliases_text" rows="3" class="input-text w-full" placeholder="1行に1つ。データシート上の別表記など"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-5">
+        <button type="button" @click="closeInlineSpecTypeModal()" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
+        <button type="button" @click="saveInlineSpecType" :disabled="inlineSpecTypeModal.saving" class="btn btn-primary text-sm px-5 py-3 rounded disabled:opacity-40">
+          @{{ inlineSpecTypeModal.saving ? '保存中...' : '保存して選択' }}
+        </button>
       </div>
     </div>
   </div>

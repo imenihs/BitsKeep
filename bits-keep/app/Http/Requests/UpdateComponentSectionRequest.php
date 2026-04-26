@@ -49,6 +49,8 @@ class UpdateComponentSectionRequest extends FormRequest
                 'specs' => ['required', 'array'],
                 'specs.*.id' => ['nullable', 'integer', 'exists:component_specs,id'],
                 'specs.*.spec_type_id' => ['required', 'integer', 'exists:spec_types,id'],
+                'specs.*.name' => ['nullable', 'string', 'max:120'],
+                'specs.*.display_name' => ['nullable', 'string', 'max:120'],
                 'specs.*.value_profile' => ['nullable', 'in:typ,range,max_only,min_only,triple'],
                 'specs.*.value_mode' => ['nullable', 'in:single,range'],
                 'specs.*.value' => ['nullable', 'string', 'max:100'],

@@ -11,6 +11,7 @@ import {
     getSpecDisplayName,
     getSpecUnitSuggestions,
     normalizeSpecDraft,
+    normalizeSpecProfile,
     SPEC_PROFILE_OPTIONS,
 } from '../utils/specValue.js';
 
@@ -21,7 +22,9 @@ export default function setup() {
     const { loadFavorites, toggleFavorite, isFavorite } = useFavoriteComponents();
 
     // Blade側から data-id 属性で部品IDを受け取る
-    const componentId = document.getElementById('app')?.dataset?.id;
+    const appEl = document.getElementById('app');
+    const componentId = appEl?.dataset?.id;
+    const canCreateSpecType = computed(() => appEl?.dataset?.canCreateSpecType === '1');
 
     const part       = ref(null);
     const loading    = ref(true);
@@ -41,6 +44,19 @@ export default function setup() {
     const editModalSnapshot = ref('');
     const packageFilterQuery = ref('');
     const specProfileOptions = SPEC_PROFILE_OPTIONS;
+    const createInlineSpecTypeForm = () => ({
+        name_ja: '',
+        name_en: '',
+        symbol: '',
+        unit: '',
+        aliases_text: '',
+    });
+    const inlineSpecTypeModal = reactive({
+        open: false,
+        saving: false,
+        targetSpec: null,
+        form: createInlineSpecTypeForm(),
+    });
 
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
@@ -208,6 +224,10 @@ export default function setup() {
                 await api.uploadPut(`/components/${componentId}`, fd);
             } else {
                 // ファイルなし → 通常 JSON PATCH（_newImage/_newDatasheets は除外）
+                if (editModal.value.section === 'specs') {
+                    await resolveSpecTypesBeforeSave();
+                    if (!validateSpecsBeforeSave()) return;
+                }
                 const payload = editModal.value.section === 'specs'
                     ? { specs: (form.specs ?? []).map((spec) => buildSpecPayload(spec)) }
                     : form;
@@ -401,6 +421,195 @@ export default function setup() {
     const getSpecTypeById = (specTypeId) =>
         specTypes.value.find((item) => Number(item.id) === Number(specTypeId)) ?? null;
 
+    const specTypeOptionLabel = (specType) => {
+        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
+        const symbol = String(specType?.symbol ?? '').trim();
+        const english = String(specType?.name_en ?? '').trim();
+        const suffix = [symbol, english].filter(Boolean).join(' / ');
+
+        return suffix ? `${primary} (${suffix})` : primary;
+    };
+    const normalizeName = (value) => String(value ?? '').toLowerCase().replace(/[\s()\[\]_.-]/gu, '');
+    const specTypeSearchText = (item) => [
+        item?.name,
+        item?.name_ja,
+        item?.name_en,
+        item?.symbol,
+        ...(item?.aliases ?? []).map((alias) => alias.alias),
+    ].filter(Boolean).join(' ');
+    const matchSpecTypeByName = (name) => {
+        const normalized = normalizeName(name);
+        if (!normalized) return null;
+
+        let matched = specTypes.value.find((item) => normalizeName(specTypeSearchText(item)) === normalized);
+        if (matched) return matched;
+
+        matched = specTypes.value.find((item) => {
+            const itemName = normalizeName(specTypeSearchText(item));
+            return itemName && (normalized.includes(itemName) || itemName.includes(normalized));
+        });
+
+        return matched ?? null;
+    };
+    const handleSpecTypeSelection = (spec) => {
+        const selected = getSpecTypeById(spec?.spec_type_id);
+        if (selected) {
+            spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
+        } else {
+            spec.spec_type_name = '';
+        }
+    };
+    const buildSpecTypeAliases = (aliasesText, extraAliases = [], excludedValues = []) => {
+        const excluded = new Set(excludedValues.map((value) => normalizeName(value)).filter(Boolean));
+        const seen = new Set;
+
+        return [
+            ...String(aliasesText ?? '').split(/\r?\n/u),
+            ...extraAliases,
+        ].map((value) => String(value ?? '').trim())
+            .filter((value) => {
+                const key = normalizeName(value);
+                if (!key || excluded.has(key) || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .map((alias) => ({ alias }));
+    };
+    const sortSpecTypes = (items) => [...items].sort((a, b) => {
+        const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+        return sortOrder || String(a.name_ja ?? a.name ?? '').localeCompare(String(b.name_ja ?? b.name ?? ''), 'ja');
+    });
+    const openInlineSpecTypeModal = (spec = null) => {
+        if (!canCreateSpecType.value) return;
+
+        const selected = getSpecTypeById(spec?.spec_type_id);
+        const rawName = String(spec?.name ?? '').trim();
+        const nameJa = String(spec?.name_ja ?? '').trim()
+            || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
+            || rawName;
+        const aliases = [rawName].filter((value) => value && normalizeName(value) !== normalizeName(nameJa));
+
+        inlineSpecTypeModal.targetSpec = spec;
+        inlineSpecTypeModal.form = {
+            name_ja: nameJa,
+            name_en: String(spec?.name_en ?? '').trim(),
+            symbol: String(spec?.symbol ?? '').trim(),
+            unit: String(spec?.unit ?? '').trim(),
+            aliases_text: aliases.join('\n'),
+        };
+        inlineSpecTypeModal.open = true;
+    };
+    const closeInlineSpecTypeModal = (force = false) => {
+        if (inlineSpecTypeModal.saving && force !== true) return;
+        inlineSpecTypeModal.open = false;
+        inlineSpecTypeModal.targetSpec = null;
+        inlineSpecTypeModal.form = createInlineSpecTypeForm();
+    };
+    const fetchSpecTypes = async () => {
+        try {
+            const res = await api.get('/spec-types');
+            specTypes.value = res.data ?? [];
+        } catch {
+            // 保存処理側で必要なエラーを出す。
+        }
+    };
+    const createSpecTypeFromDraft = async (spec) => {
+        const nameJa = String(spec?.name_ja ?? spec?.spec_type_name ?? spec?.name ?? '').trim();
+        const name = nameJa || String(spec?.name ?? '').trim();
+        if (!name) return null;
+
+        const existing = matchSpecTypeByName(name);
+        if (existing) return existing;
+
+        try {
+            const res = await api.post('/spec-types', {
+                name,
+                name_ja: nameJa || name,
+                name_en: String(spec?.name_en ?? '').trim(),
+                symbol: String(spec?.symbol ?? '').trim(),
+                unit: String(spec?.unit ?? '').trim(),
+                aliases: buildSpecTypeAliases(
+                    spec?.aliases_text ?? '',
+                    [spec?.name],
+                    [name, nameJa, spec?.name_en, spec?.symbol]
+                ),
+                sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
+            });
+            specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
+            toastSuccess(`スペック種別を追加しました: ${name}`);
+            return res.data;
+        } catch (e) {
+            await fetchSpecTypes();
+            const matchedAfterReload = matchSpecTypeByName(name);
+            if (matchedAfterReload) return matchedAfterReload;
+            toastError(e.message);
+            return null;
+        }
+    };
+    const saveInlineSpecType = async () => {
+        if (inlineSpecTypeModal.saving) return;
+
+        const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
+        if (!nameJa) {
+            toastError('スペック種別の日本語名を入力してください');
+            return;
+        }
+
+        inlineSpecTypeModal.saving = true;
+        try {
+            const created = await createSpecTypeFromDraft(inlineSpecTypeModal.form);
+            if (!created) return;
+
+            const targetSpec = inlineSpecTypeModal.targetSpec;
+            if (targetSpec) {
+                targetSpec.spec_type_id = created.id;
+                targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
+            }
+            closeInlineSpecTypeModal(true);
+        } finally {
+            inlineSpecTypeModal.saving = false;
+        }
+    };
+    const resolveSpecTypesBeforeSave = async () => {
+        for (const spec of editModal.value.form?.specs ?? []) {
+            handleSpecTypeSelection(spec);
+        }
+    };
+    const validateSpecsBeforeSave = () => {
+        const missingRows = (editModal.value.form?.specs ?? [])
+            .map((spec, index) => ({ spec, index }))
+            .filter(({ spec }) => !spec.spec_type_id);
+        if (!missingRows.length) return true;
+
+        const labels = missingRows
+            .slice(0, 4)
+            .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
+        const suffix = missingRows.length > labels.length ? ` ほか${missingRows.length - labels.length}件` : '';
+        toastError(`スペック種別が未選択です: ${labels.join('、')}${suffix}`);
+        return false;
+    };
+    const changeSpecProfile = (spec, profile) => {
+        const previous = normalizeSpecProfile(spec?.value_profile);
+        const next = normalizeSpecProfile(profile);
+        const typ = String(spec.value_typ ?? '').trim();
+        const min = String(spec.value_min ?? '').trim();
+        const max = String(spec.value_max ?? '').trim();
+        const fallback = typ || max || min;
+
+        if (next === 'typ' && !typ) {
+            spec.value_typ = fallback;
+        } else if (next === 'max_only' && !max) {
+            spec.value_max = previous === 'typ' && typ ? typ : fallback;
+        } else if (next === 'min_only' && !min) {
+            spec.value_min = previous === 'typ' && typ ? typ : fallback;
+        } else if ((next === 'range' || next === 'triple') && !typ && previous === 'max_only' && max) {
+            spec.value_typ = max;
+        } else if (next === 'triple' && !typ && previous === 'min_only' && min) {
+            spec.value_typ = min;
+        }
+
+        spec.value_profile = next;
+    };
     const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(getSpecTypeById(specTypeId));
     const specPreview = (spec) => normalizeSpecDraft(spec, getSpecTypeById(spec.spec_type_id));
     const specDisplayName = (spec) => getSpecDisplayName(spec, getSpecTypeById(spec?.spec_type_id));
@@ -414,6 +623,8 @@ export default function setup() {
         formatTransactionTimestamp,
         canSaveEditModal,
         specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName,
+        canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
+        handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
         detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,
         basicImageFile, basicDatasheetFiles, basicDatasheetLabels, onBasicDatasheetsChange,

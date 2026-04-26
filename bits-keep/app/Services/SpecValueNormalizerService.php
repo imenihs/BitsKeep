@@ -246,7 +246,7 @@ class SpecValueNormalizerService
         $typ = $this->parseEngineeringNumber($rawTyp);
         $max = $this->parseEngineeringNumber($rawMax);
 
-        if ($min === null || $typ === null || $max === null) {
+        if ($min === null && $typ === null && $max === null) {
             return [
                 'value_profile' => 'triple',
                 'value' => $this->buildTripleLabel($rawMin, $rawTyp, $rawMax),
@@ -260,23 +260,27 @@ class SpecValueNormalizerService
             ];
         }
 
-        $canonicalMin = $min['value'] * $min['factor'] * $factor;
-        $canonicalTyp = $typ['value'] * $typ['factor'] * $factor;
-        $canonicalMax = $max['value'] * $max['factor'] * $factor;
-        if ($canonicalMin > $canonicalMax) {
+        $canonicalMin = $min === null ? null : $min['value'] * $min['factor'] * $factor;
+        $canonicalTyp = $typ === null ? null : $typ['value'] * $typ['factor'] * $factor;
+        $canonicalMax = $max === null ? null : $max['value'] * $max['factor'] * $factor;
+        if ($canonicalMin !== null && $canonicalMax !== null && $canonicalMin > $canonicalMax) {
             [$canonicalMin, $canonicalMax] = [$canonicalMax, $canonicalMin];
         }
-        [$displayMin, $displayTyp, $displayMax, $displayUnit] = $this->humanizeTriple($canonicalMin, $canonicalTyp, $canonicalMax, $normalizedUnit, $resolvedUnit);
+        $humanized = $this->humanizeValues([
+            'min' => $canonicalMin,
+            'typ' => $canonicalTyp,
+            'max' => $canonicalMax,
+        ], $normalizedUnit, $resolvedUnit);
 
         return [
             'value_profile' => 'triple',
-            'value' => $this->buildTripleLabel($displayMin, $displayTyp, $displayMax),
-            'unit' => $displayUnit,
+            'value' => $this->buildTripleLabel($humanized['min'], $humanized['typ'], $humanized['max']),
+            'unit' => $humanized['unit'],
             'value_mode' => 'range',
-            'value_numeric' => $this->formatDecimal($canonicalTyp, 10),
-            'value_numeric_typ' => $this->formatDecimal($canonicalTyp, 15),
-            'value_numeric_min' => $this->formatDecimal($canonicalMin, 15),
-            'value_numeric_max' => $this->formatDecimal($canonicalMax, 15),
+            'value_numeric' => $canonicalTyp === null ? null : $this->formatDecimal($canonicalTyp, 10),
+            'value_numeric_typ' => $canonicalTyp === null ? null : $this->formatDecimal($canonicalTyp, 15),
+            'value_numeric_min' => $canonicalMin === null ? null : $this->formatDecimal($canonicalMin, 15),
+            'value_numeric_max' => $canonicalMax === null ? null : $this->formatDecimal($canonicalMax, 15),
             'normalized_unit' => $normalizedUnit,
         ];
     }
@@ -411,6 +415,40 @@ class SpecValueNormalizerService
             $this->formatDisplayNumber($canonicalTyp / $factor),
             $this->formatDisplayNumber($canonicalMax / $factor),
             $prefix.$normalizedUnit,
+        ];
+    }
+
+    /**
+     * @param  array{min: ?float, typ: ?float, max: ?float}  $values
+     * @return array{min: string, typ: string, max: string, unit: string}
+     */
+    private function humanizeValues(array $values, ?string $normalizedUnit, string $fallbackUnit): array
+    {
+        $presentValues = array_values(array_filter($values, fn ($value) => $value !== null));
+        $displayUnit = $fallbackUnit !== '' ? $fallbackUnit : (string) $normalizedUnit;
+
+        if (! $presentValues) {
+            return ['min' => '', 'typ' => '', 'max' => '', 'unit' => $displayUnit];
+        }
+
+        if (! $this->canHumanize($normalizedUnit)) {
+            return [
+                'min' => $values['min'] === null ? '' : $this->formatDisplayNumber($values['min']),
+                'typ' => $values['typ'] === null ? '' : $this->formatDisplayNumber($values['typ']),
+                'max' => $values['max'] === null ? '' : $this->formatDisplayNumber($values['max']),
+                'unit' => $displayUnit,
+            ];
+        }
+
+        $target = max(array_map(fn ($value) => abs($value), $presentValues));
+        $prefix = $this->choosePrefix($target);
+        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+
+        return [
+            'min' => $values['min'] === null ? '' : $this->formatDisplayNumber($values['min'] / $factor),
+            'typ' => $values['typ'] === null ? '' : $this->formatDisplayNumber($values['typ'] / $factor),
+            'max' => $values['max'] === null ? '' : $this->formatDisplayNumber($values['max'] / $factor),
+            'unit' => $prefix.$normalizedUnit,
         ];
     }
 

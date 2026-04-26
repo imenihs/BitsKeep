@@ -65,7 +65,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(c, index) in categories" :key="c.id"
+        <tr v-for="(c, index) in activeCategories" :key="c.id"
           :draggable="canEdit && !c.deleted_at ? 'true' : 'false'"
           @dragstart="catDnD.start(index)"
           @dragover="catDnD.over($event, index)"
@@ -82,9 +82,6 @@
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ c.name }}</span>
-              <span v-if="c.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                アーカイブ済み
-              </span>
             </div>
           </td>
           <td class="py-2 pr-4 opacity-70 text-xs">
@@ -94,18 +91,48 @@
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
               <button @click="openCatEdit(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!c.deleted_at" @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
-              <button v-else @click="restoreCategory(c)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
-              <button v-if="c.can_force_delete" @click="forceDeleteCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+              <button @click="openCatDuplicate(c)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">複製</button>
+              <button @click="archiveCategory(c)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
             </div>
-            <div v-if="c.deleted_at && !c.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ c.force_delete_reason }}</div>
           </td>
         </tr>
-        <tr v-if="categories.length === 0">
+        <tr v-if="activeCategories.length === 0">
           <td colspan="4" class="py-8 text-center opacity-40">分類が登録されていません</td>
         </tr>
       </tbody>
     </table>
+    <section v-if="archivedCategories.length" class="mt-6">
+      <h2 class="font-bold mb-3">アーカイブ</h2>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-left opacity-70">
+            <th class="py-2 pr-2 w-6"></th>
+            <th class="py-2 pr-4">名前</th>
+            <th class="py-2 pr-4">説明</th>
+            <th class="py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="c in archivedCategories" :key="`archived-cat-${c.id}`"
+            :class="c.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+            class="border-b border-[var(--color-border)] transition-colors">
+            <td class="py-2 pr-2"></td>
+            <td class="py-2 pr-4 font-medium">
+              <div class="flex items-center gap-2">
+                <span>@{{ c.name }}</span>
+              </div>
+            </td>
+            <td class="py-2 pr-4 opacity-70 text-xs">
+              <div>@{{ c.description || '-' }}</div>
+              <div class="mt-1 opacity-60">使用件数: @{{ c.usage_count ?? 0 }}</div>
+            </td>
+            <td class="py-2">
+              <button @click="restoreCategory(c)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 
   <!-- ══════════════════════════ パッケージタブ ══════════════════════════════ -->
@@ -130,7 +157,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(group, index) in packageGroups" :key="group.id"
+        <tr v-for="(group, index) in activePackageGroups" :key="group.id"
           :draggable="canEdit && !group.deleted_at ? 'true' : 'false'"
           @dragstart="pgDnD.start(index)"
           @dragover="pgDnD.over($event, index)"
@@ -147,7 +174,6 @@
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ group.name }}</span>
-              <span v-if="group.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">アーカイブ済み</span>
             </div>
           </td>
           <td class="py-2 pr-4 opacity-70 text-xs">
@@ -157,18 +183,48 @@
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
               <button @click="openPkgGroupEdit(group)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!group.deleted_at" @click="archivePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
-              <button v-else @click="restorePackageGroup(group)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
-              <button v-if="group.can_force_delete" @click="forceDeletePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+              <button @click="openPkgGroupDuplicate(group)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">複製</button>
+              <button @click="archivePackageGroup(group)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
             </div>
-            <div v-if="group.deleted_at && !group.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ group.force_delete_reason }}</div>
           </td>
         </tr>
-        <tr v-if="packageGroups.length === 0">
+        <tr v-if="activePackageGroups.length === 0">
           <td colspan="4" class="py-8 text-center opacity-40">パッケージ分類が登録されていません</td>
         </tr>
       </tbody>
     </table>
+    <section v-if="archivedPackageGroups.length" class="mt-6">
+      <h2 class="font-bold mb-3">アーカイブ</h2>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-left opacity-70">
+            <th class="py-2 pr-2 w-6"></th>
+            <th class="py-2 pr-4">名前</th>
+            <th class="py-2 pr-4">説明</th>
+            <th class="py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="group in archivedPackageGroups" :key="`archived-group-${group.id}`"
+            :class="group.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+            class="border-b border-[var(--color-border)] transition-colors">
+            <td class="py-2 pr-2"></td>
+            <td class="py-2 pr-4 font-medium">
+              <div class="flex items-center gap-2">
+                <span>@{{ group.name }}</span>
+              </div>
+            </td>
+            <td class="py-2 pr-4 opacity-70 text-xs">
+              <div>@{{ group.description || '-' }}</div>
+              <div class="mt-1 opacity-60">使用件数: @{{ group.usage_count ?? 0 }}</div>
+            </td>
+            <td class="py-2">
+              <button @click="restorePackageGroup(group)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 
   <div v-if="activeTab === 'packages'">
@@ -193,7 +249,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(p, index) in packages" :key="p.id"
+        <tr v-for="(p, index) in activePackages" :key="p.id"
           :draggable="canEdit && !p.deleted_at ? 'true' : 'false'"
           @dragstart="pkgDnD.start(index)"
           @dragover="pkgDnD.over($event, index)"
@@ -211,9 +267,6 @@
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
               <span>@{{ p.name }}</span>
-              <span v-if="p.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                アーカイブ済み
-              </span>
             </div>
           </td>
           <td class="py-2 pr-4 opacity-70 text-xs">
@@ -223,18 +276,50 @@
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
               <button @click="openPkgEdit(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!p.deleted_at" @click="archivePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
-              <button v-else @click="restorePackage(p)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
-              <button v-if="p.can_force_delete" @click="forceDeletePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+              <button @click="openPkgDuplicate(p)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">複製</button>
+              <button @click="archivePackage(p)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
             </div>
-            <div v-if="p.deleted_at && !p.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ p.force_delete_reason }}</div>
           </td>
         </tr>
-        <tr v-if="packages.length === 0">
+        <tr v-if="activePackages.length === 0">
           <td colspan="5" class="py-8 text-center opacity-40">詳細パッケージが登録されていません</td>
         </tr>
       </tbody>
     </table>
+    <section v-if="archivedPackages.length" class="mt-6">
+      <h2 class="font-bold mb-3">アーカイブ</h2>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-left opacity-70">
+            <th class="py-2 pr-2 w-6"></th>
+            <th class="py-2 pr-4">パッケージ分類</th>
+            <th class="py-2 pr-4">名前</th>
+            <th class="py-2 pr-4">説明</th>
+            <th class="py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in archivedPackages" :key="`archived-package-${p.id}`"
+            :class="p.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+            class="border-b border-[var(--color-border)] transition-colors">
+            <td class="py-2 pr-2"></td>
+            <td class="py-2 pr-4 text-xs opacity-70">@{{ p.package_group?.name || '未分類' }}</td>
+            <td class="py-2 pr-4 font-medium">
+              <div class="flex items-center gap-2">
+                <span>@{{ p.name }}</span>
+              </div>
+            </td>
+            <td class="py-2 pr-4 opacity-70 text-xs">
+              <div>@{{ p.description || '-' }}</div>
+              <div class="mt-1 opacity-60">使用件数: @{{ p.usage_count ?? 0 }}</div>
+            </td>
+            <td class="py-2">
+              <button @click="restorePackage(p)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 
   <!-- ══════════════════════════ スペック種別タブ ═══════════════════════════ -->
@@ -260,7 +345,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(s, index) in specTypes" :key="s.id"
+        <tr v-for="(s, index) in activeSpecTypes" :key="s.id"
           :draggable="isAdmin && !s.deleted_at ? 'true' : 'false'"
           @dragstart="stDnD.start(index)"
           @dragover="stDnD.over($event, index)"
@@ -276,10 +361,8 @@
           </td>
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
-              <span>@{{ s.name }}</span>
-              <span v-if="s.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                アーカイブ済み
-              </span>
+            <span>@{{ s.name_ja || s.name }}</span>
+            <span v-if="s.symbol" class="text-xs opacity-60">@{{ s.symbol }}</span>
             </div>
           </td>
           <td class="py-2 pr-4 text-xs opacity-70">
@@ -295,18 +378,56 @@
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
               <button @click="openStEdit(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-              <button v-if="!s.deleted_at" @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
-              <button v-else @click="restoreSpecType(s)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
-              <button v-if="s.can_force_delete" @click="forceDeleteSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">完全削除</button>
+              <button @click="openStDuplicate(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">複製</button>
+              <button @click="archiveSpecType(s)" class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">アーカイブ</button>
             </div>
-            <div v-if="s.deleted_at && !s.can_force_delete" class="mt-1 text-[10px] opacity-60">@{{ s.force_delete_reason }}</div>
           </td>
         </tr>
-        <tr v-if="specTypes.length === 0">
+        <tr v-if="activeSpecTypes.length === 0">
           <td colspan="5" class="py-8 text-center opacity-40">スペック種別が登録されていません</td>
         </tr>
       </tbody>
     </table>
+    <section v-if="archivedSpecTypes.length" class="mt-6">
+      <h2 class="font-bold mb-3">アーカイブ</h2>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-left opacity-70">
+            <th class="py-2 pr-2 w-6"></th>
+            <th class="py-2 pr-4">名前</th>
+            <th class="py-2 pr-4">型</th>
+            <th class="py-2 pr-4">単位候補</th>
+            <th class="py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in archivedSpecTypes" :key="`archived-spec-${s.id}`"
+            :class="s.id % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
+            class="border-b border-[var(--color-border)] transition-colors">
+            <td class="py-2 pr-2"></td>
+            <td class="py-2 pr-4 font-medium">
+              <div class="flex items-center gap-2">
+                <span>@{{ s.name_ja || s.name }}</span>
+                <span v-if="s.symbol" class="text-xs opacity-60">@{{ s.symbol }}</span>
+              </div>
+            </td>
+            <td class="py-2 pr-4 text-xs opacity-70">
+              <div>@{{ s.value_type }}</div>
+              <div class="mt-1 opacity-60">使用件数: @{{ s.usage_count ?? 0 }}</div>
+            </td>
+            <td class="py-2 pr-4 text-xs">
+              <span v-if="s.units?.[0]" class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5 mr-1 mb-1">
+                @{{ s.units[0].unit }}
+              </span>
+              <span v-else class="opacity-40">-</span>
+            </td>
+            <td class="py-2">
+              <button @click="restoreSpecType(s)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 
   <!-- ═══════════════ 分類モーダル ════════════════ -->
@@ -414,9 +535,25 @@
       </div>
       <div class="p-6 space-y-4">
         <div>
-          <label class="block text-sm font-medium mb-1">名前 <span class="text-red-500">*</span></label>
-          <input v-model="stModal.form.name" type="text" placeholder="例: 静電容量, 耐圧"
+          <label class="block text-sm font-medium mb-1">日本語名 <span class="text-red-500">*</span></label>
+          <input v-model="stModal.form.name_ja" type="text" placeholder="例: コレクタ-ベース間電圧"
             class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">英語名</label>
+          <input v-model="stModal.form.name_en" type="text" placeholder="例: Collector-Base Voltage"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">記号</label>
+          <input v-model="stModal.form.symbol" type="text" placeholder="例: V_CBO, h_FE"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm font-mono" />
+          <p class="text-xs opacity-50 mt-1">`_` の後は下付き、`~` の後は上付きとして表示します。HTMLは入力しません。</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">alias（別名・表記ゆれ）</label>
+          <textarea v-model="stModal.form.aliases_text" rows="3" placeholder="1行に1つ。例: VCBO&#10;Collector Base Breakdown Voltage"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm"></textarea>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">説明</label>

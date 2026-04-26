@@ -58,6 +58,27 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('uF', $normalized['unit']);
     }
 
+    public function test_normalizes_partial_triple_without_minimum(): void
+    {
+        $service = new SpecValueNormalizerService;
+        $specType = $this->specType('A');
+
+        $normalized = $service->normalizeSpecPayload($specType, [
+            'value_profile' => 'triple',
+            'value_min' => '',
+            'value_typ' => '5',
+            'value_max' => '10',
+            'unit' => 'mA',
+        ]);
+
+        $this->assertSame('triple', $normalized['value_profile']);
+        $this->assertNull($normalized['value_numeric_min']);
+        $this->assertSame('0.005', $normalized['value_numeric_typ']);
+        $this->assertSame('0.01', $normalized['value_numeric_max']);
+        $this->assertSame('5 / 10', $normalized['value']);
+        $this->assertSame('mA', $normalized['unit']);
+    }
+
     private function specType(string $baseUnit): SpecType
     {
         $specType = new SpecType(['base_unit' => $baseUnit]);
