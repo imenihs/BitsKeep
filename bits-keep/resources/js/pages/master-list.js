@@ -8,6 +8,7 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
+import { renderSymbol } from '../utils/specValue.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -314,7 +315,7 @@ export default function setup() {
     const stSnapshot = ref(null);
     const stModal = reactive({
         open: false, isEdit: false, editId: null,
-        form: { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: 0, unit: '' }
+        form: { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: 0, unit: '', suggest_prefixes: [], display_prefixes: [] }
     });
 
     const fetchSpecTypes = async () => {
@@ -324,7 +325,7 @@ export default function setup() {
     };
 
     const openStAdd = () => {
-        const form = { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: nextSortOrder(specTypes.value), unit: '' };
+        const form = { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: nextSortOrder(specTypes.value), unit: '', suggest_prefixes: [], display_prefixes: [] };
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
     };
@@ -336,6 +337,8 @@ export default function setup() {
             value_type: s.value_type ?? 'numeric',
             sort_order: s.sort_order ?? 0,
             unit: s.units?.[0]?.unit ?? '',
+            suggest_prefixes: Array.isArray(s.suggest_prefixes) ? [...s.suggest_prefixes] : [],
+            display_prefixes: Array.isArray(s.display_prefixes) ? [...s.display_prefixes] : [],
         };
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: true, editId: s.id, form });
@@ -348,6 +351,8 @@ export default function setup() {
             value_type: s.value_type ?? 'numeric',
             sort_order: nextSortOrder(specTypes.value),
             unit: s.units?.[0]?.unit ?? '',
+            suggest_prefixes: Array.isArray(s.suggest_prefixes) ? [...s.suggest_prefixes] : [],
+            display_prefixes: Array.isArray(s.display_prefixes) ? [...s.display_prefixes] : [],
         };
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
@@ -362,6 +367,8 @@ export default function setup() {
                     .split(/\r?\n/u)
                     .map((alias) => ({ alias: alias.trim() }))
                     .filter((item) => item.alias),
+                suggest_prefixes: stModal.form.suggest_prefixes?.length > 0 ? stModal.form.suggest_prefixes : null,
+                display_prefixes: stModal.form.display_prefixes?.length > 0 ? stModal.form.display_prefixes : null,
             };
             delete payload.aliases_text;
             if (stModal.isEdit) await api.put(`/spec-types/${stModal.editId}`, payload);
@@ -375,6 +382,8 @@ export default function setup() {
         name_ja: item.name_ja ?? item.name ?? '',
         name_en: item.name_en ?? '',
         symbol: item.symbol ?? '',
+        suggest_prefixes: Array.isArray(item.suggest_prefixes) && item.suggest_prefixes.length > 0 ? item.suggest_prefixes : null,
+        display_prefixes: Array.isArray(item.display_prefixes) && item.display_prefixes.length > 0 ? item.display_prefixes : null,
         aliases: (item.aliases ?? []).map((alias) => ({
             alias: alias.alias,
             locale: alias.locale ?? null,
@@ -471,5 +480,6 @@ export default function setup() {
         packages, activePackages, archivedPackages, pkgModal, openPkgAdd, openPkgEdit, openPkgDuplicate, savePackage, archivePackage, restorePackage, movePackage,
         // スペック種別
         specTypes, activeSpecTypes, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType,
+        renderSymbol,
     };
 }

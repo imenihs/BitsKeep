@@ -362,7 +362,7 @@
           <td class="py-2 pr-4 font-medium">
             <div class="flex items-center gap-2">
             <span>@{{ s.name_ja || s.name }}</span>
-            <span v-if="s.symbol" class="text-xs opacity-60">@{{ s.symbol }}</span>
+            <span v-if="s.symbol" class="text-xs opacity-60 font-mono" v-html="renderSymbol(s.symbol)"></span>
             </div>
           </td>
           <td class="py-2 pr-4 text-xs opacity-70">
@@ -408,7 +408,7 @@
             <td class="py-2 pr-4 font-medium">
               <div class="flex items-center gap-2">
                 <span>@{{ s.name_ja || s.name }}</span>
-                <span v-if="s.symbol" class="text-xs opacity-60">@{{ s.symbol }}</span>
+                <span v-if="s.symbol" class="text-xs opacity-60 font-mono" v-html="renderSymbol(s.symbol)"></span>
               </div>
             </td>
             <td class="py-2 pr-4 text-xs opacity-70">
@@ -584,6 +584,30 @@
             class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
           <p class="text-xs opacity-50 mt-1">不要なら空欄のまま保存します。</p>
         </div>
+
+        <!-- 接頭辞ポリシー（数値型かつ単位あり） -->
+        <template v-if="stModal.form.value_type === 'numeric' && stModal.form.unit">
+          <div>
+            <label class="text-sm font-medium block mb-1">入力候補接頭辞</label>
+            <p class="text-xs opacity-50 mb-2">単位入力時のドロップダウンに表示する接頭辞。未選択なら汎用候補（G M k 無印 m u n p）を使います。</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              <label v-for="p in ['G','M','k','','m','u','n','p','f']" :key="`sp-${p}`" class="flex items-center gap-1 text-sm cursor-pointer">
+                <input type="checkbox" :value="p" v-model="stModal.form.suggest_prefixes" class="rounded" />
+                <span class="font-mono">@{{ p === '' ? '（無印）' : p }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-medium block mb-1">表示接頭辞</label>
+            <p class="text-xs opacity-50 mb-2">値を人間向け表記へ逆変換するとき使う接頭辞。未選択なら大きさに応じて自動選択します。</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              <label v-for="p in ['G','M','k','','m','u','n','p','f']" :key="`dp-${p}`" class="flex items-center gap-1 text-sm cursor-pointer">
+                <input type="checkbox" :value="p" v-model="stModal.form.display_prefixes" class="rounded" />
+                <span class="font-mono">@{{ p === '' ? '（無印）' : p }}</span>
+              </label>
+            </div>
+          </div>
+        </template>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
         <button @click="closeStModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>

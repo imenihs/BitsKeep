@@ -10,6 +10,7 @@ import {
     getSpecUnitSuggestions,
     normalizeSpecDraft,
     normalizeSpecProfile,
+    renderSymbol,
     SPEC_PROFILE_OPTIONS,
 } from '../utils/specValue.js';
 
@@ -2364,5 +2365,6 @@ export default function setup() {
         hardResetChatGptJob,
         chatGptStatusChips, chatGptStepStates, canStartChatGptAutoFill, showChatGptRunHint, chatGptJob,
         submit, duplicateFromId,
+        renderSymbol,
     };
 }

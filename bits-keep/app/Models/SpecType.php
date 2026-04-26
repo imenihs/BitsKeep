@@ -10,7 +10,12 @@ class SpecType extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['name', 'name_ja', 'name_en', 'symbol', 'base_unit', 'description', 'sort_order'];
+    protected $fillable = ['name', 'name_ja', 'name_en', 'symbol', 'suggest_prefixes', 'display_prefixes', 'base_unit', 'description', 'sort_order'];
+
+    protected $casts = [
+        'suggest_prefixes' => 'array',
+        'display_prefixes' => 'array',
+    ];
 
     // 単位候補
     public function units(): HasMany

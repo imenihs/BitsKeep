@@ -197,6 +197,9 @@ export const normalizeSpecDraft = (spec, specType) => {
     const normalizedUnit = baseUnit || resolvedUnit;
     const factor = resolveFactor(specType, resolvedUnit, baseUnit);
     const profileLabel = getSpecProfileLabel(payload.value_profile);
+    const displayPrefixes = Array.isArray(specType?.display_prefixes) && specType.display_prefixes.length > 0
+        ? specType.display_prefixes
+        : null;
 
     if (payload.value_profile === 'range') {
         const min = parseEngineeringNumber(payload.value_min);
@@ -215,7 +218,7 @@ export const normalizeSpecDraft = (spec, specType) => {
         if (canonicalMin > canonicalMax) {
             [canonicalMin, canonicalMax] = [canonicalMax, canonicalMin];
         }
-        const humanized = humanizeRange(canonicalMin, canonicalMax, normalizedUnit, resolvedUnit);
+        const humanized = humanizeRange(canonicalMin, canonicalMax, normalizedUnit, resolvedUnit, displayPrefixes);
 
         return {
             hasNumeric: true,
@@ -245,7 +248,7 @@ export const normalizeSpecDraft = (spec, specType) => {
         if (canonicalMin !== null && canonicalMax !== null && canonicalMin > canonicalMax) {
             [canonicalMin, canonicalMax] = [canonicalMax, canonicalMin];
         }
-        const humanized = humanizeValues({ min: canonicalMin, typ: canonicalTyp, max: canonicalMax }, normalizedUnit, resolvedUnit);
+        const humanized = humanizeValues({ min: canonicalMin, typ: canonicalTyp, max: canonicalMax }, normalizedUnit, resolvedUnit, displayPrefixes);
         const canonicalParts = [
             canonicalMin === null ? '' : `min: ${formatScientific(canonicalMin)} ${normalizedUnit}`.trim(),
             canonicalTyp === null ? '' : `typ: ${formatScientific(canonicalTyp)} ${normalizedUnit}`.trim(),
@@ -276,7 +279,7 @@ export const normalizeSpecDraft = (spec, specType) => {
     }
 
     const canonical = number.value * number.factor * factor;
-    const humanized = humanizeSingle(canonical, normalizedUnit, resolvedUnit);
+    const humanized = humanizeSingle(canonical, normalizedUnit, resolvedUnit, displayPrefixes);
     const kindLabel = payload.value_profile === 'max_only'
         ? 'max'
         : payload.value_profile === 'min_only'
@@ -302,8 +305,13 @@ export const getSpecUnitSuggestions = (specType) => {
     );
 
     const baseUnit = normalizeUnitLabel(specType.base_unit ?? '');
+    const customPrefixes = Array.isArray(specType.suggest_prefixes) && specType.suggest_prefixes.length > 0
+        ? specType.suggest_prefixes
+        : null;
+
     if (baseUnit && canHumanize(baseUnit)) {
-        for (const prefix of ['G', 'M', 'k', '', 'm', 'u', 'n', 'p']) {
+        const prefixes = customPrefixes ?? ['G', 'M', 'k', '', 'm', 'u', 'n', 'p'];
+        for (const prefix of prefixes) {
             suggestions.add(`${prefix}${baseUnit}`);
         }
     } else if (baseUnit) {
@@ -311,6 +319,23 @@ export const getSpecUnitSuggestions = (specType) => {
     }
 
     return [...suggestions];
+};
+
+/**
+ * DBのプレーン記法を HTML サブ/スーパースクリプトへ変換する。
+ * `_word` → <sub>word</sub>、`~word` → <sup>word</sup>
+ * v-html で使うこと。入力は管理者入力のみだが HTML エスケープを先行して行う。
+ */
+export const renderSymbol = (text) => {
+    if (!text) return '';
+    const escaped = String(text)
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/"/gu, '&quot;');
+    return escaped
+        .replace(/_([A-Za-z0-9]+)/gu, '<sub>$1</sub>')
+        .replace(/~([A-Za-z0-9]+)/gu, '<sup>$1</sup>');
 };
 
 const inferProfile = (spec) => {
@@ -389,12 +414,12 @@ const resolveFactor = (specType, unit, baseUnit) => {
     return 1;
 };
 
-const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit) => {
+const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     if (!canHumanize(normalizedUnit)) {
         return { value: formatDisplayNumber(canonicalValue), unit: fallbackUnit || normalizedUnit };
     }
 
-    const prefix = choosePrefix(canonicalValue);
+    const prefix = choosePrefix(canonicalValue, displayPrefixes);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -403,7 +428,7 @@ const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit) => {
     };
 };
 
-const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit) => {
+const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     if (!canHumanize(normalizedUnit)) {
         return {
             min: formatDisplayNumber(canonicalMin),
@@ -412,7 +437,7 @@ const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit)
         };
     }
 
-    const prefix = choosePrefix(Math.max(Math.abs(canonicalMin), Math.abs(canonicalMax)));
+    const prefix = choosePrefix(Math.max(Math.abs(canonicalMin), Math.abs(canonicalMax)), displayPrefixes);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -422,28 +447,7 @@ const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit)
     };
 };
 
-const humanizeTriple = (canonicalMin, canonicalTyp, canonicalMax, normalizedUnit, fallbackUnit) => {
-    if (!canHumanize(normalizedUnit)) {
-        return {
-            min: formatDisplayNumber(canonicalMin),
-            typ: formatDisplayNumber(canonicalTyp),
-            max: formatDisplayNumber(canonicalMax),
-            unit: fallbackUnit || normalizedUnit,
-        };
-    }
-
-    const prefix = choosePrefix(Math.max(Math.abs(canonicalMin), Math.abs(canonicalTyp), Math.abs(canonicalMax)));
-    const factor = PREFIX_FACTORS[prefix] ?? 1;
-
-    return {
-        min: formatDisplayNumber(canonicalMin / factor),
-        typ: formatDisplayNumber(canonicalTyp / factor),
-        max: formatDisplayNumber(canonicalMax / factor),
-        unit: `${prefix}${normalizedUnit}`,
-    };
-};
-
-const humanizeValues = (values, normalizedUnit, fallbackUnit) => {
+const humanizeValues = (values, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     const presentValues = Object.values(values).filter((value) => value !== null && Number.isFinite(Number(value)));
     const unit = fallbackUnit || normalizedUnit || '';
     if (!presentValues.length) {
@@ -459,7 +463,7 @@ const humanizeValues = (values, normalizedUnit, fallbackUnit) => {
         };
     }
 
-    const prefix = choosePrefix(Math.max(...presentValues.map((value) => Math.abs(value))));
+    const prefix = choosePrefix(Math.max(...presentValues.map((value) => Math.abs(value))), displayPrefixes);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -470,16 +474,35 @@ const humanizeValues = (values, normalizedUnit, fallbackUnit) => {
     };
 };
 
-const choosePrefix = (value) => {
+const choosePrefix = (value, displayPrefixes = null) => {
     if (!value) return '';
 
     const abs = Math.abs(value);
-    for (const prefix of HUMAN_PREFIX_ORDER) {
-        const factor = PREFIX_FACTORS[prefix];
+    const order = displayPrefixes && displayPrefixes.length > 0
+        ? HUMAN_PREFIX_ORDER.filter((p) => displayPrefixes.includes(p))
+        : HUMAN_PREFIX_ORDER;
+
+    for (const prefix of order) {
+        const factor = PREFIX_FACTORS[prefix] ?? 1;
         const scaled = abs / factor;
         if (scaled >= 1 && scaled < 1000) {
             return prefix;
         }
+    }
+
+    // 制約リスト内でスケールが最も 1 に近い接頭辞を選ぶ
+    if (order.length > 0) {
+        let best = order[0];
+        let bestDist = Infinity;
+        for (const prefix of order) {
+            const factor = PREFIX_FACTORS[prefix] ?? 1;
+            const dist = Math.abs(Math.log10(abs / factor));
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = prefix;
+            }
+        }
+        return best;
     }
 
     return abs >= 1 ? '' : 'f';

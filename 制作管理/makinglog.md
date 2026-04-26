@@ -4452,3 +4452,108 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - アプリ内ヘルプ `help.blade.php` も同じ方針へ更新し、スペック種別の `日本語名 / 英語名 / 記号 / alias / 基準単位` と、部品登録行内の種別追加導線を明記
 
 大将の心の声: 実装と詳細仕様だけでは、使う人の入口に情報が届かない。README と help は操作導線の表札なので、UI変更と同時に更新対象へ入れる。
+
+---
+
+### 2026-04-27 [ユーザ] ChatGPT 自動解析が「応答取得できない」問題を報告
+
+- ログ確認: `chatgpt.response.stalled: responseLength:75, stalledForMs:30111` → 30秒ストール判定で打ち切り
+- ChatGPT の「思考時間: 1m 44s」フェーズ中に短いテキスト(75文字)しか出ておらず、本文JSON到達前に完了扱いされていた
+- ユーザーより「JSONだけ応答してる」との補足あり → ChatGPT はコードブロックなし生JSONを返しており、それ自体は問題なし
+
+---
+
+### 2026-04-27 [大将] ChatGPT helper ストール検知を思考フェーズ対応へ修正 (v0.1.34)
+
+**実施内容：**
+- `waitForAssistantResponse` のストール判定を修正
+  - 旧: 停止ボタン残留 + 30秒変化なし → 完了扱い
+  - 新: 停止ボタン残留 + **90秒**変化なし **かつ 300文字以上** → 完了扱い
+  - 思考中の短いテキスト(75文字)では 300文字未満条件で打ち切りを防止
+  - 3分(180秒)のタイムアウトループは維持されるため、思考1分44秒後に JSON が出れば正常に完了検知できる
+- バージョン: `0.1.33` → `0.1.34`（ユーザーが .env の `CHATGPT_HELPER_MIN_VERSION` も `0.1.34` へ更新済み）
+
+**確認結果：**
+- `node --check` による構文確認
+
+大将の心の声: 「30秒変化なし = タイムアウト」は思考モデルを想定していなかった設計。300文字未満の短い応答はまだ「考え中」と判断するのが自然。
+
+---
+
+### 2026-04-27 [大将] コードレビュー (simplify) による品質・効率改善
+
+**実施内容：**
+
+1. **PHP `ENGINEERING_VALUE_PREFIX_FACTORS` の重複排除**
+   - `SpecValueNormalizerService.php`: 17行の重複配列定義を `self::PREFIX_FACTORS + ['K' => 1e3]` に簡略化
+
+2. **`humanizeTriple()` dead code 削除**
+   - `SpecValueNormalizerService.php` / `specValue.js` 両方から削除
+   - `humanizeValues()` に統合済みで呼び出し箇所ゼロだった
+
+3. **`SpecTypeMatchingService` の O(n) 非効率を解消**
+   - `normalizedNames()` を各 spec 処理のたびに全 specType ×2 回呼んでいた
+   - `match()` 開始時に specType ごとの正規化名を一括キャッシュ → O(specs×types) の再計算を排除
+
+4. **`ComponentHelperController` の副作用代入を修正**
+   - `Log::info([..., 'job_id' => $jobId = Str::uuid(), ...])` を `$jobId = Str::uuid()` として先に抽出
+
+5. **`normalizeUnitLabel` の Ω 文字確認**
+   - JS `.replaceAll('Ω', 'Ω')` および `canHumanize` の `ΩΩ` はバイト確認の結果いずれも正しい実装
+   - U+2126(Ohm Sign) → U+03A9(Greek Omega) の意図的な正規化であり修正不要と判定
+
+**確認結果：**
+- `php artisan test` 全35件通過
+- `npm run build` 成功
+
+大将の心の声: エージェントの「no-op」報告は表示文字だけ見ていた誤判定。バイトレベルで確認して修正を防いだ。キャッシュ改善は spec 件数が増えると効く実質的な変更。
+
+
+---
+
+## [大将] 2026-04-27 00:25 — Phase 2 残件実装（接頭辞ポリシー + 記号表示記法）
+
+[ユーザ] Phase 2 のチェックが付いていない機能をすべて実装するよう指示。
+
+### 対象3項目
+1. スペック種別に接頭辞ポリシーを持たせる
+2. スペック種別マスタで接頭辞候補・表示候補を編集できるようにする
+3. スペック記号の表示記法を実装する（`_` → 下付き、`~` → 上付き）
+
+### 実装内容
+
+#### DB: `spec_types` にカラム追加
+- `suggest_prefixes` (JSONB nullable): 入力候補接頭辞の配列（例: `["k","m","u"]`）
+- `display_prefixes` (JSONB nullable): 表示逆変換用接頭辞の配列
+- Migration: `2026_04_27_000001_add_prefix_policy_to_spec_types.php`
+
+#### バックエンド
+- `SpecType` モデル: `suggest_prefixes` / `display_prefixes` を fillable + cast array に追加
+- `StoreSpecTypeRequest`: バリデーションルール追加
+- Controller は `safe()->except()` のパススルーで対応済み（変更不要）
+
+#### フロントエンド: `specValue.js`
+- `getSpecUnitSuggestions()`: `specType.suggest_prefixes` が設定されていれば汎用候補 `['G','M','k','','m','u','n','p']` の代わりに使用
+- `choosePrefix(value, displayPrefixes?)`: `display_prefixes` で制約された候補から最近似を選択。制約リスト内に [1,1000) に収まる接頭辞がない場合は対数距離最小を使う
+- `humanizeSingle/humanizeRange/humanizeValues`: `displayPrefixes` 引数を追加し `choosePrefix` へ委譲
+- `normalizeSpecDraft()`: `specType.display_prefixes` を抽出して humanize チェーンに通す
+- `renderSymbol(text)` 追加: `_word` → `<sub>word</sub>`、`~word` → `<sup>word</sup>`。HTML エスケープ先行。
+
+#### フロントエンド: `master-list.js`
+- フォーム初期値・openStEdit・openStDuplicate・buildSpecTypeUpdatePayload・saveSpecType を更新
+- `renderSymbol` を return に公開
+
+#### テンプレート: `master-list.blade.php`
+- 一覧の記号を `v-html="renderSymbol(s.symbol)"` で下付き/上付きレンダリング（2カ所）
+- スペック種別モーダルに「入力候補接頭辞」「表示接頭辞」チェックボックスセクション追加（数値型かつ単位設定時のみ表示）
+
+#### テンプレート: `component-create.blade.php` / `component-create.js`
+- spec-card-help の記号表示を `v-html="renderSymbol(spec.symbol)"` へ変更
+- `renderSymbol` を import して return に追加
+
+### テスト結果
+- `php artisan test` 全35件通過
+- `npm run build` 成功
+- `php artisan migrate` 成功（suggest/display_prefixes カラム追加確認）
+
+大将の心の声: 3項目は独立しているように見えて、DB → PHP → JS → Blade の全スタックをまたいでいた。未設定 null = 自動フォールバックの設計にしたのでデータ移行不要、既存部品への影響なし。

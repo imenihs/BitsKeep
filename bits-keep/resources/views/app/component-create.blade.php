@@ -847,7 +847,9 @@
                   </div>
                   <div class="space-y-1">
                     <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
-                    <p v-if="spec.name_ja || spec.name_en || spec.symbol" class="spec-card-help">候補: @{{ [spec.name_ja, spec.name_en, spec.symbol].filter(Boolean).join(' / ') }}</p>
+                    <p v-if="spec.name_ja || spec.name_en || spec.symbol" class="spec-card-help">
+                      候補: @{{ [spec.name_ja, spec.name_en].filter(Boolean).join(' / ') }}<span v-if="spec.symbol" class="font-mono ml-1 opacity-70" v-html="renderSymbol(spec.symbol)"></span>
+                    </p>
                   </div>
                 </div>
                 <div class="spec-card-field">
