@@ -1,0 +1,6 @@
+# Local database dumps and generated backups
+/backups/
+*.sql
+*.sql.gz
+*.dump
+*.backup
