@@ -139,7 +139,7 @@
             <tr><td>パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック項目を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にないスペック項目は行内の「+」から追加可能</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック項目を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。分類からの推奨候補と全項目検索を切り替えられます。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にないスペック項目は行内の「+」から追加可能</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
             <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
@@ -147,6 +147,10 @@
           </tbody>
         </table>
         <p class="mb-5 opacity-80">フォームは上部と下部の両方に「保存」ボタンがあります。長いフォームを入力し終えた後、上に戻らず保存できます。未保存のまま別ページへ移動しようとすると確認ダイアログが表示されます。</p>
+
+        <h3 class="font-semibold mb-3">スペック項目の選択</h3>
+        <p class="mb-2 opacity-80">部品登録と部品詳細のスペック編集では、カテゴリに応じて <strong>分類からの推奨</strong> が先に表示されます。推奨は入力補助であり、選択制約ではありません。</p>
+        <p class="mb-5 opacity-80">想定外の部品や複合部品では <strong>全項目から選ぶ</strong> に切り替えて全スペック項目から検索できます。スペック分類チップには <strong>推奨</strong> / <strong>手動</strong> が表示され、推奨外の分類も選択できます。</p>
 
         <h3 class="font-semibold mb-3">データシート解析補助</h3>
         <p class="mb-2 opacity-80">現状の部品登録では、データシートからの補助入力に次の 3 系統があります。</p>
@@ -163,6 +167,7 @@
         </ul>
         <p class="mb-3 opacity-80">データシート上の元表記は <strong>抽出名</strong> として確認用に表示されますが、保存される正本はスペック項目です。表記ゆれはスペック項目の alias に寄せて管理します。</p>
         <p class="mb-3 opacity-80"><strong>ChatGPTで自動入力</strong> は <strong>Tampermonkey</strong> userscript を前提に、<strong>PDF選択 → BitsKeepへ一時アップロード → ChatGPT Web 解析 → 結果レビュー → 保存</strong> を自動化します。自動化が失敗した場合は、その場で <strong>ChatGPTから貼り付け</strong> へ切り替えられます。</p>
+        <p class="mb-3 opacity-80">Tampermonkey helper が未接続でも、部品登録画面を開いただけでは案内モーダルを自動表示しません。<strong>ChatGPTで自動入力</strong> などの解析操作を押した時だけ、導入・更新・手動貼り付けへの切替案内を表示します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li>一時PDFは署名付き URL で ChatGPT タブへ渡されます</li>
           <li>一時PDFの有効期限は 2 時間です</li>

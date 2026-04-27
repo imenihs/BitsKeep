@@ -4893,3 +4893,79 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - README、help、詳細仕様、チェックリストの検索語・CSV列・比較/発注文言を型番優先へ更新。
 
 大将の心の声: 一覧だけ直すと、画面を移った瞬間に認知ルールが崩れる。部品識別は全画面で `型番が主語、通称は補足` に固定する。
+
+---
+
+## [大将] 2026-04-28 00:38 — 最終動作確認とドキュメント整合を開始
+
+### ユーザー指示
+
+[ユーザ] 最終的にユーザ環境で動くように各種処理を行うこと。ログ記入、ドキュメント更新、CLAUDE.md、仕様書.md、チェックリスト確認、問題なければ全ファイル git commit。
+
+### 作業前確認
+
+- `CLAUDE.md` を確認し、Apache + PHP-FPM 前提、`public/hot` 禁止、README / help / 仕様書 / チェックリスト / makinglog 更新ルールを確認した。
+- `詳細仕様/仕様書.md` を確認し、スペック分類、設計ツール図解、未保存ガード、Tampermonkey 解析補助の既存仕様を確認した。
+- `制作管理/実装進捗チェックリスト.md` を確認し、部品登録/詳細のスペック分類ピッカー、設計解析ツール図解、商社管理、品質対応の項目状態を確認した。
+- この作業ではDBデータ変更は行わない方針。ユーザー指示によりDB操作は可能だが、変更操作が必要になった場合はバックアップと復元手順を先に記録する。
+
+大将の心の声: 画面を直しても、運用手順と仕様の言葉が追従していないと次の作業者が同じ誤解を繰り返す。最後は実行環境、仕様、チェックリスト、ログ、コミットを同じ状態へ揃える。
+
+---
+
+## [大将] 2026-04-28 00:43 — サブタスク実施内容と確認結果を記録
+
+### [Tester] Headless Chrome UX巡回
+
+- Laravel/Vite の検証環境でログインし、Headless Chrome から主要ページを巡回した。
+- 巡回対象: `/`, `/dashboard`, `/components`, `/components/create`, `/components/5`, `/components/5/edit`, `/master`, `/locations`, `/stock-alert`, `/stock-orders`, `/stock-in`, `/suppliers`, `/projects`, `/settings/integrations`, `/settings/home`, `/functions`, `/component-compare`, `/tools/calc`, `/tools/design`, `/tools/network`, `/users`, `/audit-logs`, `/csv-import`, `/altium`, `/backup`, `/profile`, `/help`。
+- 確認した観点: HTTP 500 の有無、画面が開くか、主要リンク/ボタンの反応、console error/warning、通常操作を阻害するモーダルの有無。
+- 検出事項:
+  - `/components/create` と `/components/5/edit` で Tampermonkey helper 未接続モーダルが自動表示され、通常の部品登録/編集を塞いでいた。
+  - `showChatGptRunModal` が setup return に無く、Vue warning が出ていた。
+  - `/component-compare` で `ProjectComboBox` が DOM テンプレート上 `projectcombobox` と解釈され、Vue component 解決 warning が出ていた。
+  - ローカル初回起動時に Blade compiled view の permission 起因で 500 が出る環境があり、`view:cache` で解消することを確認した。
+- 判定: 商社管理ページを含む主要ページは、修正後の再巡回で 500 なし。部品登録/詳細のスペック編集は、推奨/手動分類の表示と全項目切替を確認した。
+
+テスターの心の声: ページが「開く」だけではなく、最初に出るモーダルや console warning まで見ないと、実務で止まる不具合を見逃す。特に登録画面は通常手入力が主導線なので、AI補助の未接続警告が勝手に出るのは致命的。
+
+### [Designer] スペック分類UXの再設計確認
+
+- 現行の問題点を、スペック分類が「推奨」ではなく「制約」のように働いていること、`推奨全体` というボタン名から押下結果が読めないこととして整理した。
+- 結論:
+  - カテゴリ連動のスペック分類は、入力候補の優先順位であり、選択可能範囲を縛るものではない。
+  - UI は `分類からの推奨` と `全項目から選ぶ` を明確に分ける。
+  - 推奨外分類は `手動` として表示し、人間が補正できる導線を残す。
+  - 全項目検索中でも推奨スペック項目は分かるようにし、推奨は上位表示やバッジに留める。
+  - `推奨全体` のような範囲不明の言葉は使わない。
+- 登録画面と詳細編集画面で同じ選択モデルにする方針とし、解析候補レビューやテンプレート適用は次段階の改善対象として残した。
+
+設計者の心の声: 電子部品はカテゴリ境界がきれいに切れない。TRモジュール、電源モジュール、秋月系基板のようなものを考えると、分類は強制フィルタではなく、設計者の判断を速くするための初期並び替えであるべき。
+
+### [Worker] 実装内容
+
+- `SpecSuggestionController` に `include_all_groups=1` を追加し、推奨分類だけでなく全スペック分類を返せるようにした。推奨分類には `is_suggested=true` を付け、`recommended_group_ids` も返す。
+- `component-create` と `component-detail` のスペック候補取得で `include_all_groups=1` を使うように変更した。
+- 部品登録画面と部品詳細のスペック編集画面を、`分類からの推奨` / `全項目から選ぶ` の2モードに整理した。
+- スペック分類チップに `推奨` / `手動` バッジを表示し、推奨外分類も選択可能にした。
+- 全項目モードでは、推奨スペック項目へ `推奨` 表示を付け、全件から探しながら優先候補を見分けられるようにした。
+- `推奨全体` の文言を除去し、カテゴリ未選択時に意味のない推奨ボタンが出ないようにした。
+- Tampermonkey helper 未接続モーダルは、部品登録画面を開いただけでは出さず、`ChatGPTで自動入力` などの解析操作時だけ出すようにした。
+- `showChatGptRunModal` を setup return に追加し、Vue warning を解消した。
+- `/component-compare` の `ProjectComboBox` タグを DOM テンプレートで解決できる kebab-case へ修正した。
+- `UiApiSurfaceSmokeTest` に、推奨外スペック分類も API で返せること、ただし top-level の推奨スペック候補は推奨分類由来に保つことを検証するテストを追加した。
+
+作業者の心の声: 「推奨」は便利だが、選べない状態にした瞬間にマスタ設計の想定漏れがユーザーの作業停止になる。APIで推奨と手動を同時に返し、UI側で見せ方を分けるのが今回の落とし所。
+
+### [Manager] 統合確認・DB保護・ユーザ環境確認
+
+- Headless Chrome 検証前に PostgreSQL `bitskeep` のバックアップを `/tmp/bitskeep-db-backups/bitskeep-before-ux-20260428002246.dump` へ取得した。
+- 検証中に `/projects` の Notion同期APIが発火する可能性があったため、検証後にバックアップから DB を復元した。
+- 復元後の件数確認: `users=1`, `components=12`, `spec_groups=10`, `spec_types=81`。
+- `php artisan test --filter=UiApiSurfaceSmokeTest`、`composer run test`、`npm run build` を実行し、テストとビルドが通ることを確認した。
+- `php artisan migrate:status` で全 migration が `Ran` であることを確認した。追加のDB構造変更は不要。
+- `public/hot` が存在しないこと、`public/build/manifest.json` が存在することを確認した。
+- Apache公開URL `https://bits-keep.rwc.0t0.jp/login` が 200、未ログイン `/components` が `/login` へ 302、ログイン後 `/dashboard`, `/components`, `/components/create`, `/master`, `/suppliers`, `/tools/design`, `/help` が 200 で返ることを確認した。
+- README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、推奨/全項目切替、推奨外分類の手動選択、Tampermonkey helper案内の表示条件を反映した。
+
+大将の心の声: サブタスクを使ったなら、結果の要点をログに残して初めて品質管理になる。誰が何を見て、何を問題と判断し、どの実装で閉じたかが残っていなければ、次の検証で同じ場所をまた踏む。
