@@ -210,6 +210,40 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.data.0.part_number', $recentComponent->part_number);
     }
 
+    public function test_components_part_number_sort_uses_natural_numeric_order(): void
+    {
+        $fixture = $this->createUiFixture();
+
+        $this->createComponentFixture(
+            $fixture['category'],
+            $fixture['package'],
+            $fixture['specType'],
+            $fixture['supplier'],
+            $fixture['location'],
+            '2SC1815',
+            1815
+        );
+        $this->createComponentFixture(
+            $fixture['category'],
+            $fixture['package'],
+            $fixture['specType'],
+            $fixture['supplier'],
+            $fixture['location'],
+            '2SC945',
+            945
+        );
+
+        $this->getJson('/api/components?per_page=10&sort=part_number')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.part_number', '2SC945')
+            ->assertJsonPath('data.data.1.part_number', '2SC1815');
+
+        $this->getJson('/api/components?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.part_number', '2SC945')
+            ->assertJsonPath('data.data.1.part_number', '2SC1815');
+    }
+
     public function test_spec_suggestions_can_include_manual_spec_groups(): void
     {
         $fixture = $this->createUiFixture();

@@ -14,7 +14,7 @@ class Component extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'manufacturer', 'part_number', 'common_name', 'description',
+        'manufacturer', 'part_number', 'part_number_sort_key', 'common_name', 'description',
         'procurement_status',
         'quantity_new', 'quantity_used',
         'threshold_new', 'threshold_used',
@@ -24,12 +24,44 @@ class Component extends Model
         'created_by', 'updated_by',
     ];
 
+    protected $hidden = [
+        'part_number_sort_key',
+    ];
+
     protected $casts = [
         'quantity_new'   => 'integer',
         'quantity_used'  => 'integer',
         'threshold_new'  => 'integer',
         'threshold_used' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Component $component) {
+            if ($component->isDirty('part_number') || blank($component->part_number_sort_key)) {
+                $component->part_number_sort_key = self::buildPartNumberSortKey($component->part_number);
+            }
+        });
+    }
+
+    public static function buildPartNumberSortKey(?string $partNumber): string
+    {
+        $normalized = strtoupper(trim((string) $partNumber));
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+        $sortKey = preg_replace_callback('/\d+/', function (array $matches) {
+            $rawNumber = $matches[0];
+            $number = ltrim($rawNumber, '0');
+            $number = $number === '' ? '0' : $number;
+
+            return '#'
+                .str_pad(substr($number, -30), 30, '0', STR_PAD_LEFT)
+                .':'
+                .str_pad((string) strlen($rawNumber), 4, '0', STR_PAD_LEFT)
+                .';';
+        }, $normalized) ?? $normalized;
+
+        return substr($sortKey, 0, 255);
+    }
 
     // 分類（多対多）
     public function categories(): BelongsToMany

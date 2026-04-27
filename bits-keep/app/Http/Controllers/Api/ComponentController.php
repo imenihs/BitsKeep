@@ -410,6 +410,7 @@ class ComponentController extends Controller
             case 'updated_at':
                 $query
                     ->orderByDesc('components.updated_at')
+                    ->orderByRaw('COALESCE(components.part_number_sort_key, components.part_number)')
                     ->orderBy('components.part_number')
                     ->orderBy('components.id');
                 break;
@@ -417,12 +418,14 @@ class ComponentController extends Controller
             case 'name':
                 $query
                     ->orderBy('components.common_name')
+                    ->orderByRaw('COALESCE(components.part_number_sort_key, components.part_number)')
                     ->orderBy('components.part_number')
                     ->orderBy('components.id');
                 break;
 
             case 'part_number':
                 $query
+                    ->orderByRaw('COALESCE(components.part_number_sort_key, components.part_number)')
                     ->orderBy('components.part_number')
                     ->orderBy('components.manufacturer')
                     ->orderBy('components.id');
@@ -457,6 +460,7 @@ class ComponentController extends Controller
             ->orderByRaw("COALESCE((SELECT package_groups.name {$packageGroupOrderSql}), '')")
             ->orderByRaw("COALESCE((SELECT packages.sort_order {$packageOrderSql}), 2147483647)")
             ->orderByRaw("COALESCE((SELECT packages.name {$packageOrderSql}), '')")
+            ->orderByRaw('COALESCE(components.part_number_sort_key, components.part_number)')
             ->orderBy('components.part_number')
             ->orderBy('components.manufacturer')
             ->orderBy('components.id');

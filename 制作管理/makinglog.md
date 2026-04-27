@@ -5014,6 +5014,48 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
+## [大将] 2026-04-28 01:17 — 部品一覧の型番順を自然順へ修正
+
+### ユーザー指示
+
+[ユーザ] 部品一覧の型番順で `2SC945` より `2SC1815` が先に出るのは、ユーザ体験として良いのか。
+
+### 判断
+
+- 良くない。電子部品の型番順は、型番内の数字を数値として読む自然順でないと台帳として使いにくい。
+- 文字列順では `2SC1815` が `2SC945` より前に出るが、人間の探索感覚では `2SC945 -> 2SC1815` が自然。
+- ページネーション後にPHPで並べ替える方式はページ境界が壊れるため採用しない。
+
+### 実装方針
+
+- `components.part_number_sort_key` を追加し、登録・更新時に型番の自然順ソートキーを保存する。
+- 既存データはマイグレーションでバックフィルする。
+- 部品一覧の `型番順` と台帳順内の型番比較で、`part_number_sort_key` を使う。
+- APIレスポンスには内部ソートキーを出さない。
+
+### 実装記録
+
+- `2026_04_28_011700_add_part_number_sort_key_to_components_table.php` を追加し、既存 `components` へ自然順ソートキーをバックフィルした。
+- `Component::buildPartNumberSortKey()` を追加し、保存時に `part_number_sort_key` を自動更新するようにした。
+- `ComponentController@index` の `part_number` ソートと台帳順内の型番比較で、`part_number_sort_key` を優先するようにした。
+- `UiApiSurfaceSmokeTest` に `2SC945` が `2SC1815` より前に並ぶ回帰テストを追加した。
+- README、アプリ内ヘルプ、仕様書、実装進捗チェックリストに、型番順は自然順であることを追記した。
+
+### 確認
+
+- [Tester] `php -l app/Models/Component.php` 成功。
+- [Tester] `php -l app/Http/Controllers/Api/ComponentController.php` 成功。
+- [Tester] `php -l database/migrations/2026_04_28_011700_add_part_number_sort_key_to_components_table.php` 成功。
+- [Tester] `php -l tests/Feature/UiApiSurfaceSmokeTest.php` 成功。
+- [Tester] `php artisan test --filter=UiApiSurfaceSmokeTest` 成功。5 tests / 217 assertions。
+- [Tester] `php artisan migrate --force` 成功。ローカルDBへ `part_number_sort_key` 追加とバックフィルを適用。
+- [Tester] `npm run build` 成功。既存警告として Browserslist 更新案内と `engineering-calc` chunk 500kB 超過が出た。
+- [Tester] `git diff --check` 成功。
+
+大将の心の声: 型番は辞書順で読む文字列ではなく、数字列を含む品番体系。台帳の並びが人間の探索と逆になるなら、それは実装都合がUXに漏れている。
+
+---
+
 ## [大将] 2026-04-28 01:09 — 部品一覧の既定表示順UXを確認
 
 ### ユーザー指示
