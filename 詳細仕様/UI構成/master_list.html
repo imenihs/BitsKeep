@@ -115,19 +115,19 @@
     </div>
   </div>
 
-  <!-- ===== タブ: スペック種別 ===== -->
+  <!-- ===== タブ: スペック項目 ===== -->
   <div v-if="activeTab === 'spec_type'">
     <div class="flex justify-between items-center mb-4" style="max-width: 800px;">
       <p class="text-sm opacity-60">スペック項目の種別と単位を管理します。単位には基準単位への換算倍率を設定します。</p>
       <button @click="openSpecTypeCreate"
         class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm flex-shrink-0 ml-4">
-        <i data-lucide="plus" class="w-4 h-4"></i>スペック種別を追加
+        <i data-lucide="plus" class="w-4 h-4"></i>スペック項目を追加
       </button>
     </div>
     <div class="space-y-3" style="max-width: 800px;">
       <div v-for="(st, idx) in specTypes" :key="st.id"
         class="rounded-lg border border-[var(--color-border)] overflow-hidden">
-        <!-- スペック種別ヘッダ -->
+        <!-- スペック項目ヘッダ -->
         <div class="flex items-center justify-between px-4 py-3"
           :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
           <div class="flex items-center gap-3">
@@ -197,17 +197,17 @@
     </div>
   </template>
 
-  <!-- スペック種別作成モーダル -->
+  <!-- スペック項目作成モーダル -->
   <template v-if="specTypeModal.open">
     <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
       @click.self="specTypeModal.open = false">
       <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
         <h2 class="font-bold text-lg mb-5 flex items-center gap-2">
-          <i data-lucide="plus-circle" class="w-5 h-5"></i>スペック種別を追加
+          <i data-lucide="plus-circle" class="w-5 h-5"></i>スペック項目を追加
         </h2>
         <div class="space-y-3">
           <div>
-            <label class="block text-sm font-semibold mb-1">種別名 <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-semibold mb-1">項目名 <span class="text-red-500">*</span></label>
             <input v-model="specTypeModal.name" type="text" class="input-text text-sm" placeholder="例: 抵抗値" />
           </div>
           <div>
@@ -294,7 +294,7 @@
       const tabs = [
         { key: 'category', label: '分類', icon: 'tag' },
         { key: 'package', label: 'パッケージ', icon: 'box' },
-        { key: 'spec_type', label: 'スペック種別', icon: 'sliders' },
+        { key: 'spec_type', label: 'スペック項目', icon: 'sliders' },
       ];
       const activeTab = ref('category');
 
@@ -390,7 +390,7 @@
         masterModal.open = false;
       };
 
-      // スペック種別モーダル
+      // スペック項目モーダル
       const specTypeModal = reactive({ open: false, name: '', baseUnit: '' });
       const openSpecTypeCreate = () => {
         specTypeModal.name = ''; specTypeModal.baseUnit = '';
@@ -404,7 +404,7 @@
           units: [{ id: Date.now(), symbol: specTypeModal.baseUnit, factor: 1, isBase: true }],
         });
         specTypeModal.open = false;
-        showToast('スペック種別を追加しました');
+        showToast('スペック項目を追加しました');
       };
 
       // 単位追加モーダル

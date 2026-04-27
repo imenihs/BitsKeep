@@ -147,7 +147,7 @@
           class="border-b border-[var(--color-border)] hover:opacity-90">
           <td class="py-2 pr-4 text-xs" :class="hasDiff(st.key) ? 'text-amber-600 font-medium' : 'opacity-60'">
             @{{ st.display_name }}
-            <span v-if="st.value_profile === 'triple'" class="ml-1 text-[10px] opacity-50">min/typ/max</span>
+            <span v-if="specProfileBadge(st.value_profile)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(st.value_profile) }}</span>
             <span v-if="hasDiff(st.key)" class="ml-1 text-amber-500 text-xs">⚠差分</span>
           </td>
           <td v-for="comp in components" :key="comp.id"

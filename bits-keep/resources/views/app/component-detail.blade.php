@@ -129,10 +129,12 @@
             </template>
             <!-- 登録スペック（分類によって内容が変わる） -->
             <template v-for="s in part.specs" :key="s.id">
-              <span class="list-label">@{{ specDisplayName(s) }}</span>
+              <span class="list-label">
+                @{{ specDisplayName(s) }}
+                <span v-if="specProfileBadge(s)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(s) }}</span>
+              </span>
               <span class="list-value">
                 @{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}
-                <span v-if="s.value_profile === 'triple'" class="ml-1 text-[10px] opacity-50">min/typ/max</span>
               </span>
             </template>
           </div>
@@ -513,7 +515,7 @@
                 <option value="">パッケージ分類を選択</option>
                 <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
               </select>
-              <input v-model="packageFilterQuery" type="text" class="input-text w-full" :disabled="!editModal.form.package_group_id" placeholder="詳細パッケージ名で絞り込み" />
+              <input v-model="packageFilterQuery" type="text" class="input-text w-full" :disabled="!editModal.form.package_group_id" placeholder="パッケージ名で絞り込み" />
               <div class="max-h-36 overflow-y-auto rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-2 space-y-1">
                 <button v-for="pkg in filteredDetailPackages" :key="pkg.id" type="button" @click="editModal.form.package_id = pkg.id"
                   class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
@@ -522,7 +524,7 @@
                   <span class="text-xs opacity-60">@{{ editModal.form.package_id === pkg.id ? '選択中' : '使う' }}</span>
                 </button>
                 <div v-if="!editModal.form.package_group_id" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</div>
-                <div v-else-if="!filteredDetailPackages.length" class="text-xs opacity-40 p-1">詳細パッケージがありません</div>
+                <div v-else-if="!filteredDetailPackages.length" class="text-xs opacity-40 p-1">パッケージがありません</div>
               </div>
             </div>
           </div>
@@ -573,17 +575,51 @@
       </div>
 
       <div v-else-if="editModal.section === 'specs'" class="space-y-3">
+        <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Spec</div>
+              <div class="mt-1 text-sm font-semibold">スペック分類</div>
+              <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" @click="clearSpecPickerFilters"
+                class="px-3 py-2 rounded-md border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)]">
+                推奨全体
+              </button>
+              <span v-if="specSuggestionLoading" class="text-xs opacity-50">分類を読込中...</span>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button v-for="group in specGroups" :key="`detail-spec-group-${group.id}`" type="button"
+              @click="selectedSpecGroupId = String(group.id)"
+              class="rounded-md border px-3 py-2 text-left text-xs transition-colors"
+              :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]'">
+              <span class="block font-semibold">@{{ group.name }}</span>
+              <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
+            </button>
+            <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">分類未設定: 全件候補</span>
+          </div>
+          <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
+              placeholder="分類内で検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
+            <div class="text-xs opacity-60 text-right">
+              表示候補 @{{ filteredSpecTypesForPicker().length }}件 / 分類内 @{{ scopedSpecTypes.length }}件
+            </div>
+          </div>
+        </div>
         <div v-for="(spec, index) in editModal.form.specs" :key="index" class="spec-card bg-[var(--color-card-even)]">
           <div class="spec-card-grid spec-card-grid--editor">
             <div class="spec-card-field">
-              <label class="spec-card-label">種別</label>
+              <label class="spec-card-label">スペック項目</label>
               <div class="spec-type-picker">
                 <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
-                  <option value="">スペック種別を選択</option>
-                  <option v-for="st in specTypes" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+                  <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
+                  <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
                 </select>
-                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
               </div>
+              <p class="spec-card-help">分類: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
               <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
             </div>
             <div class="spec-card-field">
@@ -647,7 +683,10 @@
             <div class="spec-card-field">
               <label class="spec-card-label">確認</label>
               <div class="spec-card-preview spec-card-preview-panel text-[11px]">
-                <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック名を選択' }}</p>
+                <p class="text-sm font-semibold leading-tight break-words">
+                  @{{ specDisplayName(spec) || 'スペック名を選択' }}
+                  <span v-if="specProfileBadge(spec)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(spec) }}</span>
+                </p>
                 <template v-if="specPreview(spec).hasNumeric">
                   <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
                   <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
@@ -724,11 +763,11 @@
     </div>
   </div>
 
-  <!-- スペック種別追加モーダル -->
+  <!-- スペック項目追加モーダル -->
   <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
     <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-center justify-between gap-4 mb-4">
-        <h3 class="text-lg font-bold">スペック種別を追加</h3>
+        <h3 class="text-lg font-bold">スペック項目を追加</h3>
         <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
       <div class="space-y-3 text-sm">
@@ -743,7 +782,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold mb-1">記号</label>
-            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: V_CBO / h_FE" />
+            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: -V_CBO / h_FE" />
           </div>
           <div>
             <label class="block text-xs font-semibold mb-1">基底単位</label>

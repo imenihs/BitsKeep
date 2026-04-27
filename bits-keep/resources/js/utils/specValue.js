@@ -74,10 +74,15 @@ export const getSpecProfileLabel = (profile) => (
     SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.label ?? 'typ'
 );
 
+export const getSpecProfileBadgeLabel = (profile) => {
+    const normalized = normalizeSpecProfile(profile);
+    if (normalized === 'typ') return '';
+    if (normalized === 'triple') return 'min/typ/max';
+
+    return getSpecProfileLabel(normalized);
+};
+
 export const getSpecDisplayName = (specOrProfile, specType = null) => {
-    const profile = typeof specOrProfile === 'string'
-        ? normalizeSpecProfile(specOrProfile)
-        : normalizeSpecProfile(specOrProfile?.value_profile);
     const baseName = typeof specType === 'string'
         ? specType
         : (
@@ -88,13 +93,9 @@ export const getSpecDisplayName = (specOrProfile, specType = null) => {
             || cleanText(specOrProfile?.spec_type?.name)
             || cleanText(specOrProfile?.specType?.name)
             || cleanText(specOrProfile?.spec_type_name)
-        );
+    );
 
     if (!baseName) return '';
-
-    if (profile === 'max_only') return `最大${baseName}`;
-    if (profile === 'min_only') return `最小${baseName}`;
-    if (profile === 'range') return `${baseName}範囲`;
 
     return baseName;
 };
@@ -323,19 +324,41 @@ export const getSpecUnitSuggestions = (specType) => {
 
 /**
  * DBのプレーン記法を HTML サブ/スーパースクリプトへ変換する。
- * `_word` → <sub>word</sub>、`~word` → <sup>word</sup>
+ * `-word` → 通常、`_word` → <sub>word</sub>、`~word` → <sup>word</sup>
  * v-html で使うこと。入力は管理者入力のみだが HTML エスケープを先行して行う。
  */
 export const renderSymbol = (text) => {
     if (!text) return '';
-    const escaped = String(text)
+
+    const escapeHtml = (value) => String(value)
         .replace(/&/gu, '&amp;')
         .replace(/</gu, '&lt;')
         .replace(/>/gu, '&gt;')
         .replace(/"/gu, '&quot;');
-    return escaped
-        .replace(/_([A-Za-z0-9]+)/gu, '<sub>$1</sub>')
-        .replace(/~([A-Za-z0-9]+)/gu, '<sup>$1</sup>');
+    const modeByMarker = { '-': 'normal', '_': 'sub', '~': 'sup' };
+    let mode = 'normal';
+    let buffer = '';
+    let html = '';
+    const flush = () => {
+        if (!buffer) return;
+        const escaped = escapeHtml(buffer);
+        if (mode === 'sub') html += `<sub>${escaped}</sub>`;
+        else if (mode === 'sup') html += `<sup>${escaped}</sup>`;
+        else html += escaped;
+        buffer = '';
+    };
+
+    for (const char of String(text)) {
+        if (Object.prototype.hasOwnProperty.call(modeByMarker, char)) {
+            flush();
+            mode = modeByMarker[char];
+            continue;
+        }
+        buffer += char;
+    }
+    flush();
+
+    return html;
 };
 
 const inferProfile = (spec) => {

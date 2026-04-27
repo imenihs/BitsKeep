@@ -15,6 +15,9 @@ use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PackageGroupController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\SpecGroupController;
+use App\Http\Controllers\Api\SpecSuggestionController;
+use App\Http\Controllers\Api\SpecTemplateController;
 use App\Http\Controllers\Api\SpecTypeController;
 use App\Http\Controllers\Api\StockAlertController;
 use App\Http\Controllers\Api\StockOrderController;
@@ -40,9 +43,19 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::apiResource('package-groups', PackageGroupController::class);
     Route::post('package-groups/{package_group}/restore', [PackageGroupController::class, 'restore']);
     Route::delete('package-groups/{package_group}/force', [PackageGroupController::class, 'forceDestroy']);
+    Route::put('package-groups/{package_group}/packages/reorder', [PackageGroupController::class, 'reorderPackages']);
     Route::apiResource('spec-types', SpecTypeController::class);
     Route::post('spec-types/{spec_type}/restore', [SpecTypeController::class, 'restore']);
     Route::delete('spec-types/{spec_type}/force', [SpecTypeController::class, 'forceDestroy']);
+    Route::apiResource('spec-groups', SpecGroupController::class);
+    Route::post('spec-groups/{spec_group}/restore', [SpecGroupController::class, 'restore']);
+    Route::delete('spec-groups/{spec_group}/force', [SpecGroupController::class, 'forceDestroy']);
+    Route::put('spec-groups/{spec_group}/spec-types', [SpecGroupController::class, 'syncSpecTypes']);
+    Route::apiResource('spec-templates', SpecTemplateController::class);
+    Route::post('spec-templates/{spec_template}/restore', [SpecTemplateController::class, 'restore']);
+    Route::delete('spec-templates/{spec_template}/force', [SpecTemplateController::class, 'forceDestroy']);
+    Route::post('spec-templates/{spec_template}/apply-preview', [SpecTemplateController::class, 'applyPreview']);
+    Route::get('spec-suggestions', [SpecSuggestionController::class, 'index']);
 
     // ── 在庫・棚・商社管理 ──────────────────────────────────
     Route::apiResource('suppliers', SupplierController::class);

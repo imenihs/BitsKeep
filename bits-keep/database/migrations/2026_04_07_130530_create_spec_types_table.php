@@ -8,17 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // スペック種別定義（例: 抵抗値, 容量, 電圧）
+        // スペック項目定義（例: 抵抗値, 容量, 電圧）
         Schema::create('spec_types', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();           // 種別名（例: 抵抗値）
+            $table->string('name')->unique();           // 項目名（例: 抵抗値）
             $table->string('base_unit')->nullable();    // 基準単位（例: Ω）
             $table->string('description')->nullable();
             $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
 
-        // スペック種別に紐づく単位候補と変換倍率
+        // スペック項目に紐づく単位候補と変換倍率
         Schema::create('spec_units', function (Blueprint $table) {
             $table->id();
             $table->foreignId('spec_type_id')->constrained()->cascadeOnDelete();

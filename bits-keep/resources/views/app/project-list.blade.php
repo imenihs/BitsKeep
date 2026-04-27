@@ -13,11 +13,11 @@
 <div id="app" data-page="project-list" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [['label' => '案件管理', 'current' => true]]])
 
-  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+  <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">案件管理</h1>
-    <div class="flex items-center gap-2">
+    <div class="ui-action-row">
       <a href="{{ route('settings.integrations') }}"
-        class="px-3 py-2 text-sm border border-[var(--color-border)] rounded hover:opacity-80 transition-opacity no-underline">
+        class="btn-outline">
         連携設定
       </a>
       <button @click="openAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium">+ 案件を作成</button>
@@ -122,7 +122,7 @@
     </div>
   </div>
 
-  <div class="flex gap-6" style="min-height: 60vh">
+  <div class="flex flex-col gap-6 lg:flex-row" style="min-height: 60vh">
     <!-- 左: 案件リスト -->
     <div class="flex-1 min-w-0">
       <!-- フィルタ -->
@@ -200,7 +200,7 @@
     </div>
 
     <!-- 右: 案件詳細パネル -->
-    <div class="w-96 flex-shrink-0" v-if="detailProject">
+    <div class="w-full lg:w-96 lg:flex-shrink-0" v-if="detailProject">
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-5">
         <div class="flex justify-between items-start mb-4">
           <div class="flex items-center gap-2">
@@ -209,8 +209,8 @@
           </div>
           <div class="flex gap-2">
             <template v-if="detailProject.is_editable">
-              <button @click="openEdit(detailProject)" class="text-xs opacity-60 hover:opacity-100 px-2 py-1 border border-[var(--color-border)] rounded">編集</button>
-              <button @click="deleteProject(detailProject)" class="text-xs text-red-500 px-2 py-1 border border-red-400 rounded hover:bg-red-50">削除</button>
+              <button @click="openEdit(detailProject)" class="btn-outline text-xs">編集</button>
+              <button @click="deleteProject(detailProject)" class="btn-danger-outline text-xs">削除</button>
             </template>
             <span v-else class="text-xs opacity-40 px-2 py-1">Notion由来（読み取り専用）</span>
           </div>
@@ -299,10 +299,10 @@
     </div>
 
     <!-- 右パネル: 未選択時 -->
-    <div class="w-96 flex-shrink-0 flex items-center justify-center opacity-30" v-else-if="!detailError">
+    <div class="w-full lg:w-96 lg:flex-shrink-0 flex items-center justify-center opacity-30" v-else-if="!detailError">
       <p class="text-sm">案件を選択してください</p>
     </div>
-    <div class="w-96 flex-shrink-0" v-else>
+    <div class="w-full lg:w-96 lg:flex-shrink-0" v-else>
       <div class="rounded-2xl border border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))] p-5 text-sm">
         <div class="font-semibold text-[var(--color-tag-eol)]">案件詳細を開けませんでした</div>
         <div class="mt-2 opacity-80">@{{ detailError }}</div>
@@ -367,10 +367,10 @@
   </div>
 
   <!-- トースト -->
-  <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
+  <div class="toast-stack">
     <div v-for="t in toasts" :key="t.id"
-      :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">@{{ t.msg }}</div>
+      :class="t.type === 'error' ? 'toast-message--error' : 'toast-message--success'"
+      class="toast-message">@{{ t.msg }}</div>
   </div>
 
   @include('partials.app-breadcrumbs', ['items' => [['label' => '案件管理', 'current' => true]], 'class' => 'mt-6'])

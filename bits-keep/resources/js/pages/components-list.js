@@ -20,7 +20,7 @@ export default function setup() {
     const advPackageId     = ref('');
     const advPackageQuery  = ref('');
     const advSpecTypeId    = ref('');
-    const advSpecProfile   = ref('typ');
+    const advSpecProfile   = ref('');
     const advUnit          = ref('');
     const advMin           = ref('');
     const advMax           = ref('');
@@ -46,7 +46,7 @@ export default function setup() {
     const alertCount = ref(0);
     const listError = ref('');
     const masterError = ref('');
-    const specProfileOptions = SPEC_PROFILE_OPTIONS;
+    const specProfileOptions = [{ value: '', label: '全件' }, ...SPEC_PROFILE_OPTIONS];
 
     // ── 比較リスト ────────────────────────────────────────────
     const compareList = ref([]);
@@ -96,13 +96,15 @@ export default function setup() {
         }
         if (advPackageId.value) {
             const packageName = packages.value.find((item) => item.id == advPackageId.value)?.name ?? `#${advPackageId.value}`;
-            chips.push({ key: 'package', label: `詳細パッケージ: ${packageName}` });
+            chips.push({ key: 'package', label: `パッケージ: ${packageName}` });
         }
         if (advSpecTypeId.value) {
             const specName = specTypes.value.find((item) => item.id == advSpecTypeId.value)?.name ?? '指定';
             chips.push({ key: 'specType', label: `スペック: ${specName}` });
-            const profileLabel = specProfileOptions.find((item) => item.value === advSpecProfile.value)?.label ?? advSpecProfile.value;
-            chips.push({ key: 'specProfile', label: `照合基準: ${profileLabel}` });
+            if (advSpecProfile.value) {
+                const profileLabel = specProfileOptions.find((item) => item.value === advSpecProfile.value)?.label ?? advSpecProfile.value;
+                chips.push({ key: 'specProfile', label: `照合基準: ${profileLabel}` });
+            }
         }
         if (advUnit.value) chips.push({ key: 'unit', label: `単位: ${advUnit.value}` });
         if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
@@ -139,7 +141,7 @@ export default function setup() {
         filterStatus.value = ''; advancedOpen.value = false;
         favoriteOnly.value = false;
         advManufacturer.value = ''; advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = '';
-        advSpecTypeId.value = ''; advSpecProfile.value = 'typ'; advUnit.value = ''; advMin.value = '';
+        advSpecTypeId.value = ''; advSpecProfile.value = ''; advUnit.value = ''; advMin.value = '';
         advMax.value = ''; advMinStock.value = '';
         advInventoryState.value = ''; advPurchasedFrom.value = ''; advPurchasedTo.value = '';
     };
@@ -154,7 +156,7 @@ export default function setup() {
         else if (key === 'packageGroup') { advPackageGroupId.value = ''; advPackageId.value = ''; advPackageQuery.value = ''; }
         else if (key === 'package') advPackageId.value = '';
         else if (key === 'specType') advSpecTypeId.value = '';
-        else if (key === 'specProfile') advSpecProfile.value = 'typ';
+        else if (key === 'specProfile') advSpecProfile.value = '';
         else if (key === 'unit') advUnit.value = '';
         else if (key === 'specMin') advMin.value = '';
         else if (key === 'specMax') advMax.value = '';
@@ -226,7 +228,7 @@ export default function setup() {
             specTypes.value  = stRes.data;
             alertCount.value = alertRes.data?.length ?? 0;
         } catch {
-            masterError.value = '分類・パッケージ・スペック種別・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
+            masterError.value = '分類・パッケージ・スペック項目・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
             packageGroups.value = [];
             packages.value = [];

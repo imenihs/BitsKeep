@@ -37,7 +37,7 @@ class ComponentCompareController extends Controller
             fn ($id) => $components->firstWhere('id', $id)
         )->filter()->values();
 
-        // 全部品に存在するスペック種別 + profile を収集（比較軸）
+        // 全部品に存在するスペック項目 + profile を収集（比較軸）
         $specAxisMap = [];
         foreach ($ordered as $comp) {
             foreach ($comp->specs as $spec) {
@@ -203,11 +203,6 @@ class ComponentCompareController extends Controller
 
     private function buildDisplayName(string $baseName, string $profile): string
     {
-        return match ($profile) {
-            'max_only' => '最大'.$baseName,
-            'min_only' => '最小'.$baseName,
-            'range' => $baseName.'範囲',
-            default => $baseName,
-        };
+        return $baseName;
     }
 }

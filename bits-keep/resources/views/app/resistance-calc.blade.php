@@ -15,13 +15,36 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">🔌 抵抗/容量ネットワーク探索</h1>
-    <p class="text-sm opacity-60 mt-1">直列・並列・直並列混在・分圧条件から目標値に近い候補を探索します</p>
   </header>
 
-  <div class="flex gap-6" style="min-height: 70vh">
+  <div class="mb-5 flex flex-wrap gap-2">
+    <button @click="activeMode = 'network'"
+      class="px-4 py-2 rounded-xl border text-sm"
+      :class="activeMode === 'network' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+      ネットワーク探索
+    </button>
+    <button @click="activeMode = 'variable'"
+      class="px-4 py-2 rounded-xl border text-sm"
+      :class="activeMode === 'variable' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+      可変抵抗 + 固定抵抗
+    </button>
+  </div>
+
+  <div v-if="activeMode === 'network'" class="flex gap-6" style="min-height: 70vh">
 
     <!-- 左: 条件入力 -->
     <div class="w-80 flex-shrink-0 space-y-5">
+
+      <!-- 部品種別 -->
+      <div>
+        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">初期入力例</label>
+        <div class="grid gap-2">
+          <button v-for="preset in presets" :key="preset.label" @click="applyPreset(preset)"
+            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 py-2 text-left text-xs hover:border-[var(--color-primary)]">
+            @{{ preset.label }}
+          </button>
+        </div>
+      </div>
 
       <!-- 部品種別 -->
       <div>
@@ -207,9 +230,21 @@
 
         <!-- 初期状態 -->
         <div v-if="elapsedMs === null && !searching"
-          class="text-center py-16 opacity-30">
-          <div class="text-4xl mb-3">⚡</div>
-          <p class="text-sm">左のフォームで条件を設定して探索を開始してください</p>
+          class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-8">
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
+              <div class="text-xs uppercase tracking-[0.18em] opacity-50">入力</div>
+              <div class="mt-2 text-sm font-semibold">目標値とE系列を選ぶ</div>
+            </div>
+            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
+              <div class="text-xs uppercase tracking-[0.18em] opacity-50">探索</div>
+              <div class="mt-2 text-sm font-semibold">回路方式と素子数を絞る</div>
+            </div>
+            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
+              <div class="text-xs uppercase tracking-[0.18em] opacity-50">比較</div>
+              <div class="mt-2 text-sm font-semibold">誤差・回路図・在庫リンクを見る</div>
+            </div>
+          </div>
         </div>
 
         <!-- ローディング -->
@@ -220,6 +255,56 @@
     </div>
 
   </div>
+
+  <section v-if="activeMode === 'variable'" class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-5 space-y-4">
+      <label class="block">
+        <span class="block text-xs font-semibold opacity-60 mb-1">総抵抗値</span>
+        <input v-model="variable.total_raw" class="input-text w-full font-mono" placeholder="例: 10k" />
+      </label>
+      <label class="block">
+        <span class="block text-xs font-semibold opacity-60 mb-1">可変幅</span>
+        <input v-model="variable.span_raw" class="input-text w-full font-mono" placeholder="例: 20 または 2k" />
+      </label>
+      <div>
+        <span class="block text-xs font-semibold opacity-60 mb-1">可変幅指定</span>
+        <div class="flex rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-1">
+          <button @click="variable.span_mode = 'percent'" class="flex-1 rounded-lg px-3 py-2 text-sm"
+            :class="variable.span_mode === 'percent' ? 'bg-[var(--color-primary)] text-white' : ''">%</button>
+          <button @click="variable.span_mode = 'ohm'" class="flex-1 rounded-lg px-3 py-2 text-sm"
+            :class="variable.span_mode === 'ohm' ? 'bg-[var(--color-primary)] text-white' : ''">Ω</button>
+        </div>
+      </div>
+      <div>
+        <span class="block text-xs font-semibold opacity-60 mb-1">方式</span>
+        <select v-model="variable.circuit" class="input-text w-full">
+          <option value="series">固定抵抗 + 可変抵抗（直列）</option>
+          <option value="parallel">固定抵抗 ∥ 可変抵抗（並列目安）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-5">
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="rounded-2xl bg-[var(--color-bg)] p-4">
+          <div class="text-xs uppercase tracking-[0.18em] opacity-50">可変抵抗</div>
+          <div class="mt-2 font-mono text-2xl font-bold">@{{ variableResult.potDisplay }}</div>
+        </div>
+        <div class="rounded-2xl bg-[var(--color-bg)] p-4">
+          <div class="text-xs uppercase tracking-[0.18em] opacity-50">固定抵抗</div>
+          <div class="mt-2 font-mono text-2xl font-bold">@{{ variableResult.fixedDisplay }}</div>
+        </div>
+        <div class="rounded-2xl bg-[var(--color-bg)] p-4 md:col-span-2">
+          <div class="text-xs uppercase tracking-[0.18em] opacity-50">可変範囲</div>
+          <div class="mt-2 font-mono text-xl font-bold">@{{ variableResult.rangeDisplay }}</div>
+        </div>
+      </div>
+      <div class="mt-5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 font-mono text-sm">
+        <div v-if="variable.circuit === 'series'">[固定抵抗] -- [可変抵抗] で総抵抗と可変幅を作る</div>
+        <div v-else>[固定抵抗] ∥ [可変抵抗] の簡易目安。実機では端点抵抗と負荷を確認</div>
+      </div>
+    </div>
+  </section>
   @include('partials.app-breadcrumbs', ['items' => [['label' => 'ネットワーク探索', 'current' => true]], 'class' => 'mt-6'])
 </div>
 </body>

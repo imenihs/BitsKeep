@@ -75,14 +75,24 @@
         </tr>
         <tr v-if="libraries.length === 0">
           <td colspan="6" class="py-8">
-            <div class="flex flex-col items-center gap-3 opacity-60">
-              <div class="text-center">
-                <p class="font-medium">ライブラリが登録されていません</p>
-                <p class="text-xs mt-1 opacity-70">「+ ライブラリを追加」から .SchLib / .PcbLib ファイルを登録します</p>
+            <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5">
+              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p class="font-semibold">ライブラリが登録されていません</p>
+                  <div class="mt-2 flex flex-wrap gap-2 text-xs">
+                    <span class="tag">SchLib/PcbLibを登録</span>
+                    <span class="tag">部品詳細でシンボル・フットプリントを紐付け</span>
+                    <span class="tag">削除時は既存リンクをNULL化</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button @click="fetchLibraries" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm">再試行</button>
+                  <a href="{{ route('components.index') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">部品一覧へ</a>
+                  @if ($isAdmin)
+                  <button @click="openLibAdd" class="btn-primary px-4 py-2 rounded-xl text-sm">+ ライブラリを追加</button>
+                  @endif
+                </div>
               </div>
-              @if ($isAdmin)
-              <button @click="openLibAdd" class="btn-primary px-4 py-1.5 rounded text-sm opacity-100">+ ライブラリを追加</button>
-              @endif
             </div>
           </td>
         </tr>

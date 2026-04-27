@@ -22,6 +22,7 @@ class PackageController extends Controller
         }
         $packages = $query->orderBy('sort_order')->orderBy('name')->get()->map(function ($p) {
             $p->image_url = FileStorage::url($p->image_path);
+            $p->pdf_url = FileStorage::url($p->pdf_path);
             $p->can_force_delete = (bool) $p->deleted_at && $p->usage_count === 0;
             $p->force_delete_reason = $p->can_force_delete ? '' : ($p->usage_count > 0 ? "部品{$p->usage_count}件で使用中" : '先にアーカイブしてください');
             return $p;
@@ -48,6 +49,7 @@ class PackageController extends Controller
     {
         $package->load('packageGroup');
         $package->image_url = FileStorage::url($package->image_path);
+        $package->pdf_url = FileStorage::url($package->pdf_path);
         return ApiResponse::success($package);
     }
 

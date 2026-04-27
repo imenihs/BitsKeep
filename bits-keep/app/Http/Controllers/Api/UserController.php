@@ -25,7 +25,7 @@ class UserController extends Controller
             return ApiResponse::forbidden();
         }
 
-        $users = User::orderBy('created_at')->get()
+        $users = User::with('authProviders')->orderBy('created_at')->get()
             ->map(fn ($u) => $this->format($u));
 
         return ApiResponse::success($users);
@@ -166,6 +166,15 @@ class UserController extends Controller
             'email' => $u->email,
             'role' => $u->role,
             'is_active' => $u->is_active,
+            'auth_providers' => $u->authProviders
+                ->map(fn ($provider) => [
+                    'provider' => $provider->provider,
+                    'email' => $provider->provider_email,
+                    'linked_at' => $provider->linked_at?->toIso8601String(),
+                    'last_used_at' => $provider->last_used_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
             'invited_at' => $u->invited_at?->toIso8601String(),
             'created_at' => $u->created_at?->toIso8601String(),
         ];

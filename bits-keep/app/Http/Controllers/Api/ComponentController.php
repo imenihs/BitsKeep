@@ -88,7 +88,7 @@ class ComponentController extends Controller
             $queryMin = $normalizer->normalizeSearchBound($specType, $request->input('spec_min'), $request->input('spec_unit'));
             $queryMax = $normalizer->normalizeSearchBound($specType, $request->input('spec_max'), $request->input('spec_unit'));
             $queryUnit = (string) $request->input('spec_unit', '');
-            $queryProfile = (string) $request->input('spec_profile', 'typ');
+            $queryProfile = (string) $request->input('spec_profile', '');
 
             $query->whereHas('specs', function ($q) use ($specTypeId, $queryMin, $queryMax, $queryUnit, $queryProfile) {
                 $q->where('spec_type_id', $specTypeId);
@@ -97,6 +97,7 @@ class ComponentController extends Controller
                     'range' => [['range', 'triple'], null, 'value_numeric_min', 'value_numeric_max'],
                     'max_only' => [['max_only', 'triple'], 'value_numeric_max', null, null],
                     'min_only' => [['min_only', 'triple'], 'value_numeric_min', null, null],
+                    'triple' => [['triple'], 'value_numeric_typ', null, null],
                     default => [['typ', 'triple'], 'value_numeric_typ', null, null],
                 };
 
@@ -107,6 +108,57 @@ class ComponentController extends Controller
                         $unitQuery->where('unit', 'ilike', '%'.$queryUnit.'%')
                             ->orWhere('normalized_unit', 'ilike', '%'.$queryUnit.'%');
                     });
+                }
+
+                if ($queryProfile === '' || $queryProfile === 'all') {
+                    if ($queryMin === null && $queryMax === null) {
+                        return;
+                    }
+
+                    $q->where(function ($profileQuery) use ($queryMin, $queryMax) {
+                        $profileQuery
+                            ->where(function ($sub) use ($queryMin, $queryMax) {
+                                $sub->whereIn('value_profile', ['typ', 'triple'])
+                                    ->whereNotNull('value_numeric_typ');
+                                if ($queryMin !== null) {
+                                    $sub->whereRaw('value_numeric_typ >= ?', [$queryMin]);
+                                }
+                                if ($queryMax !== null) {
+                                    $sub->whereRaw('value_numeric_typ <= ?', [$queryMax]);
+                                }
+                            })
+                            ->orWhere(function ($sub) use ($queryMin, $queryMax) {
+                                $sub->whereIn('value_profile', ['max_only', 'triple'])
+                                    ->whereNotNull('value_numeric_max');
+                                if ($queryMin !== null) {
+                                    $sub->whereRaw('value_numeric_max >= ?', [$queryMin]);
+                                }
+                                if ($queryMax !== null) {
+                                    $sub->whereRaw('value_numeric_max <= ?', [$queryMax]);
+                                }
+                            })
+                            ->orWhere(function ($sub) use ($queryMin, $queryMax) {
+                                $sub->whereIn('value_profile', ['min_only', 'triple'])
+                                    ->whereNotNull('value_numeric_min');
+                                if ($queryMin !== null) {
+                                    $sub->whereRaw('value_numeric_min >= ?', [$queryMin]);
+                                }
+                                if ($queryMax !== null) {
+                                    $sub->whereRaw('value_numeric_min <= ?', [$queryMax]);
+                                }
+                            })
+                            ->orWhere(function ($sub) use ($queryMin, $queryMax) {
+                                $sub->whereIn('value_profile', ['range', 'triple']);
+                                if ($queryMin !== null) {
+                                    $sub->whereRaw('value_numeric_max >= ?', [$queryMin]);
+                                }
+                                if ($queryMax !== null) {
+                                    $sub->whereRaw('value_numeric_min <= ?', [$queryMax]);
+                                }
+                            });
+                    });
+
+                    return;
                 }
 
                 if ($queryProfile === 'range') {
@@ -648,7 +700,7 @@ class ComponentController extends Controller
     private function assertPackageSelection(mixed $packageGroupId, mixed $packageId): void
     {
         if ($packageGroupId && ! $packageId) {
-            throw ValidationException::withMessages(['package_id' => '詳細パッケージを選択してください。']);
+            throw ValidationException::withMessages(['package_id' => 'パッケージを選択してください。']);
         }
 
         if ($packageId && ! $packageGroupId) {
@@ -661,11 +713,11 @@ class ComponentController extends Controller
 
         $package = Package::find($packageId);
         if (! $package) {
-            throw ValidationException::withMessages(['package_id' => '選択した詳細パッケージが存在しません。']);
+            throw ValidationException::withMessages(['package_id' => '選択したパッケージが存在しません。']);
         }
 
         if ($packageGroupId && (int) $package->package_group_id !== (int) $packageGroupId) {
-            throw ValidationException::withMessages(['package_id' => '詳細パッケージが選択中のパッケージ分類に属していません。']);
+            throw ValidationException::withMessages(['package_id' => 'パッケージが選択中のパッケージ分類に属していません。']);
         }
     }
 

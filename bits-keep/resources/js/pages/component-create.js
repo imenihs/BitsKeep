@@ -7,6 +7,7 @@ import {
     buildSpecPayload,
     createEmptySpecRow,
     getSpecDisplayName,
+    getSpecProfileBadgeLabel,
     getSpecUnitSuggestions,
     normalizeSpecDraft,
     normalizeSpecProfile,
@@ -51,6 +52,11 @@ export default function setup() {
     const packageGroups = ref([]);
     const packages   = ref([]);
     const specTypes  = ref([]);
+    const specGroups = ref([]);
+    const specSuggestionTypes = ref([]);
+    const selectedSpecGroupId = ref('');
+    const specTypeSearchQuery = ref('');
+    const specSuggestionLoading = ref(false);
     const suppliers  = ref([]);
     const locations  = ref([]);
     const altiumLibraries = ref([]);
@@ -156,6 +162,7 @@ export default function setup() {
     const removeSpec = (i) => form.specs.splice(i, 1);
     const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(specTypes.value.find(st => st.id == specTypeId));
     const specDisplayName = (spec) => getSpecDisplayName(spec, findSpecTypeById(spec?.spec_type_id));
+    const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
     const specTypeOptionLabel = (specType) => {
         const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
         const symbol = String(specType?.symbol ?? '').trim();
@@ -307,7 +314,7 @@ export default function setup() {
                 sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
             });
             specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
-            toastSuccess(`スペック種別を追加しました: ${name}`);
+            toastSuccess(`スペック項目を追加しました: ${name}`);
             return res.data;
         } catch (e) {
             await fetchSpecTypesForInlineCreate();
@@ -323,7 +330,7 @@ export default function setup() {
 
         const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
         if (!nameJa) {
-            toastError('スペック種別の日本語名を入力してください');
+            toastError('スペック項目の日本語名を入力してください');
             return;
         }
 
@@ -581,6 +588,85 @@ export default function setup() {
         specTypes.value.find((item) => Number(item.id) === Number(specTypeId)) ?? null;
 
     const specPreview = (spec) => normalizeSpecDraft(spec, findSpecTypeById(spec.spec_type_id));
+    let specSuggestionRequestSeq = 0;
+    const normalizeSpecGroupId = (value) => {
+        if (value === '' || value === null || value === undefined) return '';
+        return String(value);
+    };
+    const groupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
+    const fetchSpecSuggestionsForForm = async () => {
+        const categoryIds = form.category_ids.map((id) => Number(id)).filter(Boolean);
+        const seq = ++specSuggestionRequestSeq;
+
+        if (!categoryIds.length) {
+            specGroups.value = [];
+            specSuggestionTypes.value = [];
+            selectedSpecGroupId.value = '';
+            specSuggestionLoading.value = false;
+            return;
+        }
+
+        specSuggestionLoading.value = true;
+        try {
+            const params = new URLSearchParams();
+            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
+            const res = await api.get(`/spec-suggestions?${params.toString()}`);
+            if (seq !== specSuggestionRequestSeq) return;
+
+            specGroups.value = res.data?.groups ?? [];
+            specSuggestionTypes.value = res.data?.spec_types ?? [];
+
+            const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
+            const currentStillAvailable = currentId === ''
+                || specGroups.value.some((group) => String(group.id) === currentId);
+            if (!currentStillAvailable) {
+                selectedSpecGroupId.value = '';
+            }
+        } catch {
+            if (seq !== specSuggestionRequestSeq) return;
+            specGroups.value = [];
+            specSuggestionTypes.value = [];
+            toastError('スペック分類の取得に失敗しました。全件候補で選択してください');
+        } finally {
+            if (seq === specSuggestionRequestSeq) {
+                specSuggestionLoading.value = false;
+            }
+        }
+    };
+    const selectedSpecGroup = computed(() => {
+        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
+        if (!groupId) return null;
+        return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
+    });
+    const selectedSpecGroupLabel = computed(() => selectedSpecGroup.value?.name ?? (specGroups.value.length ? '推奨全体' : '全件候補'));
+    const scopedSpecTypes = computed(() => {
+        const group = selectedSpecGroup.value;
+        if (group) return groupSpecTypes(group);
+        if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
+        return specTypes.value;
+    });
+    const filteredSpecTypesForPicker = (spec = null) => {
+        const query = normalizeHelperText(specTypeSearchQuery.value);
+        const selected = findSpecTypeById(spec?.spec_type_id);
+        const candidates = [...scopedSpecTypes.value];
+        if (selected && !candidates.some((item) => Number(item.id) === Number(selected.id))) {
+            candidates.unshift(selected);
+        }
+
+        const seen = new Set;
+        return sortSpecTypes(candidates)
+            .filter((item) => {
+                const key = Number(item.id);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                if (!query) return true;
+                return normalizeHelperText(specTypeSearchText(item)).includes(query);
+            });
+    };
+    const clearSpecPickerFilters = () => {
+        selectedSpecGroupId.value = '';
+        specTypeSearchQuery.value = '';
+    };
 
     const createHelperBasicField = (value = '') => ({
         value: String(value ?? '').trim(),
@@ -1982,13 +2068,13 @@ export default function setup() {
         }
 
         if (appliedCount === 0) {
-            toastError('適用できる候補がありません。分類・パッケージ・スペック種別を確認してください。');
+            toastError('適用できる候補がありません。分類・パッケージ・スペック項目を確認してください。');
             return;
         }
 
         const warnings = [];
         if (skippedCategories > 0) warnings.push(`分類 ${skippedCategories} 件`);
-        if (skippedSpecs > 0) warnings.push(`スペック種別未選択 ${skippedSpecs} 件`);
+        if (skippedSpecs > 0) warnings.push(`スペック項目未選択 ${skippedSpecs} 件`);
         if (skippedPackage) warnings.push('パッケージ 1 件');
 
         if (warnings.length > 0) {
@@ -2089,7 +2175,7 @@ export default function setup() {
                 .slice(0, 4)
                 .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
             const suffix = missingSpecTypeRows.length > labels.length ? ` ほか${missingSpecTypeRows.length - labels.length}件` : '';
-            toastError(`スペック種別が未選択です: ${labels.join('、')}${suffix}`);
+            toastError(`スペック項目が未選択です: ${labels.join('、')}${suffix}`);
             return false;
         }
 
@@ -2300,6 +2386,10 @@ export default function setup() {
         }
     });
 
+    watch(() => form.category_ids.map((id) => Number(id)).filter(Boolean).sort((a, b) => a - b).join(','), () => {
+        void fetchSpecSuggestionsForForm();
+    });
+
     watch(() => datasheetFiles.value.length, (length) => {
         if (length === 0) {
             datasheetTargetIndex.value = 0;
@@ -2331,13 +2421,14 @@ export default function setup() {
     return {
         toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,
         imagePreviewUrl, currentImageUrl, currentDatasheets, datasheetFiles, datasheetLabels, datasheetTargetIndex,
-        categories, packageGroups, packages, specTypes, suppliers,
+        categories, packageGroups, packages, specTypes, specGroups, specSuggestionTypes, specSuggestionLoading, suppliers,
         altiumLibraries, schLibraries, pcbLibraries,
         manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
         manufacturerSuggestionsOpen,
         categoryQuery, filteredCategories, canCreateCategory,
         packageQuery, filteredPackages, canCreatePackage,
-        specProfileOptions, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
+        specProfileOptions, specProfileBadge, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
+        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, clearSpecPickerFilters,
         addSpec, removeSpec, getUnitSuggestions, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile, addCustomAttribute, removeCustomAttribute,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         selectManufacturer, commitManufacturer,

@@ -17,8 +17,8 @@
     ['label' => '商社管理', 'current' => true],
   ]])
 
-  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <div>
+  <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="min-w-0">
       <h1 class="text-2xl font-bold">商社管理</h1>
       <p class="text-sm opacity-60 mt-1">発注先・仕入先の登録・編集</p>
     </div>
@@ -43,7 +43,42 @@
   </div>
 
   <!-- 商社リスト -->
-  <div class="overflow-x-auto">
+  <div class="sm:hidden space-y-3">
+    <div v-for="s in suppliers" :key="`card-${s.id}`" class="state-card">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full inline-block flex-shrink-0" :style="{ backgroundColor: s.color || '#2563eb' }"></span>
+            <span class="font-semibold truncate">@{{ s.name }}</span>
+            <span v-if="s.deleted_at" class="tag tag-warning text-[10px]">アーカイブ済み</span>
+          </div>
+          <a v-if="s.url" :href="s.url" target="_blank" rel="noopener" class="mt-2 block text-xs text-[var(--color-primary)] truncate">@{{ s.url }}</a>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div class="opacity-50">リードタイム</div>
+              <div class="font-mono">@{{ s.lead_days != null ? s.lead_days + '日' : '-' }}</div>
+            </div>
+            <div>
+              <div class="opacity-50">送料無料閾値</div>
+              <div class="font-mono">@{{ s.free_shipping_threshold != null ? formatCurrency(s.free_shipping_threshold) : '-' }}</div>
+            </div>
+          </div>
+          <div class="mt-2 text-xs opacity-70 break-words">@{{ s.note || '-' }}</div>
+          <div class="mt-1 text-[11px] opacity-50">使用件数: @{{ s.usage_count ?? 0 }}</div>
+        </div>
+      </div>
+      <div class="ui-action-row mt-3">
+        <button @click="openEdit(s)" class="btn-outline text-xs">編集</button>
+        <button v-if="!s.deleted_at" @click="archiveSupplier(s)" class="btn-warning-outline text-xs">アーカイブ</button>
+        <button v-else @click="restoreSupplier(s)" class="btn-success-outline text-xs">復元</button>
+        <button v-if="s.can_force_delete" @click="forceDeleteSupplier(s)" class="btn-danger-outline text-xs">完全削除</button>
+      </div>
+      <div v-if="s.deleted_at && !s.can_force_delete" class="mt-2 text-[10px] opacity-60">@{{ s.force_delete_reason }}</div>
+    </div>
+    <div v-if="suppliers.length === 0" class="py-8 text-center opacity-40">商社が登録されていません</div>
+  </div>
+
+  <div class="hidden sm:block ui-table-scroll">
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
@@ -85,21 +120,21 @@
             <div class="mt-1 opacity-60">使用件数: @{{ s.usage_count ?? 0 }}</div>
           </td>
           <td class="py-2">
-            <div class="flex gap-2">
+            <div class="ui-action-row">
               <button @click="openEdit(s)"
-                class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">
+                class="btn-outline text-xs">
                 編集
               </button>
               <button v-if="!s.deleted_at" @click="archiveSupplier(s)"
-                class="px-2 py-1 text-xs border border-amber-400 text-amber-700 rounded hover:bg-amber-50">
+                class="btn-warning-outline text-xs">
                 アーカイブ
               </button>
               <button v-else @click="restoreSupplier(s)"
-                class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">
+                class="btn-success-outline text-xs">
                 復元
               </button>
               <button v-if="s.can_force_delete" @click="forceDeleteSupplier(s)"
-                class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50">
+                class="btn-danger-outline text-xs">
                 完全削除
               </button>
             </div>
@@ -184,10 +219,10 @@
   </div>
 
   <!-- トースト -->
-  <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
+  <div class="toast-stack">
     <div v-for="t in toasts" :key="t.id"
-      :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm">
+      :class="t.type === 'error' ? 'toast-message--error' : 'toast-message--success'"
+      class="toast-message">
       @{{ t.msg }}
     </div>
   </div>

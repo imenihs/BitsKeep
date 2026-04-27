@@ -64,8 +64,34 @@ export default function setup() {
     };
 
     const procurementLabel = (v) => ({ active: '入手可', nrnd: 'NRND', eol: 'EOL', custom: 'カスタム' }[v] ?? v);
+    const stepCards = computed(() => ([
+        {
+            key: 'file',
+            label: 'ファイル',
+            value: selectedFile.value ? selectedFile.value.name : '未選択',
+            state: selectedFile.value ? 'ok' : 'pending',
+        },
+        {
+            key: 'rows',
+            label: '登録可能',
+            value: `${preview.rows.length} 行`,
+            state: preview.rows.length > 0 ? 'ok' : (step.value > 1 ? 'warning' : 'pending'),
+        },
+        {
+            key: 'errors',
+            label: 'エラー',
+            value: `${preview.errors.length} 件`,
+            state: preview.errors.length > 0 ? 'danger' : (step.value > 1 ? 'ok' : 'pending'),
+        },
+        {
+            key: 'commit',
+            label: '実行',
+            value: step.value === 4 ? `${result.created} 件登録` : '未実行',
+            state: step.value === 4 ? 'ok' : 'pending',
+        },
+    ]));
 
     return { toasts, step, uploading, committing, fileInput, selectedFile,
              preview, result, onFileChange, uploadPreview, goConfirm, commitImport, reset,
-             procurementLabel };
+             procurementLabel, stepCards };
 }

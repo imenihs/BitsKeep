@@ -182,6 +182,12 @@ export default function setup() {
     const roleBadgeClass = (r) => ({
         admin: 'bg-red-100 text-red-700', editor: 'bg-blue-100 text-blue-700', viewer: 'bg-gray-100 text-gray-600'
     }[r] ?? '');
+    const providerLabel = (provider) => ({ google: 'Google', github: 'GitHub' }[provider] ?? provider);
+    const providerSummary = (user) => {
+        const providers = Array.isArray(user.auth_providers) ? user.auth_providers : [];
+        if (!providers.length) return '未連携';
+        return providers.map((provider) => providerLabel(provider.provider)).join(' / ');
+    };
 
     onMounted(fetchUsers);
     return {
@@ -191,6 +197,6 @@ export default function setup() {
         nameModal, openNameEdit, confirmNameChange,
         emailModal, openEmailEdit, confirmEmailChange,
         passwordModal, openPasswordReset, confirmPasswordReset,
-        toggleActive, roleLabel, roleBadgeClass, formatDate,
+        toggleActive, roleLabel, roleBadgeClass, providerLabel, providerSummary, formatDate,
     };
 }

@@ -16,7 +16,6 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">CSVインポート</h1>
-    <p class="text-sm opacity-60 mt-1">部品データを一括登録</p>
     @unless ($isAdmin)
     <div class="mt-3 inline-flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] px-4 py-3 feature-disabled">
       <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>CSV取込</span></div>
@@ -24,6 +23,20 @@
     </div>
     @endunless
   </header>
+
+  <div class="grid gap-3 mb-6 md:grid-cols-4">
+    <div v-for="card in stepCards" :key="card.key"
+      class="rounded-2xl border px-4 py-3 bg-[var(--color-card-even)]"
+      :class="{
+        'border-[var(--color-tag-ok)]': card.state === 'ok',
+        'border-[var(--color-tag-warning)]': card.state === 'warning',
+        'border-[var(--color-tag-eol)]': card.state === 'danger',
+        'border-[var(--color-border)]': card.state === 'pending'
+      }">
+      <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">@{{ card.label }}</div>
+      <div class="mt-1 text-sm font-semibold break-words">@{{ card.value }}</div>
+    </div>
+  </div>
 
   <!-- ステップインジケータ -->
   <div class="flex items-center gap-2 mb-8">
@@ -52,14 +65,19 @@
       <p v-if="selectedFile" class="mt-3 text-sm text-emerald-600 font-medium">@{{ selectedFile.name }}</p>
     </div>
 
-    <div class="mt-4 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-4 text-xs opacity-70">
-      <p class="font-medium mb-1">CSVフォーマット（1行目はヘッダ行）:</p>
-      <code>part_number, common_name, description, procurement_status, quantity_new, quantity_used, threshold_new, category_names, package_name</code>
-      <ul class="mt-2 space-y-1 list-disc list-inside">
-        <li>procurement_status: active / nrnd / eol / custom</li>
-        <li>category_names: カンマ区切りで複数指定可</li>
-        <li>型番が既存の部品と重複する行はスキップされます</li>
-      </ul>
+    <div class="mt-4 grid gap-3 md:grid-cols-3">
+      <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
+        <div class="font-semibold">必須列</div>
+        <code class="mt-1 block break-all opacity-70">part_number, common_name</code>
+      </div>
+      <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
+        <div class="font-semibold">候補列</div>
+        <code class="mt-1 block break-all opacity-70">procurement_status, quantity_new, category_names, package_name</code>
+      </div>
+      <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
+        <div class="font-semibold">完了条件</div>
+        <div class="mt-1 opacity-70">登録可能行が1件以上 / 重複型番はスキップ</div>
+      </div>
     </div>
 
     <div class="flex justify-end mt-4">

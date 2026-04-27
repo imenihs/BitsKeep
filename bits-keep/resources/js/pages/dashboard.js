@@ -16,7 +16,7 @@ const ACTION_DEFS = [
     { key: 'stock-alert',   label: '在庫警告',     desc: '発注点を下回る部品を確認', url: '/stock-alert',       icon: '⚠️' },
     { key: 'stock-orders',  label: '部品発注',     desc: '発注候補を商社別に確認・出力', url: '/stock-orders',  icon: '🛒' },
     { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
-    { key: 'master',        label: 'マスタ管理',   desc: '分類・パッケージ・スペック種別', url: '/master',     icon: '⚙️' },
+    { key: 'master',        label: 'マスタ管理',   desc: '分類・パッケージ・スペック項目', url: '/master',     icon: '⚙️' },
     { key: 'design-tools',  label: '設計ツール',   desc: 'ADC/電源/誤差/熱など設計解析', url: '/tools/design', icon: '🔬' },
     { key: 'calc',          label: '電卓',         desc: '式計算・進数変換・物理定数', url: '/tools/calc',   icon: '🧮' },
     { key: 'network',       label: 'ネットワーク探索', desc: '抵抗/容量の直並列組み合わせ', url: '/tools/network', icon: '🔌' },

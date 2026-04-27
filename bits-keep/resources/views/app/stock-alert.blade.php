@@ -13,16 +13,16 @@
 <div id="app" data-page="stock-alert" class="px-4 py-4 sm:px-6 sm:py-6 max-w-6xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [['label' => '在庫警告', 'current' => true]]])
 
-  <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
-    <div>
+  <header class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-[var(--color-border)]">
+    <div class="min-w-0">
       <h1 class="text-2xl font-bold">在庫警告</h1>
       <p class="text-sm opacity-60 mt-1">不足部品を確認し、発注対象を選んで発注リストへ送ります</p>
     </div>
-    <div class="flex gap-2">
+    <div class="ui-action-row">
       <button
         @click="addCheckedToOrder"
         :disabled="checkedCount === 0"
-        class="btn px-4 py-2 rounded border border-[var(--color-border)] text-sm disabled:opacity-50">
+        class="btn-outline disabled:opacity-50">
         発注リストに入れる <span v-if="checkedCount > 0">(@{{ checkedCount }})</span>
       </button>
       <a href="{{ route('stock.orders') }}"
@@ -49,7 +49,58 @@
   </div>
 
   <!-- テーブル -->
-  <div v-else class="overflow-x-auto">
+  <div v-if="!loading && alerts.length > 0" class="space-y-3 md:hidden">
+    <div v-for="alert in alerts" :key="`alert-card-${alert.id}`" class="state-card">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <a :href="`/components/${alert.id}`" class="font-semibold hover:underline text-[var(--color-primary)] break-words">
+            @{{ alert.common_name || alert.part_number }}
+          </a>
+          <div class="text-xs opacity-60 font-mono mt-1 break-all">@{{ alert.part_number }}</div>
+          <div class="mt-2 text-xs opacity-70">@{{ alert.package_name || 'パッケージ未設定' }}</div>
+        </div>
+        <template v-if="isPending(alert)">
+          <span class="tag tag-warning text-xs shrink-0">発注待ち</span>
+        </template>
+        <template v-else-if="orderDraft.some(o => o.id === alert.id)">
+          <span class="tag tag-ok text-xs shrink-0">追加済み</span>
+        </template>
+        <input
+          v-else
+          :checked="checkedIds.includes(alert.id)"
+          @change="toggleChecked(alert.id)"
+          type="checkbox"
+          class="h-5 w-5 shrink-0" />
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <div class="opacity-50">新品</div>
+          <div class="font-mono">@{{ alert.quantity_new }}</div>
+        </div>
+        <div>
+          <div class="opacity-50">中古</div>
+          <div class="font-mono">@{{ alert.quantity_used }}</div>
+        </div>
+        <div>
+          <div class="opacity-50">発注点</div>
+          <div class="font-mono">@{{ alert.threshold_new }}</div>
+        </div>
+        <div>
+          <div class="opacity-50">充足率</div>
+          <span :class="urgencyClass(alert.quantity_new / alert.threshold_new)" class="tag text-xs">
+            @{{ alert.threshold_new > 0 ? Math.round(alert.quantity_new / alert.threshold_new * 100) : 0 }}%
+          </span>
+        </div>
+      </div>
+      <div class="mt-3 text-xs opacity-60">
+        <span v-if="isPending(alert)">発注済み（納品待ち）</span>
+        <span v-else-if="orderDraft.some(o => o.id === alert.id)">発注候補へ追加済み</span>
+        <span v-else>チェックすると発注リストへ追加できます</span>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="!loading && alerts.length > 0" class="hidden md:block ui-table-scroll">
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
@@ -111,10 +162,10 @@
   <div v-if="loading" class="text-center py-8 opacity-50">読み込み中...</div>
 
   <!-- トースト -->
-  <div class="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
+  <div class="toast-stack">
     <div v-for="t in toasts" :key="t.id"
-      :class="t.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'"
-      class="text-white px-4 py-2 rounded shadow-lg text-sm transition-all">
+      :class="t.type === 'error' ? 'toast-message--error' : 'toast-message--success'"
+      class="toast-message transition-all">
       @{{ t.msg }}
     </div>
   </div>

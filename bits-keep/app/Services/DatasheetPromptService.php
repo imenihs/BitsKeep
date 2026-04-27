@@ -45,14 +45,14 @@ class DatasheetPromptService
   "manufacturer": "メーカー名",
   "common_name": "通称・シリーズ名",
   "component_types": ["部品種別候補"],
-  "package_names": ["詳細パッケージ候補"],
+  "package_names": ["パッケージ候補"],
   "description": "部品の簡潔な説明",
   "specs": [
     {
       "name": "スペック名",
-      "name_ja": "スペック種別の日本語名",
-      "name_en": "スペック種別の英語名",
-      "symbol": "略記号（例: h_FE, V_CBO）",
+      "name_ja": "スペック項目の日本語名",
+      "name_en": "スペック項目の英語名",
+      "symbol": "略記号（例: h_FE, -V_CBO。- は通常、_ は下付き、~ は上付き）",
       "value_profile": "typ | range | max_only | min_only | triple",
       "value_typ": "typ値（なければ空文字）",
       "value_min": "最小値（なければ空文字）",

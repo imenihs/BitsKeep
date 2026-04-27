@@ -66,9 +66,10 @@ class ComponentHelperController extends Controller
         $targetEntry = $entries[$targetIndex];
         $expiresAt = Carbon::parse($targetEntry['expires_at']);
 
+        $jobId = (string) Str::uuid();
         Log::info('ComponentHelper createChatGptJob success', [
             'user_id' => $request->user()?->id,
-            'job_id' => $jobId = (string) Str::uuid(),
+            'job_id' => $jobId,
             'datasheet_count' => count($entries),
             'target_index' => $targetIndex,
             'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),

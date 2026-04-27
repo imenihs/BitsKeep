@@ -6,6 +6,7 @@ import { ref, computed, onMounted, reactive } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
+import { getSpecProfileBadgeLabel } from '../utils/specValue.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
@@ -178,6 +179,7 @@ export default function setup() {
 
     const statusLabel = (s) => ({ active: '入手可', nrnd: 'NRND', eol: 'EOL', custom: 'カスタム' }[s] ?? s);
     const statusClass = (s) => ({ active: 'tag-ok', nrnd: 'tag-warning', eol: 'tag-eol' }[s] ?? '');
+    const specProfileBadge = (profile) => getSpecProfileBadgeLabel(profile);
     const compareCountLabel = computed(() => `${components.value.length}件比較中`);
     const canShowTable = computed(() => !loading.value && !loadError.value && components.value.length >= 2);
 
@@ -210,6 +212,7 @@ export default function setup() {
         hasDiff,
         statusLabel,
         statusClass,
+        specProfileBadge,
         formatCurrency,
     };
 }

@@ -22,8 +22,8 @@
   </header>
 
   <section v-if="alertParts.length" class="card p-5 bg-[var(--color-card-odd)] mb-4 block">
-    <div class="flex items-center justify-between gap-3 mb-4">
-      <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+      <div class="min-w-0">
         <h2 class="text-lg font-bold">要入庫候補</h2>
         <div class="text-sm opacity-60 mt-1">在庫警告中の部品を、そのまま入庫対象へ追加できます</div>
       </div>
@@ -33,8 +33,8 @@
       <div
         v-for="part in alertParts"
         :key="part.id"
-        class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 overflow-x-auto">
-        <div class="grid min-w-[760px] grid-cols-[minmax(260px,1.4fr)_120px_120px_150px] gap-3 items-center">
+        class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+        <div class="grid gap-3 items-center sm:grid-cols-[minmax(220px,1.4fr)_120px_120px_150px]">
           <div class="min-w-0">
             <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
             <div class="text-xs opacity-60 font-mono mt-1 truncate">@{{ part.part_number }}</div>
@@ -44,7 +44,7 @@
           <button
             type="button"
             @click="queuePart(part)"
-            class="px-3 py-2 rounded border border-[var(--color-border)] text-sm whitespace-nowrap hover:border-[var(--color-primary)]">
+            class="btn-outline w-full sm:w-auto">
             入庫対象へ追加
           </button>
         </div>
@@ -53,15 +53,15 @@
   </section>
 
   <section class="card p-5 bg-[var(--color-card-even)] mb-4 block">
-    <div class="flex items-center justify-between gap-4 mb-3">
-      <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+      <div class="min-w-0">
         <h2 class="text-lg font-bold">部品検索</h2>
         <div class="text-sm opacity-60 mt-1">入力すると自動検索します</div>
       </div>
       <button
         @click="addSelectedResults"
         :disabled="searchSelectionCount === 0"
-        class="btn btn-primary px-4 py-2 rounded text-sm disabled:opacity-50">
+        class="btn btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 w-full sm:w-auto">
         選択を追加 <span v-if="searchSelectionCount > 0">(@{{ searchSelectionCount }})</span>
       </button>
     </div>
@@ -88,29 +88,29 @@
   </section>
 
   <section v-if="queueCount > 0" class="card p-5 bg-[var(--color-card-even)] block">
-    <div class="flex items-start justify-between gap-4 mb-4">
-      <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+      <div class="min-w-0">
         <h2 class="text-lg font-bold">入庫対象一覧</h2>
         <div class="text-sm opacity-60 mt-1">@{{ queueCount }}件をまとめて入庫します</div>
       </div>
-      <button @click="submitAll" :disabled="submitting" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50">
+      <button @click="submitAll" :disabled="submitting" class="btn btn-primary px-5 py-3 rounded text-sm disabled:opacity-50 w-full sm:w-auto">
         @{{ submitting ? '入庫中...' : '一括入庫する' }}
       </button>
     </div>
 
     <div class="space-y-3">
       <div v-for="entry in selectedEntries" :key="entry.key" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4">
-        <div class="flex items-start justify-between gap-4 mb-3">
-          <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
+          <div class="min-w-0">
             <div class="font-semibold">@{{ entry.part.common_name || entry.part.part_number }}</div>
             <div class="text-xs opacity-60 font-mono mt-1">@{{ entry.part.part_number }}</div>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="ui-action-row shrink-0">
             <div class="text-xs opacity-60" :class="matchingBlocks(entry).length > 0 ? 'text-[var(--color-tag-ok)]' : ''">
               @{{ matchingBlocks(entry).length > 0 ? '既存在庫へ加算' : '新規ブロック' }}
             </div>
             <a :href="'/components/' + entry.part.id" target="_blank" rel="noreferrer" class="text-xs no-underline hover:text-[var(--color-primary)]">詳細</a>
-            <button @click="removeEntry(entry.key)" class="px-3 py-2 rounded border border-[var(--color-border)] text-xs">除外</button>
+            <button @click="removeEntry(entry.key)" class="btn-outline text-xs">除外</button>
           </div>
         </div>
 
@@ -146,13 +146,13 @@
     <h2 class="text-sm font-semibold mb-3 opacity-80">本セッションの入庫履歴</h2>
     <div class="space-y-2">
       <div v-for="(log, i) in processedLog" :key="i"
-        class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-sm">
-        <div class="flex items-center gap-3">
+        class="flex flex-col gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div class="flex flex-wrap items-center gap-3 min-w-0">
           <span class="opacity-50 text-xs tabular-nums">@{{ log.at }}</span>
           <span class="font-semibold">@{{ log.commonName || log.partNumber }}</span>
           <span class="text-xs opacity-60 font-mono">@{{ log.partNumber }}</span>
         </div>
-        <div class="flex items-center gap-3 shrink-0">
+        <div class="ui-action-row shrink-0">
           <span class="font-mono font-bold">@{{ log.quantity }}個</span>
           <span class="tag text-xs" :class="log.merged ? 'tag-ok' : ''">@{{ log.merged ? '加算' : '新規ブロック' }}</span>
           <a :href="'/components/' + log.partId" class="link-text text-xs">詳細</a>
@@ -161,10 +161,10 @@
     </div>
   </section>
 
-  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">
+  <div class="toast-stack">
     <div v-for="t in toasts" :key="t.id"
-      class="px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
-      :class="t.type === 'error' ? 'bg-[var(--color-tag-eol)]' : 'bg-[var(--color-accent)]'">
+      class="toast-message"
+      :class="t.type === 'error' ? 'toast-message--error' : 'toast-message--success'">
       @{{ t.msg }}
     </div>
   </div>

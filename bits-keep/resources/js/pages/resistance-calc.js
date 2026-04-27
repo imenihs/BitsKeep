@@ -6,6 +6,7 @@ import { ref, reactive, computed } from 'vue';
 import { api } from '../api.js';
 
 export default function setup() {
+    const activeMode = ref('network');
     // ── 入力フォーム ──────────────────────────────────────
     const form = reactive({
         part_type:     'R',         // R | C | divider
@@ -27,29 +28,56 @@ export default function setup() {
     const elapsedMs  = ref(null);
     const truncated  = ref(false);
     const error      = ref('');
+    const presets = [
+        { label: '1kΩ 抵抗/E24', type: 'R', target: '1k', tolerance: 5, series: 'E24', circuits: ['series', 'parallel'] },
+        { label: '10kΩ 分圧 1/2', type: 'divider', target: '50%', tolerance: 1, series: 'E24', circuits: ['divider'], min: '1k', max: '100k' },
+        { label: '100nF 容量/E12', type: 'C', target: '100n', tolerance: 10, series: 'E12', circuits: ['parallel'] },
+    ];
+    const applyPreset = (preset) => {
+        form.part_type = preset.type;
+        form.target_raw = preset.target;
+        form.tolerance_pct = preset.tolerance;
+        form.series = preset.series;
+        form.circuit_types = [...preset.circuits];
+        form.total_res_min_raw = preset.min ?? '';
+        form.total_res_max_raw = preset.max ?? '';
+    };
 
     // ── 単位変換 ─────────────────────────────────────────
     // 入力値を内部値（Ω or F）に変換
     const parseTarget = (raw, partType) => {
-        const s = String(raw).trim().toLowerCase().replace(/,/g, '');
+        const s = String(raw).trim()
+            .replace(/,/g, '')
+            .replace(/[Ω]/gu, 'Ω')
+            .replace(/[µμ]/gu, 'u');
         if (!s) return null;
 
+        const match = s.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)\s*([A-Za-zΩ%]*)$/u);
+        if (!match) {
+            const n = parseFloat(s);
+            return isNaN(n) ? null : n;
+        }
+
+        const value = parseFloat(match[1]);
+        const unit = match[2] ?? '';
+
         if (partType === 'R' || partType === 'divider') {
-            if (/^[\d.]+$/.test(s))                return parseFloat(s);
-            if (/^([\d.]+)\s*mΩ$/i.test(s))        return parseFloat(s) * 1e-3;
-            if (/^([\d.]+)\s*(kohm|kΩ|k)$/i.test(s)) return parseFloat(s) * 1e3;
-            if (/^([\d.]+)\s*(mohm|mΩ|m)$/i.test(s)) return parseFloat(s) * 1e6;
-            if (/^([\d.]+)\s*%$/.test(s))           return parseFloat(s) / 100; // 分圧比
+            if (unit === '%') return value / 100; // 分圧比
+            if (unit === '' || /^Ω$/iu.test(unit) || /^ohms?$/iu.test(unit)) return value;
+            if (/^(k|kΩ|kohms?)$/iu.test(unit)) return value * 1e3;
+            if (/^(M|MΩ|M[oO]hms?|meg|megohms?)$/u.test(unit)) return value * 1e6;
+            if (/^(m|mΩ)$/u.test(unit)) return value * 1e-3;
+            if (/^(u|uΩ)$/u.test(unit)) return value * 1e-6;
         }
         if (partType === 'C') {
-            if (/^[\d.]+$/.test(s))                return parseFloat(s);
-            if (/^([\d.]+)\s*(pf|p)$/i.test(s))    return parseFloat(s) * 1e-12;
-            if (/^([\d.]+)\s*(nf|n)$/i.test(s))    return parseFloat(s) * 1e-9;
-            if (/^([\d.]+)\s*(uf|μf|u)$/i.test(s)) return parseFloat(s) * 1e-6;
-            if (/^([\d.]+)\s*(mf)$/i.test(s))      return parseFloat(s) * 1e-3;
+            if (unit === '' || /^F$/u.test(unit)) return value;
+            if (/^(p|pF)$/u.test(unit)) return value * 1e-12;
+            if (/^(n|nF)$/u.test(unit)) return value * 1e-9;
+            if (/^(u|uF)$/u.test(unit)) return value * 1e-6;
+            if (/^(m|mF)$/u.test(unit)) return value * 1e-3;
         }
-        const n = parseFloat(s);
-        return isNaN(n) ? null : n;
+
+        return value;
     };
 
     const targetValue = computed(() => parseTarget(form.target_raw, form.part_type));
@@ -57,8 +85,8 @@ export default function setup() {
     const targetValid = computed(() => {
         const v = targetValue.value;
         if (v === null) return false;
-            if (form.part_type === 'divider') return v > 0 && v < 1;
-            return v > 0;
+        if (form.part_type === 'divider') return v > 0 && v < 1;
+        return v > 0;
     });
 
     // ── 探索実行 ─────────────────────────────────────────
@@ -128,9 +156,46 @@ export default function setup() {
         divider: '例: 0.5 または 50% (Vout/Vin)',
     }[form.part_type] ?? ''));
 
+    const variable = reactive({
+        total_raw: '10k',
+        span_mode: 'percent',
+        span_raw: '20',
+        circuit: 'series',
+    });
+    const variableResult = computed(() => {
+        const total = parseTarget(variable.total_raw, 'R') ?? 0;
+        const spanInput = variable.span_mode === 'percent'
+            ? ((parseFloat(String(variable.span_raw).replace('%', '')) || 0) / 100)
+            : (parseTarget(variable.span_raw, 'R') ?? 0);
+        const span = variable.span_mode === 'percent' ? total * spanInput : spanInput;
+        const pot = Math.max(0, Math.min(total, span));
+        const fixed = Math.max(0, total - pot);
+        const low = variable.circuit === 'series' ? fixed : (fixed > 0 && pot > 0 ? 1 / (1 / fixed + 1 / pot) : 0);
+        const high = variable.circuit === 'series' ? fixed + pot : fixed;
+
+        return {
+            totalDisplay: formatResistance(total),
+            potDisplay: formatResistance(pot),
+            fixedDisplay: formatResistance(fixed),
+            rangeDisplay: `${formatResistance(low)} 〜 ${formatResistance(high)}`,
+            valid: total > 0 && pot > 0,
+        };
+    });
+
+    const formatResistance = (value) => {
+        if (!Number.isFinite(value) || value <= 0) return '0Ω';
+        if (value >= 1e6) return `${(value / 1e6).toFixed(3).replace(/\.?0+$/, '')}MΩ`;
+        if (value >= 1e3) return `${(value / 1e3).toFixed(3).replace(/\.?0+$/, '')}kΩ`;
+        if (value < 1) return `${(value * 1000).toFixed(3).replace(/\.?0+$/, '')}mΩ`;
+        return `${value.toFixed(3).replace(/\.?0+$/, '')}Ω`;
+    };
+
     return {
+        activeMode,
         form, results, searching, elapsedMs, truncated, error,
+        presets, applyPreset,
         targetValue, targetValid, partTypeLabel, targetHint,
         search, circuitTypeLabel, errorClass, toggleCircuitType,
+        variable, variableResult,
     };
 }

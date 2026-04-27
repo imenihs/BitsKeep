@@ -3,8 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SpecType extends Model
 {
@@ -23,7 +24,7 @@ class SpecType extends Model
         return $this->hasMany(SpecUnit::class)->orderBy('sort_order');
     }
 
-    // このスペック種別を持つ部品スペック
+    // このスペック項目を持つ部品スペック
     public function componentSpecs(): HasMany
     {
         return $this->hasMany(ComponentSpec::class);
@@ -32,5 +33,17 @@ class SpecType extends Model
     public function aliases(): HasMany
     {
         return $this->hasMany(SpecTypeAlias::class)->orderBy('sort_order');
+    }
+
+    public function specGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(SpecGroup::class, 'spec_group_spec_type')
+            ->withPivot(['sort_order', 'is_required', 'is_recommended', 'default_profile', 'default_unit', 'note'])
+            ->withTimestamps();
+    }
+
+    public function templateItems(): HasMany
+    {
+        return $this->hasMany(SpecTemplateItem::class);
     }
 }

@@ -313,7 +313,7 @@
         <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">業務別メニュー / マスタ・ログ</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @foreach ([
-            ['icon'=>'⚙️','label'=>'マスタ管理','desc'=>'分類・パッケージ・スペック種別','route'=>'master.index'],
+            ['icon'=>'⚙️','label'=>'マスタ管理','desc'=>'分類・パッケージ・スペック項目','route'=>'master.index'],
             ['icon'=>'📝','label'=>'操作ログ','desc'=>'変更履歴の監査ログ','route'=>'audit.index'],
             ['icon'=>'🔗','label'=>'Altium連携','desc'=>'Altium Designerとの部品リンク','route'=>'altium.index'],
           ] as $fn)

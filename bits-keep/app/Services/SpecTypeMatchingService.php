@@ -27,10 +27,18 @@ class SpecTypeMatchingService
             ->select('id', 'name', 'name_ja', 'name_en', 'symbol')
             ->get();
 
-        return array_map(fn ($spec) => $this->matchOne($spec, $specTypes), $specs);
+        // specType ごとの正規化名を事前計算してキャッシュ（matchOne 内で繰り返し再構築しない）
+        $normalizedNamesCache = $specTypes->mapWithKeys(
+            fn ($st) => [$st->id => $this->normalizedNames($st)]
+        )->all();
+
+        return array_map(fn ($spec) => $this->matchOne($spec, $specTypes, $normalizedNamesCache), $specs);
     }
 
-    private function matchOne(array $spec, Collection $specTypes): array
+    /**
+     * @param  array<int|string, array<int, string>>  $normalizedNamesCache
+     */
+    private function matchOne(array $spec, Collection $specTypes, array $normalizedNamesCache): array
     {
         $names = array_filter([
             $spec['name'] ?? '',
@@ -41,26 +49,23 @@ class SpecTypeMatchingService
         $matched = null;
 
         foreach ($names as $name) {
-            $normalized = $this->normalize((string) $name);
-            if ($normalized === '') {
-                continue;
-            }
+            foreach ($this->normalizedInputCandidates((string) $name) as $normalized) {
+                $matched = $specTypes->first(fn ($st) => in_array($normalized, $normalizedNamesCache[$st->id] ?? [], true));
 
-            $matched = $specTypes->first(fn ($st) => in_array($normalized, $this->normalizedNames($st), true));
-
-            if (! $matched) {
-                $matched = $specTypes->first(function ($st) use ($normalized) {
-                    foreach ($this->normalizedNames($st) as $candidate) {
-                        if ($candidate !== '' && (str_contains($normalized, $candidate) || str_contains($candidate, $normalized))) {
-                            return true;
+                if (! $matched) {
+                    $matched = $specTypes->first(function ($st) use ($normalized, $normalizedNamesCache) {
+                        foreach ($normalizedNamesCache[$st->id] ?? [] as $candidate) {
+                            if ($candidate !== '' && (str_contains($normalized, $candidate) || str_contains($candidate, $normalized))) {
+                                return true;
+                            }
                         }
-                    }
-                    return false;
-                });
-            }
+                        return false;
+                    });
+                }
 
-            if ($matched) {
-                break;
+                if ($matched) {
+                    break 2;
+                }
             }
         }
 
@@ -89,11 +94,48 @@ class SpecTypeMatchingService
             $specType->symbol,
             ...$specType->aliases->pluck('alias')->all(),
         ])
-            ->map(fn ($value) => $this->normalize((string) $value))
+            ->flatMap(fn ($value) => $this->normalizedInputCandidates((string) $value))
             ->filter()
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizedInputCandidates(string $value): array
+    {
+        $normalized = $this->normalize($value);
+        if ($normalized === '') {
+            return [];
+        }
+
+        return collect([
+            $normalized,
+            $this->stripValueModifiers($normalized),
+        ])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function stripValueModifiers(string $value): string
+    {
+        $patterns = [
+            '/^(最大|最小|標準|代表|typ|type|typical|min|max|minimum|maximum)/u',
+            '/(最大値|最小値|標準値|代表値|typ値|min値|max値|typicalvalue|minimumvalue|maximumvalue)$/u',
+            '/(absolute|maximumrating|maximumratings|rating|ratings)$/u',
+            '/(dc|ac|pulse|pulsed|peak|continuous)$/u',
+        ];
+
+        $stripped = $value;
+        foreach ($patterns as $pattern) {
+            $stripped = preg_replace($pattern, '', $stripped) ?? $stripped;
+        }
+
+        return $stripped;
     }
 
     private function normalize(string $s): string

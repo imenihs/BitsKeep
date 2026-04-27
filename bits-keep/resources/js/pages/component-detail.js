@@ -9,6 +9,7 @@ import {
     buildSpecPayload,
     createEmptySpecRow,
     getSpecDisplayName,
+    getSpecProfileBadgeLabel,
     getSpecUnitSuggestions,
     normalizeSpecDraft,
     normalizeSpecProfile,
@@ -34,6 +35,11 @@ export default function setup() {
     const packageGroups = ref([]);
     const packages = ref([]);
     const specTypes = ref([]);
+    const specGroups = ref([]);
+    const specSuggestionTypes = ref([]);
+    const selectedSpecGroupId = ref('');
+    const specTypeSearchQuery = ref('');
+    const specSuggestionLoading = ref(false);
     const suppliers = ref([]);
     const locations = ref([]);
     const detailCategoryQuery = ref('');
@@ -168,6 +174,10 @@ export default function setup() {
             },
         };
         editModal.value = { open: true, section, ...forms[section] };
+        if (section === 'specs') {
+            specTypeSearchQuery.value = '';
+            fetchSpecSuggestionsForCurrentPart();
+        }
         editModalSnapshot.value = JSON.stringify(editModal.value.form);
     };
 
@@ -479,6 +489,69 @@ export default function setup() {
         const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
         return sortOrder || String(a.name_ja ?? a.name ?? '').localeCompare(String(b.name_ja ?? b.name ?? ''), 'ja');
     });
+    const normalizeSpecGroupId = (value) => {
+        if (value === '' || value === null || value === undefined) return '';
+        return String(value);
+    };
+    const groupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
+    const fetchSpecSuggestionsForCurrentPart = async () => {
+        if (!part.value) return;
+        specSuggestionLoading.value = true;
+        try {
+            const params = new URLSearchParams();
+            (part.value.categories ?? []).forEach((category) => params.append('category_ids[]', category.id));
+            const res = await api.get(`/spec-suggestions?${params.toString()}`);
+            specGroups.value = res.data?.groups ?? [];
+            specSuggestionTypes.value = res.data?.spec_types ?? [];
+
+            const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
+            const currentStillAvailable = currentId === ''
+                || specGroups.value.some((group) => String(group.id) === currentId);
+            if (!currentStillAvailable) {
+                selectedSpecGroupId.value = '';
+            }
+        } catch {
+            specGroups.value = [];
+            specSuggestionTypes.value = [];
+            toastError('スペック分類の取得に失敗しました。全件候補で選択してください');
+        } finally {
+            specSuggestionLoading.value = false;
+        }
+    };
+    const selectedSpecGroup = computed(() => {
+        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
+        if (!groupId) return null;
+        return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
+    });
+    const selectedSpecGroupLabel = computed(() => selectedSpecGroup.value?.name ?? '推奨全体');
+    const scopedSpecTypes = computed(() => {
+        const group = selectedSpecGroup.value;
+        if (group) return groupSpecTypes(group);
+        if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
+        return specTypes.value;
+    });
+    const filteredSpecTypesForPicker = (spec = null) => {
+        const query = normalizeName(specTypeSearchQuery.value);
+        const selected = getSpecTypeById(spec?.spec_type_id);
+        const candidates = [...scopedSpecTypes.value];
+        if (selected && !candidates.some((item) => Number(item.id) === Number(selected.id))) {
+            candidates.unshift(selected);
+        }
+
+        const seen = new Set;
+        return sortSpecTypes(candidates)
+            .filter((item) => {
+                const key = Number(item.id);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                if (!query) return true;
+                return normalizeName(specTypeSearchText(item)).includes(query);
+            });
+    };
+    const clearSpecPickerFilters = () => {
+        selectedSpecGroupId.value = '';
+        specTypeSearchQuery.value = '';
+    };
     const openInlineSpecTypeModal = (spec = null) => {
         if (!canCreateSpecType.value) return;
 
@@ -536,7 +609,7 @@ export default function setup() {
                 sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
             });
             specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
-            toastSuccess(`スペック種別を追加しました: ${name}`);
+            toastSuccess(`スペック項目を追加しました: ${name}`);
             return res.data;
         } catch (e) {
             await fetchSpecTypes();
@@ -551,7 +624,7 @@ export default function setup() {
 
         const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
         if (!nameJa) {
-            toastError('スペック種別の日本語名を入力してください');
+            toastError('スペック項目の日本語名を入力してください');
             return;
         }
 
@@ -585,7 +658,7 @@ export default function setup() {
             .slice(0, 4)
             .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
         const suffix = missingRows.length > labels.length ? ` ほか${missingRows.length - labels.length}件` : '';
-        toastError(`スペック種別が未選択です: ${labels.join('、')}${suffix}`);
+        toastError(`スペック項目が未選択です: ${labels.join('、')}${suffix}`);
         return false;
     };
     const changeSpecProfile = (spec, profile) => {
@@ -613,17 +686,19 @@ export default function setup() {
     const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(getSpecTypeById(specTypeId));
     const specPreview = (spec) => normalizeSpecDraft(spec, getSpecTypeById(spec.spec_type_id));
     const specDisplayName = (spec) => getSpecDisplayName(spec, getSpecTypeById(spec?.spec_type_id));
+    const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
 
     return {
         toasts, part, loading, loadError, componentId,
         sections, stockTypeLabel, stockConditionLabel, procurementOptions,
-        categories, packageGroups, packages, specTypes, suppliers, locations,
+        categories, packageGroups, packages, specTypes, specGroups, specSuggestionTypes, specSuggestionLoading, suppliers, locations,
         preferredSupplier, stockSummary, allTransactions, displayedTransactions, hasMoreTransactions, showAllTransactions,
         outgoingTransactions, incomingTransactions,
         formatTransactionTimestamp,
         canSaveEditModal,
-        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName,
+        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName, specProfileBadge,
         canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
+        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, clearSpecPickerFilters,
         handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
         detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,

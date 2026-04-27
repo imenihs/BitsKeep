@@ -26,6 +26,7 @@
       <tr class="border-b border-[var(--color-border)] text-left opacity-70">
         <th class="py-2 pr-4">名前 / メール</th>
         <th class="py-2 pr-4">ロール</th>
+        <th class="py-2 pr-4">SNS連携</th>
         <th class="py-2 pr-4">状態</th>
         <th class="py-2 pr-4">招待日</th>
         <th class="py-2">操作</th>
@@ -44,6 +45,16 @@
           <span :class="roleBadgeClass(u.role)" class="px-2 py-0.5 rounded text-xs font-medium">
             @{{ roleLabel(u.role) }}
           </span>
+        </td>
+        <td class="py-2 pr-4">
+          <div class="flex flex-wrap gap-1.5">
+            <span v-for="provider in u.auth_providers" :key="provider.provider"
+              class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[11px]">
+              @{{ providerLabel(provider.provider) }}
+            </span>
+            <span v-if="!u.auth_providers?.length" class="text-xs opacity-40">未連携</span>
+          </div>
+          <div class="mt-1 text-[10px] opacity-45">追加/解除は本人のプロフィールで実行</div>
         </td>
         <td class="py-2 pr-4">
           <span :class="u.is_active ? 'text-emerald-600' : 'text-red-500'" class="text-xs font-medium">
@@ -80,7 +91,7 @@
         </td>
       </tr>
       <tr v-if="users.length === 0">
-        <td colspan="5" class="py-8 text-center opacity-40">ユーザーがいません</td>
+        <td colspan="6" class="py-8 text-center opacity-40">ユーザーがいません</td>
       </tr>
     </tbody>
   </table>
@@ -96,11 +107,13 @@
       <!-- 招待完了 -->
       <div v-if="inviteModal.result" class="p-6">
         <p class="text-emerald-600 font-medium mb-3">✓ 招待ユーザーを作成しました</p>
-        <p class="text-sm mb-2">招待メールを送信しました。以下の仮パスワードを控え、ユーザーへ伝えてください。</p>
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 mb-3">
+          発行直後の確認状態: 招待メール送信済み / 仮パスワード発行済み
+        </div>
         <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-3 font-mono text-lg text-center tracking-widest">
           @{{ inviteModal.result.temp_password }}
         </div>
-        <p class="text-xs opacity-60 mt-2">⚠ 初回ログイン後、ユーザー自身がパスワードを変更してください（プロフィール画面）</p>
+        <p class="text-xs opacity-60 mt-2">初回ログイン後はプロフィール画面でパスワードを変更できます</p>
         <div class="flex justify-end mt-4">
           <button @click="inviteModal.open = false" class="btn-primary px-4 py-2 rounded">閉じる</button>
         </div>

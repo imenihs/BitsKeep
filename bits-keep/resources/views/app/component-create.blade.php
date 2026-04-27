@@ -178,6 +178,71 @@
     </div>
   </section>
 
+  <!-- 分類・パッケージ -->
+  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
+    <h2 class="font-bold mb-3">分類 / パッケージ</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
+        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
+          <input v-model="categoryQuery" type="text" class="input-text w-full"
+            placeholder="分類名で絞り込み。なければ追加" />
+          <div v-if="form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
+            <span v-for="id in form.category_ids" :key="`selected-cat-${id}`"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+              @{{ categories.find((item) => item.id === id)?.name }}
+              <button type="button" @click="toggleCategory(id)">✕</button>
+            </span>
+          </div>
+          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
+            <button v-for="cat in filteredCategories" :key="cat.id" type="button" @click="toggleCategory(cat.id)"
+              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+              :class="form.category_ids.includes(cat.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+              <span>@{{ cat.name }}</span>
+              <span class="text-xs opacity-60">@{{ form.category_ids.includes(cat.id) ? '選択中' : '追加' }}</span>
+            </button>
+            <button v-if="canCreateCategory" type="button" @click="addCategoryFromQuery"
+              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
+              「@{{ categoryQuery.trim() }}」を新規追加
+            </button>
+            <p v-if="!filteredCategories.length && !canCreateCategory" class="text-xs opacity-40 p-1">分類がありません</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold block mb-2">パッケージ</label>
+        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
+          <select v-model="form.package_group_id" class="input-text w-full">
+            <option value="">パッケージ分類を選択</option>
+            <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
+          </select>
+          <input v-model="packageQuery" type="text" class="input-text w-full mt-2"
+            :disabled="!form.package_group_id"
+            placeholder="パッケージ名で絞り込み。なければ追加" />
+          <div v-if="form.package_id" class="mt-2">
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
+              @{{ packages.find((item) => item.id === form.package_id)?.name }}
+            </span>
+          </div>
+          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
+            <button v-for="pkg in filteredPackages" :key="pkg.id" type="button" @click="selectPackage(pkg.id)"
+              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
+              :class="form.package_id === pkg.id ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
+              <span>@{{ pkg.name }}</span>
+              <span class="text-xs opacity-60">@{{ form.package_id === pkg.id ? '選択中' : '使う' }}</span>
+            </button>
+            <button v-if="canCreatePackage" type="button" @click="addPackageFromQuery"
+              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
+              「@{{ packageQuery.trim() }}」を新規追加
+            </button>
+            <p v-if="!form.package_group_id" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</p>
+            <p v-else-if="!filteredPackages.length && !canCreatePackage" class="text-xs opacity-40 p-1">パッケージがありません</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- スペック -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
     <div class="flex justify-between items-center mb-3">
@@ -187,17 +252,51 @@
       </div>
       <button @click="addSpec" class="text-xs link-text">+ 追加</button>
     </div>
+    <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 mb-3">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Spec</div>
+          <div class="mt-1 text-sm font-semibold">スペック分類</div>
+          <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" @click="clearSpecPickerFilters"
+            class="px-3 py-2 rounded-md border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)]">
+            推奨全体
+          </button>
+          <span v-if="specSuggestionLoading" class="text-xs opacity-50">分類を読込中...</span>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button v-for="group in specGroups" :key="`create-spec-group-${group.id}`" type="button"
+          @click="selectedSpecGroupId = String(group.id)"
+          class="rounded-md border px-3 py-2 text-left text-xs transition-colors"
+          :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-card-even)] hover:border-[var(--color-primary)]'">
+          <span class="block font-semibold">@{{ group.name }}</span>
+          <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
+        </button>
+        <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">@{{ form.category_ids.length ? '分類未設定: 全件候補' : '分類未選択: 全件候補' }}</span>
+      </div>
+      <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
+          placeholder="分類内で検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
+        <div class="text-xs opacity-60 text-right">
+          表示候補 @{{ filteredSpecTypesForPicker().length }}件 / 分類内 @{{ scopedSpecTypes.length }}件
+        </div>
+      </div>
+    </div>
     <div v-for="(spec, i) in form.specs" :key="i" class="spec-card mb-3 bg-[var(--color-card-odd)]">
       <div class="spec-card-grid spec-card-grid--editor">
         <div class="spec-card-field">
-          <label class="spec-card-label">種別</label>
+          <label class="spec-card-label">スペック項目</label>
           <div class="spec-type-picker">
             <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control text-sm py-1 w-full">
-              <option value="">スペック種別を選択</option>
-              <option v-for="st in specTypes" :key="`type-${i}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+              <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
+              <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`type-${i}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
             </select>
-            <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+            <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
           </div>
+          <p class="spec-card-help">分類: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
           <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
         </div>
         <div class="spec-card-field">
@@ -261,7 +360,10 @@
         <div class="spec-card-field">
           <label class="spec-card-label">確認</label>
           <div class="spec-card-preview spec-card-preview-panel text-[11px]">
-            <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック名を選択' }}</p>
+            <p class="text-sm font-semibold leading-tight break-words">
+              @{{ specDisplayName(spec) || 'スペック名を選択' }}
+              <span v-if="specProfileBadge(spec)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(spec) }}</span>
+            </p>
             <template v-if="specPreview(spec).hasNumeric">
               <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
               <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
@@ -278,71 +380,6 @@
       </div>
     </div>
     <p v-if="!form.specs.length" class="text-xs opacity-40">スペックを追加してください</p>
-  </section>
-
-  <!-- 分類・パッケージ -->
-  <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
-    <h2 class="font-bold mb-3">分類 / パッケージ</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div>
-        <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
-        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
-          <input v-model="categoryQuery" type="text" class="input-text w-full"
-            placeholder="分類名で絞り込み。なければ追加" />
-          <div v-if="form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
-            <span v-for="id in form.category_ids" :key="`selected-cat-${id}`"
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
-              @{{ categories.find((item) => item.id === id)?.name }}
-              <button type="button" @click="toggleCategory(id)">✕</button>
-            </span>
-          </div>
-          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
-            <button v-for="cat in filteredCategories" :key="cat.id" type="button" @click="toggleCategory(cat.id)"
-              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
-              :class="form.category_ids.includes(cat.id) ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
-              <span>@{{ cat.name }}</span>
-              <span class="text-xs opacity-60">@{{ form.category_ids.includes(cat.id) ? '選択中' : '追加' }}</span>
-            </button>
-            <button v-if="canCreateCategory" type="button" @click="addCategoryFromQuery"
-              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
-              「@{{ categoryQuery.trim() }}」を新規追加
-            </button>
-            <p v-if="!filteredCategories.length && !canCreateCategory" class="text-xs opacity-40 p-1">分類がありません</p>
-          </div>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs font-semibold block mb-2">パッケージ</label>
-        <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
-          <select v-model="form.package_group_id" class="input-text w-full">
-            <option value="">パッケージ分類を選択</option>
-            <option v-for="group in packageGroups" :key="group.id" :value="group.id">@{{ group.name }}</option>
-          </select>
-          <input v-model="packageQuery" type="text" class="input-text w-full mt-2"
-            :disabled="!form.package_group_id"
-            placeholder="詳細パッケージ名で絞り込み。なければ追加" />
-          <div v-if="form.package_id" class="mt-2">
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
-              @{{ packages.find((item) => item.id === form.package_id)?.name }}
-            </span>
-          </div>
-          <div class="mt-2 max-h-36 overflow-y-auto space-y-1">
-            <button v-for="pkg in filteredPackages" :key="pkg.id" type="button" @click="selectPackage(pkg.id)"
-              class="w-full flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--color-card-odd)]"
-              :class="form.package_id === pkg.id ? 'bg-[var(--color-card-even)] border border-[var(--color-primary)]' : ''">
-              <span>@{{ pkg.name }}</span>
-              <span class="text-xs opacity-60">@{{ form.package_id === pkg.id ? '選択中' : '使う' }}</span>
-            </button>
-            <button v-if="canCreatePackage" type="button" @click="addPackageFromQuery"
-              class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
-              「@{{ packageQuery.trim() }}」を新規追加
-            </button>
-            <p v-if="!form.package_group_id" class="text-xs opacity-40 p-1">先にパッケージ分類を選択してください</p>
-            <p v-else-if="!filteredPackages.length && !canCreatePackage" class="text-xs opacity-40 p-1">詳細パッケージがありません</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- 仕入先 -->
@@ -752,7 +789,7 @@
           <div class="flex items-center justify-between gap-3">
             <div>
               <h4 class="font-semibold">パッケージ候補</h4>
-              <p class="text-[11px] opacity-60 mt-1">複数候補の中から、この部品として登録する詳細パッケージを 1 つ選びます。</p>
+              <p class="text-[11px] opacity-60 mt-1">複数候補の中から、この部品として登録するパッケージを 1 つ選びます。</p>
             </div>
             <div class="flex items-center gap-3">
               <label class="inline-flex items-center gap-2 text-sm">
@@ -794,19 +831,19 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-[11px] font-semibold mb-1 opacity-70">詳細パッケージを絞り込み</label>
+                  <label class="block text-[11px] font-semibold mb-1 opacity-70">パッケージを絞り込み</label>
                   <input v-model="packageCandidate.package_query" type="text" class="input-text w-full" :disabled="!packageCandidate.package_group_id" placeholder="例: SOT / 0603 / SOP" />
                 </div>
               </div>
 
               <div>
-                <label class="block text-[11px] font-semibold mb-1 opacity-70">詳細パッケージ</label>
+                <label class="block text-[11px] font-semibold mb-1 opacity-70">パッケージ</label>
                 <select v-model="packageCandidate.package_id" @change="handleHelperPackageSelection(packageCandidate)" class="input-text w-full">
                   <option value="">未選択</option>
                   <option v-for="pkg in helperFilteredPackages(packageCandidate)" :key="pkg.id" :value="pkg.id">@{{ pkg.name }}</option>
                 </select>
                 <p class="text-[11px] opacity-50 mt-2" v-if="!packageCandidate.package_group_id">先にパッケージ分類を選択してください。</p>
-                <p class="text-[11px] opacity-50 mt-2" v-else-if="!helperFilteredPackages(packageCandidate).length">選択中の分類に該当する詳細パッケージがありません。</p>
+                <p class="text-[11px] opacity-50 mt-2" v-else-if="!helperFilteredPackages(packageCandidate).length">選択中の分類に該当するパッケージがありません。</p>
               </div>
             </div>
           </div>
@@ -817,7 +854,7 @@
           <div class="flex items-center justify-between">
             <div>
               <h4 class="font-semibold">スペック候補</h4>
-              <p class="text-[11px] opacity-60 mt-1">値・単位・スペック種別を修正できます。不要な候補は削除してください。</p>
+              <p class="text-[11px] opacity-60 mt-1">値・単位・スペック項目を修正できます。不要な候補は削除してください。</p>
             </div>
             <button type="button" @click="addHelperSpec" class="text-xs link-text">+ スペック候補を追加</button>
           </div>
@@ -837,13 +874,13 @@
               </div>
               <div class="spec-card-grid spec-card-grid--helper">
                 <div class="spec-card-field">
-                  <label class="spec-card-label">種別</label>
+                  <label class="spec-card-label">スペック項目</label>
                   <div class="spec-type-picker">
                     <select v-model="spec.spec_type_id" @change="handleHelperSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
-                      <option value="">スペック種別を選択</option>
+                      <option value="">スペック項目を選択</option>
                       <option v-for="st in specTypes" :key="`helper-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
                     </select>
-                    <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック種別を追加" aria-label="スペック種別を追加">＋</button>
+                    <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
                   </div>
                   <div class="space-y-1">
                     <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
@@ -913,7 +950,10 @@
                 <div class="spec-card-field">
                   <label class="spec-card-label">確認</label>
                   <div class="spec-card-preview spec-card-preview-panel text-[11px]">
-                    <p class="text-sm font-semibold leading-tight break-words">@{{ specDisplayName(spec) || 'スペック種別を選択' }}</p>
+                    <p class="text-sm font-semibold leading-tight break-words">
+                      @{{ specDisplayName(spec) || 'スペック項目を選択' }}
+                      <span v-if="specProfileBadge(spec)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(spec) }}</span>
+                    </p>
                     <template v-if="specPreview(spec).hasNumeric">
                       <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
                       <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
@@ -944,11 +984,11 @@
     </div>
   </div>
 
-  <!-- スペック種別追加モーダル -->
+  <!-- スペック項目追加モーダル -->
   <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
     <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-center justify-between gap-4 mb-4">
-        <h3 class="text-lg font-bold">スペック種別を追加</h3>
+        <h3 class="text-lg font-bold">スペック項目を追加</h3>
         <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
       <div class="space-y-3 text-sm">
@@ -963,7 +1003,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold mb-1">記号</label>
-            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: V_CBO / h_FE" />
+            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: -V_CBO / h_FE" />
           </div>
           <div>
             <label class="block text-xs font-semibold mb-1">基底単位</label>

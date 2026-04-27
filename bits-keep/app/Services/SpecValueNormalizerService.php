@@ -25,25 +25,8 @@ class SpecValueNormalizerService
         'f' => 1e-15,
     ];
 
-    private const ENGINEERING_VALUE_PREFIX_FACTORS = [
-        'Y' => 1e24,
-        'Z' => 1e21,
-        'E' => 1e18,
-        'P' => 1e15,
-        'T' => 1e12,
-        'G' => 1e9,
-        'M' => 1e6,
-        'k' => 1e3,
-        'K' => 1e3,
-        '' => 1.0,
-        'm' => 1e-3,
-        'u' => 1e-6,
-        'µ' => 1e-6,
-        'μ' => 1e-6,
-        'n' => 1e-9,
-        'p' => 1e-12,
-        'f' => 1e-15,
-    ];
+    // PREFIX_FACTORS に大文字 K (非標準だが実務頻出) を追加した値パーサ専用テーブル
+    private const ENGINEERING_VALUE_PREFIX_FACTORS = self::PREFIX_FACTORS + ['K' => 1e3];
 
     private const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
 
@@ -387,32 +370,6 @@ class SpecValueNormalizerService
 
         return [
             $this->formatDisplayNumber($canonicalMin / $factor),
-            $this->formatDisplayNumber($canonicalMax / $factor),
-            $prefix.$normalizedUnit,
-        ];
-    }
-
-    /**
-     * @return array{0: string, 1: string, 2: string, 3: string}
-     */
-    private function humanizeTriple(float $canonicalMin, float $canonicalTyp, float $canonicalMax, ?string $normalizedUnit, string $fallbackUnit): array
-    {
-        if (! $this->canHumanize($normalizedUnit)) {
-            return [
-                $this->formatDisplayNumber($canonicalMin),
-                $this->formatDisplayNumber($canonicalTyp),
-                $this->formatDisplayNumber($canonicalMax),
-                $fallbackUnit !== '' ? $fallbackUnit : (string) $normalizedUnit,
-            ];
-        }
-
-        $target = max(abs($canonicalMin), abs($canonicalTyp), abs($canonicalMax));
-        $prefix = $this->choosePrefix($target);
-        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
-
-        return [
-            $this->formatDisplayNumber($canonicalMin / $factor),
-            $this->formatDisplayNumber($canonicalTyp / $factor),
             $this->formatDisplayNumber($canonicalMax / $factor),
             $prefix.$normalizedUnit,
         ];

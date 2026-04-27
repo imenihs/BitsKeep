@@ -222,6 +222,106 @@ body.modal-open {
     color: #fff;
 }
 
+.btn-outline,
+.btn-danger-outline,
+.btn-warning-outline,
+.btn-success-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.btn-danger-outline {
+    border-color: var(--color-tag-eol);
+    color: var(--color-tag-eol);
+}
+
+.btn-danger-outline:hover {
+    background: color-mix(in srgb, var(--color-tag-eol) 10%, transparent);
+}
+
+.btn-warning-outline {
+    border-color: var(--color-tag-warning);
+    color: var(--color-tag-warning);
+}
+
+.btn-warning-outline:hover {
+    background: color-mix(in srgb, var(--color-tag-warning) 10%, transparent);
+}
+
+.btn-success-outline {
+    border-color: var(--color-tag-ok);
+    color: var(--color-tag-ok);
+}
+
+.btn-success-outline:hover {
+    background: color-mix(in srgb, var(--color-tag-ok) 10%, transparent);
+}
+
+.ui-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.ui-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.state-card {
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-card-odd);
+    padding: 1rem;
+}
+
+.toast-stack {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.toast-message {
+    max-width: min(24rem, calc(100vw - 2rem));
+    border-radius: 0.75rem;
+    padding: 0.625rem 1rem;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 12px 32px rgb(15 23 42 / 0.25);
+    overflow-wrap: anywhere;
+}
+
+.toast-message--error {
+    background: var(--color-tag-eol);
+}
+
+.toast-message--success {
+    background: var(--color-accent);
+}
+
 .input-text,
 input[type="text"],
 input[type="number"],
@@ -276,6 +376,84 @@ textarea:focus {
 .tag-ok {
     background-color: var(--color-tag-ok);
     color: #fff;
+}
+
+.circuit-svg {
+    width: 100%;
+    min-height: 14rem;
+    color: var(--color-text);
+}
+
+.circuit-wire {
+    stroke: var(--color-text);
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.circuit-box,
+.circuit-symbol-fill,
+.circuit-node {
+    stroke: var(--color-border);
+    stroke-width: 2;
+    fill: var(--color-card-odd);
+}
+
+.circuit-symbol-fill {
+    fill: color-mix(in srgb, var(--color-primary) 8%, var(--color-card-odd));
+}
+
+.circuit-junction,
+.circuit-arrow-fill {
+    fill: var(--color-primary);
+}
+
+.circuit-label,
+.circuit-note {
+    fill: var(--color-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    pointer-events: none;
+}
+
+.circuit-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.circuit-note {
+    font-size: 0.68rem;
+    opacity: 0.65;
+}
+
+.circuit-svg g {
+    transition: opacity 0.15s ease;
+}
+
+.circuit-svg g.is-dimmed {
+    opacity: 0.34;
+}
+
+.circuit-svg g.is-active .circuit-wire,
+.circuit-svg g.is-active .circuit-box,
+.circuit-svg g.is-active .circuit-symbol-fill,
+.circuit-svg g.is-active .circuit-node {
+    stroke: var(--color-primary);
+    stroke-width: 3;
+}
+
+.circuit-svg g.is-active .circuit-symbol-fill,
+.circuit-svg g.is-active .circuit-box,
+.circuit-svg g.is-active .circuit-node {
+    fill: color-mix(in srgb, var(--color-primary) 16%, var(--color-card-odd));
+}
+
+.circuit-svg g.is-active .circuit-label {
+    fill: var(--color-primary);
+}
+
+.circuit-svg g[class] {
+    cursor: pointer;
 }
 
 .toggle {
@@ -415,6 +593,12 @@ img.thumbnail {
     .component-image-frame,
     .component-image-frame-lg {
         max-width: 100%;
+    }
+
+    .toast-stack {
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
     }
 }
 

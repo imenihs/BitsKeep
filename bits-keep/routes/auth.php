@@ -23,14 +23,6 @@ Route::middleware('guest')->group(function () {
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
-    Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
-        ->where('provider', 'google|github')
-        ->name('auth.social.redirect');
-
-    Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
-        ->where('provider', 'google|github')
-        ->name('auth.social.callback');
-
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
@@ -43,6 +35,14 @@ Route::middleware('guest')->group(function () {
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
 });
+
+Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
+    ->where('provider', 'google|github')
+    ->name('auth.social.redirect');
+
+Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+    ->where('provider', 'google|github')
+    ->name('auth.social.callback');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)
@@ -62,6 +62,18 @@ Route::middleware('auth')->group(function () {
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+
+    Route::get('auth/{provider}/link', [SocialAuthController::class, 'linkRedirect'])
+        ->where('provider', 'google|github')
+        ->name('auth.social.link');
+
+    Route::get('auth/{provider}/link/callback', [SocialAuthController::class, 'linkCallback'])
+        ->where('provider', 'google|github')
+        ->name('auth.social.link.callback');
+
+    Route::delete('auth/{provider}/unlink', [SocialAuthController::class, 'unlink'])
+        ->where('provider', 'google|github')
+        ->name('auth.social.unlink');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
