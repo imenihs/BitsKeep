@@ -527,8 +527,8 @@ export default function setup() {
     });
     const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
     const selectedSpecGroupLabel = computed(() => {
-        if (isAllSpecTypesSelected.value) return '全スペック項目';
-        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック項目');
+        if (isAllSpecTypesSelected.value) return '全スペック詳細';
+        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック詳細');
     });
     const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
     const scopedSpecTypes = computed(() => {
@@ -633,7 +633,7 @@ export default function setup() {
                 sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
             });
             specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
-            toastSuccess(`スペック項目を追加しました: ${name}`);
+            toastSuccess(`スペック詳細を追加しました: ${name}`);
             return res.data;
         } catch (e) {
             await fetchSpecTypes();
@@ -648,7 +648,7 @@ export default function setup() {
 
         const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
         if (!nameJa) {
-            toastError('スペック項目の日本語名を入力してください');
+            toastError('スペック詳細の日本語名を入力してください');
             return;
         }
 
@@ -682,7 +682,7 @@ export default function setup() {
             .slice(0, 4)
             .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
         const suffix = missingRows.length > labels.length ? ` ほか${missingRows.length - labels.length}件` : '';
-        toastError(`スペック項目が未選択です: ${labels.join('、')}${suffix}`);
+        toastError(`スペック詳細が未選択です: ${labels.join('、')}${suffix}`);
         return false;
     };
     const changeSpecProfile = (spec, profile) => {

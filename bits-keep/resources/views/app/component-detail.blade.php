@@ -614,7 +614,7 @@
           </div>
           <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
-              placeholder="スペック項目を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
+              placeholder="スペック詳細を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
             <div class="text-xs opacity-60 text-right">
               表示候補 @{{ filteredSpecTypesForPicker().length }}件 / @{{ selectedSpecGroupLabel }} @{{ scopedSpecTypes.length }}件
             </div>
@@ -623,13 +623,13 @@
         <div v-for="(spec, index) in editModal.form.specs" :key="index" class="spec-card bg-[var(--color-card-even)]">
           <div class="spec-card-grid spec-card-grid--editor">
             <div class="spec-card-field">
-              <label class="spec-card-label">スペック項目</label>
+              <label class="spec-card-label">スペック詳細</label>
               <div class="spec-type-picker">
                 <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
                   <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
                   <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypePickerOptionLabel(st) }}</option>
                 </select>
-                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
+                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック詳細を追加" aria-label="スペック詳細を追加">＋</button>
               </div>
               <p class="spec-card-help">候補範囲: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
               <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
@@ -775,11 +775,11 @@
     </div>
   </div>
 
-  <!-- スペック項目追加モーダル -->
+  <!-- スペック詳細追加モーダル -->
   <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
     <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-center justify-between gap-4 mb-4">
-        <h3 class="text-lg font-bold">スペック項目を追加</h3>
+        <h3 class="text-lg font-bold">スペック詳細を追加</h3>
         <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
       <div class="space-y-3 text-sm">

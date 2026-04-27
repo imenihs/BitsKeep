@@ -14,6 +14,7 @@ use App\Models\SpecType;
 use App\Services\SpecValueNormalizerService;
 use App\Services\TempDatasheetService;
 use App\Support\FileStorage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -29,11 +30,6 @@ class ComponentController extends Controller
     {
         $query = Component::with(['categories', 'package.packageGroup', 'packages.packageGroup', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
             ->withCount('inventoryBlocks');
-        $sortMap = [
-            'updated_at' => ['updated_at', 'desc'],
-            'name' => ['common_name', 'asc'],
-            'part_number' => ['part_number', 'asc'],
-        ];
 
         // フリーワード検索（部品名・型番・メーカー・説明）
         if ($q = $request->input('q')) {
@@ -209,11 +205,8 @@ class ComponentController extends Controller
         }
 
         $perPage = min((int) $request->input('per_page', 20), 100);
-        [$sortColumn, $sortDirection] = $sortMap[$request->input('sort', 'updated_at')] ?? $sortMap['updated_at'];
-        $result = $query
-            ->orderBy($sortColumn, $sortDirection)
-            ->orderBy('part_number')
-            ->paginate($perPage);
+        $this->applyComponentOrdering($query, (string) $request->input('sort', 'catalog'));
+        $result = $query->paginate($perPage);
         $result->getCollection()->transform(fn (Component $component) => $this->decorateComponent($component));
 
         return ApiResponse::success($result);
@@ -410,6 +403,64 @@ class ComponentController extends Controller
     }
 
     // ── プライベートヘルパー ────────────────────────────────
+
+    private function applyComponentOrdering(Builder $query, string $sort): void
+    {
+        switch ($sort) {
+            case 'updated_at':
+                $query
+                    ->orderByDesc('components.updated_at')
+                    ->orderBy('components.part_number')
+                    ->orderBy('components.id');
+                break;
+
+            case 'name':
+                $query
+                    ->orderBy('components.common_name')
+                    ->orderBy('components.part_number')
+                    ->orderBy('components.id');
+                break;
+
+            case 'part_number':
+                $query
+                    ->orderBy('components.part_number')
+                    ->orderBy('components.manufacturer')
+                    ->orderBy('components.id');
+                break;
+
+            default:
+                $this->applyCatalogOrdering($query);
+                break;
+        }
+    }
+
+    private function applyCatalogOrdering(Builder $query): void
+    {
+        $categoryOrderSql = 'FROM component_category '
+            .'INNER JOIN categories ON categories.id = component_category.category_id '
+            .'WHERE component_category.component_id = components.id '
+            .'AND categories.deleted_at IS NULL '
+            .'ORDER BY categories.sort_order, categories.name, categories.id LIMIT 1';
+        $packageGroupOrderSql = 'FROM packages '
+            .'LEFT JOIN package_groups ON package_groups.id = packages.package_group_id '
+            .'AND package_groups.deleted_at IS NULL '
+            .'WHERE packages.id = components.package_id '
+            .'AND packages.deleted_at IS NULL LIMIT 1';
+        $packageOrderSql = 'FROM packages '
+            .'WHERE packages.id = components.package_id '
+            .'AND packages.deleted_at IS NULL LIMIT 1';
+
+        $query
+            ->orderByRaw("COALESCE((SELECT categories.sort_order {$categoryOrderSql}), 2147483647)")
+            ->orderByRaw("COALESCE((SELECT categories.name {$categoryOrderSql}), '')")
+            ->orderByRaw("COALESCE((SELECT package_groups.sort_order {$packageGroupOrderSql}), 2147483647)")
+            ->orderByRaw("COALESCE((SELECT package_groups.name {$packageGroupOrderSql}), '')")
+            ->orderByRaw("COALESCE((SELECT packages.sort_order {$packageOrderSql}), 2147483647)")
+            ->orderByRaw("COALESCE((SELECT packages.name {$packageOrderSql}), '')")
+            ->orderBy('components.part_number')
+            ->orderBy('components.manufacturer')
+            ->orderBy('components.id');
+    }
 
     private function syncRelations(Component $component, $request): void
     {

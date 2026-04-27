@@ -1,6 +1,6 @@
 /**
  * マスタ管理ページ（SCR-009）
- * 分類 / パッケージ分類 / パッケージ / スペック項目 の CRUD
+ * 分類 / パッケージ分類 / パッケージ詳細 / スペック詳細 の CRUD
  * ?tab=categories|package-groups|packages|spec-groups|spec-types で初期タブを切り替え可
  */
 import { ref, reactive, computed, onMounted, watch } from 'vue';
@@ -166,7 +166,7 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    // ── パッケージ ────────────────────────────────────────
+    // ── パッケージ詳細 ────────────────────────────────────
     const packageGroups = ref([]);
     const selectedPackageGroupId = ref(null);
     const activePackageGroups = computed({
@@ -335,7 +335,7 @@ export default function setup() {
             const r = await api.get(`/packages?include_archived=1&package_group_id=${selectedPackageGroupId.value}`);
             packages.value = r.data;
         }
-        catch { fetchError.value = 'パッケージの取得に失敗しました。再試行してください。'; toastError('パッケージの取得に失敗しました'); }
+        catch { fetchError.value = 'パッケージ詳細の取得に失敗しました。再試行してください。'; toastError('パッケージ詳細の取得に失敗しました'); }
     };
 
     const selectPackageGroup = async (group) => {
@@ -392,7 +392,7 @@ export default function setup() {
     const closePkgModal = () => closeModalWithConfirm(pkgModal, pkgSnapshot.value);
 
     const archivePackage = (p) => openConfirm({
-        title: 'パッケージをアーカイブしますか？',
+        title: 'パッケージ詳細をアーカイブしますか？',
         message: `「${p.name}」をアーカイブします。\n使用件数: ${p.usage_count ?? 0}件`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
@@ -401,7 +401,7 @@ export default function setup() {
         },
     });
     const restorePackage = (p) => openConfirm({
-        title: 'パッケージを復元しますか？',
+        title: 'パッケージ詳細を復元しますか？',
         message: `「${p.name}」を復元します。`,
         actionLabel: '復元する',
         actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
@@ -425,7 +425,7 @@ export default function setup() {
         } catch (e) { toastError(e.message); await fetchPackages(); }
     };
 
-    // ── スペック項目 ──────────────────────────────────────
+    // ── スペック詳細 ──────────────────────────────────────
     const specTypes = ref([]);
     const specTypeOptions = ref([]);
     const activeSpecTypes = computed({
@@ -443,12 +443,12 @@ export default function setup() {
     const fetchSpecTypes = async () => {
         fetchError.value = '';
         try { const r = await api.get('/spec-types?include_archived=1'); specTypes.value = r.data; }
-        catch { fetchError.value = 'スペック項目の取得に失敗しました。再試行してください。'; toastError('スペック項目の取得に失敗しました'); }
+        catch { fetchError.value = 'スペック詳細の取得に失敗しました。再試行してください。'; toastError('スペック詳細の取得に失敗しました'); }
     };
     const fetchSpecTypeOptions = async () => {
         fetchError.value = '';
         try { const r = await api.get('/spec-types?summary=1'); specTypeOptions.value = r.data ?? []; }
-        catch { fetchError.value = 'スペック項目候補の取得に失敗しました。再試行してください。'; toastError('スペック項目候補の取得に失敗しました'); }
+        catch { fetchError.value = 'スペック詳細候補の取得に失敗しました。再試行してください。'; toastError('スペック詳細候補の取得に失敗しました'); }
     };
 
     const openStAdd = () => {
@@ -521,9 +521,10 @@ export default function setup() {
         unit: item.units?.[0]?.unit ?? '',
         sort_order: sortOrder,
     });
+    const specTypeGroups = (item) => item?.spec_groups ?? item?.specGroups ?? [];
 
     const archiveSpecType = (s) => openConfirm({
-        title: 'スペック項目をアーカイブしますか？',
+        title: 'スペック詳細をアーカイブしますか？',
         message: `「${s.name}」をアーカイブします。\n使用件数: ${s.usage_count ?? 0}件`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
@@ -532,7 +533,7 @@ export default function setup() {
         },
     });
     const restoreSpecType = (s) => openConfirm({
-        title: 'スペック項目を復元しますか？',
+        title: 'スペック詳細を復元しますか？',
         message: `「${s.name}」を復元します。`,
         actionLabel: '復元する',
         actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
@@ -556,7 +557,7 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
-    // ── スペック分類 / テンプレート ───────────────────────
+    // ── スペック分類 / 入力テンプレート ───────────────────
     const specGroups = ref([]);
     const selectedSpecGroupId = ref(null);
     const specGroupDetailLoadingId = ref(null);
@@ -756,7 +757,7 @@ export default function setup() {
     const closeSpecGroupModal = () => closeModalWithConfirm(specGroupModal, specGroupSnapshot.value);
     const archiveSpecGroup = (group) => openConfirm({
         title: 'スペック分類をアーカイブしますか？',
-        message: `「${group.name}」をアーカイブします。\n所属スペック項目: ${group.usage_count ?? 0}件 / テンプレート: ${group.template_count ?? 0}件`,
+        message: `「${group.name}」をアーカイブします。\n候補スペック詳細: ${group.usage_count ?? 0}件 / 入力テンプレート: ${group.template_count ?? 0}件`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
             try { await api.delete(`/spec-groups/${group.id}`); await fetchSpecGroups(); toastSuccess('アーカイブしました'); }
@@ -864,7 +865,7 @@ export default function setup() {
             replaceSpecGroup(res.data);
             syncMemberSnapshot(res.data);
             resetMemberEditor();
-            toastSuccess('所属スペック項目を保存しました');
+            toastSuccess('候補スペック詳細を保存しました');
         } catch (e) { toastError(e.message); }
     };
     const templateItem = (overrides = {}) => ({
@@ -949,7 +950,7 @@ export default function setup() {
             };
             if (templateModal.isEdit) await api.put(`/spec-templates/${templateModal.editId}`, payload);
             else await api.post('/spec-templates', payload);
-            toastSuccess('テンプレートを保存しました');
+            toastSuccess('入力テンプレートを保存しました');
             templateModal.open = false;
             templateSnapshot.value = clone(templateModal.form);
             await fetchSpecGroups({ forceDetail: true });
@@ -957,7 +958,7 @@ export default function setup() {
     };
     const closeTemplateModal = () => closeModalWithConfirm(templateModal, templateSnapshot.value);
     const archiveTemplate = (template) => openConfirm({
-        title: 'スペックテンプレートをアーカイブしますか？',
+        title: '入力テンプレートをアーカイブしますか？',
         message: `「${template.name}」をアーカイブします。`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
@@ -1093,15 +1094,15 @@ export default function setup() {
         categories, activeCategories, archivedCategories, catModal, openCatAdd, openCatEdit, openCatDuplicate, saveCategory, archiveCategory, restoreCategory, moveCategory,
         // パッケージ分類
         packageGroups, selectedPackageGroupId, currentPackageGroup, activePackageGroups, archivedPackageGroups, selectPackageGroup, pkgGroupModal, openPkgGroupAdd, openPkgGroupEdit, openPkgGroupDuplicate, savePackageGroup, archivePackageGroup, restorePackageGroup, movePackageGroup,
-        // パッケージ
+        // パッケージ詳細
         packages, activePackages, archivedPackages, pkgModal, openPkgAdd, openPkgEdit, openPkgDuplicate, savePackage, archivePackage, restorePackage, movePackage, packageDimensions, onPackageFileChange,
         // スペック分類
         specGroups, selectedSpecGroupId, specGroupDetailLoading, activeSpecGroups, archivedSpecGroups, currentSpecGroup, specGroupModal, openSgAdd, openSgEdit, openSgDuplicate, saveSpecGroup, closeSpecGroupModal, archiveSpecGroup, restoreSpecGroup, selectSpecGroup,
         isSpecGroupCategoryLinked, isSpecGroupPrimaryCategory, toggleSpecGroupCategory, toggleSpecGroupPrimaryCategory,
         memberEditor, unassignedSpecTypes, memberState, setMemberState, addSpecGroupMember, removeSpecGroupMember, moveSpecGroupMember, syncSpecGroupMembers, inlineDirty,
         templateModal, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, saveTemplate, closeTemplateModal, archiveTemplate,
-        // スペック項目
-        specTypes, activeSpecTypes, activeSpecTypeOptions, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType,
+        // スペック詳細
+        specTypes, activeSpecTypes, activeSpecTypeOptions, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType, specTypeGroups,
         renderSymbol,
     };
 }

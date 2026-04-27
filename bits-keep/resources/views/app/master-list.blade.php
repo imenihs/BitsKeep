@@ -17,12 +17,12 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">マスタ管理</h1>
-    <p class="text-sm opacity-60 mt-1">分類・パッケージ分類/パッケージ・スペック分類/スペック項目の管理</p>
+    <p class="text-sm opacity-60 mt-1">分類・パッケージ分類/パッケージ詳細・スペック分類/スペック詳細の管理</p>
   </header>
 
   <!-- タブ切り替え -->
   <div class="flex gap-1 mb-6 border-b border-[var(--color-border)]">
-    <button v-for="tab in [{id:'categories',label:'分類'},{id:'package-groups',label:'パッケージ分類'},{id:'packages',label:'パッケージ'},{id:'spec-groups',label:'スペック分類'},{id:'spec-types',label:'スペック項目'}]"
+    <button v-for="tab in [{id:'categories',label:'分類'},{id:'package-groups',label:'パッケージ分類'},{id:'packages',label:'パッケージ詳細'},{id:'spec-groups',label:'スペック分類'},{id:'spec-types',label:'スペック詳細'}]"
       :key="tab.id" @click="switchTab(tab.id)"
       :class="activeTab === tab.id
         ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)] font-medium'
@@ -45,7 +45,8 @@
 
   <!-- ═══════════════════════════════ 分類タブ ══════════════════════════════ -->
   <div v-if="activeTab === 'categories'">
-    <div class="flex justify-end mb-4">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <p class="text-xs opacity-60 max-w-2xl">部品そのものに付ける種類・検索タグです。スペック入力候補を束ねる「スペック分類」とは別に管理します。</p>
       @if ($canEdit)
       <button @click="openCatAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + 分類を追加</button>
       @else
@@ -135,7 +136,7 @@
     </section>
   </div>
 
-  <!-- ══════════════════════════ パッケージタブ ══════════════════════════════ -->
+  <!-- ════════════════════════ パッケージ詳細タブ ═══════════════════════════ -->
   <div v-if="activeTab === 'package-groups'">
     <div class="flex justify-end mb-4">
       @if ($canEdit)
@@ -248,14 +249,14 @@
     <section>
       <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <h2 class="font-bold">@{{ currentPackageGroup?.name || 'パッケージ' }}</h2>
+          <h2 class="font-bold">@{{ currentPackageGroup?.name || 'パッケージ詳細' }}</h2>
           <p class="text-xs opacity-60 mt-1">@{{ currentPackageGroup?.description || '左のパッケージ分類を選択してください' }}</p>
         </div>
         @if ($canEdit)
-        <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + パッケージを追加</button>
+        <button @click="openPkgAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">編</span> + パッケージ詳細を追加</button>
         @else
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
-          <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージを追加</span></div>
+          <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">編</span><span>+ パッケージ詳細を追加</span></div>
           <div class="mt-1 text-xs opacity-70">閲覧者のため追加できません</div>
         </div>
         @endif
@@ -317,7 +318,7 @@
             </td>
           </tr>
           <tr v-if="currentPackageGroup && activePackages.length === 0">
-            <td colspan="5" class="py-8 text-center opacity-40">この分類にはパッケージが登録されていません</td>
+            <td colspan="5" class="py-8 text-center opacity-40">この分類にはパッケージ詳細が登録されていません</td>
           </tr>
           <tr v-if="!currentPackageGroup">
             <td colspan="5" class="py-8 text-center opacity-40">左のパッケージ分類を選択してください</td>
@@ -379,7 +380,10 @@
     <aside class="border border-[var(--color-border)] rounded-lg bg-[var(--color-card-odd)] overflow-hidden">
       <div class="px-4 py-3 border-b border-[var(--color-border)]">
         <div class="flex items-center justify-between gap-2">
-          <div class="font-semibold text-sm">スペック分類</div>
+          <div>
+            <div class="font-semibold text-sm">スペック分類</div>
+            <div class="text-xs opacity-60 mt-1">スペック詳細の候補・並び順・既定値を束ねる入力候補グループ</div>
+          </div>
           @if ($isAdmin)
           <button @click="openSgAdd" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)]">追加</button>
           @endif
@@ -391,7 +395,7 @@
           :class="Number(selectedSpecGroupId) === Number(group.id) ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'"
           class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] text-sm transition-colors">
           <span class="block font-medium">@{{ group.name }}</span>
-          <span class="block text-xs opacity-70 mt-1">@{{ group.usage_count ?? 0 }} 件 / テンプレート @{{ group.template_count ?? 0 }} 件</span>
+          <span class="block text-xs opacity-70 mt-1">候補 @{{ group.usage_count ?? 0 }} 件 / 入力テンプレート @{{ group.template_count ?? 0 }} 件</span>
         </button>
         <div v-if="activeSpecGroups.length === 0" class="px-4 py-8 text-center text-sm opacity-50">スペック分類がありません</div>
       </div>
@@ -434,22 +438,22 @@
       <div class="border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
         <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div class="font-semibold text-sm">所属スペック項目</div>
-            <div class="text-xs opacity-60 mt-1">分類内の表示順、必須/推奨、既定値を管理します</div>
+            <div class="font-semibold text-sm">候補スペック詳細</div>
+            <div class="text-xs opacity-60 mt-1">このグループを選んだときに候補へ出す項目と、表示順・扱い・既定値を管理します</div>
           </div>
           @if ($isAdmin)
           <div class="flex items-center gap-2">
             <span v-if="inlineDirty" class="text-xs px-2 py-1 rounded border border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]">未保存</span>
-            <button @click="syncSpecGroupMembers" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">所属を保存</button>
+            <button @click="syncSpecGroupMembers" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">候補を保存</button>
           </div>
           @endif
         </div>
         @if ($isAdmin)
         <div class="px-4 py-3 border-b border-[var(--color-border)] grid grid-cols-1 md:grid-cols-[1.5fr_120px_120px_100px_1fr_auto] gap-2 items-end">
           <label class="block">
-            <span class="block text-xs opacity-60 mb-1">スペック項目</span>
+            <span class="block text-xs opacity-60 mb-1">スペック詳細</span>
             <select v-model="memberEditor.spec_type_id" :disabled="specGroupDetailLoading" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40">
-              <option value="">未分類スペックから選択</option>
+              <option value="">このグループ未追加の項目から選択</option>
               <option v-for="st in unassignedSpecTypes" :key="`add-member-${st.id}`" :value="st.id">@{{ st.name_ja || st.name }}</option>
             </select>
           </label>
@@ -486,7 +490,7 @@
           <thead>
             <tr class="border-b border-[var(--color-border)] text-left opacity-70">
               <th class="py-2 px-3 w-20">順序</th>
-              <th class="py-2 pr-4">スペック項目</th>
+              <th class="py-2 pr-4">スペック詳細</th>
               <th class="py-2 pr-4">扱い</th>
               <th class="py-2 pr-4">既定</th>
               <th class="py-2 pr-4">メモ</th>
@@ -543,7 +547,7 @@
               </td>
             </tr>
             <tr v-if="!currentSpecGroup.spec_types?.length">
-              <td colspan="6" class="py-8 text-center opacity-40">所属スペック項目がありません</td>
+              <td colspan="6" class="py-8 text-center opacity-40">候補スペック詳細がありません</td>
             </tr>
           </tbody>
         </table>
@@ -552,11 +556,11 @@
       <section class="border border-[var(--color-border)] rounded-lg overflow-hidden">
         <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div class="font-semibold text-sm">スペックテンプレート</div>
-            <div class="text-xs opacity-60 mt-1">部品登録時に初期行として使う代表スペックセット</div>
+            <div class="font-semibold text-sm">入力テンプレート</div>
+            <div class="text-xs opacity-60 mt-1">部品登録時にスペック行をまとめて追加する初期行セット</div>
           </div>
           @if ($isAdmin)
-          <button @click="openTemplateAdd" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">テンプレート追加</button>
+          <button @click="openTemplateAdd" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">入力テンプレート追加</button>
           @endif
         </div>
         <div class="divide-y divide-[var(--color-border)]">
@@ -580,7 +584,7 @@
               @endif
             </div>
           </article>
-          <div v-if="!currentSpecGroup.templates?.length" class="px-4 py-8 text-center text-sm opacity-40">テンプレートが登録されていません</div>
+          <div v-if="!currentSpecGroup.templates?.length" class="px-4 py-8 text-center text-sm opacity-40">入力テンプレートが登録されていません</div>
         </div>
       </section>
       </template>
@@ -591,14 +595,14 @@
     </section>
   </div>
 
-  <!-- ══════════════════════════ スペック項目タブ ═══════════════════════════ -->
+  <!-- ══════════════════════════ スペック詳細タブ ═══════════════════════════ -->
   <div v-if="activeTab === 'spec-types'">
     <div class="flex justify-end mb-4">
       @if ($isAdmin)
-      <button @click="openStAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + スペック項目を追加</button>
+      <button @click="openStAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + スペック詳細を追加</button>
       @else
       <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-2 bg-[var(--color-card-odd)] text-right">
-        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ スペック項目を追加</span></div>
+        <div class="flex items-center gap-2 text-sm font-semibold"><span class="feature-lock">管</span><span>+ スペック詳細を追加</span></div>
         <div class="mt-1 text-xs opacity-70">管理者のみ追加できます</div>
       </div>
       @endif
@@ -608,6 +612,7 @@
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
           <th class="py-2 pr-2 w-6"></th>
           <th class="py-2 pr-4">名前</th>
+          <th class="py-2 pr-4">スペック分類</th>
           <th class="py-2 pr-4">型</th>
           <th class="py-2 pr-4">単位候補</th>
           <th class="py-2">操作</th>
@@ -634,6 +639,12 @@
             <span v-if="s.symbol" class="text-xs opacity-60 font-mono" v-html="renderSymbol(s.symbol)"></span>
             </div>
           </td>
+          <td class="py-2 pr-4 text-xs">
+            <span v-for="group in specTypeGroups(s)" :key="`spec-type-group-${s.id}-${group.id}`" class="tag border border-[var(--color-border)] mr-1 mb-1">
+              @{{ group.name }}
+            </span>
+            <span v-if="!specTypeGroups(s).length" class="opacity-40">未分類</span>
+          </td>
           <td class="py-2 pr-4 text-xs opacity-70">
             <div>@{{ s.value_type }}</div>
             <div class="mt-1 opacity-60">使用件数: @{{ s.usage_count ?? 0 }}</div>
@@ -653,7 +664,7 @@
           </td>
         </tr>
         <tr v-if="activeSpecTypes.length === 0">
-          <td colspan="5" class="py-8 text-center opacity-40">スペック項目が登録されていません</td>
+          <td colspan="6" class="py-8 text-center opacity-40">スペック詳細が登録されていません</td>
         </tr>
       </tbody>
     </table>
@@ -664,6 +675,7 @@
           <tr class="border-b border-[var(--color-border)] text-left opacity-70">
             <th class="py-2 pr-2 w-6"></th>
             <th class="py-2 pr-4">名前</th>
+            <th class="py-2 pr-4">スペック分類</th>
             <th class="py-2 pr-4">型</th>
             <th class="py-2 pr-4">単位候補</th>
             <th class="py-2">操作</th>
@@ -679,6 +691,12 @@
                 <span>@{{ s.name_ja || s.name }}</span>
                 <span v-if="s.symbol" class="text-xs opacity-60 font-mono" v-html="renderSymbol(s.symbol)"></span>
               </div>
+            </td>
+            <td class="py-2 pr-4 text-xs">
+              <span v-for="group in specTypeGroups(s)" :key="`archived-spec-type-group-${s.id}-${group.id}`" class="tag border border-[var(--color-border)] mr-1 mb-1">
+                @{{ group.name }}
+              </span>
+              <span v-if="!specTypeGroups(s).length" class="opacity-40">未分類</span>
             </td>
             <td class="py-2 pr-4 text-xs opacity-70">
               <div>@{{ s.value_type }}</div>
@@ -730,11 +748,11 @@
     </div>
   </div>
 
-  <!-- ═══════════════ パッケージモーダル ════════════════ -->
+  <!-- ═══════════════ パッケージ詳細モーダル ════════════════ -->
   <div v-if="pkgModal.open" class="modal-overlay" v-esc="closePkgModal">
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ編集' : 'パッケージ追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ詳細編集' : 'パッケージ詳細追加' }}</h2>
         <button type="button" @click="closePkgModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
@@ -867,16 +885,16 @@
     </div>
   </div>
 
-  <!-- ═══════════════ スペックテンプレートモーダル ════════════════ -->
+  <!-- ═══════════════ 入力テンプレートモーダル ════════════════ -->
   <div v-if="templateModal.open" class="modal-overlay modal-top" v-esc="closeTemplateModal">
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">@{{ templateModal.isEdit ? 'スペックテンプレート編集' : 'スペックテンプレート追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ templateModal.isEdit ? '入力テンプレート編集' : '入力テンプレート追加' }}</h2>
         <button type="button" @click="closeTemplateModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">
         <div>
-          <label class="block text-sm font-medium mb-1">スペック分類</label>
+          <label class="block text-sm font-medium mb-1">関連するスペック分類</label>
           <select v-model="templateModal.form.spec_group_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
             <option value="">分類なし</option>
             <option v-for="group in activeSpecGroups" :key="`template-group-${group.id}`" :value="group.id">@{{ group.name }}</option>
@@ -896,7 +914,7 @@
         </div>
         <div class="border border-[var(--color-border)] rounded-lg overflow-hidden">
           <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex items-center justify-between">
-            <div class="font-semibold text-sm">テンプレート項目</div>
+            <div class="font-semibold text-sm">作成する入力行</div>
             <button @click="addTemplateItem" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)]">行追加</button>
           </div>
           <div class="divide-y divide-[var(--color-border)]">
@@ -906,7 +924,7 @@
                 <button @click="moveTemplateItem(index, 1)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded">↓</button>
               </div>
               <label class="block">
-                <span class="block text-xs opacity-60 mb-1">スペック項目</span>
+                <span class="block text-xs opacity-60 mb-1">スペック詳細</span>
                 <select v-model="item.spec_type_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
                   <option value="">選択してください</option>
                   <option v-for="st in activeSpecTypeOptions" :key="`template-spec-type-${index}-${st.id}`" :value="st.id">@{{ st.name_ja || st.name }}</option>
@@ -947,11 +965,11 @@
     </div>
   </div>
 
-  <!-- ═══════════════ スペック項目モーダル ════════════════ -->
+  <!-- ═══════════════ スペック詳細モーダル ════════════════ -->
   <div v-if="stModal.open" class="modal-overlay modal-top" v-esc="closeStModal">
     <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
-        <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック項目編集' : 'スペック項目追加' }}</h2>
+        <h2 class="text-lg font-bold">@{{ stModal.isEdit ? 'スペック詳細編集' : 'スペック詳細追加' }}</h2>
         <button type="button" @click="closeStModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="p-6 space-y-4">

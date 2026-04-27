@@ -39,7 +39,9 @@ class SpecType extends Model
     {
         return $this->belongsToMany(SpecGroup::class, 'spec_group_spec_type')
             ->withPivot(['sort_order', 'is_required', 'is_recommended', 'default_profile', 'default_unit', 'note'])
-            ->withTimestamps();
+            ->withTimestamps()
+            ->orderBy('spec_groups.sort_order')
+            ->orderBy('spec_groups.name');
     }
 
     public function templateItems(): HasMany

@@ -28,7 +28,7 @@ export default function setup() {
     const advInventoryState = ref('');
     const advPurchasedFrom = ref('');
     const advPurchasedTo   = ref('');
-    const sortOrder        = ref('updated_at');
+    const sortOrder        = ref('catalog');
     const favoriteOnly     = ref(false);
 
     // ── ページネーション ──────────────────────────────────────
@@ -228,7 +228,7 @@ export default function setup() {
             specTypes.value  = stRes.data;
             alertCount.value = alertRes.data?.length ?? 0;
         } catch {
-            masterError.value = '分類・パッケージ・スペック項目・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
+            masterError.value = '分類・パッケージ・スペック詳細・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
             packageGroups.value = [];
             packages.value = [];

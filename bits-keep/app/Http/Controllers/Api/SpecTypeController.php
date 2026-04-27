@@ -33,7 +33,7 @@ class SpecTypeController extends Controller
             return ApiResponse::success($query->orderBy('sort_order')->orderBy('name')->get());
         }
 
-        $query = SpecType::with(['units', 'aliases'])->withCount('componentSpecs as usage_count');
+        $query = SpecType::with(['units', 'aliases', 'specGroups'])->withCount('componentSpecs as usage_count');
         if ($request->boolean('include_archived')) {
             $query->withTrashed();
         }

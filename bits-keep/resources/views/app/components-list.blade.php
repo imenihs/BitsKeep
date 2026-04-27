@@ -83,8 +83,9 @@
         <div>
           <label class="block text-[11px] font-semibold opacity-60 mb-1">並び順</label>
           <select v-model="sortOrder" class="input-text w-full">
+            <option value="catalog">分類/パッケージ順</option>
             <option value="updated_at">更新順</option>
-            <option value="name">名前順</option>
+            <option value="name">通称順</option>
             <option value="part_number">型番順</option>
           </select>
         </div>
@@ -138,7 +139,7 @@
             </div>
           </div>
           <div>
-            <label class="block text-[11px] font-semibold opacity-60 mb-1">スペック項目</label>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">スペック詳細</label>
             <select v-model="advSpecTypeId" class="input-text w-full">
               <option value="">-- 選択 --</option>
               <option v-for="st in specTypes" :key="st.id" :value="st.id">@{{ st.name }}</option>

@@ -169,6 +169,47 @@ class UiApiSurfaceSmokeTest extends TestCase
         }
     }
 
+    public function test_components_default_order_uses_catalog_context_not_recent_update(): void
+    {
+        $fixture = $this->createUiFixture();
+
+        $lateCategory = Category::create([
+            'name' => '後方カテゴリ',
+            'description' => 'late catalog bucket',
+            'color' => '#64748b',
+            'sort_order' => 99,
+        ]);
+        $latePackageGroup = PackageGroup::create([
+            'name' => '後方パッケージ分類',
+            'description' => 'late catalog bucket',
+            'sort_order' => 99,
+        ]);
+        $latePackage = Package::create([
+            'package_group_id' => $latePackageGroup->id,
+            'name' => 'ZZ-LATE-PKG',
+            'description' => 'late package',
+            'sort_order' => 99,
+        ]);
+        $recentComponent = $this->createComponentFixture(
+            $lateCategory,
+            $latePackage,
+            $fixture['specType'],
+            $fixture['supplier'],
+            $fixture['location'],
+            'AAA-RECENT-LATE-CATALOG',
+            100
+        );
+        $recentComponent->forceFill(['updated_at' => now()->addDay()])->save();
+
+        $this->getJson('/api/components?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.part_number', $fixture['component']->part_number);
+
+        $this->getJson('/api/components?per_page=10&sort=updated_at')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.part_number', $recentComponent->part_number);
+    }
+
     public function test_spec_suggestions_can_include_manual_spec_groups(): void
     {
         $fixture = $this->createUiFixture();

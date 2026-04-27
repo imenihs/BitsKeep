@@ -288,7 +288,7 @@
       </div>
       <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
-          placeholder="スペック項目を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
+          placeholder="スペック詳細を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
         <div class="text-xs opacity-60 text-right">
           表示候補 @{{ filteredSpecTypesForPicker().length }}件 / @{{ selectedSpecGroupLabel }} @{{ scopedSpecTypes.length }}件
         </div>
@@ -297,13 +297,13 @@
     <div v-for="(spec, i) in form.specs" :key="i" class="spec-card mb-3 bg-[var(--color-card-odd)]">
       <div class="spec-card-grid spec-card-grid--editor">
         <div class="spec-card-field">
-          <label class="spec-card-label">スペック項目</label>
+          <label class="spec-card-label">スペック詳細</label>
           <div class="spec-type-picker">
             <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control text-sm py-1 w-full">
               <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
               <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`type-${i}-${st.id}`" :value="st.id">@{{ specTypePickerOptionLabel(st) }}</option>
             </select>
-            <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
+            <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック詳細を追加" aria-label="スペック詳細を追加">＋</button>
           </div>
           <p class="spec-card-help">候補範囲: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
           <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
@@ -863,7 +863,7 @@
           <div class="flex items-center justify-between">
             <div>
               <h4 class="font-semibold">スペック候補</h4>
-              <p class="text-[11px] opacity-60 mt-1">値・単位・スペック項目を修正できます。不要な候補は削除してください。</p>
+              <p class="text-[11px] opacity-60 mt-1">値・単位・スペック詳細を修正できます。不要な候補は削除してください。</p>
             </div>
             <button type="button" @click="addHelperSpec" class="text-xs link-text">+ スペック候補を追加</button>
           </div>
@@ -883,13 +883,13 @@
               </div>
               <div class="spec-card-grid spec-card-grid--helper">
                 <div class="spec-card-field">
-                  <label class="spec-card-label">スペック項目</label>
+                  <label class="spec-card-label">スペック詳細</label>
                   <div class="spec-type-picker">
                     <select v-model="spec.spec_type_id" @change="handleHelperSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
-                      <option value="">スペック項目を選択</option>
+                      <option value="">スペック詳細を選択</option>
                       <option v-for="st in specTypes" :key="`helper-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
                     </select>
-                    <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
+                    <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック詳細を追加" aria-label="スペック詳細を追加">＋</button>
                   </div>
                   <div class="space-y-1">
                     <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
@@ -960,7 +960,7 @@
                   <label class="spec-card-label">確認</label>
                   <div class="spec-card-preview spec-card-preview-panel text-[11px]">
                     <p class="text-sm font-semibold leading-tight break-words">
-                      @{{ specDisplayName(spec) || 'スペック項目を選択' }}
+                      @{{ specDisplayName(spec) || 'スペック詳細を選択' }}
                       <span v-if="specProfileBadge(spec)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(spec) }}</span>
                     </p>
                     <template v-if="specPreview(spec).hasNumeric">
@@ -993,11 +993,11 @@
     </div>
   </div>
 
-  <!-- スペック項目追加モーダル -->
+  <!-- スペック詳細追加モーダル -->
   <div v-if="inlineSpecTypeModal.open" class="modal-overlay" style="z-index: 70" v-esc="closeInlineSpecTypeModal">
     <div class="modal-window modal-md p-6 max-h-[85vh] overflow-y-auto" @click.stop>
       <div class="flex items-center justify-between gap-4 mb-4">
-        <h3 class="text-lg font-bold">スペック項目を追加</h3>
+        <h3 class="text-lg font-bold">スペック詳細を追加</h3>
         <button type="button" @click="closeInlineSpecTypeModal()" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
       <div class="space-y-3 text-sm">
