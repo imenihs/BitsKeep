@@ -133,9 +133,9 @@ export default function setup() {
             return;
         }
 
-        const header = '部品名,型番,パッケージ,購入単位,商社,商社型番,数量,単価,小計\n';
+        const header = '型番,通称,パッケージ,購入単位,商社,商社型番,数量,単価,小計\n';
         const rows = exportableItems.map((item) => (
-            `"${item.name}","${item.partNumber}","${item.packageName ?? ''}","${purchaseUnitLabel(item.purchaseUnit)}","${item.supplierName}","${item.supplierPartNumber ?? ''}",${item.orderQty},${item.price},${Number(item.price || 0) * Number(item.orderQty || 0)}`
+            `"${item.partNumber}","${item.name && item.name !== item.partNumber ? item.name : ''}","${item.packageName ?? ''}","${purchaseUnitLabel(item.purchaseUnit)}","${item.supplierName}","${item.supplierPartNumber ?? ''}",${item.orderQty},${item.price},${Number(item.price || 0) * Number(item.orderQty || 0)}`
         )).join('\n');
         const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);

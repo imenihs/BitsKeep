@@ -23,8 +23,10 @@
     <!-- ヘッダ -->
     <header class="flex justify-between items-center mb-6 pb-4 border-b border-[var(--color-border)]">
       <div>
-        <h1 class="text-2xl font-bold">@{{ part.common_name || part.part_number }}</h1>
-        <p class="text-sm opacity-60 font-mono mt-0.5">@{{ part.part_number }}@{{ part.manufacturer ? ' / ' + part.manufacturer : '' }}</p>
+        <h1 class="text-2xl font-bold font-mono tracking-normal">@{{ part.part_number }}</h1>
+        <p class="text-sm opacity-60 mt-0.5">
+          <span v-if="part.common_name">@{{ part.common_name }}</span><span v-if="part.common_name && part.manufacturer"> / </span><span v-if="part.manufacturer">@{{ part.manufacturer }}</span><span v-if="!part.common_name && !part.manufacturer">通称・メーカー未設定</span>
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2 justify-end">
         <button @click="copyLink"
@@ -301,9 +303,10 @@
             <div v-for="item in similarParts" :key="item.id"
               class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-3">
               <div>
-                <div class="font-semibold">@{{ item.common_name || item.part_number }}</div>
-                <div class="text-xs opacity-60 font-mono mt-1">@{{ item.part_number }}</div>
-                <div v-if="item.manufacturer" class="text-xs opacity-60 mt-0.5">@{{ item.manufacturer }}</div>
+                <div class="font-semibold font-mono">@{{ item.part_number }}</div>
+                <div class="text-xs opacity-60 mt-1">
+                  <span v-if="item.common_name">@{{ item.common_name }}</span><span v-if="item.common_name && item.manufacturer"> / </span><span v-if="item.manufacturer">@{{ item.manufacturer }}</span><span v-if="!item.common_name && !item.manufacturer">通称・メーカー未設定</span>
+                </div>
               </div>
               <div class="flex flex-col gap-1.5 text-xs shrink-0">
                 <a :href="`/component-compare?ids=${componentId},${item.id}`"
@@ -583,9 +586,15 @@
               <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              <button type="button" @click="clearSpecPickerFilters"
-                class="px-3 py-2 rounded-md border border-[var(--color-border)] text-xs hover:border-[var(--color-primary)]">
-                推奨全体
+              <button v-if="specGroups.length || specSuggestionTypes.length" type="button" @click="showRecommendedSpecTypes"
+                class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
+                :class="!isAllSpecTypesSelected && !selectedSpecGroupId && (specGroups.length || specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
+                分類からの推奨
+              </button>
+              <button type="button" @click="showAllSpecTypes"
+                class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
+                :class="isAllSpecTypesSelected || (!specGroups.length && !specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
+                全項目から選ぶ
               </button>
               <span v-if="specSuggestionLoading" class="text-xs opacity-50">分類を読込中...</span>
             </div>
@@ -595,16 +604,19 @@
               @click="selectedSpecGroupId = String(group.id)"
               class="rounded-md border px-3 py-2 text-left text-xs transition-colors"
               :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]'">
-              <span class="block font-semibold">@{{ group.name }}</span>
+              <span class="flex items-center gap-2 font-semibold">
+                <span>@{{ group.name }}</span>
+                <span class="rounded border px-1 py-0.5 text-[10px] opacity-80">@{{ group.is_suggested ? '推奨' : '手動' }}</span>
+              </span>
               <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
             </button>
             <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">分類未設定: 全件候補</span>
           </div>
           <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
-              placeholder="分類内で検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
+              placeholder="スペック項目を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
             <div class="text-xs opacity-60 text-right">
-              表示候補 @{{ filteredSpecTypesForPicker().length }}件 / 分類内 @{{ scopedSpecTypes.length }}件
+              表示候補 @{{ filteredSpecTypesForPicker().length }}件 / @{{ selectedSpecGroupLabel }} @{{ scopedSpecTypes.length }}件
             </div>
           </div>
         </div>
@@ -615,11 +627,11 @@
               <div class="spec-type-picker">
                 <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
                   <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
-                  <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+                  <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypePickerOptionLabel(st) }}</option>
                 </select>
                 <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック項目を追加" aria-label="スペック項目を追加">＋</button>
               </div>
-              <p class="spec-card-help">分類: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
+              <p class="spec-card-help">候補範囲: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
               <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
             </div>
             <div class="spec-card-field">

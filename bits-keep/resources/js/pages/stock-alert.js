@@ -15,7 +15,7 @@ export default function setup() {
     const toOrderItem = (alert) => {
         return {
             id: alert.id,
-            name: alert.common_name || alert.part_number,
+            name: alert.part_number || alert.common_name,
             partNumber: alert.part_number,
             packageName: alert.package_name ?? '',
             quantityNew: alert.quantity_new ?? 0,

@@ -500,12 +500,14 @@ export default function setup() {
         try {
             const params = new URLSearchParams();
             (part.value.categories ?? []).forEach((category) => params.append('category_ids[]', category.id));
+            params.set('include_all_groups', '1');
             const res = await api.get(`/spec-suggestions?${params.toString()}`);
             specGroups.value = res.data?.groups ?? [];
             specSuggestionTypes.value = res.data?.spec_types ?? [];
 
             const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
             const currentStillAvailable = currentId === ''
+                || currentId === 'all'
                 || specGroups.value.some((group) => String(group.id) === currentId);
             if (!currentStillAvailable) {
                 selectedSpecGroupId.value = '';
@@ -520,16 +522,28 @@ export default function setup() {
     };
     const selectedSpecGroup = computed(() => {
         const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (!groupId) return null;
+        if (!groupId || groupId === 'all') return null;
         return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
     });
-    const selectedSpecGroupLabel = computed(() => selectedSpecGroup.value?.name ?? '推奨全体');
+    const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
+    const selectedSpecGroupLabel = computed(() => {
+        if (isAllSpecTypesSelected.value) return '全スペック項目';
+        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック項目');
+    });
+    const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
     const scopedSpecTypes = computed(() => {
         const group = selectedSpecGroup.value;
         if (group) return groupSpecTypes(group);
+        if (isAllSpecTypesSelected.value) return specTypes.value;
         if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
         return specTypes.value;
     });
+    const specTypePickerOptionLabel = (specType) => {
+        const label = specTypeOptionLabel(specType);
+        return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
+            ? `${label}（推奨）`
+            : label;
+    };
     const filteredSpecTypesForPicker = (spec = null) => {
         const query = normalizeName(specTypeSearchQuery.value);
         const selected = getSpecTypeById(spec?.spec_type_id);
@@ -546,10 +560,20 @@ export default function setup() {
                 seen.add(key);
                 if (!query) return true;
                 return normalizeName(specTypeSearchText(item)).includes(query);
+            })
+            .sort((a, b) => {
+                if (!isAllSpecTypesSelected.value) return 0;
+                const aRecommended = recommendedSpecTypeIds.value.has(Number(a.id));
+                const bRecommended = recommendedSpecTypeIds.value.has(Number(b.id));
+                return Number(bRecommended) - Number(aRecommended);
             });
     };
-    const clearSpecPickerFilters = () => {
+    const showRecommendedSpecTypes = () => {
         selectedSpecGroupId.value = '';
+        specTypeSearchQuery.value = '';
+    };
+    const showAllSpecTypes = () => {
+        selectedSpecGroupId.value = 'all';
         specTypeSearchQuery.value = '';
     };
     const openInlineSpecTypeModal = (spec = null) => {
@@ -697,8 +721,8 @@ export default function setup() {
         formatTransactionTimestamp,
         canSaveEditModal,
         specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName, specProfileBadge,
-        canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
-        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, clearSpecPickerFilters,
+        canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
+        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, showRecommendedSpecTypes, showAllSpecTypes, isAllSpecTypesSelected,
         handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
         detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,

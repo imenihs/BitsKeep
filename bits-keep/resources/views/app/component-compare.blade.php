@@ -60,7 +60,7 @@
 
   <div v-else-if="canShowTable" class="overflow-x-auto">
     <table class="w-full text-sm border-collapse min-w-[600px]">
-      <!-- ヘッダ行: 部品名 -->
+      <!-- ヘッダ行: 型番 -->
       <thead>
         <tr class="border-b-2 border-[var(--color-border)]">
           <th class="py-3 pr-4 text-left opacity-60 w-36">項目</th>
@@ -72,9 +72,9 @@
                 <div v-else class="w-16 h-16 flex-shrink-0 rounded border border-[var(--color-border)] flex items-center justify-center opacity-30 text-xs">無</div>
                 <div class="min-w-0">
                   <a :href="`/components/${comp.id}`" class="font-bold text-[var(--color-primary)] hover:underline block truncate">
-                    @{{ comp.common_name || comp.part_number }}
+                    @{{ comp.part_number }}
                   </a>
-                  <span class="text-xs font-normal opacity-60 block font-mono">@{{ comp.part_number }}</span>
+                  <span class="text-xs font-normal opacity-60 block">@{{ comp.common_name || '通称未設定' }}@{{ comp.manufacturer ? ' / ' + comp.manufacturer : '' }}</span>
                   <div class="mt-2 flex items-center gap-2">
                     <button @click="moveComponent(components.indexOf(comp), -1)" :disabled="components.indexOf(comp) === 0"
                       class="px-2 py-1 rounded border border-[var(--color-border)] text-xs disabled:opacity-30">←</button>
@@ -187,12 +187,12 @@
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-bold">案件に追加</h2>
-          <p class="mt-1 text-sm opacity-70">「@{{ drawer.part?.common_name || drawer.part?.part_number }}」を追加する案件を選択してください。</p>
+          <p class="mt-1 text-sm opacity-70">「@{{ drawer.part?.part_number || drawer.part?.common_name }}」を追加する案件を選択してください。</p>
         </div>
         <button type="button" @click="drawer.open = false" aria-label="閉じる" title="閉じる" class="opacity-60 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="mt-5 space-y-3">
-        <ProjectComboBox
+        <project-combo-box
           v-model="drawer.selectedProject"
           :allow-new="true"
           @new-project-created="handleNewProjectCreated"
@@ -218,7 +218,7 @@
         <button type="button" @click="showAddModal = false" aria-label="閉じる" title="閉じる" class="opacity-60 hover:opacity-100 text-xl">✕</button>
       </div>
       <div class="mt-5">
-        <input v-model="addSearch" @input="searchParts" type="text" placeholder="部品名・型番で検索"
+        <input v-model="addSearch" @input="searchParts" type="text" placeholder="型番・通称で検索"
           class="input-text w-full text-sm" />
       </div>
       <div class="mt-4 space-y-2 max-h-80 overflow-y-auto">
@@ -230,8 +230,8 @@
             <img v-if="part.image_url" :src="part.image_url" class="thumbnail flex-shrink-0" />
             <div v-else class="w-12 h-12 rounded border border-[var(--color-border)] flex items-center justify-center opacity-30 text-xs">無</div>
             <div class="min-w-0">
-              <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
-              <div class="mt-1 text-xs opacity-60 font-mono truncate">@{{ part.part_number }} / @{{ part.manufacturer || 'メーカー不明' }}</div>
+              <div class="font-semibold truncate font-mono">@{{ part.part_number }}</div>
+              <div class="mt-1 text-xs opacity-60 truncate">@{{ part.common_name || '通称未設定' }} / @{{ part.manufacturer || 'メーカー不明' }}</div>
             </div>
           </div>
         </button>

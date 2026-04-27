@@ -221,10 +221,20 @@ class SpecGroupController extends Controller
 
     private function loadForEditor(SpecGroup $group): SpecGroup
     {
+        $compactSpecType = fn ($q) => $q->select([
+            'spec_types.id',
+            'spec_types.name',
+            'spec_types.name_ja',
+            'spec_types.name_en',
+            'spec_types.symbol',
+            'spec_types.base_unit',
+            'spec_types.sort_order',
+        ]);
+
         return $group->load([
             'categories',
-            'specTypes' => fn ($q) => $q->with(['units', 'aliases']),
-            'templates' => fn ($q) => $q->with(['items.specType.units', 'items.specType.aliases']),
+            'specTypes' => $compactSpecType,
+            'templates' => fn ($q) => $q->with(['items.specType' => $compactSpecType]),
         ])->loadCount(['specTypes as usage_count', 'templates as template_count']);
     }
 }

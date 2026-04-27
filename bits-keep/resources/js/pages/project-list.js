@@ -154,7 +154,7 @@ export default function setup() {
 
     const selectComp = (c) => {
         addCompForm.component_id = c.id;
-        addCompForm.keyword = c.common_name || c.part_number;
+        addCompForm.keyword = c.part_number || c.common_name;
         addCompForm.searchResults = [];
     };
 

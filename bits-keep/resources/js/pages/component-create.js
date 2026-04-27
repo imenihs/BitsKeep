@@ -610,6 +610,7 @@ export default function setup() {
         try {
             const params = new URLSearchParams();
             categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
+            params.set('include_all_groups', '1');
             const res = await api.get(`/spec-suggestions?${params.toString()}`);
             if (seq !== specSuggestionRequestSeq) return;
 
@@ -618,6 +619,7 @@ export default function setup() {
 
             const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
             const currentStillAvailable = currentId === ''
+                || currentId === 'all'
                 || specGroups.value.some((group) => String(group.id) === currentId);
             if (!currentStillAvailable) {
                 selectedSpecGroupId.value = '';
@@ -635,16 +637,28 @@ export default function setup() {
     };
     const selectedSpecGroup = computed(() => {
         const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (!groupId) return null;
+        if (!groupId || groupId === 'all') return null;
         return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
     });
-    const selectedSpecGroupLabel = computed(() => selectedSpecGroup.value?.name ?? (specGroups.value.length ? '推奨全体' : '全件候補'));
+    const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
+    const selectedSpecGroupLabel = computed(() => {
+        if (isAllSpecTypesSelected.value) return '全スペック項目';
+        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック項目');
+    });
+    const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
     const scopedSpecTypes = computed(() => {
         const group = selectedSpecGroup.value;
         if (group) return groupSpecTypes(group);
+        if (isAllSpecTypesSelected.value) return specTypes.value;
         if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
         return specTypes.value;
     });
+    const specTypePickerOptionLabel = (specType) => {
+        const label = specTypeOptionLabel(specType);
+        return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
+            ? `${label}（推奨）`
+            : label;
+    };
     const filteredSpecTypesForPicker = (spec = null) => {
         const query = normalizeHelperText(specTypeSearchQuery.value);
         const selected = findSpecTypeById(spec?.spec_type_id);
@@ -661,10 +675,20 @@ export default function setup() {
                 seen.add(key);
                 if (!query) return true;
                 return normalizeHelperText(specTypeSearchText(item)).includes(query);
+            })
+            .sort((a, b) => {
+                if (!isAllSpecTypesSelected.value) return 0;
+                const aRecommended = recommendedSpecTypeIds.value.has(Number(a.id));
+                const bRecommended = recommendedSpecTypeIds.value.has(Number(b.id));
+                return Number(bRecommended) - Number(aRecommended);
             });
     };
-    const clearSpecPickerFilters = () => {
+    const showRecommendedSpecTypes = () => {
         selectedSpecGroupId.value = '';
+        specTypeSearchQuery.value = '';
+    };
+    const showAllSpecTypes = () => {
+        selectedSpecGroupId.value = 'all';
         specTypeSearchQuery.value = '';
     };
 
@@ -1309,6 +1333,7 @@ export default function setup() {
     const maybePromptChatGptHelperUpdate = () => {
         if (chatGptHelperPromptShown) return;
         if (!chatGptHelperIssue.value) return;
+        if (!showChatGptRunModal.value && !showChatGptHelperUpdateModal.value) return;
 
         chatGptHelperPromptShown = true;
         showChatGptHelperUpdateModal.value = true;
@@ -2333,9 +2358,6 @@ export default function setup() {
             void syncChatGptWorkerHeartbeat();
         }, 1500);
         chatGptJobWatchdogTimer = window.setInterval(maybeExpireChatGptJobState, 3000);
-        if (!shouldRecheckChatGptHelper) {
-            chatGptHelperPromptTimer = window.setTimeout(maybePromptChatGptHelperUpdate, 900);
-        }
     });
 
     onBeforeUnmount(() => {
@@ -2415,7 +2437,6 @@ export default function setup() {
             chatGptHelperCheckMessage.value = chatGptHelperIssue.value.body;
         }
 
-        maybePromptChatGptHelperUpdate();
     });
 
     return {
@@ -2427,8 +2448,8 @@ export default function setup() {
         manufacturerSuggestionsOpen,
         categoryQuery, filteredCategories, canCreateCategory,
         packageQuery, filteredPackages, canCreatePackage,
-        specProfileOptions, specProfileBadge, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel,
-        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, clearSpecPickerFilters,
+        specProfileOptions, specProfileBadge, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
+        selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, showRecommendedSpecTypes, showAllSpecTypes, isAllSpecTypesSelected,
         addSpec, removeSpec, getUnitSuggestions, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile, addCustomAttribute, removeCustomAttribute,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         selectManufacturer, commitManufacturer,
@@ -2447,7 +2468,7 @@ export default function setup() {
         hasDatasheetForAi,
         isChatGptHelperVersionCompatible,
         isChatGptJobBusy, canDismissChatGptRun,
-        showChatGptHelperUpdateModal, chatGptHelperIssue, chatGptHelperCheckStatus, chatGptHelperCheckMessage,
+        showChatGptRunModal, showChatGptHelperUpdateModal, chatGptHelperIssue, chatGptHelperCheckStatus, chatGptHelperCheckMessage,
         openChatGptHelperUpdateModal, closeChatGptHelperUpdateModal, reloadForChatGptHelperUpdate,
         showChatGPTPaste, chatGPTPasteText, chatGPTPasteTextarea, openChatGPTPaste, beginAiAction, openChatGptRun, closeChatGptRun, startChatGPTAutoFill,
         parseChatGPTResult, dismissChatGPTPaste,

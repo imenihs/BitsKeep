@@ -28,6 +28,12 @@ const ACTION_DEFS = [
 const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
 const DEFAULT_QUICK_ACTION_KEYS = ['components', 'stock-in', 'create', 'stock-alert', 'projects'];
 
+const componentTitle = (part) => part?.part_number || part?.common_name || part?.name || '型番未設定';
+const componentMeta = (part, extra = '') => {
+    const values = [part?.common_name, part?.manufacturer, extra].filter((value) => String(value ?? '').trim());
+    return values.length ? values.join(' / ') : '通称未設定';
+};
+
 export default function setup() {
     const { favoriteIds, loadFavorites } = useFavoriteComponents();
     const userName  = document.getElementById('app')?.dataset?.userName ?? 'ユーザー';
@@ -69,8 +75,8 @@ export default function setup() {
             if (partsRes.status === 'fulfilled' && activeFocus.value !== '案件' && activeFocus.value !== '機能') {
                 (partsRes.value.data?.data ?? partsRes.value.data ?? []).forEach(c => results.push({
                     type: 'component', icon: '🔩',
-                    label: c.common_name || c.part_number,
-                    sub: c.part_number,
+                    label: componentTitle(c),
+                    sub: componentMeta(c),
                     url: `/components/${c.id}`,
                 }));
             }
@@ -214,14 +220,14 @@ export default function setup() {
         },
     ]));
     const recentItems = computed(() => recentParts.value.slice(0, 5).map((part) => ({
-        name: part.common_name || part.part_number,
-        group: `${part.part_number} / 在庫 ${part.quantity_new ?? 0}`,
+        name: componentTitle(part),
+        group: componentMeta(part, `在庫 ${part.quantity_new ?? 0}`),
         href: `/components/${part.id}`,
         icon: '🔩',
     })));
     const favoriteItems = computed(() => favoriteParts.value.slice(0, 6).map((part) => ({
-        name: part.common_name || part.part_number,
-        group: `${part.part_number} / 在庫 ${part.quantity_new ?? 0}`,
+        name: componentTitle(part),
+        group: componentMeta(part, `在庫 ${part.quantity_new ?? 0}`),
         href: `/components/${part.id}`,
         icon: '★',
     })));
@@ -238,8 +244,8 @@ export default function setup() {
             ...recentParts.value.slice(0, 3).map((part) => ({
                 type: 'component',
                 icon: '🔩',
-                label: part.common_name || part.part_number,
-                sub: part.part_number,
+                label: componentTitle(part),
+                sub: componentMeta(part),
                 url: `/components/${part.id}`,
             })),
         ];

@@ -12,6 +12,7 @@ use App\Models\Package;
 use App\Models\PackageGroup;
 use App\Models\Project;
 use App\Models\ProjectSyncRun;
+use App\Models\SpecGroup;
 use App\Models\SpecType;
 use App\Models\StockOrder;
 use App\Models\Supplier;
@@ -166,6 +167,48 @@ class UiApiSurfaceSmokeTest extends TestCase
                 ->assertDontSee('Undefined variable', false)
                 ->assertDontSee('Internal Server Error', false);
         }
+    }
+
+    public function test_spec_suggestions_can_include_manual_spec_groups(): void
+    {
+        $fixture = $this->createUiFixture();
+        $category = $fixture['category'];
+        $suggestedSpecType = $fixture['specType'];
+
+        $manualSpecType = SpecType::create([
+            'name' => 'ゲイン帯域幅',
+            'name_ja' => 'ゲイン帯域幅',
+            'name_en' => 'Gain bandwidth product',
+            'symbol' => 'GBW',
+            'base_unit' => 'Hz',
+            'sort_order' => 20,
+        ]);
+
+        $suggestedGroup = SpecGroup::create([
+            'name' => 'UI推奨分類',
+            'description' => 'category matched',
+            'sort_order' => 10,
+        ]);
+        $suggestedGroup->categories()->attach($category->id, ['sort_order' => 10, 'is_primary' => true]);
+        $suggestedGroup->specTypes()->attach($suggestedSpecType->id, ['sort_order' => 10]);
+
+        $manualGroup = SpecGroup::create([
+            'name' => 'UI手動選択分類',
+            'description' => 'manual fallback',
+            'sort_order' => 20,
+        ]);
+        $manualGroup->specTypes()->attach($manualSpecType->id, ['sort_order' => 10]);
+
+        $response = $this->getJson("/api/spec-suggestions?category_ids[]={$category->id}&include_all_groups=1")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonFragment(['name' => 'UI推奨分類', 'is_suggested' => true])
+            ->assertJsonFragment(['name' => 'UI手動選択分類', 'is_suggested' => false])
+            ->assertJsonPath('data.recommended_group_ids.0', $suggestedGroup->id);
+
+        $topLevelSpecTypeIds = collect($response->json('data.spec_types'))->pluck('id')->all();
+        $this->assertContains($suggestedSpecType->id, $topLevelSpecTypeIds);
+        $this->assertNotContains($manualSpecType->id, $topLevelSpecTypeIds);
     }
 
     /**

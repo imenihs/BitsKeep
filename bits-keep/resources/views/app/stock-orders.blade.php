@@ -52,8 +52,8 @@
           <tbody>
             <tr v-for="item in orderDraft" :key="item.id" class="border-b border-[var(--color-border)]">
               <td class="py-2 pr-4">
-                <div class="font-medium">@{{ item.name }}</div>
-                <div class="text-xs opacity-60">@{{ item.partNumber }}</div>
+                <div class="font-medium font-mono">@{{ item.partNumber || item.name }}</div>
+                <div class="text-xs opacity-60">@{{ item.name && item.name !== item.partNumber ? item.name : '通称未設定' }}</div>
               </td>
               <td class="py-2 pr-4">
                 <select v-model="item.purchaseUnit" @change="saveDraft" class="input-text min-w-[120px] text-sm py-2">
@@ -169,8 +169,8 @@
             :class="i % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'"
             class="border-b border-[var(--color-border)]">
             <td class="py-2 px-4">
-              <div class="font-medium">@{{ order.component?.common_name || order.component?.part_number || '-' }}</div>
-              <div class="text-xs opacity-60">@{{ order.component?.part_number }}</div>
+              <div class="font-medium font-mono">@{{ order.component?.part_number || order.component?.common_name || '-' }}</div>
+              <div class="text-xs opacity-60">@{{ order.component?.common_name || '通称未設定' }}</div>
             </td>
             <td class="py-2 px-4 text-xs">@{{ order.supplier?.name || '-' }}</td>
             <td class="py-2 px-4 font-mono text-right">@{{ order.quantity }}</td>

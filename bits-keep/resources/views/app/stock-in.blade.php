@@ -18,7 +18,7 @@
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
     <h1 class="text-2xl font-bold">入庫</h1>
-    <p class="text-sm opacity-60 mt-1">品名・型番・商社部品IDで検索し、入庫対象へ追加して一括入庫します</p>
+    <p class="text-sm opacity-60 mt-1">型番・通称・商社部品IDで検索し、入庫対象へ追加して一括入庫します</p>
   </header>
 
   <section v-if="alertParts.length" class="card p-5 bg-[var(--color-card-odd)] mb-4 block">
@@ -36,8 +36,8 @@
         class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
         <div class="grid gap-3 items-center sm:grid-cols-[minmax(220px,1.4fr)_120px_120px_150px]">
           <div class="min-w-0">
-            <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
-            <div class="text-xs opacity-60 font-mono mt-1 truncate">@{{ part.part_number }}</div>
+            <div class="font-semibold truncate font-mono">@{{ part.part_number }}</div>
+            <div class="text-xs opacity-60 mt-1 truncate">@{{ part.common_name || '通称未設定' }}</div>
           </div>
           <div class="text-sm font-mono whitespace-nowrap">新品 @{{ part.quantity_new }}個</div>
           <div class="text-sm font-mono whitespace-nowrap">発注点 @{{ part.threshold_new }}個</div>
@@ -65,7 +65,7 @@
         選択を追加 <span v-if="searchSelectionCount > 0">(@{{ searchSelectionCount }})</span>
       </button>
     </div>
-    <input v-model="query" type="text" class="input-text w-full" placeholder="部品名 / 型番 / 商社部品IDで検索" />
+    <input v-model="query" type="text" class="input-text w-full" placeholder="型番 / 通称 / 商社部品IDで検索" />
 
     <div v-if="loading" class="mt-4 text-sm opacity-60">検索中...</div>
     <div v-else class="mt-4 space-y-2 max-h-80 overflow-y-auto">
@@ -79,8 +79,8 @@
           type="checkbox"
           class="h-4 w-4" />
         <div class="min-w-0 flex-1">
-          <div class="font-semibold truncate">@{{ part.common_name || part.part_number }}</div>
-          <div class="text-xs opacity-60 mt-1 truncate">@{{ part.part_number }} / @{{ part.manufacturer || 'メーカー未設定' }}</div>
+          <div class="font-semibold truncate font-mono">@{{ part.part_number }}</div>
+          <div class="text-xs opacity-60 mt-1 truncate">@{{ part.common_name || '通称未設定' }} / @{{ part.manufacturer || 'メーカー未設定' }}</div>
         </div>
       </label>
       <div v-if="!loading && query && parts.length === 0" class="text-sm opacity-50">一致する部品がありません</div>
@@ -102,8 +102,8 @@
       <div v-for="entry in selectedEntries" :key="entry.key" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
           <div class="min-w-0">
-            <div class="font-semibold">@{{ entry.part.common_name || entry.part.part_number }}</div>
-            <div class="text-xs opacity-60 font-mono mt-1">@{{ entry.part.part_number }}</div>
+            <div class="font-semibold font-mono">@{{ entry.part.part_number }}</div>
+            <div class="text-xs opacity-60 mt-1">@{{ entry.part.common_name || '通称未設定' }}</div>
           </div>
           <div class="ui-action-row shrink-0">
             <div class="text-xs opacity-60" :class="matchingBlocks(entry).length > 0 ? 'text-[var(--color-tag-ok)]' : ''">
@@ -149,8 +149,8 @@
         class="flex flex-col gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div class="flex flex-wrap items-center gap-3 min-w-0">
           <span class="opacity-50 text-xs tabular-nums">@{{ log.at }}</span>
-          <span class="font-semibold">@{{ log.commonName || log.partNumber }}</span>
-          <span class="text-xs opacity-60 font-mono">@{{ log.partNumber }}</span>
+          <span class="font-semibold font-mono">@{{ log.partNumber }}</span>
+          <span class="text-xs opacity-60">@{{ log.commonName || '通称未設定' }}</span>
         </div>
         <div class="ui-action-row shrink-0">
           <span class="font-mono font-bold">@{{ log.quantity }}個</span>

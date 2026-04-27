@@ -14,6 +14,25 @@ class SpecTypeController extends Controller
 {
     public function index(Request $request)
     {
+        if ($request->boolean('summary')) {
+            $query = SpecType::query()->select([
+                'id',
+                'name',
+                'name_ja',
+                'name_en',
+                'symbol',
+                'base_unit',
+                'sort_order',
+                'deleted_at',
+            ]);
+
+            if ($request->boolean('include_archived')) {
+                $query->withTrashed();
+            }
+
+            return ApiResponse::success($query->orderBy('sort_order')->orderBy('name')->get());
+        }
+
         $query = SpecType::with(['units', 'aliases'])->withCount('componentSpecs as usage_count');
         if ($request->boolean('include_archived')) {
             $query->withTrashed();

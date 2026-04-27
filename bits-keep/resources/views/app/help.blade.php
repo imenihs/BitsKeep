@@ -105,7 +105,7 @@
         <h3 class="font-semibold mb-2">グローバル検索（Ctrl+K）</h3>
         <p class="mb-2 opacity-80"><kbd class="help-code">Ctrl+K</kbd>（Mac は <kbd class="help-code">Cmd+K</kbd>）でどのページからでも検索ランチャーを起動できます。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>部品名・型番でインクリメンタル検索（入力しながらリアルタイムで候補が絞り込まれる）</li>
+          <li>型番・通称でインクリメンタル検索（入力しながらリアルタイムで候補が絞り込まれる）</li>
           <li><kbd class="help-code">Enter</kbd> で先頭候補の詳細ページへ移動</li>
           <li><kbd class="help-code">↑</kbd><kbd class="help-code">↓</kbd> で候補を選択、<kbd class="help-code">Esc</kbd> で閉じる</li>
         </ul>
@@ -266,7 +266,7 @@
         <p class="mb-2 opacity-80">まとめ買いした複数部品を連続で処理したいときに便利です。</p>
         <ol class="space-y-2 mb-5">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80">ダッシュボード「在庫入力」または全機能一覧 →「在庫入力」</span></li>
-          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80">型番・部品名で部品を検索して追加</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80">型番・通称で部品を検索して追加</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80">各部品の数量・棚・区分・ロットを入力</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80">「一括登録」で確定。次の部品へ連続して処理できます</span></li>
         </ol>
@@ -308,7 +308,7 @@
         <h3 class="font-semibold mb-3">在庫警告を確認する</h3>
         <p class="mb-2 opacity-80">全機能一覧 →「在庫警告」で発注点を下回った部品の一覧を表示します。各行には以下の情報が表示されます。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>部品名・型番</li>
+          <li>型番・通称</li>
           <li>現在の在庫数（新品 / 中古 別）</li>
           <li>発注点との差分</li>
         </ul>
@@ -333,7 +333,7 @@
 
         <h3 class="font-semibold mb-3">商社別 CSV を出力する</h3>
         <p class="mb-2 opacity-80">「〇〇商社 CSV出力」ボタンで、その商社向けの発注シートを CSV で書き出します。</p>
-        <p class="opacity-80">CSV の列: 部品名 / 型番 / パッケージ / 購入単位 / 商社 / 商社型番 / 数量 / 単価 / 小計</p>
+        <p class="opacity-80">CSV の列: 型番 / 通称 / パッケージ / 購入単位 / 商社 / 商社型番 / 数量 / 単価 / 小計</p>
       </section>
 
       <!-- 案件管理 -->

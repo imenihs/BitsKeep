@@ -234,7 +234,7 @@
           <table class="w-full text-[11px]">
             <thead class="bg-[var(--color-card-even)] sticky top-0">
               <tr class="border-b border-[var(--color-border)]">
-                <th class="text-left px-2 py-1 font-semibold">部品名</th>
+                <th class="text-left px-2 py-1 font-semibold">型番</th>
                 <th class="text-right px-2 py-1 font-semibold">必要数</th>
                 <th class="text-right px-2 py-1 font-semibold">在庫</th>
                 <th class="text-right px-2 py-1 font-semibold">単価</th>
@@ -246,8 +246,8 @@
               <tr v-for="comp in detailProject.components" :key="comp.id"
                 class="border-b border-[var(--color-border)] last:border-0">
                 <td class="px-2 py-1.5">
-                  <div class="font-medium truncate max-w-[100px]">@{{ comp.common_name || comp.part_number }}</div>
-                  <div class="opacity-40 font-mono truncate max-w-[100px]">@{{ comp.part_number }}</div>
+                  <div class="font-medium font-mono truncate max-w-[100px]">@{{ comp.part_number }}</div>
+                  <div class="opacity-50 truncate max-w-[100px]">@{{ comp.common_name || '通称未設定' }}</div>
                 </td>
                 <td class="px-2 py-1.5 text-right font-mono">@{{ comp.pivot.required_qty }}</td>
                 <td class="px-2 py-1.5 text-right font-mono"
@@ -275,7 +275,7 @@
         <div class="border-t border-[var(--color-border)] pt-3">
           <p class="text-xs font-medium mb-2">部品を追加</p>
           <div class="relative mb-2">
-            <input v-model="addCompForm.keyword" @input="searchComponents" type="text" placeholder="部品名・型番で検索"
+            <input v-model="addCompForm.keyword" @input="searchComponents" type="text" placeholder="型番・通称で検索"
               class="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs" />
             <!-- 検索結果ドロップダウン -->
             <div v-if="addCompForm.searchResults.length > 0"
@@ -283,8 +283,8 @@
               <div v-for="c in addCompForm.searchResults" :key="c.id"
                 @click="selectComp(c)"
                 class="px-3 py-2 text-xs hover:bg-[var(--color-card-odd)] cursor-pointer">
-                <div class="font-medium">@{{ c.common_name || c.part_number }}</div>
-                <div class="opacity-60">@{{ c.part_number }}</div>
+                <div class="font-medium font-mono">@{{ c.part_number }}</div>
+                <div class="opacity-60">@{{ c.common_name || '通称未設定' }}</div>
               </div>
             </div>
           </div>

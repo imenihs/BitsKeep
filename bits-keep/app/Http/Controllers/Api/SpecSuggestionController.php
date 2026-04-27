@@ -19,6 +19,7 @@ class SpecSuggestionController extends Controller
             ->values()
             ->all();
         $q = trim((string) $request->query('q', ''));
+        $includeAllGroups = $request->boolean('include_all_groups');
 
         $groupsQuery = SpecGroup::query()
             ->with([
@@ -29,15 +30,30 @@ class SpecSuggestionController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name');
 
+        $suggestedGroupIds = collect();
         if ($categoryIds !== []) {
-            $groupsQuery->where(function ($query) use ($categoryIds) {
-                $query->whereHas('categories', fn ($categoryQuery) => $categoryQuery->whereIn('categories.id', $categoryIds))
-                    ->orWhere('name', '共通');
-            });
+            $suggestedGroupIds = SpecGroup::query()
+                ->where(function ($query) use ($categoryIds) {
+                    $query->whereHas('categories', fn ($categoryQuery) => $categoryQuery->whereIn('categories.id', $categoryIds))
+                        ->orWhere('name', '共通');
+                })
+                ->pluck('id');
+
+            if (!$includeAllGroups) {
+                $groupsQuery->whereIn('id', $suggestedGroupIds);
+            }
         }
 
         $groups = $groupsQuery->get();
-        $specTypeIds = $groups->flatMap(fn (SpecGroup $group) => $group->specTypes->pluck('id'))->unique()->values();
+        $suggestedGroupIdSet = $suggestedGroupIds->mapWithKeys(fn ($id) => [(int) $id => true]);
+        $groups->each(function (SpecGroup $group) use ($categoryIds, $suggestedGroupIdSet) {
+            $group->is_suggested = $categoryIds === [] || isset($suggestedGroupIdSet[(int) $group->id]);
+        });
+
+        $recommendedGroups = $categoryIds === []
+            ? $groups
+            : $groups->filter(fn (SpecGroup $group) => (bool) $group->is_suggested);
+        $specTypeIds = $recommendedGroups->flatMap(fn (SpecGroup $group) => $group->specTypes->pluck('id'))->unique()->values();
 
         $specTypesQuery = SpecType::query()->with(['units', 'aliases']);
         if ($specTypeIds->isNotEmpty()) {
@@ -58,6 +74,7 @@ class SpecSuggestionController extends Controller
             'groups' => $groups,
             'spec_types' => $specTypesQuery->orderBy('sort_order')->orderBy('name')->get(),
             'templates' => $groups->flatMap(fn (SpecGroup $group) => $group->templates)->values(),
+            'recommended_group_ids' => $recommendedGroups->pluck('id')->values(),
         ]);
     }
 }

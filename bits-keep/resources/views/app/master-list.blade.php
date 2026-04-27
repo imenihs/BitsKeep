@@ -427,6 +427,10 @@
         @endif
       </div>
 
+      <div v-if="specGroupDetailLoading" class="border border-[var(--color-border)] rounded-lg py-12 text-center text-sm opacity-60">
+        スペック分類詳細を読み込み中...
+      </div>
+      <template v-else>
       <div class="border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
         <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -436,7 +440,7 @@
           @if ($isAdmin)
           <div class="flex items-center gap-2">
             <span v-if="inlineDirty" class="text-xs px-2 py-1 rounded border border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]">未保存</span>
-            <button @click="syncSpecGroupMembers" class="btn-primary px-3 py-2 rounded text-xs font-medium">所属を保存</button>
+            <button @click="syncSpecGroupMembers" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">所属を保存</button>
           </div>
           @endif
         </div>
@@ -444,14 +448,14 @@
         <div class="px-4 py-3 border-b border-[var(--color-border)] grid grid-cols-1 md:grid-cols-[1.5fr_120px_120px_100px_1fr_auto] gap-2 items-end">
           <label class="block">
             <span class="block text-xs opacity-60 mb-1">スペック項目</span>
-            <select v-model="memberEditor.spec_type_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
+            <select v-model="memberEditor.spec_type_id" :disabled="specGroupDetailLoading" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40">
               <option value="">未分類スペックから選択</option>
               <option v-for="st in unassignedSpecTypes" :key="`add-member-${st.id}`" :value="st.id">@{{ st.name_ja || st.name }}</option>
             </select>
           </label>
           <label class="block">
             <span class="block text-xs opacity-60 mb-1">扱い</span>
-            <select v-model="memberEditor.state" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
+            <select v-model="memberEditor.state" :disabled="specGroupDetailLoading" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40">
               <option value="required">必須</option>
               <option value="recommended">推奨</option>
               <option value="optional">任意</option>
@@ -459,7 +463,7 @@
           </label>
           <label class="block">
             <span class="block text-xs opacity-60 mb-1">profile</span>
-            <select v-model="memberEditor.default_profile" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
+            <select v-model="memberEditor.default_profile" :disabled="specGroupDetailLoading" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40">
               <option value="typ">typ</option>
               <option value="range">range</option>
               <option value="max_only">max</option>
@@ -469,13 +473,13 @@
           </label>
           <label class="block">
             <span class="block text-xs opacity-60 mb-1">単位</span>
-            <input v-model="memberEditor.default_unit" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm" />
+            <input v-model="memberEditor.default_unit" :disabled="specGroupDetailLoading" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40" />
           </label>
           <label class="block">
             <span class="block text-xs opacity-60 mb-1">メモ</span>
-            <input v-model="memberEditor.note" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm" />
+            <input v-model="memberEditor.note" :disabled="specGroupDetailLoading" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-40" />
           </label>
-          <button @click="addSpecGroupMember" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)]">追加</button>
+          <button @click="addSpecGroupMember" :disabled="specGroupDetailLoading" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">追加</button>
         </div>
         @endif
         <table class="w-full text-sm border-collapse">
@@ -552,7 +556,7 @@
             <div class="text-xs opacity-60 mt-1">部品登録時に初期行として使う代表スペックセット</div>
           </div>
           @if ($isAdmin)
-          <button @click="openTemplateAdd" class="btn-primary px-3 py-2 rounded text-xs font-medium">テンプレート追加</button>
+          <button @click="openTemplateAdd" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">テンプレート追加</button>
           @endif
         </div>
         <div class="divide-y divide-[var(--color-border)]">
@@ -579,6 +583,7 @@
           <div v-if="!currentSpecGroup.templates?.length" class="px-4 py-8 text-center text-sm opacity-40">テンプレートが登録されていません</div>
         </div>
       </section>
+      </template>
     </section>
 
     <section v-else class="border border-[var(--color-border)] rounded-lg py-12 text-center opacity-50">
@@ -904,7 +909,7 @@
                 <span class="block text-xs opacity-60 mb-1">スペック項目</span>
                 <select v-model="item.spec_type_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
                   <option value="">選択してください</option>
-                  <option v-for="st in activeSpecTypes" :key="`template-spec-type-${index}-${st.id}`" :value="st.id">@{{ st.name_ja || st.name }}</option>
+                  <option v-for="st in activeSpecTypeOptions" :key="`template-spec-type-${index}-${st.id}`" :value="st.id">@{{ st.name_ja || st.name }}</option>
                 </select>
               </label>
               <label class="block">

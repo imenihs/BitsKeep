@@ -54,7 +54,7 @@
           <div class="relative mt-2">
             <input id="launcher" v-model="searchQuery" @input="onSearchInput" @keydown.enter="openFirstResult"
               class="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-4 text-base outline-none focus:border-[var(--color-primary)]"
-              placeholder="型番・部品名・案件・機能名を検索" />
+              placeholder="型番・通称・案件・機能名を検索" />
             <span class="absolute right-4 top-4 text-xs opacity-40">Enter</span>
           </div>
           <div class="mt-4 rounded-2xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-bg)]">
@@ -76,7 +76,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-2 mb-1">
                     <span class="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)]">@{{ item.type }}</span>
-                    <span class="font-semibold">@{{ item.label }}</span>
+                    <span class="font-semibold" :class="item.type === 'component' ? 'font-mono tracking-normal' : ''">@{{ item.label }}</span>
                   </div>
                   <div class="text-sm opacity-60">@{{ item.sub }}</div>
                 </div>
@@ -181,7 +181,7 @@
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">@{{ item.icon }}</div>
             <div class="min-w-0 text-left">
-              <div class="font-semibold text-sm truncate">@{{ item.name }}</div>
+              <div class="font-semibold text-sm truncate font-mono tracking-normal">@{{ item.name }}</div>
               <div class="text-xs opacity-50 truncate">@{{ item.group }}</div>
             </div>
           </div>
@@ -207,7 +207,7 @@
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">@{{ item.icon }}</div>
             <div class="min-w-0 text-left">
-              <div class="font-semibold text-sm truncate">@{{ item.name }}</div>
+              <div class="font-semibold text-sm truncate font-mono tracking-normal">@{{ item.name }}</div>
               <div class="text-xs opacity-50 truncate">@{{ item.group }}</div>
             </div>
           </div>

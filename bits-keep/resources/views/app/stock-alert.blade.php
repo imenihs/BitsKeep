@@ -53,10 +53,10 @@
     <div v-for="alert in alerts" :key="`alert-card-${alert.id}`" class="state-card">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <a :href="`/components/${alert.id}`" class="font-semibold hover:underline text-[var(--color-primary)] break-words">
-            @{{ alert.common_name || alert.part_number }}
+          <a :href="`/components/${alert.id}`" class="font-semibold font-mono hover:underline text-[var(--color-primary)] break-words">
+            @{{ alert.part_number }}
           </a>
-          <div class="text-xs opacity-60 font-mono mt-1 break-all">@{{ alert.part_number }}</div>
+          <div class="text-xs opacity-60 mt-1 break-all">@{{ alert.common_name || '通称未設定' }}</div>
           <div class="mt-2 text-xs opacity-70">@{{ alert.package_name || 'パッケージ未設定' }}</div>
         </div>
         <template v-if="isPending(alert)">
@@ -105,7 +105,7 @@
       <thead>
         <tr class="border-b border-[var(--color-border)] text-left opacity-70">
           <th class="py-2 pr-4">発注対象</th>
-          <th class="py-2 pr-4">部品名 / 型番</th>
+          <th class="py-2 pr-4">型番 / 通称</th>
           <th class="py-2 pr-4">パッケージ</th>
           <th class="py-2 pr-4 text-right">在庫(新品)</th>
           <th class="py-2 pr-4 text-right">在庫(中古)</th>
@@ -133,10 +133,10 @@
               class="h-4 w-4" />
           </td>
           <td class="py-2 pr-4">
-            <a :href="`/components/${alert.id}`" class="font-medium hover:underline text-[var(--color-primary)]">
-              @{{ alert.common_name || alert.part_number }}
+            <a :href="`/components/${alert.id}`" class="font-medium font-mono hover:underline text-[var(--color-primary)]">
+              @{{ alert.part_number }}
             </a>
-            <div class="text-xs opacity-60">@{{ alert.part_number }}</div>
+            <div class="text-xs opacity-60">@{{ alert.common_name || '通称未設定' }}</div>
           </td>
           <td class="py-2 pr-4 text-sm">@{{ alert.package_name || '—' }}</td>
           <td class="py-2 pr-4 text-right font-mono">@{{ alert.quantity_new }}</td>

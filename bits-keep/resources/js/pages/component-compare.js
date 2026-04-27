@@ -168,7 +168,7 @@ export default function setup() {
                 component_id: drawer.part.id,
                 required_qty: 1,
             });
-            toastSuccess(`「${drawer.part.common_name || drawer.part.part_number}」を案件へ追加しました`);
+            toastSuccess(`「${drawer.part.part_number || drawer.part.common_name}」を案件へ追加しました`);
             drawer.open = false;
         } catch (e) {
             toastError(e.message ?? '案件への追加に失敗しました');

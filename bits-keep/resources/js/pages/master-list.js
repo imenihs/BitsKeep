@@ -427,11 +427,13 @@ export default function setup() {
 
     // ── スペック項目 ──────────────────────────────────────
     const specTypes = ref([]);
+    const specTypeOptions = ref([]);
     const activeSpecTypes = computed({
         get: () => splitActive(specTypes.value),
         set: (items) => { specTypes.value = [...items, ...splitArchived(specTypes.value)]; },
     });
     const archivedSpecTypes = computed(() => splitArchived(specTypes.value));
+    const activeSpecTypeOptions = computed(() => splitActive(specTypeOptions.value));
     const stSnapshot = ref(null);
     const stModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -442,6 +444,11 @@ export default function setup() {
         fetchError.value = '';
         try { const r = await api.get('/spec-types?include_archived=1'); specTypes.value = r.data; }
         catch { fetchError.value = 'スペック項目の取得に失敗しました。再試行してください。'; toastError('スペック項目の取得に失敗しました'); }
+    };
+    const fetchSpecTypeOptions = async () => {
+        fetchError.value = '';
+        try { const r = await api.get('/spec-types?summary=1'); specTypeOptions.value = r.data ?? []; }
+        catch { fetchError.value = 'スペック項目候補の取得に失敗しました。再試行してください。'; toastError('スペック項目候補の取得に失敗しました'); }
     };
 
     const openStAdd = () => {
@@ -493,7 +500,7 @@ export default function setup() {
             delete payload.aliases_text;
             if (stModal.isEdit) await api.put(`/spec-types/${stModal.editId}`, payload);
             else await api.post('/spec-types', payload);
-            toastSuccess('保存しました'); stModal.open = false; stSnapshot.value = clone(stModal.form); await fetchSpecTypes();
+            toastSuccess('保存しました'); stModal.open = false; stSnapshot.value = clone(stModal.form); await fetchSpecTypes(); if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions();
         } catch (e) { toastError(e.message); }
     };
     const closeStModal = () => closeModalWithConfirm(stModal, stSnapshot.value);
@@ -520,7 +527,7 @@ export default function setup() {
         message: `「${s.name}」をアーカイブします。\n使用件数: ${s.usage_count ?? 0}件`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
-            try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); toastSuccess('アーカイブしました'); }
+            try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions(); toastSuccess('アーカイブしました'); }
             catch (e) { toastError(e.message); }
         },
     });
@@ -530,7 +537,7 @@ export default function setup() {
         actionLabel: '復元する',
         actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
         onConfirm: async () => {
-            try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); toastSuccess('復元しました'); }
+            try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions(); toastSuccess('復元しました'); }
             catch (e) { toastError(e.message); }
         },
     });
@@ -545,12 +552,15 @@ export default function setup() {
             })));
             toastSuccess('並び順を更新しました');
             await fetchSpecTypes();
+            if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions();
         } catch (e) { toastError(e.message); }
     };
 
     // ── スペック分類 / テンプレート ───────────────────────
     const specGroups = ref([]);
     const selectedSpecGroupId = ref(null);
+    const specGroupDetailLoadingId = ref(null);
+    const specGroupDetailLoading = computed(() => Number(specGroupDetailLoadingId.value) === Number(selectedSpecGroupId.value));
     const activeSpecGroups = computed({
         get: () => splitActive(specGroups.value),
         set: (items) => { specGroups.value = [...items, ...splitArchived(specGroups.value)]; },
@@ -576,11 +586,36 @@ export default function setup() {
         form: { spec_group_id: '', name: '', description: '', sort_order: 0, items: [] },
     });
 
-    const replaceSpecGroup = (group) => {
+    const hasSpecGroupDetail = (group) => Array.isArray(group?.spec_types) && Array.isArray(group?.templates);
+    const normalizeSpecGroup = (group, existing = null) => {
+        const next = { ...group };
+        if (hasSpecGroupDetail(group)) {
+            next._detail_loaded = true;
+            return next;
+        }
+        if (existing?._detail_loaded) {
+            next.spec_types = existing.spec_types ?? [];
+            next.templates = existing.templates ?? [];
+            next._detail_loaded = true;
+        }
+        return next;
+    };
+    const sortSpecGroups = () => {
+        specGroups.value.sort((a, b) => {
+            const order = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+            if (order !== 0) return order;
+            return String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ja');
+        });
+    };
+    const replaceSpecGroup = (group, { select = true } = {}) => {
         const index = specGroups.value.findIndex((item) => Number(item.id) === Number(group.id));
-        if (index >= 0) specGroups.value.splice(index, 1, group);
-        else specGroups.value.push(group);
-        selectedSpecGroupId.value = group.id;
+        const existing = index >= 0 ? specGroups.value[index] : null;
+        const next = normalizeSpecGroup(group, existing);
+        if (index >= 0) specGroups.value.splice(index, 1, next);
+        else specGroups.value.push(next);
+        sortSpecGroups();
+        if (select) selectedSpecGroupId.value = next.id;
+        return next;
     };
     const ensureSelectedSpecGroup = () => {
         const activeGroups = activeSpecGroups.value;
@@ -592,22 +627,53 @@ export default function setup() {
             selectedSpecGroupId.value = activeGroups[0].id;
         }
     };
-    const fetchSpecGroups = async () => {
+    const fetchSpecGroupDetail = async (groupId, { force = false } = {}) => {
+        const id = Number(groupId);
+        if (!id) return null;
+
+        const current = specGroups.value.find((group) => Number(group.id) === id);
+        if (!force && hasSpecGroupDetail(current)) {
+            syncMemberSnapshot(current);
+            return current;
+        }
+
+        specGroupDetailLoadingId.value = id;
+        try {
+            const r = await api.get(`/spec-groups/${id}`);
+            const detail = replaceSpecGroup(r.data, { select: false });
+            if (Number(selectedSpecGroupId.value) === id) syncMemberSnapshot(detail);
+            return detail;
+        } catch {
+            fetchError.value = 'スペック分類詳細の取得に失敗しました。再試行してください。';
+            toastError('スペック分類詳細の取得に失敗しました');
+            return null;
+        } finally {
+            if (Number(specGroupDetailLoadingId.value) === id) specGroupDetailLoadingId.value = null;
+        }
+    };
+    const fetchSpecGroups = async ({ forceDetail = false } = {}) => {
         fetchError.value = '';
         try {
-            const r = await api.get('/spec-groups?include_archived=1&with_categories=1&with_spec_types=1&with_templates=1');
-            specGroups.value = r.data ?? [];
+            const previous = new Map(specGroups.value.map((group) => [Number(group.id), group]));
+            const r = await api.get('/spec-groups?include_archived=1&with_categories=1');
+            specGroups.value = (r.data ?? []).map((group) => normalizeSpecGroup(group, previous.get(Number(group.id))));
             ensureSelectedSpecGroup();
-            syncMemberSnapshot();
+            if (selectedSpecGroupId.value) await fetchSpecGroupDetail(selectedSpecGroupId.value, { force: forceDetail });
+            else syncMemberSnapshot(null);
         } catch {
             fetchError.value = 'スペック分類の取得に失敗しました。再試行してください。';
             toastError('スペック分類の取得に失敗しました');
         }
     };
     const selectSpecGroup = async (group) => {
-        if (Number(selectedSpecGroupId.value) === Number(group?.id)) return;
+        if (Number(selectedSpecGroupId.value) === Number(group?.id)) {
+            await fetchSpecGroupDetail(group?.id);
+            return;
+        }
         if (!await confirmDiscardUnsaved()) return;
         selectedSpecGroupId.value = group?.id ?? null;
+        resetMemberEditor();
+        await fetchSpecGroupDetail(selectedSpecGroupId.value);
     };
     const specGroupCategoryLinks = (group) => (group?.categories ?? []).map((category, index) => ({
         category_id: category.id,
@@ -685,7 +751,6 @@ export default function setup() {
             toastSuccess('保存しました');
             specGroupModal.open = false;
             specGroupSnapshot.value = clone(specGroupModal.form);
-            await fetchSpecGroups();
         } catch (e) { toastError(e.message); }
     };
     const closeSpecGroupModal = () => closeModalWithConfirm(specGroupModal, specGroupSnapshot.value);
@@ -704,13 +769,13 @@ export default function setup() {
         actionLabel: '復元する',
         actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
         onConfirm: async () => {
-            try { await api.post(`/spec-groups/${group.id}/restore`); await fetchSpecGroups(); toastSuccess('復元しました'); }
+            try { const res = await api.post(`/spec-groups/${group.id}/restore`); replaceSpecGroup(res.data); toastSuccess('復元しました'); }
             catch (e) { toastError(e.message); }
         },
     });
     const unassignedSpecTypes = computed(() => {
         const assigned = new Set((currentSpecGroup.value?.spec_types ?? []).map((item) => Number(item.id)));
-        return activeSpecTypes.value.filter((item) => !assigned.has(Number(item.id)));
+        return activeSpecTypeOptions.value.filter((item) => !assigned.has(Number(item.id)));
     });
     const memberState = (member) => member?.pivot?.is_required ? 'required' : (member?.pivot?.is_recommended ? 'recommended' : 'optional');
     const setMemberState = (member, state) => {
@@ -756,7 +821,7 @@ export default function setup() {
     };
     const addSpecGroupMember = () => {
         if (!currentSpecGroup.value || !memberEditor.spec_type_id) return;
-        const specType = specTypes.value.find((item) => Number(item.id) === Number(memberEditor.spec_type_id));
+        const specType = specTypeOptions.value.find((item) => Number(item.id) === Number(memberEditor.spec_type_id));
         if (!specType) return;
         const members = currentSpecGroup.value.spec_types ?? [];
         if (members.some((item) => Number(item.id) === Number(specType.id))) return;
@@ -887,7 +952,7 @@ export default function setup() {
             toastSuccess('テンプレートを保存しました');
             templateModal.open = false;
             templateSnapshot.value = clone(templateModal.form);
-            await fetchSpecGroups();
+            await fetchSpecGroups({ forceDetail: true });
         } catch (e) { toastError(e.message); }
     };
     const closeTemplateModal = () => closeModalWithConfirm(templateModal, templateSnapshot.value);
@@ -896,7 +961,7 @@ export default function setup() {
         message: `「${template.name}」をアーカイブします。`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
-            try { await api.delete(`/spec-templates/${template.id}`); await fetchSpecGroups(); toastSuccess('アーカイブしました'); }
+            try { await api.delete(`/spec-templates/${template.id}`); await fetchSpecGroups({ forceDetail: true }); toastSuccess('アーカイブしました'); }
             catch (e) { toastError(e.message); }
         },
     });
@@ -907,7 +972,10 @@ export default function setup() {
         if (activeTab.value === 'categories') return fetchCategories();
         if (activeTab.value === 'package-groups') return fetchPackageGroups();
         if (activeTab.value === 'packages') return fetchPackages();
-        if (activeTab.value === 'spec-groups') return fetchSpecGroups();
+        if (activeTab.value === 'spec-groups') {
+            await fetchSpecTypeOptions();
+            return fetchSpecGroups({ forceDetail: true });
+        }
         return fetchSpecTypes();
     };
 
@@ -946,7 +1014,7 @@ export default function setup() {
         }
         else if (nextTab === 'spec-groups') {
             if (categories.value.length === 0) fetchCategories();
-            if (specTypes.value.length === 0) fetchSpecTypes();
+            fetchSpecTypeOptions();
             fetchSpecGroups();
         }
         else if (nextTab === 'spec-types' && specTypes.value.length === 0) fetchSpecTypes();
@@ -1020,7 +1088,7 @@ export default function setup() {
         toasts, fetchError, activeTab, switchTab, retryActiveTab, canEdit, isAdmin, closeCatModal, closePkgGroupModal, closePkgModal, closeStModal,
         confirmModal, doConfirm,
         dragSrc, dragTarget, catDnD, pgDnD, pkgDnD, stDnD,
-        fetchCategories, fetchPackageGroups, fetchPackages, fetchSpecTypes, fetchSpecGroups,
+        fetchCategories, fetchPackageGroups, fetchPackages, fetchSpecTypes, fetchSpecTypeOptions, fetchSpecGroups,
         // 分類
         categories, activeCategories, archivedCategories, catModal, openCatAdd, openCatEdit, openCatDuplicate, saveCategory, archiveCategory, restoreCategory, moveCategory,
         // パッケージ分類
@@ -1028,12 +1096,12 @@ export default function setup() {
         // パッケージ
         packages, activePackages, archivedPackages, pkgModal, openPkgAdd, openPkgEdit, openPkgDuplicate, savePackage, archivePackage, restorePackage, movePackage, packageDimensions, onPackageFileChange,
         // スペック分類
-        specGroups, selectedSpecGroupId, activeSpecGroups, archivedSpecGroups, currentSpecGroup, specGroupModal, openSgAdd, openSgEdit, openSgDuplicate, saveSpecGroup, closeSpecGroupModal, archiveSpecGroup, restoreSpecGroup, selectSpecGroup,
+        specGroups, selectedSpecGroupId, specGroupDetailLoading, activeSpecGroups, archivedSpecGroups, currentSpecGroup, specGroupModal, openSgAdd, openSgEdit, openSgDuplicate, saveSpecGroup, closeSpecGroupModal, archiveSpecGroup, restoreSpecGroup, selectSpecGroup,
         isSpecGroupCategoryLinked, isSpecGroupPrimaryCategory, toggleSpecGroupCategory, toggleSpecGroupPrimaryCategory,
         memberEditor, unassignedSpecTypes, memberState, setMemberState, addSpecGroupMember, removeSpecGroupMember, moveSpecGroupMember, syncSpecGroupMembers, inlineDirty,
         templateModal, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, saveTemplate, closeTemplateModal, archiveTemplate,
         // スペック項目
-        specTypes, activeSpecTypes, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType,
+        specTypes, activeSpecTypes, activeSpecTypeOptions, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, moveSpecType,
         renderSymbol,
     };
 }
