@@ -855,7 +855,7 @@
 
   <!-- ═══════════════ パッケージ詳細モーダル ════════════════ -->
   <div v-if="pkgModal.open" class="modal-overlay" v-esc="closePkgModal">
-    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ詳細編集' : 'パッケージ詳細追加' }}</h2>
         <button type="button" @click="closePkgModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -920,7 +920,7 @@
   </div>
 
   <div v-if="pkgGroupModal.open" class="modal-overlay" v-esc="closePkgGroupModal">
-    <div class="modal-window modal-md">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgGroupModal.isEdit ? 'パッケージ分類編集' : 'パッケージ分類追加' }}</h2>
         <button type="button" @click="closePkgGroupModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -948,7 +948,7 @@
 
   <!-- ═══════════════ 部品分類モーダル（互換） ════════════════ -->
   <div v-if="specGroupModal.open" class="modal-overlay" v-esc="closeSpecGroupModal">
-    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ specGroupModal.isEdit ? '部品分類編集' : '部品分類追加' }}</h2>
         <button type="button" @click="closeSpecGroupModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -976,7 +976,7 @@
 
   <!-- ═══════════════ 入力テンプレートモーダル ════════════════ -->
   <div v-if="templateModal.open" class="modal-overlay modal-top" v-esc="closeTemplateModal">
-    <div class="modal-window modal-3xl max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ templateModal.isEdit ? '入力テンプレート編集' : '入力テンプレート追加' }}</h2>
         <button type="button" @click="closeTemplateModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -1058,7 +1058,7 @@
 
   <!-- ═══════════════ 候補スペック詳細モーダル ════════════════ -->
   <div v-if="candidateSettingModal.open" class="modal-overlay" v-esc="closeCandidateSettingModal">
-    <div class="modal-window modal-md">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">候補設定編集</h2>
         <button type="button" @click="closeCandidateSettingModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -1109,7 +1109,7 @@
   </div>
 
   <div v-if="candidateAddModal.open" class="modal-overlay" v-esc="closeCandidateAddModal">
-    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ candidateAddTitle }}</h2>
         <button type="button" @click="closeCandidateAddModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -1156,7 +1156,7 @@
 
   <!-- ═══════════════ スペック詳細モーダル ════════════════ -->
   <div v-if="stModal.open" class="modal-overlay modal-top" v-esc="closeStModal">
-    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">
           @{{ stModal.form.spec_kind === 'tolerance' ? (stModal.isEdit ? '許容差スペック詳細編集' : '許容差スペック詳細追加') : (stModal.isEdit ? 'スペック詳細編集' : 'スペック詳細追加') }}

@@ -5975,3 +5975,17 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `npm run build`
 - ✓ `php artisan test`。52 tests / 496 assertions。
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [Manager] 2026-04-29 02:32:01 JST
+- [ユーザ] マスタ管理の各種モーダルの幅がまちまちでUIが良くないため修正し、ログと全ファイル git commit まで行うよう指示。
+- 実装: マスタ管理内の追加・編集・候補選択系モーダルを `modal-master` へ統一した。対象はパッケージ詳細、パッケージ分類、部品分類、入力テンプレート、候補設定、候補追加、スペック詳細。確認ダイアログは短文専用として `modal-sm` のまま維持した。
+- 実装: 前回追加した入力テンプレート専用の `modal-3xl` は不要になったため撤去し、マスタ管理の編集系モーダル幅を `modal-master` に一本化した。
+- DB変更: なし。
+
+### [Tester] 2026-04-29 02:32:01 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `git diff --check`
+- ✓ `rg -n "modal-window modal-(md|lg|xl|2xl|3xl)|modal-3xl|modal-master" resources/views/app/master-list.blade.php resources/css/app.css` で、マスタ管理の編集系モーダルが `modal-master` に統一されていることを確認した。
+- ✓ `npm run build`
+- ✓ `php artisan test`。52 tests / 496 assertions。
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
