@@ -674,6 +674,7 @@ export default function setup() {
     });
     const archivedSpecGroups = computed(() => splitArchived(specGroups.value));
     const currentSpecGroup = computed(() => specGroups.value.find((group) => Number(group.id) === Number(selectedSpecGroupId.value)) ?? null);
+    const specGroupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
     const specGroupSnapshot = ref(null);
     const specGroupModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -696,6 +697,45 @@ export default function setup() {
         open: false, isEdit: false, editId: null,
         form: { spec_group_id: '', name: '', description: '', sort_order: 0, items: [] },
     });
+    const selectedTemplateSpecGroup = computed(() =>
+        specGroups.value.find((group) => Number(group.id) === Number(templateModal.form.spec_group_id)) ?? null
+    );
+    const templateSpecGroupLoading = computed(() =>
+        !!templateModal.form.spec_group_id
+        && Number(specGroupDetailLoadingId.value) === Number(templateModal.form.spec_group_id)
+    );
+    const templateCandidateSpecTypeIds = computed(() =>
+        new Set(specGroupSpecTypes(selectedTemplateSpecGroup.value).map((item) => Number(item.id)))
+    );
+    const templateSpecTypeOptions = computed(() => splitActive(specGroupSpecTypes(selectedTemplateSpecGroup.value)));
+    const templateSpecTypeOptionsForItem = (item = {}) => {
+        const selectedId = Number(item?.spec_type_id ?? 0);
+        const candidates = [...templateSpecTypeOptions.value];
+
+        if (selectedId && !candidates.some((specType) => Number(specType.id) === selectedId)) {
+            const selected = item?.spec_type
+                ?? item?.specType
+                ?? specTypeOptions.value.find((specType) => Number(specType.id) === selectedId)
+                ?? null;
+            if (selected) candidates.unshift(selected);
+        }
+
+        const seen = new Set;
+        return candidates.filter((specType) => {
+            const id = Number(specType.id);
+            if (!id || seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
+    };
+    const templateSpecTypeOptionLabel = (specType) => {
+        const label = specTypeOptionLabel(specType);
+        return templateCandidateSpecTypeIds.value.has(Number(specType?.id)) ? label : `${label}（候補外）`;
+    };
+    const ensureTemplateSpecGroupDetail = async () => {
+        const groupId = Number(templateModal.form.spec_group_id);
+        if (groupId) await fetchSpecGroupDetail(groupId);
+    };
 
     const hasSpecGroupDetail = (group) => Array.isArray(group?.spec_types) && Array.isArray(group?.templates);
     const normalizeSpecGroup = (group, existing = null) => {
@@ -1059,6 +1099,7 @@ export default function setup() {
     };
     const templateItem = (overrides = {}) => ({
         spec_type_id: '',
+        spec_type: null,
         default_profile: 'typ',
         default_unit: '',
         is_required: false,
@@ -1073,7 +1114,7 @@ export default function setup() {
         items: [],
         ...overrides,
     });
-    const openTemplateAdd = () => {
+    const openTemplateAdd = async () => {
         if (!currentSpecGroup.value) {
             toastError('先に部品分類を選択してください');
             return;
@@ -1081,8 +1122,9 @@ export default function setup() {
         const form = templateForm({ items: [templateItem()] });
         templateSnapshot.value = clone(form);
         Object.assign(templateModal, { open: true, isEdit: false, editId: null, form });
+        await ensureTemplateSpecGroupDetail();
     };
-    const openTemplateEdit = (template) => {
+    const openTemplateEdit = async (template) => {
         const form = templateForm({
             spec_group_id: template.spec_group_id ?? currentSpecGroup.value?.id ?? '',
             name: template.name,
@@ -1090,6 +1132,7 @@ export default function setup() {
             sort_order: template.sort_order ?? 0,
             items: (template.items ?? []).map((item) => templateItem({
                 spec_type_id: item.spec_type_id,
+                spec_type: item.spec_type ?? item.specType ?? null,
                 default_profile: item.default_profile || 'typ',
                 default_unit: item.default_unit ?? '',
                 is_required: !!item.is_required,
@@ -1098,14 +1141,16 @@ export default function setup() {
         });
         templateSnapshot.value = clone(form);
         Object.assign(templateModal, { open: true, isEdit: true, editId: template.id, form });
+        await ensureTemplateSpecGroupDetail();
     };
-    const openTemplateDuplicate = (template) => {
+    const openTemplateDuplicate = async (template) => {
         const form = templateForm({
             spec_group_id: template.spec_group_id ?? currentSpecGroup.value?.id ?? '',
             name: copyName(template.name),
             description: template.description ?? '',
             items: (template.items ?? []).map((item) => templateItem({
                 spec_type_id: item.spec_type_id,
+                spec_type: item.spec_type ?? item.specType ?? null,
                 default_profile: item.default_profile || 'typ',
                 default_unit: item.default_unit ?? '',
                 is_required: !!item.is_required,
@@ -1114,6 +1159,7 @@ export default function setup() {
         });
         templateSnapshot.value = clone(form);
         Object.assign(templateModal, { open: true, isEdit: false, editId: null, form });
+        await ensureTemplateSpecGroupDetail();
     };
     const addTemplateItem = () => templateModal.form.items.push(templateItem());
     const removeTemplateItem = (index) => templateModal.form.items.splice(index, 1);
@@ -1130,11 +1176,12 @@ export default function setup() {
                 items: templateModal.form.items
                     .filter((item) => item.spec_type_id)
                     .map((item, index) => ({
-                        ...item,
+                        spec_type_id: item.spec_type_id,
                         sort_order: (index + 1) * 10,
                         default_profile: item.default_profile || null,
                         default_unit: item.default_unit || null,
                         is_required: !!item.is_required,
+                        note: item.note || null,
                     })),
             };
             if (templateModal.isEdit) await api.put(`/spec-templates/${templateModal.editId}`, payload);
@@ -1242,6 +1289,10 @@ export default function setup() {
     watch(() => templateModal.form, (value) => {
         if (templateModal.open) modalDirty.value = !same(value, templateSnapshot.value);
     }, { deep: true });
+    watch(() => templateModal.form.spec_group_id, async () => {
+        if (!templateModal.open) return;
+        await ensureTemplateSpecGroupDetail();
+    });
     watch(() => candidateSettingModal.form, (value) => {
         if (candidateSettingModal.open) modalDirty.value = !same(value, candidateSettingSnapshot.value);
     }, { deep: true });
@@ -1317,7 +1368,7 @@ export default function setup() {
         candidateAddModal, candidateAddTitle, candidateAddOptions, candidateAddEmptyMessage, openCandidateAddModal, closeCandidateAddModal, addCandidateFromOption,
         isCommonSpecType, isToleranceSpecType, activeCommonSpecTypes, archivedCommonSpecTypes, activeToleranceSpecTypes, archivedToleranceSpecTypes, isCommonSpecLinked, toggleCommonSpecForCurrentGroup, openCommonSpecTypeAdd, openToleranceSpecTypeAdd, openLocalSpecTypeAdd, openCommonSpecTypeDuplicate,
         toleranceUnitOptions, toleranceUnit, toleranceInputFormat, toleranceAllowedUnits,
-        templateModal, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, saveTemplate, closeTemplateModal, archiveTemplate,
+        templateModal, selectedTemplateSpecGroup, templateSpecGroupLoading, templateSpecTypeOptions, templateSpecTypeOptionsForItem, templateSpecTypeOptionLabel, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, saveTemplate, closeTemplateModal, archiveTemplate,
         // スペック詳細
         specTypes, activeSpecTypes, activeSpecTypeOptions, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, specTypeGroups, specTypeOptionLabel,
         renderSymbol,

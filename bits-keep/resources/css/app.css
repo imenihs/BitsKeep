@@ -705,6 +705,10 @@ img.thumbnail {
     max-width: 72rem;
 }
 
+.modal-window.modal-3xl {
+    max-width: min(88rem, calc(100vw - 2rem));
+}
+
 .modal-window.modal-helper-review {
     width: min(calc(100vw - 2rem), 88rem);
 }

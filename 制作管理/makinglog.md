@@ -5962,3 +5962,16 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 ### [Tester] 2026-04-29 02:24:14 JST
 - ✓ `git diff --check`
 - ✓ `php artisan test`。52 tests / 496 assertions。
+
+### [Manager] 2026-04-29 02:29:20 JST
+- [ユーザ] 入力テンプレート編集モーダルの幅が狭くスペック詳細名が見えないこと、テンプレート行のスペック詳細候補が関連する部品分類でフィルタされていないことを修正し、ログ・ドキュメント・全ファイルコミットまで行うよう指示。
+- 実装方針: 入力テンプレート編集モーダルは広幅専用サイズへ変更する。テンプレート行のスペック詳細候補は、関連する部品分類の `spec_group_spec_type` 候補だけを表示する。既存テンプレートに候補外項目が残っている場合は、現在選択値だけ `候補外` として残し、編集時に見失わないようにする。
+- ドキュメント: README、詳細仕様、実装進捗チェックリストへ、入力テンプレート行のスペック詳細候補は関連部品分類の候補スペック詳細に絞ることを追記した。
+- DB変更: なし。
+
+### [Tester] 2026-04-29 02:29:20 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `git diff --check`
+- ✓ `npm run build`
+- ✓ `php artisan test`。52 tests / 496 assertions。
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。

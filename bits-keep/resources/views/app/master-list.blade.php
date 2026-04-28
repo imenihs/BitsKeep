@@ -976,7 +976,7 @@
 
   <!-- ═══════════════ 入力テンプレートモーダル ════════════════ -->
   <div v-if="templateModal.open" class="modal-overlay modal-top" v-esc="closeTemplateModal">
-    <div class="modal-window modal-lg max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-3xl max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ templateModal.isEdit ? '入力テンプレート編集' : '入力テンプレート追加' }}</h2>
         <button type="button" @click="closeTemplateModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -988,6 +988,7 @@
             <option value="">関連する部品分類なし</option>
             <option v-for="group in activeSpecGroups" :key="`template-group-${group.id}`" :value="group.id">@{{ group.name }}</option>
           </select>
+          <p class="mt-1 text-xs opacity-60">スペック詳細は、ここで選んだ部品分類の候補スペック詳細だけを表示します。</p>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">名前 <span class="text-red-500">*</span></label>
@@ -1007,17 +1008,18 @@
             <button @click="addTemplateItem" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)]">行追加</button>
           </div>
           <div class="divide-y divide-[var(--color-border)]">
-            <div v-for="(item, index) in templateModal.form.items" :key="`template-modal-item-${index}`" class="grid grid-cols-1 md:grid-cols-[70px_1.5fr_120px_100px_90px_1fr_70px] gap-2 px-4 py-3 items-end">
+            <div v-for="(item, index) in templateModal.form.items" :key="`template-modal-item-${index}`" class="grid grid-cols-1 lg:grid-cols-[76px_minmax(18rem,2fr)_9rem_8rem_6rem_minmax(12rem,1fr)_5.5rem] gap-2 px-4 py-3 items-end">
               <div class="flex gap-1">
                 <button @click="moveTemplateItem(index, -1)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded">↑</button>
                 <button @click="moveTemplateItem(index, 1)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded">↓</button>
               </div>
               <label class="block">
                 <span class="block text-xs opacity-60 mb-1">スペック詳細</span>
-                <select v-model="item.spec_type_id" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
-                  <option value="">選択してください</option>
-                  <option v-for="st in activeSpecTypeOptions" :key="`template-spec-type-${index}-${st.id}`" :value="st.id">@{{ specTypeOptionLabel(st) }}</option>
+                <select v-model="item.spec_type_id" :disabled="!templateModal.form.spec_group_id || templateSpecGroupLoading" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm disabled:opacity-50">
+                  <option value="">@{{ templateModal.form.spec_group_id ? (templateSpecGroupLoading ? '候補を読込中...' : '選択してください') : '先に関連する部品分類を選択' }}</option>
+                  <option v-for="st in templateSpecTypeOptionsForItem(item)" :key="`template-spec-type-${index}-${st.id}`" :value="st.id">@{{ templateSpecTypeOptionLabel(st) }}</option>
                 </select>
+                <span v-if="templateModal.form.spec_group_id && !templateSpecGroupLoading && templateSpecTypeOptions.length === 0" class="block mt-1 text-[11px] opacity-50">この部品分類には候補スペック詳細がありません</span>
               </label>
               <label class="block">
                 <span class="block text-xs opacity-60 mb-1">profile</span>
