@@ -37,7 +37,7 @@ class ComponentCompareController extends Controller
             fn ($id) => $components->firstWhere('id', $id)
         )->filter()->values();
 
-        // 全部品に存在するスペック項目 + profile を収集（比較軸）
+        // 全部品に存在するスペック詳細 + profile を収集（比較軸）
         $specAxisMap = [];
         foreach ($ordered as $comp) {
             foreach ($comp->specs as $spec) {
@@ -105,13 +105,13 @@ class ComponentCompareController extends Controller
     // GET /api/components/{component}/similar
     public function similar(Component $component)
     {
-        // 同一分類に属し、スペックが近い部品を取得（数値スペックの類似度で近似）
+        // 同一部品分類に属し、スペックが近い部品を取得（数値スペックの類似度で近似）
         $categoryIds = $component->categories->pluck('id');
 
-        // 同じ分類に属する部品（自分を除く）を取得
+        // 同じ部品分類に属する部品（自分を除く）を取得
         $candidates = Component::with(['categories', 'packages', 'specs.specType', 'componentSuppliers.priceBreaks'])
             ->where('id', '!=', $component->id)
-            ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $categoryIds))
+            ->whereHas('categories', fn ($q) => $q->whereIn('spec_groups.id', $categoryIds))
             ->take(50)  // 候補を絞ってからスコアリング
             ->get();
 

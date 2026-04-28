@@ -83,9 +83,9 @@
         <h3 class="font-semibold mb-3">最初にやること</h3>
         <p class="mb-3 opacity-80">部品を登録する前に、以下のマスタを先に登録してください。これらがないと部品登録時に選択肢が空になります。</p>
         <ol class="space-y-3">
-          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><strong>分類を登録する</strong> — 「マスタ管理 → 分類」で「抵抗」「コンデンサ」「FPGA」などを追加します。部品には複数の分類を付けられます。</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><strong>部品分類を登録する</strong> — 「マスタ管理 → 部品分類」で「抵抗」「コンデンサ」「FPGA」などを追加します。部品には複数の部品分類を付けられます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><strong>パッケージ分類とパッケージ詳細を登録する</strong> — 「マスタ管理 → パッケージ分類」で「SMD」「THT」を追加し、その配下に「0402」「SOT-23」などを追加します。</span></li>
-          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>スペック詳細を登録する</strong> — 「マスタ管理 → スペック詳細」で「静電容量」「耐圧」「周波数」などを追加します。英語名・記号・alias・基準単位も設定できます。</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>部品分類ごとのスペック詳細を登録する</strong> — 「マスタ管理 → 部品分類」で入力候補の親を用意し、「マスタ管理 → スペック詳細」で「静電容量」「耐圧」「周波数」などを追加します。英語名・記号・alias・基準単位も設定できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80"><strong>商社を登録する</strong> — 「商社管理」で仕入先を追加します。リードタイムや送料無料閾値も登録できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80"><strong>保管棚を登録する</strong> — 「保管棚管理」で棚を追加します。グループ（例: メインラック）でまとめて管理できます。</span></li>
         </ol>
@@ -134,12 +134,12 @@
             <tr><td>名称</td><td></td><td class="opacity-80">通称・社内管理名</td></tr>
             <tr><td>メーカー</td><td></td><td class="opacity-80">製造元名</td></tr>
             <tr><td>入手可否</td><td></td><td class="opacity-80">量産中 / EOL / 在庫限り / 非推奨</td></tr>
-            <tr><td>分類</td><td></td><td class="opacity-80">複数選択可。マスタ管理で事前登録が必要</td></tr>
+            <tr><td>部品分類</td><td></td><td class="opacity-80">複数選択可。マスタ管理で事前登録が必要</td></tr>
             <tr><td>パッケージ分類</td><td></td><td class="opacity-80">大分類を選ぶとパッケージが絞り込まれる</td></tr>
             <tr><td>パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック詳細を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。分類からの推奨候補と全項目検索を切り替えられます。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にないスペック詳細は行内の「+」から追加可能</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック詳細を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。通常は部品分類の候補スペック詳細から選び、必要な場合だけ全スペック詳細検索へ切り替えられます。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にないスペック詳細は部品分類が一意に決まる場合だけ行内の「+」から追加可能</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
             <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
@@ -149,8 +149,9 @@
         <p class="mb-5 opacity-80">フォームは上部と下部の両方に「保存」ボタンがあります。長いフォームを入力し終えた後、上に戻らず保存できます。未保存のまま別ページへ移動しようとすると確認ダイアログが表示されます。</p>
 
         <h3 class="font-semibold mb-3">スペック詳細の選択</h3>
-        <p class="mb-2 opacity-80">部品登録と部品詳細のスペック編集では、カテゴリに応じて <strong>分類からの推奨</strong> が先に表示されます。推奨は入力補助であり、選択制約ではありません。</p>
-        <p class="mb-5 opacity-80">想定外の部品や複合部品では <strong>全項目から選ぶ</strong> に切り替えて全スペック詳細から検索できます。スペック分類チップには <strong>推奨</strong> / <strong>手動</strong> が表示され、推奨外の分類も選択できます。</p>
+        <p class="mb-2 opacity-80">部品登録と部品詳細のスペック編集では、部品分類に応じて <strong>部品分類からの推奨</strong> が先に表示されます。通常候補は選択中の部品分類に紐づく候補スペック詳細だけです。</p>
+        <p class="mb-2 opacity-80">部品分類に紐づく入力テンプレートがある場合は、スペック欄にテンプレートボタンが表示されます。適用するとテンプレート内のスペック行を追加し、既に同じスペック詳細がある行は重複追加しません。</p>
+        <p class="mb-5 opacity-80">想定外の部品や複合部品では <strong>全スペック詳細から選ぶ</strong> に切り替えて全スペック詳細から検索できます。通常表示は選択中の部品分類に紐づく候補スペック詳細だけを表示し、全件検索は明示的な切り替えとして扱います。</p>
 
         <h3 class="font-semibold mb-3">データシート解析補助</h3>
         <p class="mb-2 opacity-80">現状の部品登録では、データシートからの補助入力に次の 3 系統があります。</p>
@@ -159,10 +160,10 @@
           <li><strong>ChatGPTから貼り付け</strong> — ChatGPT で PDF を読ませた結果 JSON を貼り付けてレビューします</li>
           <li><strong>Geminiで解析</strong> — API 利用を許容する環境だけの任意導線です</li>
         </ul>
-        <p class="mb-2 opacity-80">どちらの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・分類候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
+        <p class="mb-2 opacity-80">どちらの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・部品分類候補・入力テンプレート候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
-          <li><strong>分類候補</strong> — `component_types[]` からデコードした複数候補を既存分類へ紐付けて選択</li>
-          <li><strong>パッケージ候補</strong> — `package_names[]` からデコードした複数候補の中から、既存の `パッケージ分類 / パッケージ` へ紐付けた 1 件を選択</li>
+          <li><strong>部品分類候補</strong> — <code>component_types[]</code> からデコードした複数候補を既存部品分類へ紐付けて選択</li>
+          <li><strong>パッケージ候補</strong> — <code>package_names[]</code> からデコードした複数候補の中から、既存の <code>パッケージ分類 / パッケージ詳細</code> へ紐付けた 1 件を選択</li>
           <li><strong>スペック候補</strong> — <code>name / name_ja / name_en / symbol</code> を使って既存スペック詳細へ照合し、未一致項目はレビュー画面の「+」から追加、削除</li>
         </ul>
         <p class="mb-3 opacity-80">データシート上の元表記は <strong>抽出名</strong> として確認用に表示されますが、保存される正本はスペック詳細です。表記ゆれはスペック詳細の alias に寄せて管理します。</p>
@@ -208,10 +209,10 @@
         <h4 class="font-medium mb-1 opacity-80">詳細フィルタ</h4>
         <p class="mb-2 opacity-80">「詳細条件」を開くと以下の条件で絞り込めます。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
-          <li>分類（複数選択可）</li>
+          <li>部品分類（複数選択可）</li>
           <li>入手可否（量産中 / EOL / 在庫限り / 非推奨）</li>
           <li>メーカー名</li>
-          <li>パッケージ分類 / パッケージ</li>
+          <li>パッケージ分類 / パッケージ詳細</li>
           <li>スペック詳細 + 値の範囲（例: 静電容量 100nF〜10μF）</li>
           <li>在庫状態（在庫あり / 在庫切れ / 警告中）</li>
           <li>購入日の範囲</li>
@@ -219,7 +220,7 @@
         <p class="mb-5 opacity-80">適用中のフィルタは「フィルタチップ」として表示され、1クリックで個別に解除できます。</p>
 
         <h4 class="font-medium mb-1 opacity-80">並び順</h4>
-        <p class="mb-5 opacity-80">既定は分類、パッケージ分類、パッケージ、型番の順に並ぶ台帳向け表示です。型番内の数字は自然順で扱うため、2SC945 は 2SC1815 より前に並びます。必要に応じて更新順、通称順、型番順へ切り替えできます。</p>
+        <p class="mb-5 opacity-80">既定は部品分類、パッケージ分類、パッケージ、型番の順に並ぶ台帳向け表示です。型番内の数字は自然順で扱うため、2SC945 は 2SC1815 より前に並びます。必要に応じて更新順、通称順、型番順へ切り替えできます。</p>
 
         <h3 class="font-semibold mb-3">部品を比較する</h3>
         <ol class="space-y-2 mb-3">
@@ -241,7 +242,7 @@
           <li><strong>入庫 / 出庫</strong> ボタン（→ 在庫管理セクションを参照）</li>
           <li>在庫履歴（入出庫のすべてのログ）</li>
           <li>関連案件（この部品を使っている案件一覧）</li>
-          <li>類似部品（同じ分類・パッケージの代替候補。「類似部品を探す」ボタンで比較画面へ移動できます）</li>
+          <li>類似部品（同じ部品分類・パッケージの代替候補。「類似部品を探す」ボタンで比較画面へ移動できます）</li>
           <li>Altium リンク（シンボル名・フットプリント名）</li>
           <li><strong>削除</strong> — 管理者のみ。論理削除のため復元可能です</li>
         </ul>
@@ -427,20 +428,26 @@
       <!-- マスタ管理 -->
       <section id="master">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">マスタ管理</h2>
-        <p class="mb-4 opacity-80">部品登録時に選択する「分類」「パッケージ詳細」「スペック詳細」を管理します。全機能一覧 →「マスタ管理」から操作します。</p>
+        <p class="mb-4 opacity-80">部品登録時に選択する「部品分類」「パッケージ詳細」「スペック詳細」と、スペック候補設定・入力テンプレートを管理します。全機能一覧 →「マスタ管理」から操作します。</p>
+        <p class="mb-4 opacity-80">スペック系のタブは <strong>部品分類</strong>、<strong>スペック詳細</strong>、<strong>スペック候補設定</strong>、<strong>共通スペック詳細</strong>、<strong>許容差スペック詳細</strong>、<strong>入力テンプレート</strong> に責務を分け、入力テンプレートは一番右に置いています。</p>
 
-        <h3 class="font-semibold mb-3">分類</h3>
-        <p class="mb-2 opacity-80">「抵抗」「コンデンサ」「FPGA」など部品の種類を表すタグです。1つの部品に複数の分類を付けられます。</p>
+        <h3 class="font-semibold mb-3">部品分類</h3>
+        <p class="mb-2 opacity-80">「抵抗」「コンデンサ」「FPGA」など部品の種類を表すタグです。1つの部品に複数の部品分類を付けられます。部品分類はスペック詳細の候補と入力テンプレートの親でもあります。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>一覧の ↑↓ ボタンで表示順を変更できます</li>
-          <li>使わなくなった分類は「アーカイブ」で候補から外せます（部品への紐付けは残ります）</li>
+          <li>一覧はドラッグ&ドロップで表示順を変更できます</li>
+          <li>使わなくなった部品分類は「アーカイブ」で候補から外せます（部品への紐付けは残ります）</li>
           <li>「復元」でいつでも候補に戻せます</li>
           <li>まったく使っていない場合のみ「完全削除」が可能です</li>
         </ul>
 
-        <h3 class="font-semibold mb-3">分類とスペック分類の使い分け</h3>
-        <p class="mb-2 opacity-80"><strong>分類</strong> は部品そのものに付ける種類・検索タグです。<strong>スペック分類</strong> は、スペック詳細の候補・並び順・既定値を束ねる入力候補グループです。</p>
-        <p class="mb-5 opacity-80">例: 部品の分類が BJT のとき、推奨するスペック分類として BJT を出し、その中に VCEO、コレクタ電流、hFE、fT などの候補スペック詳細を並べます。同名でも、分類は部品タグ、スペック分類はスペック入力候補グループです。</p>
+        <h3 class="font-semibold mb-3">部品分類と候補スペック詳細</h3>
+        <p class="mb-2 opacity-80"><strong>部品分類</strong> は部品そのものに付ける種類・検索タグであり、スペック詳細の候補・並び順・既定値を束ねる入力候補グループでもあります。</p>
+        <p class="mb-5 opacity-80">例: 部品分類が BJT のとき、その中に VCEO、コレクタ電流、hFE、fT などの候補スペック詳細を並べます。DB/API内部名は <code>spec_groups</code> / <code>/api/spec-groups</code> に統一します。旧 <code>/api/categories</code> は使いません。</p>
+
+        <h3 class="font-semibold mb-3">部品シリーズ（今後の設計方針）</h3>
+        <p class="mb-2 opacity-80">抵抗・コンデンサ・インダクタなど、同一シリーズの中に値違いが大量にある部品は、単体部品を1件ずつ並べるのではなく、<strong>部品シリーズ</strong> と値マトリクスで扱う方針です。一方で IC・MCU・センサ・モジュールなど、型番ごとの差分が大きい部品は従来通り単体部品として管理します。</p>
+        <p class="mb-2 opacity-80">値展開方式は E系列だけに固定しません。シリーズごとに <strong>E系列</strong>、<strong>基準系列 + 追加値</strong>、<strong>任意値リスト</strong>、<strong>範囲/刻み</strong> を選べるようにします。たとえば E12 を基準にしつつ一部だけ E24 の値を追加する混在や、ツェナー電圧・水晶周波数・ヒューズ電流・コネクタ極数のように E系列へ乗らない値も正式に扱います。</p>
+        <p class="mb-5 opacity-80">値マトリクス上の値は、在庫や仕入先を持たない <strong>仮想値</strong> と、実際に登録・在庫管理する <strong>実部品</strong> を分けます。シリーズ全体の候補値は広く持ちつつ、実際に使う値だけを部品化して在庫・価格・保管棚を管理することで、値の混在に強い運用にします。</p>
 
         <h3 class="font-semibold mb-3">パッケージ分類・パッケージ詳細</h3>
         <p class="mb-2 opacity-80">パッケージは2階層で管理します。部品登録時は大分類を選んでからパッケージを選びます。</p>
@@ -458,20 +465,30 @@
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
           <li>各スペック詳細に日本語名・英語名・記号・alias・基準単位を設定できます</li>
           <li>英語名・記号・alias は、英語データシートや略記号から同じスペック詳細へ照合するために使います</li>
-          <li>一覧には所属しているスペック分類が表示されます</li>
-          <li>分類内の所属・並び順・必須/推奨・既定値は「スペック分類」タブで管理します</li>
-          <li>記号は HTML ではなく <code>h_FE</code> <code>-V_CBO</code> のように保存します。<code>-</code> は通常、<code>_</code> は下付き、<code>~</code> は上付き表示用の記法です</li>
+          <li>同じ日本語名のスペック詳細を複数登録できます。例: <code>電源電圧</code> を <code>VDD</code> と <code>VCC</code> で別々に持つ場合は、記号・alias で区別します</li>
+          <li>「スペック詳細」タブでは先に部品分類を選び、その部品分類を主所属に持つ通常スペック詳細だけを表示・追加・編集・アーカイブします。スペック詳細の全件一覧や全件並び替えは行いません</li>
+          <li>主所属を持つスペック詳細は選択中の部品分類の候補として追加・編集・アーカイブします。内部では <code>spec_types.spec_scope='group_local'</code> と <code>owner_spec_group_id</code> で主所属の部品分類を持ちます。これは専用ではなく、再利用できます</li>
+          <li>共通スペック詳細は「共通スペック詳細」タブで左の部品分類を選び、追加・編集・アーカイブと、選択中の部品分類への「候補に入れる / 候補から外す」を扱います</li>
+          <li>スペック候補設定タブの行「編集」は、候補側の種別表示・扱い・既定profile・既定単位・メモだけを編集します。名称・記号・alias・単位等の正本編集は、各スペック詳細タブの「編集」で行います</li>
+          <li>スペック候補設定タブで候補へ追加するときは、「スペック詳細から追加」「共通スペック詳細から追加」「許容差スペック詳細から追加」の3系統から既存項目を選びます。このタブではスペック詳細の新規作成やフリー入力を開きません</li>
+          <li>スペック候補設定タブの候補順はドラッグ&ドロップで変更します。上下ボタンでの並び替えは使いません</li>
+          <li>許容差スペック詳細は共通スペック詳細と兄弟の別棚です。画面では左の部品分類を選んで候補状態を見ながら、共通スペック詳細一覧と許容差スペック詳細一覧を分け、追加ボタンも別にします。通常/許容差を切り替えるラジオや、許容差タブ内の行別「許容差」バッジは置きません</li>
+          <li>内部正本はどちらも <code>spec_types</code> です。通常/許容差は <code>spec_kind=normal/tolerance</code> で区別し、許容差は <code>tolerance_settings</code> に <code>default_mode</code>、<code>default_unit</code>、<code>allowed_units</code>、<code>grade_options</code> などを持てます</li>
+          <li>許容差スペック詳細の例: <code>抵抗値許容差 ±5%</code>、<code>容量許容差 B級 ±0.1pF</code>、<code>容量許容差 Z級 +80/-20%</code>、<code>抵抗温度係数 ±100ppm/℃</code>、<code>容量温度特性 X7R</code></li>
+          <li>記号は HTML ではなく <code>h_FE</code> <code>V_CBO</code> <code>V_CE-(sat)</code> のように保存します。<code>_</code> は下付き、<code>~</code> は上付き、<code>-</code> は通常表示へ戻す区切りです</li>
           <li>基準単位は1つ設定できます（例: 静電容量 → F、電流 → A）</li>
           <li>単位は省略可（無次元の場合や任意テキストで管理したい場合）</li>
           <li>登録画面では、基準単位から `uA` `kΩ` `ns` のような読みやすい接頭語付き表示へ自動変換します</li>
           <li>部品登録画面のスペック行に自由な「名前」欄はありません。必ずスペック詳細を選び、候補にない場合だけその場の追加モーダルでスペック詳細を登録します</li>
           <li><code>typ / 範囲 / 最大 / 最小 / 3値</code> を扱え、検索は常に基準単位へ正規化して行います</li>
-          <li>スペック詳細も一覧での表示順を変更できます</li>
+          <li>スペック詳細の入力順は「スペック候補設定」タブで部品分類ごとの候補順として変更します</li>
         </ul>
-        <p class="mb-5 opacity-80">UI表示名は <strong>パッケージ詳細</strong> / <strong>スペック詳細</strong> / <strong>候補スペック詳細</strong> / <strong>入力テンプレート</strong> に整理していますが、DB/API内部名は互換性のため <code>packages</code> / <code>spec_types</code> / <code>spec_templates</code> のままです。</p>
+        <h3 class="font-semibold mb-3">入力テンプレート</h3>
+        <p class="mb-5 opacity-80">入力テンプレートは、部品分類ごとにスペック行をまとめて追加する初期行セットです。候補スペック詳細の所属・並び順・既定値は「スペック候補設定」タブ、入力テンプレートは一番右の「入力テンプレート」タブで編集します。<strong>共通</strong> は部品分類として表示・選択せず、共通スペック詳細として管理します。</p>
+        <p class="mb-5 opacity-80">UI表示名は <strong>部品分類</strong> / <strong>パッケージ詳細</strong> / <strong>スペック詳細</strong> / <strong>スペック候補設定</strong> / <strong>候補スペック詳細</strong> / <strong>入力テンプレート</strong> / <strong>共通スペック詳細</strong> / <strong>許容差スペック詳細</strong> に整理しています。DB/API内部名は <code>spec_groups</code> / <code>packages</code> / <code>spec_types</code> / <code>spec_group_spec_type</code> / <code>spec_templates</code> / <code>/api/spec-groups</code> / <code>/api/packages</code> / <code>/api/spec-types</code> / <code>/api/spec-templates</code> を正とします。旧 <code>categories</code> テーブルは移行元であり、旧 <code>/api/categories</code> は廃止します。対応表は仕様書を正とします。</p>
 
         <h3 class="font-semibold mb-2">マスタ共通の廃止 / 復元 / 完全削除</h3>
-        <p class="opacity-80">「廃止（アーカイブ）」にすると選択候補から非表示になりますが、すでに紐付けられた部品への影響はありません。「復元」でいつでも候補に戻せます。他の部品から参照されていない場合のみ「完全削除」が許可されます。</p>
+        <p class="opacity-80">「廃止（アーカイブ）」にすると選択候補から非表示になりますが、すでに紐付けられた部品への影響はありません。「候補から外す」は部品分類内の候補関係だけを解除する操作で、正本削除ではありません。「復元」でいつでも候補に戻せます。他の部品から参照されていない場合のみ「完全削除」が許可されます。</p>
       </section>
 
       <!-- ユーザー管理 -->
@@ -573,7 +590,7 @@
         <h3 class="font-semibold mb-3">インポートの流れ（4ステップ）</h3>
         <ol class="space-y-3 mb-5">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><strong>テンプレート取得</strong> — 「テンプレートをダウンロード」で CSV テンプレートを取得します</span></li>
-          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><strong>データ記入</strong> — テンプレートの列に従って部品データを入力します。型番は必須。分類・パッケージ・商社はマスタに登録済みの名称を使います</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><strong>データ記入</strong> — テンプレートの列に従って部品データを入力します。型番は必須。部品分類・パッケージ・商社はマスタに登録済みの名称を使います</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>アップロード・プレビュー</strong> — 記入済み CSV をアップロードするとプレビューが表示されます。列のマッピングを確認してください</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80"><strong>インポート実行</strong> — 「インポート実行」で一括登録します</span></li>
         </ol>
@@ -637,7 +654,7 @@
             <tr><td class="py-2">在庫数が実物と合わない</td><td class="py-2 opacity-80">部品詳細の「在庫履歴」で入出庫ログを確認し、原因を特定。その後「<a href="#inventory" class="underline">棚卸し</a>」で修正</td></tr>
             <tr><td class="py-2">商社を選択できない</td><td class="py-2 opacity-80">「<a href="#supplier" class="underline">商社管理</a>」で先に商社を登録する（管理者のみ）</td></tr>
             <tr><td class="py-2">パッケージが候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → パッケージ分類 → パッケージ詳細</a>」に追加する</td></tr>
-            <tr><td class="py-2">分類が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → 分類</a>」に追加する</td></tr>
+            <tr><td class="py-2">部品分類が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → 部品分類</a>」に追加する</td></tr>
             <tr><td class="py-2">スペック詳細が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック詳細</a>」に追加する。部品登録・詳細編集のスペック行からも管理者ならその場で追加できます</td></tr>
             <tr><td class="py-2">スペックの単位が出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック詳細</a>」で基準単位を設定する</td></tr>
             <tr><td class="py-2">入力を間違えて保存してしまった</td><td class="py-2 opacity-80">部品詳細の「編集」で修正する。管理者は「<a href="#auditlog" class="underline">操作ログ</a>」で変更前の値を確認できる</td></tr>

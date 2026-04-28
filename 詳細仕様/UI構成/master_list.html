@@ -46,10 +46,10 @@
     </button>
   </div>
 
-  <!-- ===== タブ: 分類 ===== -->
+  <!-- ===== タブ: 部品分類 ===== -->
   <div v-if="activeTab === 'category'">
     <div class="flex justify-between items-center mb-4" style="max-width: 600px;">
-      <p class="text-sm opacity-60">部品の分類カテゴリを管理します</p>
+      <p class="text-sm opacity-60">部品分類を管理します</p>
       <button @click="openMasterCreate('category')"
         class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm">
         <i data-lucide="plus" class="w-4 h-4"></i>追加
@@ -115,19 +115,19 @@
     </div>
   </div>
 
-  <!-- ===== タブ: スペック項目 ===== -->
+  <!-- ===== タブ: スペック詳細 ===== -->
   <div v-if="activeTab === 'spec_type'">
     <div class="flex justify-between items-center mb-4" style="max-width: 800px;">
-      <p class="text-sm opacity-60">スペック項目の種別と単位を管理します。単位には基準単位への換算倍率を設定します。</p>
+      <p class="text-sm opacity-60">スペック詳細の種別と単位を管理します。単位には基準単位への換算倍率を設定します。</p>
       <button @click="openSpecTypeCreate"
         class="btn btn-primary flex items-center gap-1 px-3 py-1.5 rounded text-sm flex-shrink-0 ml-4">
-        <i data-lucide="plus" class="w-4 h-4"></i>スペック項目を追加
+        <i data-lucide="plus" class="w-4 h-4"></i>スペック詳細を追加
       </button>
     </div>
     <div class="space-y-3" style="max-width: 800px;">
       <div v-for="(st, idx) in specTypes" :key="st.id"
         class="rounded-lg border border-[var(--color-border)] overflow-hidden">
-        <!-- スペック項目ヘッダ -->
+        <!-- スペック詳細ヘッダ -->
         <div class="flex items-center justify-between px-4 py-3"
           :class="idx % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]'">
           <div class="flex items-center gap-3">
@@ -197,13 +197,13 @@
     </div>
   </template>
 
-  <!-- スペック項目作成モーダル -->
+  <!-- スペック詳細作成モーダル -->
   <template v-if="specTypeModal.open">
     <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
       @click.self="specTypeModal.open = false">
       <div class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg p-6 w-96 shadow-xl">
         <h2 class="font-bold text-lg mb-5 flex items-center gap-2">
-          <i data-lucide="plus-circle" class="w-5 h-5"></i>スペック項目を追加
+          <i data-lucide="plus-circle" class="w-5 h-5"></i>スペック詳細を追加
         </h2>
         <div class="space-y-3">
           <div>
@@ -292,9 +292,9 @@
   createApp({
     setup() {
       const tabs = [
-        { key: 'category', label: '分類', icon: 'tag' },
-        { key: 'package', label: 'パッケージ', icon: 'box' },
-        { key: 'spec_type', label: 'スペック項目', icon: 'sliders' },
+        { key: 'category', label: '部品分類', icon: 'tag' },
+        { key: 'package', label: 'パッケージ詳細', icon: 'box' },
+        { key: 'spec_type', label: 'スペック詳細', icon: 'sliders' },
       ];
       const activeTab = ref('category');
 
@@ -360,7 +360,7 @@
       const openMasterCreate = (type) => {
         masterModal.type = type;
         masterModal.mode = 'create';
-        masterModal.title = type === 'category' ? '分類を追加' : 'パッケージを追加';
+        masterModal.title = type === 'category' ? '部品分類を追加' : 'パッケージ詳細を追加';
         masterModal.showDesc = type === 'package';
         masterModal.name = ''; masterModal.desc = ''; masterModal.targetId = null;
         masterModal.open = true;
@@ -369,7 +369,7 @@
       const openMasterEdit = (type, item) => {
         masterModal.type = type;
         masterModal.mode = 'edit';
-        masterModal.title = type === 'category' ? '分類を編集' : 'パッケージを編集';
+        masterModal.title = type === 'category' ? '部品分類を編集' : 'パッケージ詳細を編集';
         masterModal.showDesc = type === 'package';
         masterModal.name = item.name; masterModal.desc = item.description || '';
         masterModal.targetId = item.id;
@@ -390,7 +390,7 @@
         masterModal.open = false;
       };
 
-      // スペック項目モーダル
+      // スペック詳細モーダル
       const specTypeModal = reactive({ open: false, name: '', baseUnit: '' });
       const openSpecTypeCreate = () => {
         specTypeModal.name = ''; specTypeModal.baseUnit = '';
@@ -404,7 +404,7 @@
           units: [{ id: Date.now(), symbol: specTypeModal.baseUnit, factor: 1, isBase: true }],
         });
         specTypeModal.open = false;
-        showToast('スペック項目を追加しました');
+        showToast('スペック詳細を追加しました');
       };
 
       // 単位追加モーダル

@@ -87,10 +87,10 @@
               </button>
             </div>
           </div>
-          <!-- 分類（複数選択 + インライン追加） -->
+          <!-- 部品分類（複数選択 + インライン追加） -->
           <div>
             <label class="block text-sm font-semibold mb-1">
-              分類 <span class="text-red-500">*</span>
+              部品分類 <span class="text-red-500">*</span>
               <span class="text-xs font-normal opacity-50 ml-1">（複数選択可）</span>
             </label>
             <div class="border border-[var(--color-border)] rounded p-2 max-h-32 overflow-y-auto bg-[var(--color-bg)] mb-1">
@@ -356,7 +356,7 @@
           { id: 1, name: '秋月電子通商' }, { id: 2, name: '千石電商' },
           { id: 3, name: 'Digikey' }, { id: 4, name: 'Mouser' },
         ],
-        // スペック項目（master_list.htmlと同じ構造）
+        // スペック詳細（master_list.htmlと同じ構造）
         specTypes: [
           { id: 1, name: '抵抗値', units: ['Ω', 'kΩ', 'MΩ'] },
           { id: 2, name: '容量',   units: ['F', 'μF', 'nF', 'pF'] },
@@ -421,8 +421,8 @@
       // ===== マスタ追加ミニモーダル =====
       const masterLabels = {
         manufacturer: { title: 'メーカーを追加', placeholder: '例: 新日本無線', list: 'manufacturers' },
-        category:     { title: '分類を追加',     placeholder: '例: リレー',      list: 'categories' },
-        package:      { title: 'パッケージを追加', placeholder: '例: SOT-23',    list: 'packages' },
+        category:     { title: '部品分類を追加',     placeholder: '例: リレー',      list: 'categories' },
+        package:      { title: 'パッケージ詳細を追加', placeholder: '例: SOT-23',    list: 'packages' },
         shop:         { title: '商社を追加',      placeholder: '例: RSオンライン', list: null },
         customField:  { title: 'カスタム項目を追加', placeholder: '例: 色',       list: null },
       };

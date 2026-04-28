@@ -50,8 +50,8 @@ class DatasheetPromptService
   "specs": [
     {
       "name": "スペック名",
-      "name_ja": "スペック項目の日本語名",
-      "name_en": "スペック項目の英語名",
+      "name_ja": "スペック詳細の日本語名",
+      "name_en": "スペック詳細の英語名",
       "symbol": "略記号（例: h_FE, -V_CBO。- は通常、_ は下付き、~ は上付き）",
       "value_profile": "typ | range | max_only | min_only | triple",
       "value_typ": "typ値（なければ空文字）",

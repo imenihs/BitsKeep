@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use App\Models\Package;
 use App\Models\PackageGroup;
+use App\Models\SpecGroup;
 use App\Models\SpecType;
 use App\Models\SpecTypeAlias;
 use App\Models\SpecUnit;
@@ -21,34 +21,36 @@ class AkizukiReferenceMasterSeeder extends Seeder
             $packageGroups = $this->seedPackageGroups();
             $this->seedPackages($packageGroups);
             $this->seedSpecTypes();
+            $this->call(SpecSymbolNotationSeeder::class);
             $this->call(SpecGroupTemplateSeeder::class);
+            $this->call(PassiveToleranceSpecSeeder::class);
         });
     }
 
     private function seedCategories(): void
     {
         $rows = [
-            ['name' => '抵抗器', 'description' => '炭素皮膜、金属皮膜、チップ抵抗、集合抵抗など', 'color' => '#ef4444', 'sort_order' => 10],
-            ['name' => 'コンデンサ', 'description' => '積層セラミック、電解、フィルム、スーパーキャパシタなど', 'color' => '#3b82f6', 'sort_order' => 20],
-            ['name' => 'ダイオード', 'description' => '小信号、整流、ショットキー、ツェナー、ブリッジダイオード', 'color' => '#f97316', 'sort_order' => 30],
-            ['name' => 'LED', 'description' => '砲弾型、チップLED、赤外線LED、フォト系発光素子', 'color' => '#facc15', 'sort_order' => 40],
-            ['name' => 'トランジスタ', 'description' => 'BJT、デジタルトランジスタ、トランジスタアレイ', 'color' => '#06b6d4', 'sort_order' => 50],
-            ['name' => 'MOSFET', 'description' => 'Nch/Pch MOSFET、パワーMOSFET、ロジックレベルFET', 'color' => '#14b8a6', 'sort_order' => 60],
-            ['name' => '電源IC', 'description' => 'DCDC、チャージポンプ、電源監視、保護IC', 'color' => '#10b981', 'sort_order' => 70],
-            ['name' => 'レギュレータ', 'description' => '三端子レギュレータ、LDO、可変レギュレータ', 'color' => '#22c55e', 'sort_order' => 80],
-            ['name' => 'アナログIC', 'description' => 'オペアンプ、コンパレータ、ADC/DAC、アナログスイッチ', 'color' => '#f59e0b', 'sort_order' => 90],
-            ['name' => 'オペアンプ', 'description' => '単電源、低消費電流、高速、低オフセットのOPアンプ', 'color' => '#fb923c', 'sort_order' => 100],
-            ['name' => 'ロジックIC', 'description' => '74HC/4000系、シフトレジスタ、バッファ、レベル変換', 'color' => '#8b5cf6', 'sort_order' => 110],
-            ['name' => 'タイマIC', 'description' => '555系、RTC、発振器、タイミングデバイス', 'color' => '#a855f7', 'sort_order' => 120],
-            ['name' => 'マイコン', 'description' => 'MCU単体、周辺IC、メモリ、プログラマブルデバイス', 'color' => '#6366f1', 'sort_order' => 130],
-            ['name' => 'センサ', 'description' => '温湿度、気圧、光、距離、電流、加速度などのセンサ', 'color' => '#0ea5e9', 'sort_order' => 140],
-            ['name' => '発振子', 'description' => '水晶発振子、セラロック、オシレータ、時計用水晶', 'color' => '#64748b', 'sort_order' => 150],
-            ['name' => 'コネクタ', 'description' => 'ピンヘッダ、ピンソケット、JST、端子台、USBコネクタ', 'color' => '#84cc16', 'sort_order' => 160],
-            ['name' => '開発ボード', 'description' => 'マイコンボード、センサモジュール、DIP化/変換基板', 'color' => '#ec4899', 'sort_order' => 170],
+            ['name' => '抵抗器', 'description' => '炭素皮膜、金属皮膜、チップ抵抗、集合抵抗など', 'sort_order' => 10],
+            ['name' => 'コンデンサ', 'description' => '積層セラミック、電解、フィルム、スーパーキャパシタなど', 'sort_order' => 20],
+            ['name' => 'ダイオード', 'description' => '小信号、整流、ショットキー、ツェナー、ブリッジダイオード', 'sort_order' => 30],
+            ['name' => 'LED', 'description' => '砲弾型、チップLED、赤外線LED、フォト系発光素子', 'sort_order' => 40],
+            ['name' => 'トランジスタ', 'description' => 'BJT、デジタルトランジスタ、トランジスタアレイ', 'sort_order' => 50],
+            ['name' => 'MOSFET', 'description' => 'Nch/Pch MOSFET、パワーMOSFET、ロジックレベルFET', 'sort_order' => 60],
+            ['name' => '電源IC', 'description' => 'DCDC、チャージポンプ、電源監視、保護IC', 'sort_order' => 70],
+            ['name' => 'レギュレータ', 'description' => '三端子レギュレータ、LDO、可変レギュレータ', 'sort_order' => 80],
+            ['name' => 'アナログIC', 'description' => 'オペアンプ、コンパレータ、ADC/DAC、アナログスイッチ', 'sort_order' => 90],
+            ['name' => 'オペアンプ', 'description' => '単電源、低消費電流、高速、低オフセットのOPアンプ', 'sort_order' => 100],
+            ['name' => 'ロジックIC', 'description' => '74HC/4000系、シフトレジスタ、バッファ、レベル変換', 'sort_order' => 110],
+            ['name' => 'タイマIC', 'description' => '555系、RTC、発振器、タイミングデバイス', 'sort_order' => 120],
+            ['name' => 'マイコン', 'description' => 'MCU単体、周辺IC、メモリ、プログラマブルデバイス', 'sort_order' => 130],
+            ['name' => 'センサ', 'description' => '温湿度、気圧、光、距離、電流、加速度などのセンサ', 'sort_order' => 140],
+            ['name' => '発振子', 'description' => '水晶発振子、セラロック、オシレータ、時計用水晶', 'sort_order' => 150],
+            ['name' => 'コネクタ', 'description' => 'ピンヘッダ、ピンソケット、JST、端子台、USBコネクタ', 'sort_order' => 160],
+            ['name' => '開発ボード', 'description' => 'マイコンボード、センサモジュール、DIP化/変換基板', 'sort_order' => 170],
         ];
 
         foreach ($rows as $row) {
-            $this->updateOrCreateWithRestore(Category::class, ['name' => $row['name']], $row);
+            $this->updateOrCreateWithRestore(SpecGroup::class, ['name' => $row['name']], $row);
         }
     }
 
@@ -270,7 +272,7 @@ class AkizukiReferenceMasterSeeder extends Seeder
     private function spec(
         string $name,
         string $nameEn,
-        string $symbol,
+        ?string $symbol,
         ?string $baseUnit,
         string $description,
         int $sortOrder,
@@ -278,11 +280,13 @@ class AkizukiReferenceMasterSeeder extends Seeder
         array $displayPrefixes,
         array $aliases
     ): array {
+        $normalizedSymbol = SpecSymbolNotationSeeder::symbolFor($name, $symbol);
+
         return [
             'name' => $name,
             'name_ja' => $name,
             'name_en' => $nameEn,
-            'symbol' => $symbol,
+            'symbol' => $normalizedSymbol,
             'base_unit' => $baseUnit,
             'description' => $description,
             'sort_order' => $sortOrder,
@@ -292,6 +296,7 @@ class AkizukiReferenceMasterSeeder extends Seeder
             'aliases' => array_values(array_unique(array_filter([
                 $name,
                 $nameEn,
+                $normalizedSymbol,
                 $symbol,
                 ...$aliases,
             ], fn ($alias) => trim((string) $alias) !== ''))),
@@ -350,6 +355,7 @@ class AkizukiReferenceMasterSeeder extends Seeder
 
     /**
      * @template TModel of Model
+     *
      * @param  class-string<TModel>  $modelClass
      * @return TModel
      */

@@ -28,7 +28,7 @@ class UpdateComponentSectionRequest extends FormRequest
                 'threshold_used' => ['nullable', 'integer', 'min:0'],
                 'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
                 'category_ids' => ['nullable', 'array'],
-                'category_ids.*' => ['integer', 'exists:categories,id'],
+                'category_ids.*' => ['integer', 'exists:spec_groups,id'],
                 'package_group_id' => ['nullable', 'integer', 'exists:package_groups,id'],
                 'package_id' => ['nullable', 'integer', 'exists:packages,id'],
                 'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],

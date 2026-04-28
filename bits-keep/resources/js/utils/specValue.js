@@ -324,7 +324,7 @@ export const getSpecUnitSuggestions = (specType) => {
 
 /**
  * DBのプレーン記法を HTML サブ/スーパースクリプトへ変換する。
- * `-word` → 通常、`_word` → <sub>word</sub>、`~word` → <sup>word</sup>
+ * `_word` → <sub>word</sub>、`~word` → <sup>word</sup>、`-word` → 通常表示へ戻す。
  * v-html で使うこと。入力は管理者入力のみだが HTML エスケープを先行して行う。
  */
 export const renderSymbol = (text) => {

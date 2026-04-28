@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
-use App\Models\Category;
 use App\Models\Component;
 use App\Models\Package;
+use App\Models\SpecGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -80,10 +80,10 @@ class CsvImportController extends Controller
                     'threshold_new'      => intval($row['threshold_new'] ?? 0),
                 ]);
 
-                // 分類紐づけ
+                // 部品分類紐づけ
                 if (! empty($row['category_names'])) {
                     $names = array_map('trim', explode(',', $row['category_names']));
-                    $ids = Category::whereIn('name', $names)->pluck('id');
+                    $ids = SpecGroup::whereIn('name', $names)->pluck('id');
                     $comp->categories()->sync($ids);
                 }
 

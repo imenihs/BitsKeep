@@ -63,10 +63,12 @@ class Component extends Model
         return substr($sortKey, 0, 255);
     }
 
-    // 分類（多対多）
+    // 部品分類（多対多）
     public function categories(): BelongsToMany
     {
-        return $this->belongsToMany(Category::class, 'component_category');
+        return $this->belongsToMany(SpecGroup::class, 'component_spec_group', 'component_id', 'spec_group_id')
+            ->orderBy('spec_groups.sort_order')
+            ->orderBy('spec_groups.name');
     }
 
     public function package(): BelongsTo

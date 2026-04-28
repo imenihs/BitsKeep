@@ -108,7 +108,7 @@
           </td>
         </tr>
         <tr class="border-b border-[var(--color-border)] hover:opacity-90">
-          <td class="py-2 pr-4 opacity-60 text-xs">分類</td>
+          <td class="py-2 pr-4 opacity-60 text-xs">部品分類</td>
           <td v-for="comp in components" :key="comp.id" class="py-2 px-3 border-l border-[var(--color-border)]">
             @{{ comp.categories?.join(', ') || '-' }}
           </td>

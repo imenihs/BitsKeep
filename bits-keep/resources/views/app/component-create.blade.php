@@ -93,7 +93,7 @@
                 <p class="text-sm font-semibold">✨ 解析候補を保持中</p>
                 <p class="mt-1 text-[11px] opacity-60">
                   基本情報 @{{ helperResultSummary.basicCount }} 件 /
-                  分類 @{{ helperResultSummary.categoryCount }} 件 /
+                  部品分類 @{{ helperResultSummary.categoryCount }} 件 /
                   パッケージ @{{ helperResultSummary.packageCount }} 件 /
                   スペック @{{ helperResultSummary.specCount }} 件
                 </p>
@@ -178,15 +178,15 @@
     </div>
   </section>
 
-  <!-- 分類・パッケージ -->
+  <!-- 部品分類・パッケージ -->
   <section class="card mb-4 p-5 flex-col items-start block bg-[var(--color-card-even)]">
-    <h2 class="font-bold mb-3">分類 / パッケージ</h2>
+    <h2 class="font-bold mb-3">部品分類 / パッケージ</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
-        <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
+        <label class="text-xs font-semibold block mb-2">部品分類（複数選択可）</label>
         <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
           <input v-model="categoryQuery" type="text" class="input-text w-full"
-            placeholder="分類名で絞り込み。なければ追加" />
+            placeholder="部品分類名で絞り込み。なければ追加" />
           <div v-if="form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
             <span v-for="id in form.category_ids" :key="`selected-cat-${id}`"
               class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
@@ -205,7 +205,7 @@
               class="w-full rounded px-2 py-1 text-left text-sm border border-dashed border-[var(--color-primary)] text-[var(--color-primary)]">
               「@{{ categoryQuery.trim() }}」を新規追加
             </button>
-            <p v-if="!filteredCategories.length && !canCreateCategory" class="text-xs opacity-40 p-1">分類がありません</p>
+            <p v-if="!filteredCategories.length && !canCreateCategory" class="text-xs opacity-40 p-1">部品分類がありません</p>
           </div>
         </div>
       </div>
@@ -256,21 +256,21 @@
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Spec</div>
-          <div class="mt-1 text-sm font-semibold">スペック分類</div>
+          <div class="mt-1 text-sm font-semibold">部品分類</div>
           <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button v-if="specGroups.length || specSuggestionTypes.length" type="button" @click="showRecommendedSpecTypes"
             class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
             :class="!isAllSpecTypesSelected && !selectedSpecGroupId && (specGroups.length || specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-            分類からの推奨
+            部品分類からの推奨
           </button>
           <button type="button" @click="showAllSpecTypes"
             class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
-            :class="isAllSpecTypesSelected || (!specGroups.length && !specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-            全項目から選ぶ
+            :class="isAllSpecTypesSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
+            全スペック詳細から選ぶ
           </button>
-          <span v-if="specSuggestionLoading" class="text-xs opacity-50">分類を読込中...</span>
+          <span v-if="specSuggestionLoading" class="text-xs opacity-50">部品分類から推奨を読込中...</span>
         </div>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
@@ -280,17 +280,30 @@
           :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-card-even)] hover:border-[var(--color-primary)]'">
           <span class="flex items-center gap-2 font-semibold">
             <span>@{{ group.name }}</span>
-            <span class="rounded border px-1 py-0.5 text-[10px] opacity-80">@{{ group.is_suggested ? '推奨' : '手動' }}</span>
           </span>
           <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
         </button>
-        <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">@{{ form.category_ids.length ? '分類未設定: 全件候補' : '分類未選択: 全件候補' }}</span>
+        <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">@{{ form.category_ids.length ? 'この部品分類には候補スペック詳細が未設定です' : '部品分類を選ぶと候補スペック詳細を絞り込みます' }}</span>
       </div>
       <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
           placeholder="スペック詳細を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
         <div class="text-xs opacity-60 text-right">
           表示候補 @{{ filteredSpecTypesForPicker().length }}件 / @{{ selectedSpecGroupLabel }} @{{ scopedSpecTypes.length }}件
+        </div>
+      </div>
+      <div v-if="visibleSpecTemplates.length" class="mt-3 border-t border-[var(--color-border)] pt-3">
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <div class="text-xs font-semibold">入力テンプレート</div>
+          <div class="text-[11px] opacity-60">@{{ visibleSpecTemplates.length }}件</div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button v-for="template in visibleSpecTemplates" :key="`create-template-${template.id}`" type="button"
+            @click="applySpecTemplate(template)"
+            class="rounded-md border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2 text-left text-xs hover:border-[var(--color-primary)]">
+            <span class="block font-semibold">@{{ template.name }}</span>
+            <span class="block opacity-60">@{{ specTemplateLabel(template) }} / @{{ template.items?.length ?? 0 }}行</span>
+          </button>
         </div>
       </div>
     </div>
@@ -767,10 +780,10 @@
         <section class="space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-semibold">部品種別 / 分類候補</h4>
-              <p class="text-[11px] opacity-60 mt-1">候補名を修正したり、既存の分類へ手動で紐付けできます。</p>
+              <h4 class="font-semibold">部品種別 / 部品分類候補</h4>
+              <p class="text-[11px] opacity-60 mt-1">候補名を修正したり、既存部品分類へ手動で紐付けできます。</p>
             </div>
-            <button type="button" @click="addHelperCategory" class="text-xs link-text">+ 分類候補を追加</button>
+            <button type="button" @click="addHelperCategory" class="text-xs link-text">+ 部品分類候補を追加</button>
           </div>
           <div v-if="helperResult.categories.length" class="space-y-2">
             <div v-for="(category, index) in helperResult.categories" :key="`helper-category-${index}`"
@@ -779,9 +792,9 @@
                 <input type="checkbox" v-model="category.apply" class="rounded" />
                 <span class="opacity-70">適用</span>
               </label>
-              <input v-model="category.name" type="text" class="input-text w-full" placeholder="分類候補名" />
+              <input v-model="category.name" type="text" class="input-text w-full" placeholder="部品分類候補名" />
               <select v-model="category.category_id" @change="handleHelperCategorySelection(category)" class="input-text w-full">
-                <option value="">既存分類に未紐付け</option>
+                <option value="">既存部品分類に未紐付け</option>
                 <option v-for="masterCategory in categories" :key="masterCategory.id" :value="masterCategory.id">@{{ masterCategory.name }}</option>
               </select>
               <div class="flex items-center justify-end gap-2">
@@ -791,7 +804,32 @@
               </div>
             </div>
           </div>
-          <p v-else class="text-xs opacity-40">分類候補はまだありません</p>
+          <p v-else class="text-xs opacity-40">部品分類候補はまだありません</p>
+        </section>
+
+        <section v-if="helperSuggestionLoading || helperSpecGroups.length || helperSpecTemplates.length" class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h4 class="font-semibold">部品分類 / 入力テンプレート</h4>
+              <p class="text-[11px] opacity-60 mt-1">適用対象の部品分類候補から推奨を表示します。</p>
+            </div>
+            <span v-if="helperSuggestionLoading" class="text-xs opacity-50">読込中...</span>
+          </div>
+          <div v-if="helperSpecGroups.length" class="flex flex-wrap gap-2">
+            <span v-for="group in helperSpecGroups" :key="`helper-spec-group-${group.id}`"
+              class="rounded-md border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2 text-xs">
+              <span class="font-semibold">@{{ group.name }}</span>
+              <span class="ml-2 opacity-60">@{{ group.spec_types?.length ?? 0 }}項目</span>
+            </span>
+          </div>
+          <div v-if="helperSpecTemplates.length" class="flex flex-wrap gap-2">
+            <button v-for="template in helperSpecTemplates" :key="`helper-template-${template.id}`" type="button"
+              @click="applyHelperTemplate(template)"
+              class="rounded-md border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2 text-left text-xs hover:border-[var(--color-primary)]">
+              <span class="block font-semibold">@{{ template.name }}</span>
+              <span class="block opacity-60">@{{ specTemplateLabel(template) }} / @{{ template.items?.length ?? 0 }}行</span>
+            </button>
+          </div>
         </section>
 
         <section class="space-y-3">
@@ -852,7 +890,7 @@
                   <option v-for="pkg in helperFilteredPackages(packageCandidate)" :key="pkg.id" :value="pkg.id">@{{ pkg.name }}</option>
                 </select>
                 <p class="text-[11px] opacity-50 mt-2" v-if="!packageCandidate.package_group_id">先にパッケージ分類を選択してください。</p>
-                <p class="text-[11px] opacity-50 mt-2" v-else-if="!helperFilteredPackages(packageCandidate).length">選択中の分類に該当するパッケージがありません。</p>
+                <p class="text-[11px] opacity-50 mt-2" v-else-if="!helperFilteredPackages(packageCandidate).length">選択中のパッケージ分類に該当するパッケージがありません。</p>
               </div>
             </div>
           </div>

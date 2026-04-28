@@ -176,6 +176,35 @@ body.modal-open {
     color: var(--color-text);  /* btn-primary の白テキスト継承を防ぐ */
 }
 
+.master-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-border) 85%, var(--color-text)) var(--color-card-odd);
+}
+
+.master-scroll::-webkit-scrollbar {
+    width: 0.625rem;
+}
+
+.master-scroll::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.master-scroll::-webkit-scrollbar-track {
+    background: var(--color-card-odd);
+}
+
+.master-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-border) 85%, var(--color-text));
+    border: 2px solid var(--color-card-odd);
+    border-radius: 999px;
+}
+
+.master-scroll::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-border) 65%, var(--color-text));
+}
+
 .link-text,
 .link-text:visited {
     color: var(--color-text);

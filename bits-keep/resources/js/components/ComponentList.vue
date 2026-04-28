@@ -3,7 +3,7 @@
     <!-- Sidebar: Filters -->
     <aside class="w-64 bg-[var(--color-bg-alt)] border-r border-[var(--color-card-border)] p-4 overflow-y-auto">
       <div class="mb-4">
-        <label class="block text-sm font-semibold mb-1">分類</label>
+        <label class="block text-sm font-semibold mb-1">部品分類</label>
         <select class="input-text">
           <option>すべて</option>
           <option>抵抗</option>

@@ -54,9 +54,13 @@ export default function setup() {
     const specTypes  = ref([]);
     const specGroups = ref([]);
     const specSuggestionTypes = ref([]);
+    const specTemplates = ref([]);
     const selectedSpecGroupId = ref('');
     const specTypeSearchQuery = ref('');
     const specSuggestionLoading = ref(false);
+    const helperSpecGroups = ref([]);
+    const helperSpecTemplates = ref([]);
+    const helperSuggestionLoading = ref(false);
     const suppliers  = ref([]);
     const locations  = ref([]);
     const altiumLibraries = ref([]);
@@ -182,6 +186,31 @@ export default function setup() {
 
         return `${typeId || sourceKey || 'no-type'}:${normalizeSpecProfile(spec?.value_profile)}`;
     };
+    const templateItemSpecType = (item) => item?.spec_type ?? item?.specType ?? findSpecTypeById(item?.spec_type_id);
+    const templateItemProfile = (item) => normalizeSpecProfile(item?.value_profile ?? item?.default_profile ?? 'typ');
+    const templateItemUnit = (item, specType = null) =>
+        String(item?.unit ?? item?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? '').trim();
+    const specTemplateGroup = (template) =>
+        specGroups.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
+            ?? helperSpecGroups.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
+            ?? null;
+    const specTemplateLabel = (template) => {
+        const groupName = specTemplateGroup(template)?.name;
+        return groupName ? `${template.name} / ${groupName}` : template.name;
+    };
+    const hasSpecTypeRow = (specTypeId, rows = form.specs) =>
+        rows.some((spec) => Number(spec.spec_type_id) === Number(specTypeId));
+    const buildSpecRowFromTemplateItem = (item) => {
+        const specType = templateItemSpecType(item);
+
+        return {
+            ...createEmptySpecRow(),
+            spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
+            spec_type_name: specType?.name_ja ?? specType?.name ?? '',
+            value_profile: templateItemProfile(item),
+            unit: templateItemUnit(item, specType),
+        };
+    };
     const handleSpecTypeSelection = (spec) => {
         const selected = findSpecTypeById(spec?.spec_type_id);
         if (selected) {
@@ -212,6 +241,10 @@ export default function setup() {
     });
     const openInlineSpecTypeModal = (spec = null) => {
         if (!canCreateSpecType.value) return;
+        if (!resolveInlineSpecOwnerGroup()) {
+            toastError('スペック詳細を追加する部品分類を1つ選んでください');
+            return;
+        }
 
         const selected = findSpecTypeById(spec?.spec_type_id);
         const rawName = String(spec?.name ?? '').trim();
@@ -281,7 +314,7 @@ export default function setup() {
         const trimmed = name.trim();
         if (!trimmed) return null;
         try {
-            const endpoints = { category: '/categories', package: '/packages', supplier: '/suppliers' };
+            const endpoints = { category: '/spec-groups', package: '/packages', supplier: '/suppliers' };
             const res = await api.post(endpoints[type], { name: trimmed, ...extra });
             toastSuccess(`追加しました: ${trimmed}`);
             return res.data;
@@ -298,6 +331,11 @@ export default function setup() {
 
         const existing = matchByName(name, specTypes.value, specTypeSearchText);
         if (existing) return existing;
+        const ownerGroup = resolveInlineSpecOwnerGroup();
+        if (!ownerGroup) {
+            toastError('スペック詳細を追加する部品分類を1つ選んでください');
+            return null;
+        }
 
         try {
             const res = await api.post('/spec-types', {
@@ -306,6 +344,8 @@ export default function setup() {
                 name_en: String(spec?.name_en ?? '').trim(),
                 symbol: String(spec?.symbol ?? '').trim(),
                 unit: String(spec?.unit ?? '').trim(),
+                spec_scope: 'group_local',
+                owner_spec_group_id: ownerGroup.id,
                 aliases: buildSpecTypeAliases(
                     spec?.aliases_text ?? '',
                     [spec?.name],
@@ -314,6 +354,7 @@ export default function setup() {
                 sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
             });
             specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
+            attachSpecTypeToOwnerGroup(res.data, ownerGroup.id);
             toastSuccess(`スペック詳細を追加しました: ${name}`);
             return res.data;
         } catch (e) {
@@ -601,6 +642,7 @@ export default function setup() {
         if (!categoryIds.length) {
             specGroups.value = [];
             specSuggestionTypes.value = [];
+            specTemplates.value = [];
             selectedSpecGroupId.value = '';
             specSuggestionLoading.value = false;
             return;
@@ -610,12 +652,12 @@ export default function setup() {
         try {
             const params = new URLSearchParams();
             categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
-            params.set('include_all_groups', '1');
             const res = await api.get(`/spec-suggestions?${params.toString()}`);
             if (seq !== specSuggestionRequestSeq) return;
 
             specGroups.value = res.data?.groups ?? [];
             specSuggestionTypes.value = res.data?.spec_types ?? [];
+            specTemplates.value = res.data?.templates ?? [];
 
             const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
             const currentStillAvailable = currentId === ''
@@ -628,7 +670,8 @@ export default function setup() {
             if (seq !== specSuggestionRequestSeq) return;
             specGroups.value = [];
             specSuggestionTypes.value = [];
-            toastError('スペック分類の取得に失敗しました。全件候補で選択してください');
+            specTemplates.value = [];
+            toastError('部品分類候補の取得に失敗しました。必要なら全スペック詳細から選択してください');
         } finally {
             if (seq === specSuggestionRequestSeq) {
                 specSuggestionLoading.value = false;
@@ -641,9 +684,13 @@ export default function setup() {
         return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
     });
     const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
+    const selectedSpecCategoryIds = computed(() => form.category_ids.map((id) => Number(id)).filter(Boolean));
+    const hasSelectedSpecCategories = computed(() => selectedSpecCategoryIds.value.length > 0);
     const selectedSpecGroupLabel = computed(() => {
         if (isAllSpecTypesSelected.value) return '全スペック詳細';
-        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック詳細');
+        if (selectedSpecGroup.value) return selectedSpecGroup.value.name;
+        if (specSuggestionTypes.value.length) return '部品分類からの推奨';
+        return hasSelectedSpecCategories.value ? '候補スペック詳細なし' : '部品分類未選択';
     });
     const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
     const scopedSpecTypes = computed(() => {
@@ -651,8 +698,44 @@ export default function setup() {
         if (group) return groupSpecTypes(group);
         if (isAllSpecTypesSelected.value) return specTypes.value;
         if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
-        return specTypes.value;
+        return [];
     });
+    const resolveInlineSpecOwnerGroup = () => {
+        const selectedGroupId = normalizeSpecGroupId(selectedSpecGroupId.value);
+        if (selectedGroupId && selectedGroupId !== 'all') {
+            const group = specGroups.value.find((item) => String(item.id) === selectedGroupId)
+                ?? findCategoryById(selectedGroupId);
+            if (group) {
+                return { id: Number(group.id), name: group.name };
+            }
+        }
+
+        const suggestedGroups = specGroups.value.filter((group) => group.is_suggested);
+        if (suggestedGroups.length === 1) {
+            const [group] = suggestedGroups;
+            return { id: Number(group.id), name: group.name };
+        }
+
+        if (selectedSpecCategoryIds.value.length === 1) {
+            const categoryId = selectedSpecCategoryIds.value[0];
+            const category = findCategoryById(categoryId);
+            return { id: categoryId, name: category?.name ?? '' };
+        }
+
+        return null;
+    };
+    const attachSpecTypeToOwnerGroup = (specType, ownerSpecGroupId) => {
+        const group = specGroups.value.find((item) => Number(item.id) === Number(ownerSpecGroupId));
+        if (!group || !specType?.id) return;
+
+        const currentTypes = groupSpecTypes(group);
+        if (!currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
+            group.spec_types = sortSpecTypes([...currentTypes, specType]);
+        }
+        if (group.is_suggested && !specSuggestionTypes.value.some((item) => Number(item.id) === Number(specType.id))) {
+            specSuggestionTypes.value = sortSpecTypes([...specSuggestionTypes.value, specType]);
+        }
+    };
     const specTypePickerOptionLabel = (specType) => {
         const label = specTypeOptionLabel(specType);
         return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
@@ -690,6 +773,58 @@ export default function setup() {
     const showAllSpecTypes = () => {
         selectedSpecGroupId.value = 'all';
         specTypeSearchQuery.value = '';
+    };
+    const recommendedSpecGroupIdSet = computed(() =>
+        new Set(specGroups.value.filter((group) => group.is_suggested).map((group) => Number(group.id)))
+    );
+    const visibleSpecTemplates = computed(() => {
+        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
+        const templates = specTemplates.value ?? [];
+
+        if (groupId && groupId !== 'all') {
+            return templates.filter((template) => Number(template.spec_group_id) === Number(groupId));
+        }
+        if (groupId === 'all') {
+            return templates;
+        }
+        if (recommendedSpecGroupIdSet.value.size > 0) {
+            return templates.filter((template) => recommendedSpecGroupIdSet.value.has(Number(template.spec_group_id)));
+        }
+
+        return templates;
+    });
+    const applySpecTemplate = (template) => {
+        const rows = Array.isArray(template?.items) ? template.items : [];
+        if (!rows.length) {
+            toastError('この入力テンプレートにはスペック行がありません');
+            return;
+        }
+
+        let added = 0;
+        let skipped = 0;
+        rows.forEach((item) => {
+            const specTypeId = Number(item?.spec_type_id ?? templateItemSpecType(item)?.id ?? 0);
+            if (!specTypeId || hasSpecTypeRow(specTypeId)) {
+                skipped++;
+                return;
+            }
+
+            form.specs.push(buildSpecRowFromTemplateItem(item));
+            added++;
+        });
+
+        if (template?.spec_group_id) {
+            selectedSpecGroupId.value = String(template.spec_group_id);
+        }
+
+        if (added > 0) {
+            toastSuccess(skipped > 0
+                ? `${template.name} を適用しました（追加 ${added} 件 / 既存 ${skipped} 件）`
+                : `${template.name} を適用しました（追加 ${added} 件）`);
+            return;
+        }
+
+        toastError('既に同じスペック詳細の行があります');
     };
 
     const createHelperBasicField = (value = '') => ({
@@ -757,6 +892,89 @@ export default function setup() {
                 || String(overrides.value_max ?? '').trim() !== ''
             ),
         };
+    };
+    const createHelperSpecFromTemplateItem = (item) => {
+        const specType = templateItemSpecType(item);
+
+        return createHelperSpecCandidate({
+            spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
+            name: specType?.name ?? specType?.name_ja ?? '',
+            name_ja: specType?.name_ja ?? specType?.name ?? '',
+            name_en: specType?.name_en ?? '',
+            symbol: specType?.symbol ?? '',
+            value_profile: templateItemProfile(item),
+            unit: templateItemUnit(item, specType),
+            apply: true,
+            matched: !!specType,
+        });
+    };
+    const helperSelectedCategoryIds = computed(() => [
+        ...new Set((helperResult.value?.categories ?? [])
+            .filter((category) => category.apply && category.category_id)
+            .map((category) => Number(category.category_id))
+            .filter(Boolean)),
+    ]);
+    let helperSuggestionRequestSeq = 0;
+    const fetchSpecSuggestionsForHelper = async () => {
+        const categoryIds = helperSelectedCategoryIds.value;
+        const seq = ++helperSuggestionRequestSeq;
+
+        if (!categoryIds.length) {
+            helperSpecGroups.value = [];
+            helperSpecTemplates.value = [];
+            helperSuggestionLoading.value = false;
+            return;
+        }
+
+        helperSuggestionLoading.value = true;
+        try {
+            const params = new URLSearchParams();
+            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
+            const res = await api.get(`/spec-suggestions?${params.toString()}`);
+            if (seq !== helperSuggestionRequestSeq) return;
+
+            helperSpecGroups.value = res.data?.groups ?? [];
+            helperSpecTemplates.value = res.data?.templates ?? [];
+        } catch {
+            if (seq !== helperSuggestionRequestSeq) return;
+            helperSpecGroups.value = [];
+            helperSpecTemplates.value = [];
+        } finally {
+            if (seq === helperSuggestionRequestSeq) {
+                helperSuggestionLoading.value = false;
+            }
+        }
+    };
+    const applyHelperTemplate = (template) => {
+        if (!helperResult.value) return;
+
+        const rows = Array.isArray(template?.items) ? template.items : [];
+        if (!rows.length) {
+            toastError('この入力テンプレートにはスペック行がありません');
+            return;
+        }
+
+        let added = 0;
+        let skipped = 0;
+        rows.forEach((item) => {
+            const specTypeId = Number(item?.spec_type_id ?? templateItemSpecType(item)?.id ?? 0);
+            if (!specTypeId || hasSpecTypeRow(specTypeId, helperResult.value.specs ?? [])) {
+                skipped++;
+                return;
+            }
+
+            helperResult.value.specs.push(createHelperSpecFromTemplateItem(item));
+            added++;
+        });
+
+        if (added > 0) {
+            toastSuccess(skipped > 0
+                ? `${template.name} をスペック候補へ追加しました（追加 ${added} 件 / 既存 ${skipped} 件）`
+                : `${template.name} をスペック候補へ追加しました（追加 ${added} 件）`);
+            return;
+        }
+
+        toastError('既に同じスペック詳細の候補があります');
     };
 
     const extractCategoryNames = (data) => {
@@ -2093,12 +2311,12 @@ export default function setup() {
         }
 
         if (appliedCount === 0) {
-            toastError('適用できる候補がありません。分類・パッケージ・スペック詳細を確認してください。');
+            toastError('適用できる候補がありません。部品分類・パッケージ詳細・スペック詳細を確認してください。');
             return;
         }
 
         const warnings = [];
-        if (skippedCategories > 0) warnings.push(`分類 ${skippedCategories} 件`);
+        if (skippedCategories > 0) warnings.push(`部品分類 ${skippedCategories} 件`);
         if (skippedSpecs > 0) warnings.push(`スペック詳細未選択 ${skippedSpecs} 件`);
         if (skippedPackage) warnings.push('パッケージ 1 件');
 
@@ -2243,7 +2461,7 @@ export default function setup() {
     // ── 初期ロード ────────────────────────────────────────
     onMounted(async () => {
         const [catRes, groupRes, pkgRes, stRes, supRes, compRes, locRes, altiumRes] = await Promise.all([
-            api.get('/categories'), api.get('/package-groups'), api.get('/packages'),
+            api.get('/spec-groups'), api.get('/package-groups'), api.get('/packages'),
             api.get('/spec-types'), api.get('/suppliers'),
             api.get('/components?per_page=100'),
             api.get('/locations'),
@@ -2412,6 +2630,10 @@ export default function setup() {
         void fetchSpecSuggestionsForForm();
     });
 
+    watch(() => helperSelectedCategoryIds.value.join(','), () => {
+        void fetchSpecSuggestionsForHelper();
+    });
+
     watch(() => datasheetFiles.value.length, (length) => {
         if (length === 0) {
             datasheetTargetIndex.value = 0;
@@ -2442,7 +2664,7 @@ export default function setup() {
     return {
         toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,
         imagePreviewUrl, currentImageUrl, currentDatasheets, datasheetFiles, datasheetLabels, datasheetTargetIndex,
-        categories, packageGroups, packages, specTypes, specGroups, specSuggestionTypes, specSuggestionLoading, suppliers,
+        categories, packageGroups, packages, specTypes, specGroups, specSuggestionTypes, specTemplates, visibleSpecTemplates, specSuggestionLoading, suppliers,
         altiumLibraries, schLibraries, pcbLibraries,
         manufacturerQuery, filteredManufacturers, manufacturerExactMatch,
         manufacturerSuggestionsOpen,
@@ -2450,6 +2672,7 @@ export default function setup() {
         packageQuery, filteredPackages, canCreatePackage,
         specProfileOptions, specProfileBadge, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
         selectedSpecGroupId, selectedSpecGroupLabel, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, showRecommendedSpecTypes, showAllSpecTypes, isAllSpecTypesSelected,
+        applySpecTemplate, specTemplateLabel,
         addSpec, removeSpec, getUnitSuggestions, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile, addCustomAttribute, removeCustomAttribute,
         addSupplier, removeSupplier, addPriceBreak, removePriceBreak,
         selectManufacturer, commitManufacturer,
@@ -2457,6 +2680,7 @@ export default function setup() {
         filteredSuppliersForRow, canCreateSupplierForRow, selectSupplier, commitSupplier,
         onImageChange, onDatasheetChange,
         analyzing, helperResult, helperResultSummary, showHelperResultModal,
+        helperSpecGroups, helperSpecTemplates, helperSuggestionLoading, applyHelperTemplate,
         helperFilteredPackages,
         analyzeDatasheet, openHelperResultModal, closeHelperResultModal, discardHelperResult, applyHelperResult,
         addHelperCategory, removeHelperCategory, handleHelperCategorySelection,

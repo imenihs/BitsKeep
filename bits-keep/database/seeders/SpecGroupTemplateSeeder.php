@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use App\Models\SpecGroup;
 use App\Models\SpecTemplate;
 use App\Models\SpecTemplateItem;
@@ -17,54 +16,35 @@ class SpecGroupTemplateSeeder extends Seeder
     {
         DB::transaction(function () {
             $specTypes = SpecType::query()->get()->keyBy('name');
-            $categories = Category::query()->get()->keyBy('name');
-            $groups = $this->seedGroups($categories);
+            $groups = $this->seedGroups();
             $this->seedGroupMembers($groups, $specTypes);
+            $this->seedCommonSpecTypes();
             $this->seedTemplates($groups, $specTypes);
+            $this->removeLegacyCommonGroup();
         });
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<string, Category>  $categories
      * @return array<string, SpecGroup>
      */
-    private function seedGroups($categories): array
+    private function seedGroups(): array
     {
         $rows = [
-            ['name' => '共通', 'description' => '多くの部品分類で共通して使う基本スペック', 'sort_order' => 10, 'categories' => []],
-            ['name' => 'BJT', 'description' => 'バイポーラトランジスタの代表スペック', 'sort_order' => 20, 'categories' => ['トランジスタ']],
-            ['name' => 'MOSFET', 'description' => 'MOSFETの代表スペック', 'sort_order' => 30, 'categories' => ['MOSFET']],
-            ['name' => 'ダイオード/LED', 'description' => 'ダイオード、LED、光半導体の代表スペック', 'sort_order' => 40, 'categories' => ['ダイオード', 'LED']],
-            ['name' => '電源IC/レギュレータ', 'description' => 'DCDC、LDO、三端子レギュレータの代表スペック', 'sort_order' => 50, 'categories' => ['電源IC', 'レギュレータ']],
-            ['name' => 'OPアンプ/コンパレータ', 'description' => 'OPアンプ、コンパレータの代表スペック', 'sort_order' => 60, 'categories' => ['アナログIC', 'オペアンプ']],
-            ['name' => 'ロジックIC', 'description' => 'ロジックIC、レベル変換、タイミング系ICの代表スペック', 'sort_order' => 70, 'categories' => ['ロジックIC', 'タイマIC']],
-            ['name' => 'マイコン', 'description' => 'MCU、周辺IC、開発ボードの代表スペック', 'sort_order' => 80, 'categories' => ['マイコン', '開発ボード']],
-            ['name' => 'センサ', 'description' => '環境センサ、物理量センサの代表スペック', 'sort_order' => 90, 'categories' => ['センサ']],
-            ['name' => '発振子', 'description' => '水晶発振子、セラロック、オシレータの代表スペック', 'sort_order' => 100, 'categories' => ['発振子']],
+            ['name' => 'BJT', 'description' => 'バイポーラトランジスタの代表スペック', 'sort_order' => 20],
+            ['name' => 'MOSFET', 'description' => 'MOSFETの代表スペック', 'sort_order' => 30],
+            ['name' => 'ダイオード/LED', 'description' => 'ダイオード、LED、光半導体の代表スペック', 'sort_order' => 40],
+            ['name' => '電源IC/レギュレータ', 'description' => 'DCDC、LDO、三端子レギュレータの代表スペック', 'sort_order' => 50],
+            ['name' => 'OPアンプ/コンパレータ', 'description' => 'OPアンプ、コンパレータの代表スペック', 'sort_order' => 60],
+            ['name' => 'ロジックIC', 'description' => 'ロジックIC、レベル変換、タイミング系ICの代表スペック', 'sort_order' => 70],
+            ['name' => 'マイコン', 'description' => 'MCU、周辺IC、開発ボードの代表スペック', 'sort_order' => 80],
+            ['name' => 'センサ', 'description' => '環境センサ、物理量センサの代表スペック', 'sort_order' => 90],
+            ['name' => '発振子', 'description' => '水晶発振子、セラロック、オシレータの代表スペック', 'sort_order' => 100],
         ];
 
         $groups = [];
         foreach ($rows as $row) {
-            $categoryNames = $row['categories'];
-            unset($row['categories']);
-
             $group = $this->updateOrCreateWithRestore(SpecGroup::class, ['name' => $row['name']], $row);
             $groups[$group->name] = $group;
-
-            $sync = [];
-            foreach ($categoryNames as $index => $categoryName) {
-                $category = $categories->get($categoryName);
-                if (!$category) {
-                    continue;
-                }
-                $sync[$category->id] = [
-                    'sort_order' => ($index + 1) * 10,
-                    'is_primary' => $index === 0,
-                ];
-            }
-            if ($sync !== []) {
-                $group->categories()->syncWithoutDetaching($sync);
-            }
         }
 
         return $groups;
@@ -77,7 +57,6 @@ class SpecGroupTemplateSeeder extends Seeder
     private function seedGroupMembers(array $groups, $specTypes): void
     {
         $rows = [
-            '共通' => ['電源電圧', '動作温度', '保存温度', '端子数', '端子ピッチ', '全損失'],
             'BJT' => ['コレクタ-エミッタ間電圧', 'コレクタ-ベース間電圧', 'エミッタ-ベース間電圧', 'コレクタ電流', '直流電流増幅率', 'コレクタ-エミッタ飽和電圧', 'トランジション周波数'],
             'MOSFET' => ['ドレイン-ソース間電圧', 'ドレイン電流', 'ゲート-ソース間電圧', 'オン抵抗', 'ゲートしきい値電圧', 'ゲート電荷', '全損失'],
             'ダイオード/LED' => ['ピーク耐圧', '平均順電流', '順方向電圧', '順方向電流', '逆回復時間', '端子間容量', '発光波長', '光度', '指向角'],
@@ -101,6 +80,12 @@ class SpecGroupTemplateSeeder extends Seeder
                 if (!$specType) {
                     continue;
                 }
+                if ($specType->spec_scope !== SpecType::SCOPE_COMMON && !$specType->owner_spec_group_id) {
+                    $specType->forceFill([
+                        'spec_scope' => SpecType::SCOPE_GROUP_LOCAL,
+                        'owner_spec_group_id' => $group->id,
+                    ])->save();
+                }
                 $sync[$specType->id] = [
                     'sort_order' => ($index + 1) * 10,
                     'is_required' => $index < 2,
@@ -112,6 +97,16 @@ class SpecGroupTemplateSeeder extends Seeder
             }
             $group->specTypes()->syncWithoutDetaching($sync);
         }
+    }
+
+    private function seedCommonSpecTypes(): void
+    {
+        SpecType::query()
+            ->whereIn('name', ['動作温度', '保存温度', '端子数', '端子ピッチ'])
+            ->update([
+                'spec_scope' => SpecType::SCOPE_COMMON,
+                'owner_spec_group_id' => null,
+            ]);
     }
 
     /**
@@ -178,5 +173,18 @@ class SpecGroupTemplateSeeder extends Seeder
         }
 
         return $model;
+    }
+
+    private function removeLegacyCommonGroup(): void
+    {
+        $commonGroupIds = DB::table('spec_groups')
+            ->where('name', '共通')
+            ->pluck('id');
+
+        foreach ($commonGroupIds as $groupId) {
+            DB::table('spec_templates')->where('spec_group_id', $groupId)->update(['spec_group_id' => null]);
+            DB::table('spec_group_spec_type')->where('spec_group_id', $groupId)->delete();
+            DB::table('spec_groups')->where('id', $groupId)->delete();
+        }
     }
 }

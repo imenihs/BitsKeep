@@ -13,52 +13,52 @@ class SpecSuggestionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $categoryIds = collect((array) $request->input('category_ids', []))
+        $categoryIds = collect([
+            ...(array) $request->input('category_ids', []),
+            ...(array) $request->input('spec_group_ids', []),
+        ])
             ->map(fn ($id) => (int) $id)
             ->filter()
+            ->unique()
             ->values()
             ->all();
         $q = trim((string) $request->query('q', ''));
-        $includeAllGroups = $request->boolean('include_all_groups');
 
         $groupsQuery = SpecGroup::query()
+            ->where('name', '!=', '共通')
+            ->whereIn('id', $categoryIds)
             ->with([
-                'categories',
                 'specTypes' => fn ($query) => $query->with(['units', 'aliases']),
                 'templates' => fn ($query) => $query->with(['items.specType.units', 'items.specType.aliases']),
             ])
             ->orderBy('sort_order')
             ->orderBy('name');
 
-        $suggestedGroupIds = collect();
-        if ($categoryIds !== []) {
-            $suggestedGroupIds = SpecGroup::query()
-                ->where(function ($query) use ($categoryIds) {
-                    $query->whereHas('categories', fn ($categoryQuery) => $categoryQuery->whereIn('categories.id', $categoryIds))
-                        ->orWhere('name', '共通');
-                })
-                ->pluck('id');
-
-            if (!$includeAllGroups) {
-                $groupsQuery->whereIn('id', $suggestedGroupIds);
-            }
-        }
-
         $groups = $groupsQuery->get();
-        $suggestedGroupIdSet = $suggestedGroupIds->mapWithKeys(fn ($id) => [(int) $id => true]);
-        $groups->each(function (SpecGroup $group) use ($categoryIds, $suggestedGroupIdSet) {
-            $group->is_suggested = $categoryIds === [] || isset($suggestedGroupIdSet[(int) $group->id]);
+        $groups->each(function (SpecGroup $group) {
+            $group->is_suggested = true;
         });
 
-        $recommendedGroups = $categoryIds === []
-            ? $groups
-            : $groups->filter(fn (SpecGroup $group) => (bool) $group->is_suggested);
-        $specTypeIds = $recommendedGroups->flatMap(fn (SpecGroup $group) => $group->specTypes->pluck('id'))->unique()->values();
+        $recommendedGroups = $groups;
+        $templates = $groups
+            ->flatMap(function (SpecGroup $group) {
+                return $group->templates->each(function ($template) {
+                    $template->is_suggested = true;
+                });
+            })
+            ->values();
+        $recommendedTemplateIds = $templates
+            ->filter(fn ($template) => (bool) $template->is_suggested)
+            ->pluck('id')
+            ->values();
+        $specTypeIds = $recommendedGroups
+            ->flatMap(fn (SpecGroup $group) => $group->specTypes->pluck('id'))
+            ->unique()
+            ->values();
 
-        $specTypesQuery = SpecType::query()->with(['units', 'aliases']);
-        if ($specTypeIds->isNotEmpty()) {
-            $specTypesQuery->whereIn('id', $specTypeIds);
-        }
+        $specTypesQuery = SpecType::query()
+            ->with(['units', 'aliases'])
+            ->whereIn('id', $specTypeIds);
         if ($q !== '') {
             $like = "%{$q}%";
             $specTypesQuery->where(function ($query) use ($like) {
@@ -73,8 +73,9 @@ class SpecSuggestionController extends Controller
         return ApiResponse::success([
             'groups' => $groups,
             'spec_types' => $specTypesQuery->orderBy('sort_order')->orderBy('name')->get(),
-            'templates' => $groups->flatMap(fn (SpecGroup $group) => $group->templates)->values(),
+            'templates' => $templates,
             'recommended_group_ids' => $recommendedGroups->pluck('id')->values(),
+            'recommended_template_ids' => $recommendedTemplateIds,
         ]);
     }
 }

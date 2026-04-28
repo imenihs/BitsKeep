@@ -83,7 +83,7 @@ export default function setup() {
         if (searchQuery.value) chips.push({ key: 'q', label: `検索: ${searchQuery.value}` });
         filterCategories.value.forEach((categoryId) => {
             const categoryName = categories.value.find((item) => item.id == categoryId)?.name ?? `#${categoryId}`;
-            chips.push({ key: `cat:${categoryId}`, label: `分類: ${categoryName}` });
+            chips.push({ key: `cat:${categoryId}`, label: `部品分類: ${categoryName}` });
         });
         if (filterStatus.value) {
             chips.push({ key: 'status', label: `入手可否: ${procurementLabel[filterStatus.value] ?? filterStatus.value}` });
@@ -216,7 +216,7 @@ export default function setup() {
         masterError.value = '';
         try {
             const [catRes, pkgGroupRes, pkgRes, stRes, alertRes] = await Promise.all([
-                api.get('/categories'),
+                api.get('/spec-groups'),
                 api.get('/package-groups'),
                 api.get('/packages'),
                 api.get('/spec-types'),
@@ -228,7 +228,7 @@ export default function setup() {
             specTypes.value  = stRes.data;
             alertCount.value = alertRes.data?.length ?? 0;
         } catch {
-            masterError.value = '分類・パッケージ・スペック詳細・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
+            masterError.value = '部品分類・パッケージ詳細・スペック詳細・警告件数の取得に失敗しました。最低限の部品一覧は閲覧できますが、絞り込み候補が欠ける可能性があります。';
             categories.value = [];
             packageGroups.value = [];
             packages.value = [];

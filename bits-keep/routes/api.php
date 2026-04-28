@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\AltiumLinkController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CalcController;
-use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\ComponentController;
 use App\Http\Controllers\Api\ComponentHelperController;
@@ -34,9 +33,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['web', 'auth'])->group(function () {
 
     // ── マスタ管理 ──────────────────────────────────────────
-    Route::apiResource('categories', CategoryController::class);
-    Route::post('categories/{category}/restore', [CategoryController::class, 'restore']);
-    Route::delete('categories/{category}/force', [CategoryController::class, 'forceDestroy']);
     Route::apiResource('packages', PackageController::class);
     Route::post('packages/{package}/restore', [PackageController::class, 'restore']);
     Route::delete('packages/{package}/force', [PackageController::class, 'forceDestroy']);

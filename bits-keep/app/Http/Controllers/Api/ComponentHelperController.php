@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
+use App\Models\SpecGroup;
 use App\Services\DatasheetPromptService;
 use App\Services\GeminiService;
 use App\Services\SpecTypeMatchingService;
@@ -153,6 +154,7 @@ class ComponentHelperController extends Controller
 
             // spec_type とのマッチング
             $result['specs'] = $matcher->match($result['specs']);
+            $result = $this->appendCategorySpecRecommendations($result);
 
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::validationError(['pdf' => [$e->getMessage()]]);
@@ -170,5 +172,141 @@ class ComponentHelperController extends Controller
         }
 
         return ApiResponse::success($result, '解析が完了しました');
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function appendCategorySpecRecommendations(array $result): array
+    {
+        $categoryCandidates = $this->resolveCategoryCandidates($this->extractCategoryNames($result));
+        $categoryIds = collect($categoryCandidates)
+            ->pluck('category_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $groups = $categoryIds->isEmpty()
+            ? collect()
+            : SpecGroup::query()
+                ->where('name', '!=', '共通')
+                ->whereIn('id', $categoryIds)
+                ->with([
+                    'specTypes' => fn ($query) => $query->with(['units', 'aliases']),
+                    'templates' => fn ($query) => $query->with(['items.specType.units', 'items.specType.aliases']),
+                ])
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+
+        $groups->each(function (SpecGroup $group) {
+            $group->is_suggested = true;
+        });
+
+        $templates = $groups
+            ->flatMap(function (SpecGroup $group) {
+                return $group->templates->each(function ($template) {
+                    $template->is_suggested = true;
+                });
+            })
+            ->values();
+
+        $result['category_candidates'] = $categoryCandidates;
+        $result['recommended_spec_groups'] = $groups->values();
+        $result['template_candidates'] = $templates;
+        $result['recommended_group_ids'] = $groups->pluck('id')->values();
+        $result['recommended_template_ids'] = $templates->pluck('id')->values();
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<int, string>
+     */
+    private function extractCategoryNames(array $result): array
+    {
+        $names = collect();
+
+        foreach (['component_types', 'category_names', 'categories'] as $key) {
+            $values = $result[$key] ?? [];
+            if (! is_array($values)) {
+                continue;
+            }
+
+            foreach ($values as $value) {
+                if (is_string($value)) {
+                    $names->push($value);
+                } elseif (is_array($value)) {
+                    $names->push($value['name'] ?? $value['category_name'] ?? '');
+                }
+            }
+        }
+
+        foreach (['component_type', 'category_name'] as $key) {
+            if (is_string($result[$key] ?? null)) {
+                $names->push($result[$key]);
+            }
+        }
+
+        return $names
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     * @return array<int, array<string, mixed>>
+     */
+    private function resolveCategoryCandidates(array $names): array
+    {
+        $categories = SpecGroup::query()
+            ->where('name', '!=', '共通')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return collect($names)
+            ->map(function (string $name) use ($categories) {
+                $matched = $this->matchCategoryByName($name, $categories);
+
+                return [
+                    'name' => $name,
+                    'category_id' => $matched?->id,
+                    'category' => $matched,
+                    'matched' => (bool) $matched,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function matchCategoryByName(string $name, $categories): ?SpecGroup
+    {
+        $normalized = $this->normalizeMatchText($name);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $matched = $categories->first(fn (SpecGroup $category) => $this->normalizeMatchText($category->name) === $normalized);
+        if ($matched) {
+            return $matched;
+        }
+
+        return $categories->first(function (SpecGroup $category) use ($normalized) {
+            $categoryName = $this->normalizeMatchText($category->name);
+
+            return $categoryName !== '' && (str_contains($normalized, $categoryName) || str_contains($categoryName, $normalized));
+        });
+    }
+
+    private function normalizeMatchText(?string $value): string
+    {
+        return mb_strtolower(preg_replace('/[\s()\[\]_.-]+/u', '', (string) $value) ?? '');
     }
 }

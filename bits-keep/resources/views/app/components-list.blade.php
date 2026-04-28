@@ -65,7 +65,7 @@
             class="input-text w-full" />
         </div>
         <div>
-          <label class="block text-[11px] font-semibold opacity-60 mb-1">分類</label>
+          <label class="block text-[11px] font-semibold opacity-60 mb-1">部品分類</label>
           <select v-model="filterCategories" multiple size="1" class="input-text h-11 w-full">
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">@{{ cat.name }}</option>
           </select>
@@ -83,7 +83,7 @@
         <div>
           <label class="block text-[11px] font-semibold opacity-60 mb-1">並び順</label>
           <select v-model="sortOrder" class="input-text w-full">
-            <option value="catalog">分類/パッケージ順</option>
+            <option value="catalog">部品分類/パッケージ順</option>
             <option value="updated_at">更新順</option>
             <option value="name">通称順</option>
             <option value="part_number">型番順</option>
@@ -271,7 +271,7 @@
                 <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
               </div>
               <div class="mt-1 text-xs opacity-60">
-                カテゴリ@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
+                部品分類@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
               </div>
             </div>
           </a>

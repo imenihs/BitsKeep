@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\AltiumLibrary;
 use App\Models\AuditLog;
-use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentSupplier;
 use App\Models\Location;
@@ -45,7 +44,7 @@ class UiApiSurfaceSmokeTest extends TestCase
         $project = $fixture['project'];
 
         foreach ([
-            '/api/categories?include_archived=1',
+            '/api/spec-groups?include_archived=1',
             '/api/package-groups?include_archived=1',
             '/api/packages?include_archived=1',
             '/api/spec-types?include_archived=1',
@@ -115,6 +114,165 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonStructure(['data' => ['result' => ['candidates']]]);
     }
 
+    public function test_spec_type_prefixes_preserve_blank_prefix(): void
+    {
+        $createResponse = $this->postJson('/api/spec-types', [
+            'name' => 'Blank Prefix Voltage',
+            'name_ja' => '無印接頭辞電圧',
+            'value_type' => 'numeric',
+            'unit' => 'V',
+            'suggest_prefixes' => ['G', '', 'm'],
+            'display_prefixes' => ['M', '', 'u'],
+            'spec_scope' => 'common',
+        ]);
+
+        $createResponse
+            ->assertCreated()
+            ->assertJsonPath('data.suggest_prefixes.0', 'G')
+            ->assertJsonPath('data.suggest_prefixes.1', '')
+            ->assertJsonPath('data.display_prefixes.1', '');
+
+        $specTypeId = $createResponse->json('data.id');
+        $specType = SpecType::findOrFail($specTypeId);
+        $this->assertSame(['G', '', 'm'], $specType->suggest_prefixes);
+        $this->assertSame(['M', '', 'u'], $specType->display_prefixes);
+
+        $this->getJson("/api/spec-types/{$specTypeId}")
+            ->assertOk()
+            ->assertJsonPath('data.suggest_prefixes.1', '')
+            ->assertJsonPath('data.display_prefixes.1', '');
+
+        $this->putJson("/api/spec-types/{$specTypeId}", [
+            'name' => 'Blank Prefix Voltage',
+            'name_ja' => '無印接頭辞電圧',
+            'value_type' => 'numeric',
+            'unit' => 'V',
+            'suggest_prefixes' => ['k', ''],
+            'display_prefixes' => ['k', ''],
+            'spec_scope' => 'common',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.suggest_prefixes.1', '')
+            ->assertJsonPath('data.display_prefixes.1', '');
+
+        $specType->refresh();
+        $this->assertSame(['k', ''], $specType->suggest_prefixes);
+        $this->assertSame(['k', ''], $specType->display_prefixes);
+    }
+
+    public function test_spec_type_allows_same_display_name_with_different_symbols(): void
+    {
+        $first = $this->postJson('/api/spec-types', [
+            'name' => '電源電圧',
+            'name_ja' => '電源電圧',
+            'symbol' => 'VDD',
+            'value_type' => 'numeric',
+            'unit' => 'V',
+            'spec_scope' => 'common',
+        ]);
+        $second = $this->postJson('/api/spec-types', [
+            'name' => '電源電圧',
+            'name_ja' => '電源電圧',
+            'symbol' => 'VCC',
+            'value_type' => 'numeric',
+            'unit' => 'V',
+            'spec_scope' => 'common',
+        ]);
+
+        $first->assertCreated()->assertJsonPath('data.name_ja', '電源電圧')->assertJsonPath('data.symbol', 'VDD');
+        $second->assertCreated()->assertJsonPath('data.name_ja', '電源電圧')->assertJsonPath('data.symbol', 'VCC');
+
+        $this->assertDatabaseCount('spec_types', 2);
+        $this->assertSame(
+            ['VDD', 'VCC'],
+            SpecType::query()->where('name_ja', '電源電圧')->orderBy('id')->pluck('symbol')->all()
+        );
+    }
+
+    public function test_spec_types_preserve_tolerance_kind_settings_and_kind_filters(): void
+    {
+        $normalResponse = $this->postJson('/api/spec-types', [
+            'name' => '定格容量',
+            'name_ja' => '定格容量',
+            'value_type' => 'numeric',
+            'unit' => 'uF',
+            'spec_scope' => 'common',
+        ]);
+
+        $normalResponse
+            ->assertCreated()
+            ->assertJsonPath('data.spec_kind', 'normal')
+            ->assertJsonPath('data.base_unit', 'uF');
+
+        $toleranceSettings = [
+            'default_mode' => 'symmetric',
+            'default_unit' => '%',
+            'allowed_units' => ['%', 'ppm'],
+            'grade_options' => [
+                ['label' => 'F', 'value' => 1, 'unit' => '%'],
+                ['label' => 'G', 'value' => 2, 'unit' => '%'],
+                ['label' => 'J', 'value' => 5, 'unit' => '%'],
+                ['label' => 'K', 'value' => 10, 'unit' => '%'],
+                ['label' => 'M', 'value' => 20, 'unit' => '%'],
+            ],
+        ];
+
+        $toleranceResponse = $this->postJson('/api/spec-types', [
+            'name' => '容量許容差',
+            'name_ja' => '容量許容差',
+            'value_type' => 'numeric',
+            'unit' => '%',
+            'spec_scope' => 'common',
+            'spec_kind' => 'tolerance',
+            'tolerance_settings' => $toleranceSettings,
+        ]);
+
+        $toleranceResponse
+            ->assertCreated()
+            ->assertJsonPath('data.name', '容量許容差')
+            ->assertJsonPath('data.name_ja', '容量許容差')
+            ->assertJsonPath('data.spec_scope', 'common')
+            ->assertJsonPath('data.spec_kind', 'tolerance')
+            ->assertJsonPath('data.base_unit', '%')
+            ->assertJsonPath('data.tolerance_settings.default_mode', 'symmetric')
+            ->assertJsonPath('data.tolerance_settings.default_unit', '%')
+            ->assertJsonPath('data.tolerance_settings.allowed_units', ['%', 'ppm'])
+            ->assertJsonPath('data.tolerance_settings.grade_options.0.label', 'F');
+
+        $normalId = $normalResponse->json('data.id');
+        $toleranceId = $toleranceResponse->json('data.id');
+
+        $normalSpecType = SpecType::findOrFail($normalId);
+        $toleranceSpecType = SpecType::findOrFail($toleranceId);
+
+        $this->assertSame('normal', $normalSpecType->spec_kind);
+        $this->assertNull($normalSpecType->tolerance_settings);
+        $this->assertSame('tolerance', $toleranceSpecType->spec_kind);
+        $this->assertEquals($toleranceSettings, $toleranceSpecType->tolerance_settings);
+
+        $this->getJson('/api/spec-types?summary=1&scope=common')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $toleranceId,
+                'name' => '容量許容差',
+                'name_ja' => '容量許容差',
+                'spec_kind' => 'tolerance',
+                'tolerance_settings' => $toleranceSettings,
+            ]);
+
+        $normalList = $this->getJson('/api/spec-types?scope=common&kind=normal')
+            ->assertOk()
+            ->json('data');
+        $toleranceList = $this->getJson('/api/spec-types?scope=common&kind=tolerance')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertContains($normalId, collect($normalList)->pluck('id')->all());
+        $this->assertNotContains($toleranceId, collect($normalList)->pluck('id')->all());
+        $this->assertContains($toleranceId, collect($toleranceList)->pluck('id')->all());
+        $this->assertNotContains($normalId, collect($toleranceList)->pluck('id')->all());
+    }
+
     public function test_authenticated_pages_render_without_backend_errors(): void
     {
         $fixture = $this->createUiFixture();
@@ -173,10 +331,9 @@ class UiApiSurfaceSmokeTest extends TestCase
     {
         $fixture = $this->createUiFixture();
 
-        $lateCategory = Category::create([
+        $lateCategory = SpecGroup::create([
             'name' => '後方カテゴリ',
             'description' => 'late catalog bucket',
-            'color' => '#64748b',
             'sort_order' => 99,
         ]);
         $latePackageGroup = PackageGroup::create([
@@ -244,7 +401,7 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.data.1.part_number', '2SC1815');
     }
 
-    public function test_spec_suggestions_can_include_manual_spec_groups(): void
+    public function test_spec_suggestions_are_scoped_to_selected_spec_groups(): void
     {
         $fixture = $this->createUiFixture();
         $category = $fixture['category'];
@@ -259,12 +416,7 @@ class UiApiSurfaceSmokeTest extends TestCase
             'sort_order' => 20,
         ]);
 
-        $suggestedGroup = SpecGroup::create([
-            'name' => 'UI推奨分類',
-            'description' => 'category matched',
-            'sort_order' => 10,
-        ]);
-        $suggestedGroup->categories()->attach($category->id, ['sort_order' => 10, 'is_primary' => true]);
+        $suggestedGroup = $category;
         $suggestedGroup->specTypes()->attach($suggestedSpecType->id, ['sort_order' => 10]);
 
         $manualGroup = SpecGroup::create([
@@ -274,11 +426,11 @@ class UiApiSurfaceSmokeTest extends TestCase
         ]);
         $manualGroup->specTypes()->attach($manualSpecType->id, ['sort_order' => 10]);
 
-        $response = $this->getJson("/api/spec-suggestions?category_ids[]={$category->id}&include_all_groups=1")
+        $response = $this->getJson("/api/spec-suggestions?category_ids[]={$category->id}")
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonFragment(['name' => 'UI推奨分類', 'is_suggested' => true])
-            ->assertJsonFragment(['name' => 'UI手動選択分類', 'is_suggested' => false])
+            ->assertJsonFragment(['name' => $suggestedGroup->name, 'is_suggested' => true])
+            ->assertJsonMissing(['name' => 'UI手動選択分類'])
             ->assertJsonPath('data.recommended_group_ids.0', $suggestedGroup->id);
 
         $topLevelSpecTypeIds = collect($response->json('data.spec_types'))->pluck('id')->all();
@@ -291,10 +443,9 @@ class UiApiSurfaceSmokeTest extends TestCase
      */
     private function createUiFixture(): array
     {
-        $category = Category::create([
+        $category = SpecGroup::create([
             'name' => 'UI確認カテゴリ',
             'description' => 'UI smoke',
-            'color' => '#38bdf8',
             'sort_order' => 10,
         ]);
         $packageGroup = PackageGroup::create([
@@ -443,7 +594,7 @@ class UiApiSurfaceSmokeTest extends TestCase
     }
 
     private function createComponentFixture(
-        Category $category,
+        SpecGroup $category,
         Package $package,
         SpecType $specType,
         Supplier $supplier,

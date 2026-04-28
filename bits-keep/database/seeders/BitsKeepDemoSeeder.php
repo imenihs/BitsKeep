@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentSupplier;
 use App\Models\Location;
 use App\Models\Package;
 use App\Models\PackageGroup;
+use App\Models\SpecGroup;
 use App\Models\SpecType;
 use App\Models\Supplier;
 use App\Models\User;
@@ -33,15 +33,15 @@ class BitsKeepDemoSeeder extends Seeder
             );
 
             $categories = collect([
-                ['name' => '抵抗', 'color' => '#ef4444', 'sort_order' => 10],
-                ['name' => 'コンデンサ', 'color' => '#3b82f6', 'sort_order' => 20],
-                ['name' => '電源IC', 'color' => '#10b981', 'sort_order' => 30],
-                ['name' => 'アナログIC', 'color' => '#f59e0b', 'sort_order' => 40],
-                ['name' => 'マイコン', 'color' => '#8b5cf6', 'sort_order' => 50],
-                ['name' => 'トランジスタ', 'color' => '#06b6d4', 'sort_order' => 60],
-                ['name' => 'コネクタ', 'color' => '#84cc16', 'sort_order' => 70],
+                ['name' => '抵抗', 'sort_order' => 10],
+                ['name' => 'コンデンサ', 'sort_order' => 20],
+                ['name' => '電源IC', 'sort_order' => 30],
+                ['name' => 'アナログIC', 'sort_order' => 40],
+                ['name' => 'マイコン', 'sort_order' => 50],
+                ['name' => 'トランジスタ', 'sort_order' => 60],
+                ['name' => 'コネクタ', 'sort_order' => 70],
             ])->mapWithKeys(fn (array $data) => [
-                $data['name'] => Category::query()->updateOrCreate(['name' => $data['name']], $data),
+                $data['name'] => SpecGroup::query()->updateOrCreate(['name' => $data['name']], $data),
             ]);
 
             $packageGroups = collect([

@@ -38,9 +38,9 @@ class StoreComponentRequest extends FormRequest
             'existing_datasheets.*.id' => ['nullable', 'integer'],
             'existing_datasheets.*.display_name' => ['nullable', 'string', 'max:120'],
             'duplicate_from_component_id' => ['nullable', 'integer', 'exists:components,id'],
-            // 分類・パッケージ（ID配列）
+            // 部品分類・パッケージ（ID配列）
             'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['integer', 'exists:categories,id'],
+            'category_ids.*' => ['integer', 'exists:spec_groups,id'],
             'package_group_id' => ['nullable', 'integer', 'exists:package_groups,id'],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
             // スペック（配列）

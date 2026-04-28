@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreComponentRequest;
 use App\Http\Requests\UpdateComponentSectionRequest;
 use App\Http\Responses\ApiResponse;
-use App\Models\Category;
 use App\Models\Component;
 use App\Models\ComponentDatasheet;
 use App\Models\Package;
+use App\Models\SpecGroup;
 use App\Models\SpecType;
 use App\Services\SpecValueNormalizerService;
 use App\Services\TempDatasheetService;
@@ -24,7 +24,7 @@ class ComponentController extends Controller
 {
     /**
      * GET /api/components
-     * フリーワード・分類・入手可否・スペック範囲フィルタ + ページネーション
+     * フリーワード・部品分類・入手可否・スペック範囲フィルタ + ページネーション
      */
     public function index(Request $request)
     {
@@ -51,9 +51,9 @@ class ComponentController extends Controller
             }
         }
 
-        // 分類フィルタ（複数選択 OR）
+        // 部品分類フィルタ（複数選択 OR）
         if ($cats = $request->input('category_ids')) {
-            $query->whereHas('categories', fn ($q) => $q->whereIn('categories.id', (array) $cats));
+            $query->whereHas('categories', fn ($q) => $q->whereIn('spec_groups.id', (array) $cats));
         }
 
         // 入手可否フィルタ
@@ -304,7 +304,7 @@ class ComponentController extends Controller
                     $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
                         $request->input('part_number', $component->part_number),
                         $request->input('common_name', $component->common_name),
-                        $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                        $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('spec_groups.id')->all())),
                     ]);
                 }
                 $component->update($data);
@@ -344,7 +344,7 @@ class ComponentController extends Controller
                         $data['image_path'] = FileStorage::storeComponentImageNamed($request->file('image'), [
                             $request->input('part_number', $component->part_number),
                             $request->input('common_name', $component->common_name),
-                            $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                            $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('spec_groups.id')->all())),
                         ]);
                     }
                     $component->update($data);
@@ -439,11 +439,11 @@ class ComponentController extends Controller
 
     private function applyCatalogOrdering(Builder $query): void
     {
-        $categoryOrderSql = 'FROM component_category '
-            .'INNER JOIN categories ON categories.id = component_category.category_id '
-            .'WHERE component_category.component_id = components.id '
-            .'AND categories.deleted_at IS NULL '
-            .'ORDER BY categories.sort_order, categories.name, categories.id LIMIT 1';
+        $categoryOrderSql = 'FROM component_spec_group '
+            .'INNER JOIN spec_groups ON spec_groups.id = component_spec_group.spec_group_id '
+            .'WHERE component_spec_group.component_id = components.id '
+            .'AND spec_groups.deleted_at IS NULL '
+            .'ORDER BY spec_groups.sort_order, spec_groups.name, spec_groups.id LIMIT 1';
         $packageGroupOrderSql = 'FROM packages '
             .'LEFT JOIN package_groups ON package_groups.id = packages.package_group_id '
             .'AND package_groups.deleted_at IS NULL '
@@ -454,8 +454,8 @@ class ComponentController extends Controller
             .'AND packages.deleted_at IS NULL LIMIT 1';
 
         $query
-            ->orderByRaw("COALESCE((SELECT categories.sort_order {$categoryOrderSql}), 2147483647)")
-            ->orderByRaw("COALESCE((SELECT categories.name {$categoryOrderSql}), '')")
+            ->orderByRaw("COALESCE((SELECT spec_groups.sort_order {$categoryOrderSql}), 2147483647)")
+            ->orderByRaw("COALESCE((SELECT spec_groups.name {$categoryOrderSql}), '')")
             ->orderByRaw("COALESCE((SELECT package_groups.sort_order {$packageGroupOrderSql}), 2147483647)")
             ->orderByRaw("COALESCE((SELECT package_groups.name {$packageGroupOrderSql}), '')")
             ->orderByRaw("COALESCE((SELECT packages.sort_order {$packageOrderSql}), 2147483647)")
@@ -610,7 +610,7 @@ class ComponentController extends Controller
             $path = FileStorage::storeComponentDatasheetNamed($file, [
                 $request->input('part_number', $component->part_number),
                 $request->input('common_name', $component->common_name),
-                $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('spec_groups.id')->all())),
             ]);
             $createdSheets[] = [
                 'file_path' => $path,
@@ -626,7 +626,7 @@ class ComponentController extends Controller
                 [
                     $request->input('part_number', $component->part_number),
                     $request->input('common_name', $component->common_name),
-                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('categories.id')->all())),
+                    $this->firstCategoryName((array) $request->input('category_ids', $component->categories()->pluck('spec_groups.id')->all())),
                 ]
             );
 
@@ -782,7 +782,7 @@ class ComponentController extends Controller
             return null;
         }
 
-        return Category::query()
+        return SpecGroup::query()
             ->whereIn('id', $categoryIds)
             ->orderBy('sort_order')
             ->orderBy('name')

@@ -104,7 +104,7 @@ export default function setup() {
     const fetchMasters = async () => {
         try {
             const [categoryRes, packageGroupRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
-                api.get('/categories'),
+                api.get('/spec-groups'),
                 api.get('/package-groups'),
                 api.get('/packages'),
                 api.get('/spec-types'),
@@ -496,11 +496,19 @@ export default function setup() {
     const groupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
     const fetchSpecSuggestionsForCurrentPart = async () => {
         if (!part.value) return;
+        const categoryIds = (part.value.categories ?? []).map((category) => Number(category.id)).filter(Boolean);
+        if (!categoryIds.length) {
+            specGroups.value = [];
+            specSuggestionTypes.value = [];
+            selectedSpecGroupId.value = '';
+            specSuggestionLoading.value = false;
+            return;
+        }
+
         specSuggestionLoading.value = true;
         try {
             const params = new URLSearchParams();
-            (part.value.categories ?? []).forEach((category) => params.append('category_ids[]', category.id));
-            params.set('include_all_groups', '1');
+            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
             const res = await api.get(`/spec-suggestions?${params.toString()}`);
             specGroups.value = res.data?.groups ?? [];
             specSuggestionTypes.value = res.data?.spec_types ?? [];
@@ -515,7 +523,7 @@ export default function setup() {
         } catch {
             specGroups.value = [];
             specSuggestionTypes.value = [];
-            toastError('スペック分類の取得に失敗しました。全件候補で選択してください');
+            toastError('部品分類候補の取得に失敗しました。必要なら全スペック詳細から選択してください');
         } finally {
             specSuggestionLoading.value = false;
         }
@@ -526,9 +534,15 @@ export default function setup() {
         return specGroups.value.find((group) => String(group.id) === groupId) ?? null;
     });
     const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
+    const partSpecCategoryIds = computed(() =>
+        (part.value?.categories ?? []).map((category) => Number(category.id)).filter(Boolean)
+    );
+    const hasPartSpecCategories = computed(() => partSpecCategoryIds.value.length > 0);
     const selectedSpecGroupLabel = computed(() => {
         if (isAllSpecTypesSelected.value) return '全スペック詳細';
-        return selectedSpecGroup.value?.name ?? (specGroups.value.length || specSuggestionTypes.value.length ? '分類からの推奨' : '全スペック詳細');
+        if (selectedSpecGroup.value) return selectedSpecGroup.value.name;
+        if (specSuggestionTypes.value.length) return '部品分類からの推奨';
+        return hasPartSpecCategories.value ? '候補スペック詳細なし' : '部品分類未選択';
     });
     const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
     const scopedSpecTypes = computed(() => {
@@ -536,8 +550,44 @@ export default function setup() {
         if (group) return groupSpecTypes(group);
         if (isAllSpecTypesSelected.value) return specTypes.value;
         if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
-        return specTypes.value;
+        return [];
     });
+    const resolveInlineSpecOwnerGroup = () => {
+        const selectedGroupId = normalizeSpecGroupId(selectedSpecGroupId.value);
+        if (selectedGroupId && selectedGroupId !== 'all') {
+            const group = specGroups.value.find((item) => String(item.id) === selectedGroupId)
+                ?? categories.value.find((item) => Number(item.id) === Number(selectedGroupId));
+            if (group) {
+                return { id: Number(group.id), name: group.name };
+            }
+        }
+
+        const suggestedGroups = specGroups.value.filter((group) => group.is_suggested);
+        if (suggestedGroups.length === 1) {
+            const [group] = suggestedGroups;
+            return { id: Number(group.id), name: group.name };
+        }
+
+        if (partSpecCategoryIds.value.length === 1) {
+            const categoryId = partSpecCategoryIds.value[0];
+            const category = categories.value.find((item) => Number(item.id) === Number(categoryId));
+            return { id: categoryId, name: category?.name ?? '' };
+        }
+
+        return null;
+    };
+    const attachSpecTypeToOwnerGroup = (specType, ownerSpecGroupId) => {
+        const group = specGroups.value.find((item) => Number(item.id) === Number(ownerSpecGroupId));
+        if (!group || !specType?.id) return;
+
+        const currentTypes = groupSpecTypes(group);
+        if (!currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
+            group.spec_types = sortSpecTypes([...currentTypes, specType]);
+        }
+        if (group.is_suggested && !specSuggestionTypes.value.some((item) => Number(item.id) === Number(specType.id))) {
+            specSuggestionTypes.value = sortSpecTypes([...specSuggestionTypes.value, specType]);
+        }
+    };
     const specTypePickerOptionLabel = (specType) => {
         const label = specTypeOptionLabel(specType);
         return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
@@ -578,6 +628,10 @@ export default function setup() {
     };
     const openInlineSpecTypeModal = (spec = null) => {
         if (!canCreateSpecType.value) return;
+        if (!resolveInlineSpecOwnerGroup()) {
+            toastError('スペック詳細を追加する部品分類を1つ選んでください');
+            return;
+        }
 
         const selected = getSpecTypeById(spec?.spec_type_id);
         const rawName = String(spec?.name ?? '').trim();
@@ -617,6 +671,11 @@ export default function setup() {
 
         const existing = matchSpecTypeByName(name);
         if (existing) return existing;
+        const ownerGroup = resolveInlineSpecOwnerGroup();
+        if (!ownerGroup) {
+            toastError('スペック詳細を追加する部品分類を1つ選んでください');
+            return null;
+        }
 
         try {
             const res = await api.post('/spec-types', {
@@ -625,6 +684,8 @@ export default function setup() {
                 name_en: String(spec?.name_en ?? '').trim(),
                 symbol: String(spec?.symbol ?? '').trim(),
                 unit: String(spec?.unit ?? '').trim(),
+                spec_scope: 'group_local',
+                owner_spec_group_id: ownerGroup.id,
                 aliases: buildSpecTypeAliases(
                     spec?.aliases_text ?? '',
                     [spec?.name],
@@ -633,6 +694,7 @@ export default function setup() {
                 sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
             });
             specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
+            attachSpecTypeToOwnerGroup(res.data, ownerGroup.id);
             toastSuccess(`スペック詳細を追加しました: ${name}`);
             return res.data;
         } catch (e) {

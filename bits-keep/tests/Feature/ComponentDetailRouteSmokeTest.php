@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Component;
-use App\Models\Category;
 use App\Models\Package;
 use App\Models\PackageGroup;
+use App\Models\SpecGroup;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +36,7 @@ class ComponentDetailRouteSmokeTest extends TestCase
             'name' => 'TEST-PKG-' . now()->format('Hisv'),
             'sort_order' => 10,
         ]);
-        $category = Category::create([
+        $category = SpecGroup::create([
             'name' => 'TEST-CAT-' . now()->format('Hisv'),
             'sort_order' => 10,
         ]);

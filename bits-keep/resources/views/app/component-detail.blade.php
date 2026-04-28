@@ -102,7 +102,7 @@
             <span class="list-value">@{{ part.common_name || '—' }}</span>
             <span class="list-label">メーカー</span>
             <span class="list-value">@{{ part.manufacturer || '—' }}</span>
-            <span class="list-label">分類</span>
+            <span class="list-label">部品分類</span>
             <span>
               <span v-for="c in part.categories" :key="c.id" class="tag mr-1 text-xs">@{{ c.name }}</span>
               <span v-if="!part.categories.length" class="opacity-40">—</span>
@@ -129,7 +129,7 @@
             <template v-if="part.specs?.length">
               <span class="sm:col-span-4 block border-t border-[var(--color-border)] mt-1 pt-3"></span>
             </template>
-            <!-- 登録スペック（分類によって内容が変わる） -->
+            <!-- 登録スペック（部品分類によって内容が変わる） -->
             <template v-for="s in part.specs" :key="s.id">
               <span class="list-label">
                 @{{ specDisplayName(s) }}
@@ -491,9 +491,9 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="text-xs font-semibold block mb-2">分類（複数選択可）</label>
+            <label class="text-xs font-semibold block mb-2">部品分類（複数選択可）</label>
             <div class="border border-[var(--color-border)] rounded p-2 bg-[var(--color-bg)]">
-              <input v-model="detailCategoryQuery" type="text" class="input-text w-full" placeholder="分類名で絞り込み" />
+              <input v-model="detailCategoryQuery" type="text" class="input-text w-full" placeholder="部品分類名で絞り込み" />
               <div v-if="editModal.form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
                 <span v-for="id in editModal.form.category_ids" :key="`detail-cat-${id}`"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
@@ -582,21 +582,21 @@
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Spec</div>
-              <div class="mt-1 text-sm font-semibold">スペック分類</div>
+              <div class="mt-1 text-sm font-semibold">部品分類</div>
               <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <button v-if="specGroups.length || specSuggestionTypes.length" type="button" @click="showRecommendedSpecTypes"
                 class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
                 :class="!isAllSpecTypesSelected && !selectedSpecGroupId && (specGroups.length || specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-                分類からの推奨
+                部品分類からの推奨
               </button>
               <button type="button" @click="showAllSpecTypes"
                 class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
-                :class="isAllSpecTypesSelected || (!specGroups.length && !specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-                全項目から選ぶ
+                :class="isAllSpecTypesSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
+                全スペック詳細から選ぶ
               </button>
-              <span v-if="specSuggestionLoading" class="text-xs opacity-50">分類を読込中...</span>
+              <span v-if="specSuggestionLoading" class="text-xs opacity-50">部品分類から推奨を読込中...</span>
             </div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
@@ -606,11 +606,10 @@
               :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]'">
               <span class="flex items-center gap-2 font-semibold">
                 <span>@{{ group.name }}</span>
-                <span class="rounded border px-1 py-0.5 text-[10px] opacity-80">@{{ group.is_suggested ? '推奨' : '手動' }}</span>
               </span>
               <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
             </button>
-            <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">分類未設定: 全件候補</span>
+            <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">@{{ part?.categories?.length ? 'この部品分類には候補スペック詳細が未設定です' : '部品分類を設定すると候補スペック詳細を絞り込みます' }}</span>
           </div>
           <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"

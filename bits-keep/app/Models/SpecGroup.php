@@ -26,13 +26,9 @@ class SpecGroup extends Model
             ->orderBy('spec_types.name');
     }
 
-    public function categories(): BelongsToMany
+    public function components(): BelongsToMany
     {
-        return $this->belongsToMany(Category::class, 'category_spec_group')
-            ->withPivot(['sort_order', 'is_primary'])
-            ->withTimestamps()
-            ->orderBy('category_spec_group.sort_order')
-            ->orderBy('categories.name');
+        return $this->belongsToMany(Component::class, 'component_spec_group', 'spec_group_id', 'component_id');
     }
 
     public function templates(): HasMany

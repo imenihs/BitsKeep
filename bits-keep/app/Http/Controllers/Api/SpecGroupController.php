@@ -7,7 +7,6 @@ use App\Http\Responses\ApiResponse;
 use App\Models\SpecGroup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class SpecGroupController extends Controller
@@ -15,6 +14,7 @@ class SpecGroupController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = SpecGroup::query()
+            ->where('name', '!=', '共通')
             ->withCount([
                 'specTypes as usage_count',
                 'templates as template_count',
@@ -22,10 +22,6 @@ class SpecGroupController extends Controller
 
         if ($request->boolean('include_archived')) {
             $query->withTrashed();
-        }
-
-        if ($request->boolean('with_categories')) {
-            $query->with(['categories']);
         }
 
         if ($request->boolean('with_spec_types')) {
@@ -47,7 +43,7 @@ class SpecGroupController extends Controller
             $group->force_delete_reason = $group->can_force_delete
                 ? ''
                 : ((int) $group->usage_count > 0
-                    ? "スペック項目{$group->usage_count}件が所属中"
+                    ? "スペック詳細{$group->usage_count}件が候補に設定されています"
                     : ((int) $group->template_count > 0 ? "テンプレート{$group->template_count}件が所属中" : '先にアーカイブしてください'));
 
             return $group;
@@ -62,14 +58,9 @@ class SpecGroupController extends Controller
             return ApiResponse::forbidden();
         }
 
-        $data = $this->validatedGroup($request);
+        $group = SpecGroup::create($this->validatedGroup($request));
 
-        return DB::transaction(function () use ($data) {
-            $group = SpecGroup::create($data['attributes']);
-            $this->syncCategories($group, $data['category_links']);
-
-            return ApiResponse::created($this->loadForEditor($group));
-        });
+        return ApiResponse::created($this->loadForEditor($group));
     }
 
     public function show(SpecGroup $specGroup): JsonResponse
@@ -83,14 +74,9 @@ class SpecGroupController extends Controller
             return ApiResponse::forbidden();
         }
 
-        $data = $this->validatedGroup($request, $specGroup);
+        $specGroup->update($this->validatedGroup($request, $specGroup));
 
-        return DB::transaction(function () use ($data, $specGroup) {
-            $specGroup->update($data['attributes']);
-            $this->syncCategories($specGroup, $data['category_links']);
-
-            return ApiResponse::success($this->loadForEditor($specGroup));
-        });
+        return ApiResponse::success($this->loadForEditor($specGroup));
     }
 
     public function destroy(Request $request, SpecGroup $specGroup): JsonResponse
@@ -130,13 +116,12 @@ class SpecGroupController extends Controller
             return ApiResponse::error('完全削除の前にアーカイブしてください', [], 422);
         }
         if ((int) $model->usage_count > 0) {
-            return ApiResponse::error("スペック項目{$model->usage_count}件が所属中のため完全削除できません", [], 422);
+            return ApiResponse::error("スペック詳細{$model->usage_count}件が候補に設定されているため完全削除できません", [], 422);
         }
         if ((int) $model->template_count > 0) {
             return ApiResponse::error("テンプレート{$model->template_count}件が所属中のため完全削除できません", [], 422);
         }
 
-        $model->categories()->detach();
         $model->forceDelete();
 
         return ApiResponse::noContent();
@@ -178,7 +163,7 @@ class SpecGroupController extends Controller
     }
 
     /**
-     * @return array{attributes: array<string, mixed>, category_links: array<int, array<string, mixed>>}
+     * @return array<string, mixed>
      */
     private function validatedGroup(Request $request, ?SpecGroup $group = null): array
     {
@@ -186,37 +171,13 @@ class SpecGroupController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('spec_groups', 'name')->ignore($group?->id)],
             'description' => ['nullable', 'string', 'max:500'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'category_links' => ['nullable', 'array'],
-            'category_links.*.category_id' => ['required', 'integer', 'exists:categories,id'],
-            'category_links.*.sort_order' => ['nullable', 'integer', 'min:0'],
-            'category_links.*.is_primary' => ['nullable', 'boolean'],
         ]);
 
         return [
-            'attributes' => [
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'sort_order' => $validated['sort_order'] ?? 0,
-            ],
-            'category_links' => array_values($validated['category_links'] ?? []),
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? 0,
         ];
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $categoryLinks
-     */
-    private function syncCategories(SpecGroup $group, array $categoryLinks): void
-    {
-        $sync = [];
-        foreach ($categoryLinks as $index => $link) {
-            $categoryId = (int) $link['category_id'];
-            $sync[$categoryId] = [
-                'sort_order' => (int) ($link['sort_order'] ?? (($index + 1) * 10)),
-                'is_primary' => (bool) ($link['is_primary'] ?? false),
-            ];
-        }
-
-        $group->categories()->sync($sync);
     }
 
     private function loadForEditor(SpecGroup $group): SpecGroup
@@ -227,12 +188,15 @@ class SpecGroupController extends Controller
             'spec_types.name_ja',
             'spec_types.name_en',
             'spec_types.symbol',
+            'spec_types.spec_scope',
+            'spec_types.owner_spec_group_id',
+            'spec_types.spec_kind',
+            'spec_types.tolerance_settings',
             'spec_types.base_unit',
             'spec_types.sort_order',
         ]);
 
         return $group->load([
-            'categories',
             'specTypes' => $compactSpecType,
             'templates' => fn ($q) => $q->with(['items.specType' => $compactSpecType]),
         ])->loadCount(['specTypes as usage_count', 'templates as template_count']);

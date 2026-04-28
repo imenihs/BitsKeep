@@ -49,7 +49,7 @@
   <!-- フィルターバー -->
   <div class="flex flex-wrap gap-3 mb-6 p-3 bg-[var(--color-card-even)] rounded-lg">
     <div>
-      <label class="block text-xs font-semibold mb-1">分類</label>
+      <label class="block text-xs font-semibold mb-1">部品分類</label>
       <select v-model="filterCategory" class="input-text text-sm py-1">
         <option value="">すべて</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
@@ -69,7 +69,7 @@
       <select v-model="sortOrder" class="input-text text-sm py-1">
         <option value="urgency">逼迫度順（在庫/下限 昇順）</option>
         <option value="name">部品名順</option>
-        <option value="category">分類順</option>
+        <option value="category">部品分類順</option>
       </select>
     </div>
   </div>
