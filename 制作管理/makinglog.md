@@ -5989,3 +5989,12 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `npm run build`
 - ✓ `php artisan test`。52 tests / 496 assertions。
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [Manager] 2026-04-29 11:35:08 JST
+- [ユーザ] 作業完了後にドキュメント更新と全ファイル git commit を行うよう再指示。
+- ドキュメント: README、詳細仕様、実装進捗チェックリストへ、マスタ管理の追加・編集・候補選択系モーダルは `modal-master` 幅に統一し、確認ダイアログは短文専用の小幅モーダルとして分ける方針を追記した。
+- 未追跡ファイル: 予約実行ログ `制作管理/scheduled_logs/bitskeep_0305_20260429_030502.log` を全ファイルコミット対象として確認した。
+- DB変更: なし。
+
+### [Tester] 2026-04-29 11:35:08 JST
+- ✓ `git diff --check`

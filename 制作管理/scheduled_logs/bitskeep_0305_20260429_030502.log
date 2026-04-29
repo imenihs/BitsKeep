@@ -1,0 +1,11 @@
+[2026-04-29 03:05:02 JST] scheduled job start
+error: unexpected argument '--ask-for-approval' found
+
+  tip: to pass '--ask-for-approval' as a value, use '-- --ask-for-approval'
+
+Usage: codex exec [OPTIONS] [PROMPT]
+       codex exec [OPTIONS] <COMMAND> [ARGS]
+
+For more information, try '--help'.
+[2026-04-29 03:05:02 JST] codex exit status: 2
+[2026-04-29 03:05:02 JST] removed one-shot cron entry
