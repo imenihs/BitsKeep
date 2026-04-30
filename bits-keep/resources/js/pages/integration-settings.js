@@ -52,7 +52,7 @@ export default function setup() {
 
     const save = async () => {
         if (!canEdit) {
-            saveError.value = 'このアカウントには連携設定を変更する権限がありません。editor 以上でログインしてください。';
+            saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
             saveMessage.value = '';
             return;
         }
@@ -79,7 +79,7 @@ export default function setup() {
 
     const clearToken = async () => {
         if (!canEdit) {
-            saveError.value = 'このアカウントには連携設定を変更する権限がありません。editor 以上でログインしてください。';
+            saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
             return;
         }
         if (!notion.value.token_configured || !await ask('保存済みの Notion API トークンを削除しますか？')) return;
@@ -107,7 +107,7 @@ export default function setup() {
 
     const clearRootPage = async () => {
         if (!canEdit) {
-            saveError.value = 'このアカウントには連携設定を変更する権限がありません。editor 以上でログインしてください。';
+            saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
             return;
         }
         if (!notion.value.root_page_configured || !await ask('保存済みのルートページ URL を削除しますか？')) return;
@@ -152,7 +152,7 @@ export default function setup() {
     };
 
     const saveGemini = async () => {
-        if (!canEdit) { geminiError.value = 'editor以上の権限が必要です。'; return; }
+        if (!canEdit) { geminiError.value = '編集者以上の権限が必要です。'; return; }
         geminiSaving.value = true;
         geminiMessage.value = '';
         geminiError.value = '';
@@ -167,7 +167,7 @@ export default function setup() {
     };
 
     const clearGeminiKey = async () => {
-        if (!canEdit) { geminiError.value = 'editor以上の権限が必要です。'; return; }
+        if (!canEdit) { geminiError.value = '編集者以上の権限が必要です。'; return; }
         if (!gemini.value.configured || !await ask('保存済みの Gemini APIキーを削除しますか？')) return;
         geminiDeleting.value = true;
         geminiMessage.value = '';

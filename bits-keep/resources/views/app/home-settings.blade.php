@@ -22,7 +22,7 @@
   <section class="rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-card-odd)] shadow-sm">
     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
       <div>
-        <p class="text-xs uppercase tracking-[0.2em] opacity-50">Home</p>
+        <p class="text-xs opacity-50">ホーム</p>
         <h2 class="text-xl font-bold">主要アクション設定</h2>
       </div>
       <div class="flex flex-wrap gap-2">

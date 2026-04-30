@@ -352,7 +352,13 @@
           </td>
           <td class="py-2 pr-4 opacity-70 text-xs">
             <div>@{{ group.description || '-' }}</div>
-            <div class="mt-1 opacity-60">候補: @{{ group.usage_count ?? 0 }}件 / 入力テンプレート: @{{ group.template_count ?? 0 }}件</div>
+            <div class="mt-1 opacity-60">入力候補: @{{ group.usage_count ?? 0 }}件 / テンプレート: @{{ group.template_count ?? 0 }}件 / 部品シリーズ: @{{ group.series_count ?? 0 }}件</div>
+            <div v-if="specGroupSeriesModeLabel(group)" class="mt-1">
+              <span class="tag text-[10px]"
+                :class="group.series_management_mode === 'series_recommended' ? 'tag-warning' : ''">
+                @{{ specGroupSeriesModeLabel(group) }}
+              </span>
+            </div>
           </td>
           <td class="py-2">
             <div class="flex gap-2 flex-wrap">
@@ -390,7 +396,7 @@
             </td>
             <td class="py-2 pr-4 opacity-70 text-xs">
               <div>@{{ group.description || '-' }}</div>
-              <div class="mt-1 opacity-60">候補: @{{ group.usage_count ?? 0 }}件 / 入力テンプレート: @{{ group.template_count ?? 0 }}件</div>
+              <div class="mt-1 opacity-60">入力候補: @{{ group.usage_count ?? 0 }}件 / テンプレート: @{{ group.template_count ?? 0 }}件 / 部品シリーズ: @{{ group.series_count ?? 0 }}件</div>
             </td>
             <td class="py-2">
               <button @click="restoreSpecGroup(group)" class="px-2 py-1 text-xs border border-emerald-400 text-emerald-700 rounded hover:bg-emerald-50">復元</button>
@@ -407,15 +413,17 @@
       <aside class="border border-[var(--color-border)] rounded-lg bg-[var(--color-card-odd)] overflow-hidden">
         <div class="px-4 py-3 border-b border-[var(--color-border)]">
           <div class="font-semibold text-sm">部品分類</div>
-          <div class="text-xs opacity-60 mt-1">@{{ activeTab === 'spec-types' ? '主所属スペック詳細を確認する部品分類を選択' : '候補スペック詳細を整理する部品分類を選択' }}</div>
+          <div class="text-xs opacity-60 mt-1">@{{ activeTab === 'spec-types' ? 'スペック詳細を持たせる部品分類を選択' : (activeTab === 'spec-templates' ? '入力テンプレートを管理する部品分類を選択' : '候補スペック詳細を整理する部品分類を選択') }}</div>
         </div>
         <div class="max-h-[55vh] overflow-y-auto">
           <button v-for="group in activeSpecGroups" :key="`spec-type-group-select-${group.id}`"
             @click="selectSpecGroup(group)"
             :class="Number(selectedSpecGroupId) === Number(group.id) ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'"
             class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] text-sm transition-colors">
-            <span class="block font-medium">@{{ group.name }}</span>
-            <span class="block text-xs opacity-70 mt-1">候補 @{{ group.usage_count ?? group.spec_types?.length ?? 0 }} 件 / 入力テンプレート @{{ group.template_count ?? group.templates?.length ?? 0 }} 件</span>
+            <span class="flex items-baseline justify-between gap-2">
+              <span class="min-w-0 truncate font-medium">@{{ group.name }}</span>
+              <span class="shrink-0 text-[11px] font-normal opacity-60">@{{ specGroupSidebarMeta(group) }}</span>
+            </span>
           </button>
           <div v-if="activeSpecGroups.length === 0" class="px-4 py-8 text-center text-sm opacity-50">部品分類がありません</div>
         </div>
@@ -426,14 +434,15 @@
           <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
             <div>
               <div class="font-semibold text-sm">@{{ currentSpecGroup.name }} のスペック詳細</div>
-              <div class="text-xs opacity-60 mt-1">この部品分類を主所属に持つスペック詳細だけを表示します。全件一覧と全件並び替えは行いません。</div>
+              <div class="text-xs opacity-60 mt-1">左で選んだ部品分類に持たせるスペック詳細を追加・編集・アーカイブします。</div>
+              <div class="mt-2 flex flex-wrap gap-1 text-[11px]">
+                <span class="tag border border-[var(--color-border)]">個別 @{{ activeSpecTypes.length }} 件</span>
+                <span v-if="archivedSpecTypes.length" class="tag border border-[var(--color-border)] opacity-70">アーカイブ @{{ archivedSpecTypes.length }} 件</span>
+              </div>
             </div>
             @if ($isAdmin)
             <button @click="openLocalSpecTypeAdd" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40"><span class="feature-lock">管</span> + スペック詳細を追加</button>
             @endif
-          </div>
-          <div class="px-4 py-2 border-b border-[var(--color-border)] text-xs opacity-70">
-            表示中: @{{ activeSpecTypes.length }} 件<span v-if="archivedSpecTypes.length"> / アーカイブ @{{ archivedSpecTypes.length }} 件</span>
           </div>
           <table class="w-full text-sm border-collapse">
             <thead>
@@ -469,7 +478,7 @@
                 </td>
               </tr>
               <tr v-if="activeSpecTypes.length === 0">
-                <td colspan="5" class="py-8 text-center opacity-40">この部品分類を主所属にするスペック詳細はありません</td>
+                <td colspan="5" class="py-8 text-center opacity-40">この部品分類に持たせるスペック詳細はまだありません</td>
               </tr>
             </tbody>
           </table>
@@ -506,23 +515,28 @@
             <div>
               <div class="font-semibold text-sm">@{{ currentSpecGroup.name }} のスペック候補設定</div>
               <div class="text-xs opacity-60 mt-1">この部品分類を選んだときに候補へ出すスペック詳細と、表示順・扱い・既定値を管理します</div>
+              <div class="mt-2 flex flex-wrap gap-1 text-[11px]">
+                <span class="tag border border-[var(--color-border)]">入力候補 @{{ currentSpecGroupCounts.total }} 件</span>
+                <span class="tag border border-[var(--color-border)]">個別 @{{ currentSpecGroupCounts.local }} 件</span>
+                <span class="tag border border-[var(--color-border)]">共通 @{{ currentSpecGroupCounts.common }} 件</span>
+                <span class="tag border border-[var(--color-border)]">許容差 @{{ currentSpecGroupCounts.tolerance }} 件</span>
+              </div>
             </div>
             @if ($isAdmin)
             <div class="flex items-center gap-2 flex-wrap">
-              <button @click="openCandidateAddModal('local')" :disabled="specGroupDetailLoading" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">スペック詳細から追加</button>
-              <button @click="openCandidateAddModal('common')" :disabled="specGroupDetailLoading" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">共通スペック詳細から追加</button>
-              <button @click="openCandidateAddModal('tolerance')" :disabled="specGroupDetailLoading" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">許容差スペック詳細から追加</button>
-              <span v-if="inlineDirty" class="text-xs px-2 py-1 rounded border border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]">未保存</span>
-              <button @click="syncSpecGroupMembers()" :disabled="specGroupDetailLoading || specGroupMemberSaving" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">候補設定を保存</button>
+              <button @click="openCandidateAddModal('local')" :disabled="specGroupDetailLoading || specGroupMemberSaving" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">スペック詳細から追加</button>
+              <button @click="openCandidateAddModal('common')" :disabled="specGroupDetailLoading || specGroupMemberSaving" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">共通スペック詳細から追加</button>
+              <button @click="openCandidateAddModal('tolerance')" :disabled="specGroupDetailLoading || specGroupMemberSaving" class="px-3 py-2 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)] disabled:opacity-40">許容差スペック詳細から追加</button>
+              <span v-if="specGroupMemberSaving" class="text-xs px-2 py-1 rounded border border-[var(--color-border)] opacity-70">保存中...</span>
             </div>
             @endif
           </div>
           <table class="w-full text-sm border-collapse">
             <thead>
               <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-                <th class="py-2 px-3 w-16">順序</th>
+                <th class="py-2 pr-2 w-6"></th>
                 <th class="py-2 pr-4">スペック詳細</th>
-                <th class="py-2 pr-4">種別</th>
+                <th class="py-2 pr-4">範囲</th>
                 <th class="py-2 pr-4">扱い</th>
                 <th class="py-2 pr-4">既定</th>
                 <th class="py-2 pr-4">メモ</th>
@@ -531,15 +545,19 @@
             </thead>
             <tbody>
               <tr v-for="(member, index) in currentSpecGroup.spec_types" :key="`sg-member-${member.id}`"
+                :draggable="isAdmin && !specGroupMemberSaving ? 'true' : 'false'"
+                @dragstart="candidateMemberDnD.start(index)"
                 @dragover="candidateMemberDnD.over($event, index)"
-                @drop="candidateMemberDnD.drop(index)"
-                :class="[index % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]', dragTarget === index ? 'outline outline-2 outline-[var(--color-primary)]' : '']"
+                @dragend="candidateMemberDnD.end()"
+                @drop.prevent="candidateMemberDnD.drop(index)"
+                :class="[
+                  index % 2 === 0 ? 'bg-[var(--color-card-even)]' : 'bg-[var(--color-card-odd)]',
+                  dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''
+                ]"
                 class="border-b border-[var(--color-border)] transition-colors">
-                <td class="py-2 px-3">
+                <td class="py-2 pr-2 text-center">
                   @if ($isAdmin)
-                  <span draggable="true" @dragstart="candidateMemberDnD.start(index)" @dragend="candidateMemberDnD.end" class="inline-flex w-8 h-8 items-center justify-center rounded border border-[var(--color-border)] cursor-grab select-none text-xs opacity-70" title="ドラッグして並び替え">≡</span>
-                  @else
-                  <span class="text-xs opacity-50">@{{ index + 1 }}</span>
+                  <span v-if="!specGroupMemberSaving" class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none">⠿</span>
                   @endif
                 </td>
                 <td class="py-2 pr-4 font-medium">
@@ -547,7 +565,7 @@
                   <span v-if="member.symbol" class="ml-2 text-xs opacity-60 font-mono" v-html="renderSymbol(member.symbol)"></span>
                 </td>
                 <td class="py-2 pr-4 text-xs">
-                  <span class="tag border border-[var(--color-border)]">@{{ candidateMemberTypeLabel(member) }}</span>
+                  <span class="tag border border-[var(--color-border)]" :title="candidateMemberTypeTitle(member)">@{{ candidateMemberTypeLabel(member) }}</span>
                 </td>
                 <td class="py-2 pr-4 text-xs">
                   @{{ memberStateLabel(member) }}
@@ -562,8 +580,8 @@
                 <td class="py-2">
                   @if ($isAdmin)
                   <div class="flex gap-2 flex-wrap">
-                    <button @click="openCandidateSettingEdit(member, index)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">編集</button>
-                    <button @click="removeSpecGroupMember(index)" class="w-28 px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 text-center">候補から外す</button>
+                    <button @click="openCandidateSettingEdit(member, index)" :disabled="specGroupMemberSaving" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] disabled:opacity-40">編集</button>
+                    <button @click="confirmRemoveSpecGroupMember(member)" :disabled="specGroupMemberSaving" class="w-28 px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50 text-center disabled:opacity-40">候補から外す</button>
                   </div>
                   @else
                   <span class="text-xs opacity-40">-</span>
@@ -582,6 +600,10 @@
             <div>
               <div class="font-semibold text-sm">入力テンプレート</div>
               <div class="text-xs opacity-60 mt-1">@{{ currentSpecGroup.name }} の部品登録時に、スペック行をまとめて追加する初期行セット</div>
+              <div class="mt-2 flex flex-wrap gap-1 text-[11px]">
+                <span class="tag border border-[var(--color-border)]">テンプレート @{{ currentSpecGroupCounts.templates }} 件</span>
+                <span class="tag border border-[var(--color-border)]">行 @{{ currentSpecGroupCounts.templateItems }} 件</span>
+              </div>
             </div>
             @if ($isAdmin)
             <button @click="openTemplateAdd" :disabled="specGroupDetailLoading" class="btn-primary px-3 py-2 rounded text-xs font-medium disabled:opacity-40">入力テンプレート追加</button>
@@ -594,10 +616,13 @@
                   <h3 class="font-semibold text-sm">@{{ template.name }}</h3>
                   <p class="text-xs opacity-60 mt-1">@{{ template.description || '説明なし' }}</p>
                   <div class="mt-2 flex flex-wrap gap-1">
-                    <span v-for="item in template.items" :key="`template-item-chip-${template.id}-${item.id}`" class="tag border border-[var(--color-border)]">
-                      <span>@{{ item.spec_type?.name_ja || item.spec_type?.name || 'スペック' }}</span>
-                      <span v-if="item.spec_type?.symbol" class="ml-1 font-mono opacity-70" v-html="renderSymbol(item.spec_type.symbol)"></span>
-                      <span>@{{ isToleranceSpecType(item.spec_type) ? ' / 許容差' : '' }}@{{ item.is_required ? ' / 必須' : '' }}</span>
+                    <span v-for="item in template.items" :key="`template-item-chip-${template.id}-${item.id}`" class="inline-flex flex-wrap items-center gap-1">
+                      <span class="tag border border-[var(--color-border)]">
+                        <span>@{{ item.spec_type?.name_ja || item.spec_type?.name || 'スペック' }}</span>
+                        <span v-if="item.spec_type?.symbol" class="ml-1 font-mono opacity-70" v-html="renderSymbol(item.spec_type.symbol)"></span>
+                      </span>
+                      <span v-if="isToleranceSpecType(item.spec_type)" class="tag border border-[var(--color-border)] text-[10px]">許容差</span>
+                      <span v-if="item.is_required" class="tag border border-[var(--color-border)] text-[10px]">必須</span>
                     </span>
                   </div>
                 </div>
@@ -623,15 +648,17 @@
       <aside class="border border-[var(--color-border)] rounded-lg bg-[var(--color-card-odd)] overflow-hidden">
         <div class="px-4 py-3 border-b border-[var(--color-border)]">
           <div class="font-semibold text-sm">部品分類</div>
-          <div class="text-xs opacity-60 mt-1">共通スペック詳細の候補状態を管理する部品分類を選択</div>
+          <div class="text-xs opacity-60 mt-1">共通スペック詳細を候補に入れる部品分類を選択</div>
         </div>
         <div class="max-h-[55vh] overflow-y-auto">
           <button v-for="group in activeSpecGroups" :key="`common-spec-group-select-${group.id}`"
             @click="selectSpecGroup(group)"
             :class="Number(selectedSpecGroupId) === Number(group.id) ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'"
             class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] text-sm transition-colors">
-            <span class="block font-medium">@{{ group.name }}</span>
-            <span class="block text-xs opacity-70 mt-1">候補 @{{ group.usage_count ?? group.spec_types?.length ?? 0 }} 件 / 入力テンプレート @{{ group.template_count ?? group.templates?.length ?? 0 }} 件</span>
+            <span class="flex items-baseline justify-between gap-2">
+              <span class="min-w-0 truncate font-medium">@{{ group.name }}</span>
+              <span class="shrink-0 text-[11px] font-normal opacity-60">@{{ specGroupSidebarMeta(group) }}</span>
+            </span>
           </button>
           <div v-if="activeSpecGroups.length === 0" class="px-4 py-8 text-center text-sm opacity-50">部品分類がありません</div>
         </div>
@@ -641,7 +668,11 @@
         <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-bold text-sm">共通スペック詳細</h2>
-            <p class="text-xs opacity-60 mt-1">@{{ currentSpecGroup.name }} の候補に入れる共通スペック詳細を管理します。</p>
+            <p class="text-xs opacity-60 mt-1">登録済みの共通スペック詳細から、@{{ currentSpecGroup.name }} の入力候補に入れるものを選びます。</p>
+            <div class="mt-2 flex flex-wrap gap-1 text-[11px]">
+              <span class="tag border border-[var(--color-border)]">共通 @{{ currentSpecGroupCounts.common }} 件</span>
+              <span class="tag border border-[var(--color-border)]">候補 @{{ currentSpecGroupCounts.total }} 件</span>
+            </div>
           </div>
           @if ($isAdmin)
           <button @click="openCommonSpecTypeAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + 共通スペック詳細を追加</button>
@@ -656,7 +687,7 @@
           <thead>
             <tr class="border-b border-[var(--color-border)] text-left opacity-70">
               <th class="py-2 px-3">名前</th>
-              <th class="py-2 pr-4">候補状態</th>
+              <th class="py-2 pr-4">入力候補</th>
               <th class="py-2 pr-4">単位</th>
               <th class="py-2 pr-4">使用</th>
               <th class="py-2">操作</th>
@@ -673,8 +704,8 @@
                 </div>
               </td>
               <td class="py-2 pr-4 text-xs">
-                <span v-if="isCommonSpecLinked(s)" class="tag border border-[var(--color-border)]">候補に入っています</span>
-                <span v-else class="opacity-50">未追加</span>
+                <span v-if="isCommonSpecLinked(s)" class="tag tag-ok">採用中</span>
+                <span v-else class="tag border border-[var(--color-border)] opacity-60">未追加</span>
               </td>
               <td class="py-2 pr-4 text-xs">
                 <span v-if="s.units?.[0] || s.base_unit" class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5">
@@ -739,15 +770,17 @@
       <aside class="border border-[var(--color-border)] rounded-lg bg-[var(--color-card-odd)] overflow-hidden">
         <div class="px-4 py-3 border-b border-[var(--color-border)]">
           <div class="font-semibold text-sm">部品分類</div>
-          <div class="text-xs opacity-60 mt-1">許容差スペック詳細の候補状態を管理する部品分類を選択</div>
+          <div class="text-xs opacity-60 mt-1">許容差スペック詳細を候補に入れる部品分類を選択</div>
         </div>
         <div class="max-h-[55vh] overflow-y-auto">
           <button v-for="group in activeSpecGroups" :key="`tolerance-spec-group-select-${group.id}`"
             @click="selectSpecGroup(group)"
             :class="Number(selectedSpecGroupId) === Number(group.id) ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'"
             class="w-full text-left px-4 py-3 border-b border-[var(--color-border)] text-sm transition-colors">
-            <span class="block font-medium">@{{ group.name }}</span>
-            <span class="block text-xs opacity-70 mt-1">候補 @{{ group.usage_count ?? group.spec_types?.length ?? 0 }} 件 / 入力テンプレート @{{ group.template_count ?? group.templates?.length ?? 0 }} 件</span>
+            <span class="flex items-baseline justify-between gap-2">
+              <span class="min-w-0 truncate font-medium">@{{ group.name }}</span>
+              <span class="shrink-0 text-[11px] font-normal opacity-60">@{{ specGroupSidebarMeta(group) }}</span>
+            </span>
           </button>
           <div v-if="activeSpecGroups.length === 0" class="px-4 py-8 text-center text-sm opacity-50">部品分類がありません</div>
         </div>
@@ -757,7 +790,11 @@
         <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-bold text-sm">許容差スペック詳細</h2>
-            <p class="text-xs opacity-60 mt-1">@{{ currentSpecGroup.name }} の候補に入れる許容差スペック詳細を管理します。</p>
+            <p class="text-xs opacity-60 mt-1">登録済みの許容差スペック詳細から、@{{ currentSpecGroup.name }} の入力候補に入れるものを選びます。</p>
+            <div class="mt-2 flex flex-wrap gap-1 text-[11px]">
+              <span class="tag border border-[var(--color-border)]">許容差 @{{ currentSpecGroupCounts.tolerance }} 件</span>
+              <span class="tag border border-[var(--color-border)]">候補 @{{ currentSpecGroupCounts.total }} 件</span>
+            </div>
           </div>
           @if ($isAdmin)
           <button @click="openToleranceSpecTypeAdd" class="btn-primary px-4 py-2 rounded text-sm font-medium"><span class="feature-lock">管</span> + 許容差スペック詳細を追加</button>
@@ -772,7 +809,7 @@
           <thead>
             <tr class="border-b border-[var(--color-border)] text-left opacity-70">
               <th class="py-2 px-3">名前</th>
-              <th class="py-2 pr-4">候補状態</th>
+              <th class="py-2 pr-4">入力候補</th>
               <th class="py-2 pr-4">許容差の単位</th>
               <th class="py-2 pr-4">設定</th>
               <th class="py-2">操作</th>
@@ -789,8 +826,8 @@
                 </div>
               </td>
               <td class="py-2 pr-4 text-xs">
-                <span v-if="isCommonSpecLinked(s)" class="tag border border-[var(--color-border)]">候補に入っています</span>
-                <span v-else class="opacity-50">未追加</span>
+                <span v-if="isCommonSpecLinked(s)" class="tag tag-ok">採用中</span>
+                <span v-else class="tag border border-[var(--color-border)] opacity-60">未追加</span>
               </td>
               <td class="py-2 pr-4 text-xs">
                 <span class="inline-block bg-[var(--color-card-even)] border border-[var(--color-border)] rounded px-1.5 py-0.5">
@@ -855,7 +892,7 @@
 
   <!-- ═══════════════ パッケージ詳細モーダル ════════════════ -->
   <div v-if="pkgModal.open" class="modal-overlay" v-esc="closePkgModal">
-    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-md max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgModal.isEdit ? 'パッケージ詳細編集' : 'パッケージ詳細追加' }}</h2>
         <button type="button" @click="closePkgModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -879,14 +916,24 @@
             class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">寸法 mm</label>
+          <label class="block text-sm font-medium mb-1">外形寸法（mm）</label>
+          <p class="text-xs opacity-60 mb-2">部品本体の寸法です。X は縦または長手方向、Y は横または幅、Z は実装高さを入力します。</p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input v-model="pkgModal.form.size_x" type="number" min="0" step="0.0001" placeholder="X"
-              class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-            <input v-model="pkgModal.form.size_y" type="number" min="0" step="0.0001" placeholder="Y"
-              class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-            <input v-model="pkgModal.form.size_z" type="number" min="0" step="0.0001" placeholder="Z"
-              class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+            <label class="block">
+              <span class="block text-xs font-medium mb-1 opacity-70">X: 縦・長手方向</span>
+              <input v-model="pkgModal.form.size_x" type="number" min="0" step="0.0001" placeholder="例: 1.6"
+                class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+            </label>
+            <label class="block">
+              <span class="block text-xs font-medium mb-1 opacity-70">Y: 横・幅</span>
+              <input v-model="pkgModal.form.size_y" type="number" min="0" step="0.0001" placeholder="例: 0.8"
+                class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+            </label>
+            <label class="block">
+              <span class="block text-xs font-medium mb-1 opacity-70">Z: 高さ</span>
+              <input v-model="pkgModal.form.size_z" type="number" min="0" step="0.0001" placeholder="例: 0.55"
+                class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+            </label>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -903,13 +950,8 @@
             <span class="block text-sm font-medium mb-1">寸法図PDF</span>
             <input type="file" accept="application/pdf" @change="onPackageFileChange('pdf', $event)"
               class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-            <a v-if="pkgModal.form.pdf_url" :href="pkgModal.form.pdf_url" target="_blank" rel="noopener" class="inline-flex mt-2 text-xs tag border border-[var(--color-border)] hover:border-[var(--color-primary)]">登録済みPDF</a>
+            <a v-if="pkgModal.form.pdf_url" :href="pkgModal.form.pdf_url" target="_blank" rel="noopener" title="登録済みPDF" class="inline-flex mt-2 text-xs tag border border-[var(--color-border)] hover:border-[var(--color-primary)]">PDF</a>
           </label>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">並び順</label>
-          <input v-model.number="pkgModal.form.sort_order" type="number"
-            class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
@@ -920,7 +962,7 @@
   </div>
 
   <div v-if="pkgGroupModal.open" class="modal-overlay" v-esc="closePkgGroupModal">
-    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-md max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ pkgGroupModal.isEdit ? 'パッケージ分類編集' : 'パッケージ分類追加' }}</h2>
         <button type="button" @click="closePkgGroupModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -934,10 +976,6 @@
           <label class="block text-sm font-medium mb-1">説明</label>
           <input v-model="pkgGroupModal.form.description" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">並び順</label>
-          <input v-model.number="pkgGroupModal.form.sort_order" type="number" class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-        </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
         <button @click="closePkgGroupModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
@@ -948,7 +986,7 @@
 
   <!-- ═══════════════ 部品分類モーダル（互換） ════════════════ -->
   <div v-if="specGroupModal.open" class="modal-overlay" v-esc="closeSpecGroupModal">
-    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-md max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">@{{ specGroupModal.isEdit ? '部品分類編集' : '部品分類追加' }}</h2>
         <button type="button" @click="closeSpecGroupModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -963,8 +1001,12 @@
           <input v-model="specGroupModal.form.description" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">並び順</label>
-          <input v-model.number="specGroupModal.form.sort_order" type="number" class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
+          <label class="block text-sm font-medium mb-1">部品シリーズの扱い</label>
+          <select v-model="specGroupModal.form.series_management_mode" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
+            <option value="single">シリーズを使わない</option>
+            <option value="series_optional">シリーズ登録も使う</option>
+            <option value="series_recommended">シリーズ登録を推奨</option>
+          </select>
         </div>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
@@ -998,20 +1040,22 @@
           <label class="block text-sm font-medium mb-1">説明</label>
           <input v-model="templateModal.form.description" type="text" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">並び順</label>
-          <input v-model.number="templateModal.form.sort_order" type="number" class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-        </div>
         <div class="border border-[var(--color-border)] rounded-lg overflow-hidden">
           <div class="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-card-odd)] flex items-center justify-between">
             <div class="font-semibold text-sm">作成する入力行</div>
             <button @click="addTemplateItem" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-even)]">行追加</button>
           </div>
           <div class="divide-y divide-[var(--color-border)]">
-            <div v-for="(item, index) in templateModal.form.items" :key="`template-modal-item-${index}`" class="grid grid-cols-1 lg:grid-cols-[76px_minmax(18rem,2fr)_9rem_8rem_6rem_minmax(12rem,1fr)_5.5rem] gap-2 px-4 py-3 items-end">
-              <div class="flex gap-1">
-                <button @click="moveTemplateItem(index, -1)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded">↑</button>
-                <button @click="moveTemplateItem(index, 1)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded">↓</button>
+            <div v-for="(item, index) in templateModal.form.items" :key="`template-modal-item-${index}`"
+              draggable="true"
+              @dragstart="templateItemDnD.start(index)"
+              @dragover="templateItemDnD.over($event, index)"
+              @dragend="templateItemDnD.end()"
+              @drop.prevent="templateItemDnD.drop(index)"
+              :class="dragTarget === index && dragSrc !== index ? 'outline outline-2 outline-[var(--color-primary)] outline-offset-[-2px]' : ''"
+              class="grid grid-cols-1 lg:grid-cols-[3rem_minmax(18rem,2fr)_9rem_8rem_6rem_minmax(12rem,1fr)_5.5rem] gap-2 px-4 py-3 items-end transition-colors">
+              <div class="pb-2 text-center">
+                <span class="cursor-grab text-lg opacity-30 hover:opacity-70 select-none" title="ドラッグして並び替え">⠿</span>
               </div>
               <label class="block">
                 <span class="block text-xs opacity-60 mb-1">スペック詳細</span>
@@ -1022,13 +1066,13 @@
                 <span v-if="templateModal.form.spec_group_id && !templateSpecGroupLoading && templateSpecTypeOptions.length === 0" class="block mt-1 text-[11px] opacity-50">この部品分類には候補スペック詳細がありません</span>
               </label>
               <label class="block">
-                <span class="block text-xs opacity-60 mb-1">profile</span>
+                <span class="block text-xs opacity-60 mb-1">入力形式</span>
                 <select v-model="item.default_profile" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
-                  <option value="typ">typ</option>
-                  <option value="range">range</option>
-                  <option value="max_only">max</option>
-                  <option value="min_only">min</option>
-                  <option value="triple">min/typ/max</option>
+                  <option value="typ">標準値</option>
+                  <option value="range">範囲</option>
+                  <option value="max_only">最大</option>
+                  <option value="min_only">最小</option>
+                  <option value="triple">最小/標準/最大</option>
                 </select>
               </label>
               <label class="block">
@@ -1058,7 +1102,7 @@
 
   <!-- ═══════════════ 候補スペック詳細モーダル ════════════════ -->
   <div v-if="candidateSettingModal.open" class="modal-overlay" v-esc="closeCandidateSettingModal">
-    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-md max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">候補設定編集</h2>
         <button type="button" @click="closeCandidateSettingModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
@@ -1069,7 +1113,7 @@
             <span>@{{ candidateSettingMember.name_ja || candidateSettingMember.name }}</span>
             <span v-if="candidateSettingMember.symbol" class="ml-2 text-xs opacity-60 font-mono" v-html="renderSymbol(candidateSettingMember.symbol)"></span>
           </div>
-          <div class="mt-2 text-xs opacity-70">種別: @{{ candidateMemberTypeLabel(candidateSettingMember) }}</div>
+          <div class="mt-2 text-xs opacity-70">範囲: @{{ candidateMemberTypeLabel(candidateSettingMember) }}</div>
         </div>
         <label class="block">
           <span class="block text-sm font-medium mb-1">扱い</span>
@@ -1081,14 +1125,14 @@
         </label>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label class="block">
-            <span class="block text-sm font-medium mb-1">既定profile</span>
+            <span class="block text-sm font-medium mb-1">既定の入力形式</span>
             <select v-model="candidateSettingModal.form.default_profile" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
               <option value="">未指定</option>
-              <option value="typ">typ</option>
-              <option value="range">range</option>
-              <option value="max_only">max</option>
-              <option value="min_only">min</option>
-              <option value="triple">min/typ/max</option>
+              <option value="typ">標準値</option>
+              <option value="range">範囲</option>
+              <option value="max_only">最大</option>
+              <option value="min_only">最小</option>
+              <option value="triple">最小/標準/最大</option>
             </select>
           </label>
           <label class="block">
@@ -1102,8 +1146,8 @@
         </label>
       </div>
       <div class="flex justify-end gap-2 p-6 border-t border-[var(--color-border)]">
-        <button @click="closeCandidateSettingModal" class="px-4 py-2 border border-[var(--color-border)] rounded">キャンセル</button>
-        <button @click="saveCandidateSetting" class="btn-primary px-4 py-2 rounded font-medium">反映</button>
+        <button @click="closeCandidateSettingModal" :disabled="specGroupMemberSaving" class="px-4 py-2 border border-[var(--color-border)] rounded disabled:opacity-40">キャンセル</button>
+        <button @click="saveCandidateSetting" :disabled="specGroupMemberSaving" class="btn-primary px-4 py-2 rounded font-medium disabled:opacity-40">保存</button>
       </div>
     </div>
   </div>
@@ -1120,7 +1164,7 @@
             <thead>
               <tr class="border-b border-[var(--color-border)] text-left opacity-70">
                 <th class="py-2 px-3">名前</th>
-                <th class="py-2 pr-4">種別</th>
+                <th class="py-2 pr-4">範囲</th>
                 <th class="py-2 pr-4">単位</th>
                 <th class="py-2">操作</th>
               </tr>
@@ -1134,11 +1178,11 @@
                   <span v-if="s.symbol" class="ml-2 text-xs opacity-60 font-mono" v-html="renderSymbol(s.symbol)"></span>
                 </td>
                 <td class="py-2 pr-4 text-xs">
-                  <span class="tag border border-[var(--color-border)]">@{{ candidateMemberTypeLabel(s) }}</span>
+                  <span class="tag border border-[var(--color-border)]" :title="candidateMemberTypeTitle(s)">@{{ candidateMemberTypeLabel(s) }}</span>
                 </td>
                 <td class="py-2 pr-4 text-xs">@{{ isToleranceSpecType(s) ? toleranceUnit(s) : (s.units?.[0]?.unit || s.base_unit || '-') }}</td>
                 <td class="py-2">
-                  <button @click="addCandidateFromOption(s)" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)]">追加</button>
+                  <button @click="addCandidateFromOption(s)" :disabled="specGroupMemberSaving" class="px-2 py-1 text-xs border border-[var(--color-border)] rounded hover:bg-[var(--color-card-odd)] disabled:opacity-40">追加</button>
                 </td>
               </tr>
               <tr v-if="candidateAddOptions.length === 0">
@@ -1156,10 +1200,10 @@
 
   <!-- ═══════════════ スペック詳細モーダル ════════════════ -->
   <div v-if="stModal.open" class="modal-overlay modal-top" v-esc="closeStModal">
-    <div class="modal-window modal-master max-h-[80vh] overflow-y-auto">
+    <div class="modal-window modal-md max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center p-6 border-b border-[var(--color-border)]">
         <h2 class="text-lg font-bold">
-          @{{ stModal.form.spec_kind === 'tolerance' ? (stModal.isEdit ? '許容差スペック詳細編集' : '許容差スペック詳細追加') : (stModal.isEdit ? 'スペック詳細編集' : 'スペック詳細追加') }}
+          @{{ stModalTitle }}
         </h2>
         <button type="button" @click="closeStModal" aria-label="閉じる" title="閉じる" class="opacity-50 hover:opacity-100 text-xl">✕</button>
       </div>
@@ -1181,7 +1225,7 @@
           <p class="text-xs opacity-50 mt-1">`_` は下付き、`~` は上付き、`-` は通常表示へ戻す区切りです。例: `V_CE-(sat)`。HTMLは入力しません。</p>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">alias（別名・表記ゆれ）</label>
+          <label class="block text-sm font-medium mb-1">別名・表記ゆれ</label>
           <textarea v-model="stModal.form.aliases_text" rows="3" placeholder="1行に1つ。例: VCBO&#10;Collector Base Breakdown Voltage"
             class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm"></textarea>
         </div>
@@ -1190,21 +1234,14 @@
           <input v-model="stModal.form.description" type="text"
             class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
         </div>
-        <div class="flex gap-4">
-          <div v-if="stModal.form.spec_kind !== 'tolerance'" class="flex-1">
-            <label class="block text-sm font-medium mb-1">値の型</label>
-            <select v-model="stModal.form.value_type"
-              class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
-              <option value="numeric">数値</option>
-              <option value="text">テキスト</option>
-              <option value="boolean">真偽値</option>
-            </select>
-          </div>
-          <div class="w-24">
-            <label class="block text-sm font-medium mb-1">並び順</label>
-            <input v-model.number="stModal.form.sort_order" type="number"
-              class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm" />
-          </div>
+        <div v-if="stModal.form.spec_kind !== 'tolerance'">
+          <label class="block text-sm font-medium mb-1">値の型</label>
+          <select v-model="stModal.form.value_type"
+            class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
+            <option value="numeric">数値</option>
+            <option value="text">テキスト</option>
+            <option value="boolean">真偽値</option>
+          </select>
         </div>
 
         <!-- 単位（数値型のみ） -->
@@ -1219,11 +1256,13 @@
         <template v-if="stModal.form.spec_kind !== 'tolerance' && stModal.form.value_type === 'numeric' && stModal.form.unit">
           <div>
             <label class="text-sm font-medium block mb-1">入力候補接頭辞</label>
-            <p class="text-xs opacity-50 mb-2">単位入力時のドロップダウンに表示する接頭辞。未選択なら汎用候補（G M k 無印 m u n p）を使います。</p>
+            <p class="text-xs opacity-50 mb-2">@{{ prefixPolicyHelp }}</p>
             <div class="flex flex-wrap gap-x-4 gap-y-1">
-              <label v-for="p in ['G','M','k','','m','u','n','p','f']" :key="`sp-${p}`" class="flex items-center gap-1 text-sm cursor-pointer">
-                <input type="checkbox" :value="p" v-model="stModal.form.suggest_prefixes" class="rounded" />
-                <span class="font-mono">@{{ p === '' ? '（無印）' : p }}</span>
+              <label v-for="option in prefixOptionsFor()" :key="`sp-${option.value || 'blank'}`"
+                class="flex items-center gap-1 text-sm"
+                :class="option.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'">
+                <input type="checkbox" :value="option.value" v-model="stModal.form.suggest_prefixes" :disabled="option.disabled" @change="syncPrefixList('suggest_prefixes', option.value)" class="rounded" />
+                <span class="font-mono">@{{ option.label }}</span>
               </label>
             </div>
           </div>
@@ -1231,9 +1270,11 @@
             <label class="text-sm font-medium block mb-1">表示接頭辞</label>
             <p class="text-xs opacity-50 mb-2">値を人間向け表記へ逆変換するとき使う接頭辞。未選択なら大きさに応じて自動選択します。</p>
             <div class="flex flex-wrap gap-x-4 gap-y-1">
-              <label v-for="p in ['G','M','k','','m','u','n','p','f']" :key="`dp-${p}`" class="flex items-center gap-1 text-sm cursor-pointer">
-                <input type="checkbox" :value="p" v-model="stModal.form.display_prefixes" class="rounded" />
-                <span class="font-mono">@{{ p === '' ? '（無印）' : p }}</span>
+              <label v-for="option in prefixOptionsFor()" :key="`dp-${option.value || 'blank'}`"
+                class="flex items-center gap-1 text-sm"
+                :class="option.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'">
+                <input type="checkbox" :value="option.value" v-model="stModal.form.display_prefixes" :disabled="option.disabled" @change="syncPrefixList('display_prefixes', option.value)" class="rounded" />
+                <span class="font-mono">@{{ option.label }}</span>
               </label>
             </div>
           </div>

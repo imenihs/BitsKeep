@@ -2,6 +2,7 @@
  * マスタ管理ページ（SCR-009）
  * パッケージ分類 / パッケージ詳細 / 部品分類 / スペック詳細 の CRUD
  * ?tab=package-groups|packages|part-categories|spec-types|spec-candidates|common-spec-types|tolerance-spec-types|spec-templates で初期タブを切り替え可
+ * スペック系タブでは ?group_id=123 で対象部品分類も初期選択できる
  */
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { api } from '../api.js';
@@ -35,7 +36,12 @@ export default function setup() {
         const fromHash = window.location.hash?.startsWith('#tab=') ? window.location.hash.slice(5) : '';
         return normalizeTab(fromQuery || fromHash || appEl?.dataset?.tab);
     };
+    const specGroupIdFromUrl = () => {
+        const value = Number.parseInt(new URLSearchParams(window.location.search).get('group_id') ?? '', 10);
+        return Number.isFinite(value) && value > 0 ? value : null;
+    };
     const activeTab = ref(tabFromUrl());
+    const requestedSpecGroupId = ref(specGroupIdFromUrl());
     const canEdit = appEl?.dataset?.canEdit === '1';
     const isAdmin = appEl?.dataset?.isAdmin === '1';
 
@@ -45,6 +51,16 @@ export default function setup() {
         if (url.hash?.startsWith('#tab=')) url.hash = '';
         const method = replace ? 'replaceState' : 'pushState';
         window.history?.[method]?.({ tab: normalizeTab(tab) }, '', url);
+    };
+    const syncSpecGroupToUrl = (groupId, { replace = true } = {}) => {
+        if (!['spec-types', 'spec-candidates', 'common-spec-types', 'tolerance-spec-types', 'spec-templates'].includes(activeTab.value)) return;
+        const url = new URL(window.location.href);
+        const normalizedTab = normalizeTab(activeTab.value);
+        url.searchParams.set('tab', normalizedTab);
+        if (groupId) url.searchParams.set('group_id', String(groupId));
+        else url.searchParams.delete('group_id');
+        const method = replace ? 'replaceState' : 'pushState';
+        window.history?.[method]?.({ tab: normalizedTab, group_id: groupId ? String(groupId) : null }, '', url);
     };
 
     const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -402,6 +418,77 @@ export default function setup() {
     const normalizePrefixes = (prefixes) => Array.isArray(prefixes)
         ? prefixes.map((prefix) => prefix == null ? '' : String(prefix))
         : [];
+    const decimalPrefixOptions = ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
+    const byteBitPrefixOptions = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
+    const binaryIecPrefixes = new Set(['Ti', 'Gi', 'Mi', 'Ki']);
+    const decimalNonFractionalPrefixes = new Set(['T', 'G', 'M', 'k']);
+    const decimalFractionalPrefixes = new Set(['m', 'u', 'n', 'p', 'f']);
+    const byteBitUnits = new Set(['B', 'bit', 'bps']);
+    const normalizeUnitForPrefixPolicy = (unit = '') => String(unit ?? '')
+        .trim()
+        .replaceAll('μ', 'u')
+        .replaceAll('µ', 'u')
+        .replaceAll('Ω', 'Ω')
+        .replace(/\bohms?\b/iu, 'Ω')
+        .replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
+    const isByteBitPrefixUnit = (unit = stModal.form.unit) => byteBitUnits.has(normalizeUnitForPrefixPolicy(unit));
+    const normalizePrefixToken = (prefix) => {
+        const normalized = prefix == null ? '' : String(prefix).trim();
+        return normalized === 'K' ? 'k' : normalized;
+    };
+    const sanitizePrefixesForUnit = (prefixes = [], unit = stModal.form.unit) => {
+        const normalized = normalizePrefixes(prefixes)
+            .map(normalizePrefixToken)
+            .filter((prefix) => prefix === '' || decimalPrefixOptions.includes(prefix) || binaryIecPrefixes.has(prefix));
+        const unique = [...new Set(normalized)];
+        if (!isByteBitPrefixUnit(unit)) {
+            return unique.filter((prefix) => !binaryIecPrefixes.has(prefix));
+        }
+
+        const withoutFractional = unique.filter((prefix) => !decimalFractionalPrefixes.has(prefix));
+        const hasBinary = withoutFractional.some((prefix) => binaryIecPrefixes.has(prefix));
+        if (hasBinary) {
+            return withoutFractional.filter((prefix) => prefix === '' || binaryIecPrefixes.has(prefix));
+        }
+
+        return withoutFractional.filter((prefix) => prefix === '' || decimalNonFractionalPrefixes.has(prefix));
+    };
+    const prefixOptionsFor = () => {
+        const isByteBit = isByteBitPrefixUnit();
+        return (isByteBit ? byteBitPrefixOptions : decimalPrefixOptions)
+            .map((prefix) => {
+                const isBinary = binaryIecPrefixes.has(prefix);
+
+                return {
+                    value: prefix,
+                    label: prefix === '' ? '（無印）' : prefix,
+                    disabled: !isByteBit && isBinary,
+                };
+            });
+    };
+    const prefixPolicyHelp = computed(() => (
+        isByteBitPrefixUnit()
+            ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
+            : '単位入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
+    ));
+    const stModalTitle = computed(() => {
+        const base = stModal.form.spec_kind === 'tolerance'
+            ? '許容差スペック詳細'
+            : (stModal.form.spec_scope === 'common' ? '共通スペック詳細' : 'スペック詳細');
+        return `${base}${stModal.isEdit ? '編集' : '追加'}`;
+    });
+    const syncPrefixList = (field, changedPrefix = null) => {
+        let prefixes = normalizePrefixes(stModal.form[field]).map(normalizePrefixToken);
+        const changed = normalizePrefixToken(changedPrefix);
+        if (isByteBitPrefixUnit() && prefixes.includes(changed)) {
+            if (binaryIecPrefixes.has(changed)) {
+                prefixes = prefixes.filter((prefix) => !decimalNonFractionalPrefixes.has(prefix) && !decimalFractionalPrefixes.has(prefix));
+            } else if (decimalNonFractionalPrefixes.has(changed)) {
+                prefixes = prefixes.filter((prefix) => !binaryIecPrefixes.has(prefix) && !decimalFractionalPrefixes.has(prefix));
+            }
+        }
+        stModal.form[field] = sanitizePrefixesForUnit(prefixes);
+    };
 
     const toleranceUnitOptions = [
         { value: '%', label: '%' },
@@ -555,37 +642,39 @@ export default function setup() {
                 return;
             }
         }
+        const unit = detail.units?.[0]?.unit ?? detail.base_unit ?? '';
         const form = {
             name: detail.name, name_ja: detail.name_ja ?? detail.name, name_en: detail.name_en ?? '', symbol: detail.symbol ?? '',
             aliases_text: (detail.aliases ?? []).map((alias) => alias.alias).join('\n'),
             description: detail.description ?? '',
             value_type: detail.value_type ?? 'numeric',
             sort_order: detail.sort_order ?? 0,
-            unit: detail.units?.[0]?.unit ?? detail.base_unit ?? '',
-            suggest_prefixes: normalizePrefixes(detail.suggest_prefixes),
-            display_prefixes: normalizePrefixes(detail.display_prefixes),
+            unit,
+            suggest_prefixes: sanitizePrefixesForUnit(detail.suggest_prefixes, unit),
+            display_prefixes: sanitizePrefixesForUnit(detail.display_prefixes, unit),
             spec_scope: detail.spec_scope ?? 'group_local',
             owner_spec_group_id: detail.owner_spec_group_id ?? '',
             spec_kind: detail.spec_kind ?? 'normal',
-            tolerance_settings: normalizeToleranceSettings(detail.tolerance_settings, detail.units?.[0]?.unit ?? detail.base_unit ?? '%'),
+            tolerance_settings: normalizeToleranceSettings(detail.tolerance_settings, unit || '%'),
         };
         stSnapshot.value = clone(form);
         Object.assign(stModal, { open: true, isEdit: true, editId: detail.id, form });
     };
     const openStDuplicate = (s, overrides = {}) => {
+        const unit = s.units?.[0]?.unit ?? s.base_unit ?? '';
         const form = {
             name: copyName(s.name), name_ja: copyName(s.name_ja ?? s.name), name_en: s.name_en ?? '', symbol: s.symbol ?? '',
             aliases_text: (s.aliases ?? []).map((alias) => alias.alias).join('\n'),
             description: s.description ?? '',
             value_type: s.value_type ?? 'numeric',
             sort_order: nextSortOrder(specTypes.value),
-            unit: s.units?.[0]?.unit ?? s.base_unit ?? '',
-            suggest_prefixes: normalizePrefixes(s.suggest_prefixes),
-            display_prefixes: normalizePrefixes(s.display_prefixes),
+            unit,
+            suggest_prefixes: sanitizePrefixesForUnit(s.suggest_prefixes, unit),
+            display_prefixes: sanitizePrefixesForUnit(s.display_prefixes, unit),
             spec_scope: s.spec_scope ?? 'group_local',
             owner_spec_group_id: s.owner_spec_group_id ?? '',
             spec_kind: s.spec_kind ?? 'normal',
-            tolerance_settings: normalizeToleranceSettings(s.tolerance_settings, s.units?.[0]?.unit ?? s.base_unit ?? '%'),
+            tolerance_settings: normalizeToleranceSettings(s.tolerance_settings, unit || '%'),
             ...overrides,
         };
         stSnapshot.value = clone(form);
@@ -595,8 +684,8 @@ export default function setup() {
 
     const saveSpecType = async () => {
         try {
-            const suggestPrefixes = normalizePrefixes(stModal.form.suggest_prefixes);
-            const displayPrefixes = normalizePrefixes(stModal.form.display_prefixes);
+            const suggestPrefixes = sanitizePrefixesForUnit(stModal.form.suggest_prefixes);
+            const displayPrefixes = sanitizePrefixesForUnit(stModal.form.display_prefixes);
             const toleranceSettings = compactToleranceSettings(stModal.form.tolerance_settings, stModal.form.unit || '%');
             const isTolerance = stModal.form.spec_kind === 'tolerance';
             const payload = {
@@ -675,10 +764,40 @@ export default function setup() {
     const archivedSpecGroups = computed(() => splitArchived(specGroups.value));
     const currentSpecGroup = computed(() => specGroups.value.find((group) => Number(group.id) === Number(selectedSpecGroupId.value)) ?? null);
     const specGroupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
+    const specGroupTemplates = (group) => group?.templates ?? [];
+    const specGroupCandidateCounts = (group = currentSpecGroup.value) => {
+        const members = specGroupSpecTypes(group);
+
+        return {
+            total: members.length,
+            local: members.filter((item) => !isCommonSpecType(item) && !isToleranceSpecType(item)).length,
+            common: members.filter((item) => isCommonSpecType(item) && !isToleranceSpecType(item)).length,
+            tolerance: members.filter(isToleranceSpecType).length,
+            templates: specGroupTemplates(group).length,
+            templateItems: specGroupTemplates(group).reduce((sum, template) => sum + (template.items?.length ?? 0), 0),
+            series: Number(group?.series_count ?? 0),
+        };
+    };
+    const currentSpecGroupCounts = computed(() => specGroupCandidateCounts(currentSpecGroup.value));
+    const countValue = (value) => Number(value ?? 0);
+    const specGroupSidebarCount = (group) => {
+        if (activeTab.value === 'spec-types') return countValue(group?.owned_spec_type_count);
+        if (activeTab.value === 'spec-candidates') return countValue(group?.usage_count);
+        if (activeTab.value === 'spec-templates') return countValue(group?.template_count);
+        if (activeTab.value === 'common-spec-types') return countValue(group?.common_candidate_count);
+        if (activeTab.value === 'tolerance-spec-types') return countValue(group?.tolerance_candidate_count);
+        return 0;
+    };
+    const specGroupSidebarMeta = (group) => `登録:${specGroupSidebarCount(group)}個`;
+    const specGroupSeriesModeLabel = (group) => ({
+        series_recommended: 'シリーズ登録を推奨',
+        series_optional: 'シリーズ登録も使う',
+        single: '',
+    })[group?.series_management_mode] ?? '';
     const specGroupSnapshot = ref(null);
     const specGroupModal = reactive({
         open: false, isEdit: false, editId: null,
-        form: { name: '', description: '', sort_order: 0 },
+        form: { name: '', description: '', sort_order: 0, series_management_mode: 'single' },
     });
     const memberSnapshot = ref(null);
     const candidateSettingSnapshot = ref(null);
@@ -772,8 +891,15 @@ export default function setup() {
         const activeGroups = activeSpecGroups.value;
         if (activeGroups.length === 0) {
             selectedSpecGroupId.value = null;
+            requestedSpecGroupId.value = null;
             return;
         }
+        if (requestedSpecGroupId.value && activeGroups.some((group) => Number(group.id) === Number(requestedSpecGroupId.value))) {
+            selectedSpecGroupId.value = requestedSpecGroupId.value;
+            requestedSpecGroupId.value = null;
+            return;
+        }
+        requestedSpecGroupId.value = null;
         if (!activeGroups.some((group) => Number(group.id) === Number(selectedSpecGroupId.value))) {
             selectedSpecGroupId.value = activeGroups[0].id;
         }
@@ -823,6 +949,7 @@ export default function setup() {
         }
         if (!await confirmDiscardUnsaved()) return;
         selectedSpecGroupId.value = group?.id ?? null;
+        syncSpecGroupToUrl(selectedSpecGroupId.value);
         await fetchSpecGroupDetail(selectedSpecGroupId.value);
         if (activeTab.value === 'spec-types') await fetchSpecTypes();
     };
@@ -830,6 +957,7 @@ export default function setup() {
         name: '',
         description: '',
         sort_order: nextSortOrder(specGroups.value),
+        series_management_mode: 'single',
         ...overrides,
     });
     const openSgAdd = () => {
@@ -842,6 +970,7 @@ export default function setup() {
             name: group.name,
             description: group.description ?? '',
             sort_order: group.sort_order ?? 0,
+            series_management_mode: group.series_management_mode ?? 'single',
         });
         specGroupSnapshot.value = clone(form);
         Object.assign(specGroupModal, { open: true, isEdit: true, editId: group.id, form });
@@ -850,6 +979,7 @@ export default function setup() {
         const form = specGroupForm({
             name: copyName(group.name),
             description: group.description ?? '',
+            series_management_mode: group.series_management_mode ?? 'single',
         });
         specGroupSnapshot.value = clone(form);
         Object.assign(specGroupModal, { open: true, isEdit: false, editId: null, form });
@@ -860,6 +990,7 @@ export default function setup() {
                 name: specGroupModal.form.name,
                 description: specGroupModal.form.description ?? '',
                 sort_order: specGroupModal.form.sort_order ?? 0,
+                series_management_mode: specGroupModal.form.series_management_mode ?? 'single',
             };
             const res = specGroupModal.isEdit
                 ? await api.put(`/spec-groups/${specGroupModal.editId}`, payload)
@@ -873,7 +1004,7 @@ export default function setup() {
     const closeSpecGroupModal = () => closeModalWithConfirm(specGroupModal, specGroupSnapshot.value);
     const archiveSpecGroup = (group) => openConfirm({
         title: '部品分類をアーカイブしますか？',
-        message: `「${group.name}」をアーカイブします。\n候補スペック詳細: ${group.usage_count ?? 0}件 / 入力テンプレート: ${group.template_count ?? 0}件`,
+        message: `「${group.name}」をアーカイブします。\n入力候補: ${group.usage_count ?? 0}件 / テンプレート: ${group.template_count ?? 0}件`,
         actionLabel: 'アーカイブする',
         onConfirm: async () => {
             try { await api.delete(`/spec-groups/${group.id}`); await fetchSpecGroups(); toastSuccess('アーカイブしました'); }
@@ -899,7 +1030,7 @@ export default function setup() {
     const memberStateLabel = (member) => ({ required: '必須', recommended: '推奨', optional: '任意' })[memberState(member)] ?? '任意';
     const defaultProfileLabel = (profile) => ({
         typ: 'typ',
-        range: 'range',
+        range: '範囲',
         max_only: 'max',
         min_only: 'min',
         triple: 'min/typ/max',
@@ -911,7 +1042,12 @@ export default function setup() {
     };
     const candidateMemberTypeLabel = (member) => {
         if (isToleranceSpecType(member)) return '許容差';
-        return isCommonSpecType(member) ? '共通' : '主所属';
+        return isCommonSpecType(member) ? '共通' : '個別';
+    };
+    const candidateMemberTypeTitle = (member) => {
+        if (isToleranceSpecType(member)) return '許容差スペック詳細';
+        if (isCommonSpecType(member)) return '共通スペック詳細';
+        return '左で選んだ部品分類に持たせるスペック詳細';
     };
     const defaultCandidateSettingForm = () => ({ state: 'recommended', default_profile: 'typ', default_unit: '', note: '' });
     const memberPayload = (members = []) => members.map((member, index) => ({
@@ -940,10 +1076,24 @@ export default function setup() {
         }
         inlineDirty.value = false;
     };
+    const memberDisplayName = (member) => member?.name_ja || member?.name || 'このスペック詳細';
+    const persistSpecGroupMemberMutation = async (mutate, successMessage) => {
+        if (!currentSpecGroup.value || specGroupMemberSaving.value) return false;
+        const before = clone(currentSpecGroup.value.spec_types ?? []);
+        const changed = mutate();
+        if (changed === false) return false;
+        refreshInlineDirty();
+        const saved = await syncSpecGroupMembers(successMessage);
+        if (!saved && currentSpecGroup.value) {
+            currentSpecGroup.value.spec_types = before;
+            refreshInlineDirty();
+        }
+        return saved;
+    };
     const addSpecTypeToCurrentGroup = (specType, overrides = {}) => {
-        if (!currentSpecGroup.value || !specType) return;
+        if (!currentSpecGroup.value || !specType) return false;
         const members = currentSpecGroup.value.spec_types ?? [];
-        if (members.some((item) => Number(item.id) === Number(specType.id))) return;
+        if (members.some((item) => Number(item.id) === Number(specType.id))) return false;
         members.push({
             ...clone(specType),
             pivot: {
@@ -958,6 +1108,7 @@ export default function setup() {
         });
         currentSpecGroup.value.spec_types = members;
         refreshInlineDirty();
+        return true;
     };
     const candidateAddTitle = computed(() => ({
         local: 'スペック詳細から追加',
@@ -978,11 +1129,12 @@ export default function setup() {
         });
     });
     const candidateAddEmptyMessage = computed(() => ({
-        local: 'この部品分類を主所属にする未追加のスペック詳細はありません',
+        local: 'この部品分類に追加できる未追加のスペック詳細はありません',
         common: '未追加の共通スペック詳細はありません',
         tolerance: '未追加の許容差スペック詳細はありません',
     })[candidateAddModal.mode] ?? '追加できる候補がありません');
     const openCandidateAddModal = async (mode) => {
+        if (specGroupMemberSaving.value) return;
         if (!currentSpecGroup.value) {
             toastError('先に部品分類を選択してください');
             return;
@@ -995,17 +1147,20 @@ export default function setup() {
     const closeCandidateAddModal = () => {
         candidateAddModal.open = false;
     };
-    const addCandidateFromOption = (specType) => {
-        addSpecTypeToCurrentGroup(specType);
-        candidateAddModal.open = false;
+    const addCandidateFromOption = async (specType) => {
+        const saved = await persistSpecGroupMemberMutation(
+            () => addSpecTypeToCurrentGroup(specType),
+            '候補に追加しました',
+        );
+        if (saved) candidateAddModal.open = false;
     };
     const addCommonSpecToCurrentGroup = (specType) => {
         if (!currentSpecGroup.value) {
             toastError('先に部品分類を選択してください');
-            return;
+            return false;
         }
         const members = currentSpecGroup.value.spec_types ?? [];
-        if (members.some((item) => Number(item.id) === Number(specType.id))) return;
+        if (members.some((item) => Number(item.id) === Number(specType.id))) return false;
         members.push({
             ...clone(specType),
             pivot: {
@@ -1019,22 +1174,49 @@ export default function setup() {
         });
         currentSpecGroup.value.spec_types = members;
         refreshInlineDirty();
+        return true;
     };
-    const removeCommonSpecFromCurrentGroup = (specType) => {
-        const index = currentSpecGroup.value?.spec_types?.findIndex((item) => Number(item.id) === Number(specType.id)) ?? -1;
-        if (index >= 0) removeSpecGroupMember(index);
+    const removeSpecGroupMemberById = (specTypeId) => {
+        const members = currentSpecGroup.value?.spec_types;
+        const index = members?.findIndex((item) => Number(item.id) === Number(specTypeId)) ?? -1;
+        if (!members || index < 0) return false;
+        members.splice(index, 1);
+        currentSpecGroup.value.spec_types = members;
+        refreshInlineDirty();
+        return true;
+    };
+    const confirmRemoveSpecGroupMember = (memberOrIndex) => {
+        if (!currentSpecGroup.value || specGroupMemberSaving.value) return;
+        const member = typeof memberOrIndex === 'number'
+            ? currentSpecGroup.value.spec_types?.[memberOrIndex]
+            : memberOrIndex;
+        if (!member) return;
+        const groupId = currentSpecGroup.value.id;
+        const groupName = currentSpecGroup.value.name;
+        openConfirm({
+            title: '候補から外しますか？',
+            message: `「${memberDisplayName(member)}」を「${groupName}」の候補から外します。\nスペック詳細そのものは削除されません。`,
+            actionLabel: '候補から外す',
+            onConfirm: async () => {
+                if (Number(currentSpecGroup.value?.id) !== Number(groupId)) return;
+                await persistSpecGroupMemberMutation(
+                    () => removeSpecGroupMemberById(member.id),
+                    '候補から外しました',
+                );
+            },
+        });
     };
     const toggleCommonSpecForCurrentGroup = async (specType) => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return;
         const wasLinked = isCommonSpecLinked(specType);
-        const before = clone(currentSpecGroup.value.spec_types ?? []);
-        if (wasLinked) removeCommonSpecFromCurrentGroup(specType);
-        else addCommonSpecToCurrentGroup(specType);
-        const saved = await syncSpecGroupMembers(wasLinked ? '候補から外しました' : '候補に入れました');
-        if (!saved) {
-            currentSpecGroup.value.spec_types = before;
-            refreshInlineDirty();
+        if (wasLinked) {
+            confirmRemoveSpecGroupMember(specType);
+            return;
         }
+        await persistSpecGroupMemberMutation(
+            () => addCommonSpecToCurrentGroup(specType),
+            '候補に入れました',
+        );
     };
     const openCandidateSettingEdit = (member, index) => {
         const form = {
@@ -1047,28 +1229,32 @@ export default function setup() {
         Object.assign(candidateSettingModal, { open: true, index, form });
     };
     const closeCandidateSettingModal = () => closeModalWithConfirm(candidateSettingModal, candidateSettingSnapshot.value);
-    const saveCandidateSetting = () => {
+    const saveCandidateSetting = async () => {
         const index = candidateSettingModal.index;
         const member = currentSpecGroup.value?.spec_types?.[index];
         if (!member) {
             candidateSettingModal.open = false;
             return;
         }
-        member.pivot = {
-            ...(member.pivot ?? {}),
-            is_required: candidateSettingModal.form.state === 'required',
-            is_recommended: candidateSettingModal.form.state !== 'optional',
-            default_profile: candidateSettingModal.form.default_profile || null,
-            default_unit: candidateSettingModal.form.default_unit || '',
-            note: candidateSettingModal.form.note || '',
-        };
-        candidateSettingSnapshot.value = clone(candidateSettingModal.form);
-        candidateSettingModal.open = false;
-        refreshInlineDirty();
-    };
-    const removeSpecGroupMember = (index) => {
-        currentSpecGroup.value?.spec_types?.splice(index, 1);
-        refreshInlineDirty();
+        const form = clone(candidateSettingModal.form);
+        const saved = await persistSpecGroupMemberMutation(() => {
+            const target = currentSpecGroup.value?.spec_types?.[index];
+            if (!target || Number(target.id) !== Number(member.id)) return false;
+            target.pivot = {
+                ...(target.pivot ?? {}),
+                is_required: form.state === 'required',
+                is_recommended: form.state !== 'optional',
+                default_profile: form.default_profile || null,
+                default_unit: form.default_unit || '',
+                note: form.note || '',
+            };
+            return true;
+        }, '候補設定を保存しました');
+        if (saved) {
+            candidateSettingSnapshot.value = clone(form);
+            candidateSettingModal.open = false;
+            modalDirty.value = false;
+        }
     };
     const syncSpecGroupMembers = async (successMessage = '候補スペック詳細を保存しました') => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return false;
@@ -1168,6 +1354,19 @@ export default function setup() {
         const items = templateModal.form.items;
         if (target < 0 || target >= items.length) return;
         [items[index], items[target]] = [items[target], items[index]];
+    };
+    const templateItemDnD = {
+        start: (i) => { dragSrc.value = i; dragTarget.value = i; },
+        over: (e, i) => { e.preventDefault(); dragTarget.value = i; },
+        end: () => { dragSrc.value = null; dragTarget.value = null; },
+        drop: (i) => {
+            const from = dragSrc.value;
+            dragSrc.value = null; dragTarget.value = null;
+            if (from === null || from === i) return;
+            const items = templateModal.form.items;
+            const [moved] = items.splice(from, 1);
+            items.splice(i, 0, moved);
+        },
     };
     const saveTemplate = async () => {
         try {
@@ -1270,6 +1469,7 @@ export default function setup() {
         // 初期タブのデータだけ取得し、URLにも現在タブを明示する
         switchTab(activeTab.value, { updateUrl: true, replaceUrl: true });
         window.addEventListener('popstate', () => {
+            requestedSpecGroupId.value = specGroupIdFromUrl();
             switchTab(tabFromUrl(), { updateUrl: false });
         });
     });
@@ -1283,6 +1483,11 @@ export default function setup() {
     watch(() => stModal.form, (value) => {
         if (stModal.open) modalDirty.value = !same(value, stSnapshot.value);
     }, { deep: true });
+    watch(() => stModal.form.unit, () => {
+        if (!stModal.open) return;
+        syncPrefixList('suggest_prefixes');
+        syncPrefixList('display_prefixes');
+    });
     watch(() => specGroupModal.form, (value) => {
         if (specGroupModal.open) modalDirty.value = !same(value, specGroupSnapshot.value);
     }, { deep: true });
@@ -1334,15 +1539,17 @@ export default function setup() {
         start: (i) => { dragSrc.value = i; dragTarget.value = i; },
         over:  (e, i) => { e.preventDefault(); dragTarget.value = i; },
         end:   () => { dragSrc.value = null; dragTarget.value = null; },
-        drop:  (i) => {
+        drop:  async (i) => {
             const from = dragSrc.value;
             dragSrc.value = null; dragTarget.value = null;
             if (from === null || from === i || !currentSpecGroup.value) return;
             const members = [...(currentSpecGroup.value.spec_types ?? [])];
             const [moved] = members.splice(from, 1);
             members.splice(i, 0, moved);
-            currentSpecGroup.value.spec_types = members;
-            refreshInlineDirty();
+            await persistSpecGroupMemberMutation(() => {
+                currentSpecGroup.value.spec_types = members;
+                return true;
+            }, '並び順を更新しました');
         },
     };
     const sgDnD  = makeDnD(activeSpecGroups,    (g) => ({
@@ -1363,12 +1570,13 @@ export default function setup() {
         // パッケージ詳細
         packages, activePackages, archivedPackages, pkgModal, openPkgAdd, openPkgEdit, openPkgDuplicate, savePackage, archivePackage, restorePackage, movePackage, packageDimensions, onPackageFileChange,
         // 部品分類（スペック詳細の親）
-        specGroups, selectedSpecGroupId, specGroupDetailLoading, specGroupMemberSaving, activeSpecGroups, archivedSpecGroups, currentSpecGroup, specGroupModal, openSgAdd, openSgEdit, openSgDuplicate, saveSpecGroup, closeSpecGroupModal, archiveSpecGroup, restoreSpecGroup, selectSpecGroup,
-        memberState, memberStateLabel, memberDefaultLabel, candidateMemberTypeLabel, candidateSettingModal, candidateSettingMember, closeCandidateSettingModal, openCandidateSettingEdit, saveCandidateSetting, removeSpecGroupMember, candidateMemberDnD, syncSpecGroupMembers, inlineDirty,
+        specGroups, selectedSpecGroupId, specGroupDetailLoading, specGroupMemberSaving, activeSpecGroups, archivedSpecGroups, currentSpecGroup, currentSpecGroupCounts, specGroupSidebarMeta, specGroupSeriesModeLabel, specGroupModal, openSgAdd, openSgEdit, openSgDuplicate, saveSpecGroup, closeSpecGroupModal, archiveSpecGroup, restoreSpecGroup, selectSpecGroup,
+        memberState, memberStateLabel, memberDefaultLabel, candidateMemberTypeLabel, candidateMemberTypeTitle, candidateSettingModal, candidateSettingMember, closeCandidateSettingModal, openCandidateSettingEdit, saveCandidateSetting, confirmRemoveSpecGroupMember, candidateMemberDnD, syncSpecGroupMembers, inlineDirty,
         candidateAddModal, candidateAddTitle, candidateAddOptions, candidateAddEmptyMessage, openCandidateAddModal, closeCandidateAddModal, addCandidateFromOption,
         isCommonSpecType, isToleranceSpecType, activeCommonSpecTypes, archivedCommonSpecTypes, activeToleranceSpecTypes, archivedToleranceSpecTypes, isCommonSpecLinked, toggleCommonSpecForCurrentGroup, openCommonSpecTypeAdd, openToleranceSpecTypeAdd, openLocalSpecTypeAdd, openCommonSpecTypeDuplicate,
         toleranceUnitOptions, toleranceUnit, toleranceInputFormat, toleranceAllowedUnits,
-        templateModal, selectedTemplateSpecGroup, templateSpecGroupLoading, templateSpecTypeOptions, templateSpecTypeOptionsForItem, templateSpecTypeOptionLabel, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, saveTemplate, closeTemplateModal, archiveTemplate,
+        prefixOptionsFor, prefixPolicyHelp, stModalTitle, syncPrefixList,
+        templateModal, selectedTemplateSpecGroup, templateSpecGroupLoading, templateSpecTypeOptions, templateSpecTypeOptionsForItem, templateSpecTypeOptionLabel, openTemplateAdd, openTemplateEdit, openTemplateDuplicate, addTemplateItem, removeTemplateItem, moveTemplateItem, templateItemDnD, saveTemplate, closeTemplateModal, archiveTemplate,
         // スペック詳細
         specTypes, activeSpecTypes, activeSpecTypeOptions, archivedSpecTypes, stModal, openStAdd, openStEdit, openStDuplicate, saveSpecType, archiveSpecType, restoreSpecType, specTypeGroups, specTypeOptionLabel,
         renderSymbol,

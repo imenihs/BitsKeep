@@ -1,4 +1,4 @@
-const PREFIX_FACTORS = {
+const SI_PREFIX_FACTORS = {
     Y: 1e24,
     Z: 1e21,
     E: 1e18,
@@ -17,12 +17,27 @@ const PREFIX_FACTORS = {
     f: 1e-15,
 };
 
+const IEC_PREFIX_FACTORS = {
+    Ti: 1099511627776,
+    Gi: 1073741824,
+    Mi: 1048576,
+    Ki: 1024,
+};
+
+const PREFIX_FACTORS = {
+    ...SI_PREFIX_FACTORS,
+    ...IEC_PREFIX_FACTORS,
+};
+
 const ENGINEERING_VALUE_PREFIX_FACTORS = {
     ...PREFIX_FACTORS,
     K: 1e3,
 };
 
 const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
+const UNIVERSAL_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'Ti', 'Gi', 'Mi', 'Ki', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
+const BYTE_BIT_PREFIX_ORDER = ['T', 'G', 'M', 'k', ''];
+const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
 const RANGE_SPLIT_PATTERN = /\s*(?:〜|~|～|to)\s*/iu;
 const TRIPLE_SPLIT_PATTERN = /\s*(?:\/|／|\|)\s*/u;
 const VALID_PROFILES = ['typ', 'range', 'max_only', 'min_only', 'triple'];
@@ -37,9 +52,9 @@ const PROFILE_ALIASES = {
 export const SPEC_PROFILE_OPTIONS = [
     { value: 'typ', label: 'typ' },
     { value: 'range', label: '範囲' },
-    { value: 'max_only', label: '最大' },
-    { value: 'min_only', label: '最小' },
-    { value: 'triple', label: '3値' },
+    { value: 'max_only', label: 'max' },
+    { value: 'min_only', label: 'min' },
+    { value: 'triple', label: 'min/typ/max' },
 ];
 
 export const createEmptySpecRow = () => ({
@@ -311,7 +326,7 @@ export const getSpecUnitSuggestions = (specType) => {
         : null;
 
     if (baseUnit && canHumanize(baseUnit)) {
-        const prefixes = customPrefixes ?? ['G', 'M', 'k', '', 'm', 'u', 'n', 'p'];
+        const prefixes = customPrefixes ?? (isByteBitUnit(baseUnit) ? BYTE_BIT_PREFIX_ORDER : ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f']);
         for (const prefix of prefixes) {
             suggestions.add(`${prefix}${baseUnit}`);
         }
@@ -442,7 +457,7 @@ const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit, displayPre
         return { value: formatDisplayNumber(canonicalValue), unit: fallbackUnit || normalizedUnit };
     }
 
-    const prefix = choosePrefix(canonicalValue, displayPrefixes);
+    const prefix = choosePrefix(canonicalValue, displayPrefixes, normalizedUnit);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -460,7 +475,7 @@ const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit,
         };
     }
 
-    const prefix = choosePrefix(Math.max(Math.abs(canonicalMin), Math.abs(canonicalMax)), displayPrefixes);
+    const prefix = choosePrefix(Math.max(Math.abs(canonicalMin), Math.abs(canonicalMax)), displayPrefixes, normalizedUnit);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -486,7 +501,7 @@ const humanizeValues = (values, normalizedUnit, fallbackUnit, displayPrefixes = 
         };
     }
 
-    const prefix = choosePrefix(Math.max(...presentValues.map((value) => Math.abs(value))), displayPrefixes);
+    const prefix = choosePrefix(Math.max(...presentValues.map((value) => Math.abs(value))), displayPrefixes, normalizedUnit);
     const factor = PREFIX_FACTORS[prefix] ?? 1;
 
     return {
@@ -497,13 +512,13 @@ const humanizeValues = (values, normalizedUnit, fallbackUnit, displayPrefixes = 
     };
 };
 
-const choosePrefix = (value, displayPrefixes = null) => {
+const choosePrefix = (value, displayPrefixes = null, normalizedUnit = '') => {
     if (!value) return '';
 
     const abs = Math.abs(value);
     const order = displayPrefixes && displayPrefixes.length > 0
-        ? HUMAN_PREFIX_ORDER.filter((p) => displayPrefixes.includes(p))
-        : HUMAN_PREFIX_ORDER;
+        ? UNIVERSAL_PREFIX_ORDER.filter((p) => displayPrefixes.includes(p))
+        : (isByteBitUnit(normalizedUnit) ? BYTE_BIT_PREFIX_ORDER : HUMAN_PREFIX_ORDER);
 
     for (const prefix of order) {
         const factor = PREFIX_FACTORS[prefix] ?? 1;
@@ -532,6 +547,8 @@ const choosePrefix = (value, displayPrefixes = null) => {
 };
 
 const canHumanize = (unit) => !!unit && !['%', 'dB', '°C', '°F'].includes(unit) && /^[A-Za-zΩΩ]+$/u.test(unit);
+
+const isByteBitUnit = (unit) => BYTE_BIT_BASE_UNITS.includes(normalizeUnitLabel(unit));
 
 const looksLikeRange = (value) => RANGE_SPLIT_PATTERN.test(String(value ?? ''));
 const looksLikeTriple = (value) => TRIPLE_SPLIT_PATTERN.test(String(value ?? '')) && !looksLikeRange(value);
@@ -583,7 +600,7 @@ const parseEngineeringNumber = (value) => {
 
     if (!normalized) return null;
 
-    const matches = normalized.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)([YZEPTGMkKmunpfµμ]?)$/u);
+    const matches = normalized.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(Ti|Gi|Mi|Ki|[YZEPTGMkKmunpfµμ]?)$/u);
     if (!matches) {
         return null;
     }
@@ -613,7 +630,7 @@ const normalizeUnitLabel = (value) => {
         .replace(/\bohms?\b/iu, 'Ω')
         .replace(/\bohm\b/iu, 'Ω');
 
-    return normalized.replace(/^K(?=[A-Za-zΩ])/u, 'k');
+    return normalized.replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
 };
 
 const buildRangeLabel = (min, max) => [cleanText(min), cleanText(max)].filter(Boolean).join(' 〜 ');

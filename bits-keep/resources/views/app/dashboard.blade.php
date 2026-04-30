@@ -35,7 +35,7 @@
         style="background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, var(--color-bg)) 0%, var(--color-bg) 58%, color-mix(in srgb, var(--color-highlight) 12%, var(--color-bg)) 100%);">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p class="text-xs uppercase tracking-[0.2em] opacity-50 mb-2">Global Launcher</p>
+            <p class="text-xs uppercase tracking-[0.2em] opacity-50 mb-2">検索</p>
             <h2 class="text-3xl font-bold">検索</h2>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -75,7 +75,7 @@
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-2 mb-1">
-                    <span class="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)]">@{{ item.type }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full border border-[var(--color-border)]">@{{ item.typeLabel || item.type }}</span>
                     <span class="font-semibold" :class="item.type === 'component' ? 'font-mono tracking-normal' : ''">@{{ item.label }}</span>
                   </div>
                   <div class="text-sm opacity-60">@{{ item.sub }}</div>
@@ -226,7 +226,7 @@
 
       {{-- 部品管理 --}}
       <div class="mb-6">
-        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">業務別メニュー / 部品管理</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">部品管理</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @foreach ([
             ['icon'=>'🔩','label'=>'部品一覧','desc'=>'登録部品の検索・絞り込み','route'=>'components.index'],
@@ -263,16 +263,36 @@
         </div>
       </div>
 
-      {{-- 在庫・棚管理 --}}
+      {{-- 案件・設計 --}}
       <div class="mb-6">
-        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">在庫・棚管理</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">案件・設計</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          @foreach ([
+            ['icon'=>'📋','label'=>'案件管理','desc'=>'案件ごとの部品・コスト管理','route'=>'projects.index'],
+            ['icon'=>'🔬','label'=>'設計解析ツール','desc'=>'ADC/電源/誤差/熱など設計解析','route'=>'tools.design'],
+            ['icon'=>'🧮','label'=>'エンジニアリング計算','desc'=>'式計算・進数変換・物理定数','route'=>'tools.calc'],
+            ['icon'=>'🔌','label'=>'抵抗/容量ネットワーク探索','desc'=>'抵抗/容量・分圧・在庫値・可変抵抗','route'=>'tools.network'],
+          ] as $fn)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @endforeach
+        </div>
+      </div>
+
+      {{-- 在庫・購買 --}}
+      <div class="mb-6">
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">在庫・購買</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @foreach ([
             ['icon'=>'📥','label'=>'入庫','desc'=>'購入部品を順に入庫する','route'=>'stock.in'],
             ['icon'=>'⚠️','label'=>'在庫警告','desc'=>'発注点を下回る部品を確認','route'=>'stock.alert'],
             ['icon'=>'🛒','label'=>'部品発注','desc'=>'発注候補を商社別に確認・出力','route'=>'stock.orders'],
-            ['icon'=>'🗄️','label'=>'保管棚管理','desc'=>'棚マップと棚卸し','route'=>'locations.index'],
-            ['icon'=>'🏪','label'=>'商社管理','desc'=>'仕入先・商社の管理','route'=>'suppliers.index'],
           ] as $fn)
           <a href="{{ route($fn['route']) }}"
             class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
@@ -286,39 +306,17 @@
         </div>
       </div>
 
-      {{-- 案件・設計ツール --}}
+      {{-- マスタ・利用設定 --}}
       <div class="mb-6">
-        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">案件・設計ツール</h3>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          @foreach ([
-            ['icon'=>'📋','label'=>'案件管理','desc'=>'案件ごとの部品・コスト管理','route'=>'projects.index'],
-            ['icon'=>'🧮','label'=>'エンジニア電卓','desc'=>'式計算・進数変換・物理定数','route'=>'tools.calc'],
-            ['icon'=>'🔬','label'=>'設計解析ツール','desc'=>'ADC/電源/誤差/熱など設計解析','route'=>'tools.design'],
-            ['icon'=>'🔌','label'=>'ネットワーク探索','desc'=>'抵抗/容量の直並列組み合わせ','route'=>'tools.network'],
-          ] as $fn)
-          <a href="{{ route($fn['route']) }}"
-            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
-            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
-            <div class="min-w-0">
-              <div class="font-semibold text-sm">{{ $fn['label'] }}</div>
-              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
-            </div>
-          </a>
-          @endforeach
-        </div>
-      </div>
-
-      {{-- マスタ・ログ --}}
-      <div class="mb-6">
-        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">業務別メニュー / マスタ・ログ</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">マスタ・利用設定</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @foreach ([
             ['icon'=>'⚙️','label'=>'マスタ管理','desc'=>'部品分類・パッケージ詳細・スペック詳細','route'=>'master.index'],
-            ['icon'=>'📝','label'=>'操作ログ','desc'=>'変更履歴の監査ログ','route'=>'audit.index'],
-            ['icon'=>'🔗','label'=>'Altium連携','desc'=>'Altium Designerとの部品リンク','route'=>'altium.index'],
+            ['icon'=>'▦','label'=>'部品シリーズ','desc'=>'シリーズ値と登録部品を管理','route'=>'component-series.index'],
+            ['icon'=>'🗄️','label'=>'保管棚管理','desc'=>'棚マップと棚卸し','route'=>'locations.index'],
+            ['icon'=>'🏪','label'=>'商社管理','desc'=>'仕入先・商社の管理','route'=>'suppliers.index'],
+            ['icon'=>'⌂','label'=>'ホーム設定','desc'=>'ダッシュボードの主要アクション','route'=>'settings.home'],
           ] as $fn)
-          @php($requiresAdmin = in_array($fn['route'], ['audit.index', 'altium.index']))
-          @if (!$requiresAdmin || $isAdmin)
           <a href="{{ route($fn['route']) }}"
             class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
             <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
@@ -327,22 +325,13 @@
               <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
             </div>
           </a>
-          @else
-          <div class="feature-disabled flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 bg-[var(--color-card-even)]">
-            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 font-semibold text-sm"><span class="feature-lock">管</span><span>{{ $fn['label'] }}</span></div>
-              <div class="text-xs opacity-50 truncate">管理者のみ操作できます</div>
-            </div>
-          </div>
-          @endif
           @endforeach
         </div>
       </div>
 
-      {{-- 管理・設定 --}}
+      {{-- 管理・ログ・動作設定 --}}
       <div class="mb-2">
-        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">業務別メニュー / 管理・設定</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-widest opacity-50 mb-3">管理・ログ・動作設定</h3>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           @if ($canEdit)
           <a href="{{ route('settings.integrations') }}"
@@ -380,6 +369,29 @@
             </div>
           </div>
           @endif
+          @foreach ([
+            ['icon'=>'📝','label'=>'操作ログ','desc'=>'変更履歴の監査ログ','route'=>'audit.index'],
+            ['icon'=>'🔗','label'=>'Altium連携','desc'=>'Altium Designerとの部品リンク','route'=>'altium.index'],
+          ] as $fn)
+          @if ($isAdmin)
+          <a href="{{ route($fn['route']) }}"
+            class="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 hover:border-[var(--color-primary)] hover:bg-[var(--color-card-even)] transition-all no-underline text-inherit">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 font-semibold text-sm"><span class="feature-lock">管</span><span>{{ $fn['label'] }}</span></div>
+              <div class="text-xs opacity-50 truncate">{{ $fn['desc'] }}</div>
+            </div>
+          </a>
+          @else
+          <div class="feature-disabled flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 bg-[var(--color-card-even)]">
+            <div class="w-9 h-9 rounded-xl bg-[var(--color-card-even)] flex items-center justify-center flex-shrink-0 text-lg">{{ $fn['icon'] }}</div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 font-semibold text-sm"><span class="feature-lock">管</span><span>{{ $fn['label'] }}</span></div>
+              <div class="text-xs opacity-50 truncate">管理者のみ操作できます</div>
+            </div>
+          </div>
+          @endif
+          @endforeach
         </div>
       </div>
 

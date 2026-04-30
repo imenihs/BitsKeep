@@ -8,9 +8,20 @@ use App\Http\Responses\ApiResponse;
 use App\Models\SpecType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SpecTypeController extends Controller
 {
+    private const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
+
+    private const BINARY_IEC_PREFIXES = ['Ti', 'Gi', 'Mi', 'Ki'];
+
+    private const DECIMAL_NON_FRACTIONAL_PREFIXES = ['T', 'G', 'M', 'k'];
+
+    private const DECIMAL_FRACTIONAL_PREFIXES = ['m', 'u', 'n', 'p', 'f'];
+
+    private const BYTE_BIT_ALLOWED_PREFIXES = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
+
     public function index(Request $request)
     {
         if ($request->boolean('summary')) {
@@ -56,10 +67,11 @@ class SpecTypeController extends Controller
     public function store(StoreSpecTypeRequest $request)
     {
         return DB::transaction(function () use ($request) {
-            $payload = $this->normalizePayload($request->safe()->except(['unit', 'aliases']));
+            $payload = $request->safe()->except(['unit', 'aliases']);
             if ($request->filled('unit') && empty($payload['base_unit'])) {
                 $payload['base_unit'] = $request->string('unit')->toString();
             }
+            $payload = $this->normalizePayload($payload);
             $specType = SpecType::create($payload);
 
             if ($request->filled('unit')) {
@@ -97,10 +109,15 @@ class SpecTypeController extends Controller
             if (! $request->has('tolerance_settings')) {
                 $payload['tolerance_settings'] = $specType->tolerance_settings;
             }
-            $payload = $this->normalizePayload($payload);
             if ($request->has('unit')) {
                 $payload['base_unit'] = $request->filled('unit') ? $request->string('unit')->toString() : null;
+            } elseif (
+                ! array_key_exists('base_unit', $payload)
+                && (array_key_exists('suggest_prefixes', $payload) || array_key_exists('display_prefixes', $payload))
+            ) {
+                $payload['base_unit'] = $specType->base_unit;
             }
+            $payload = $this->normalizePayload($payload);
             $specType->update($payload);
 
             if ($request->has('unit')) {
@@ -183,7 +200,7 @@ class SpecTypeController extends Controller
 
         foreach (['suggest_prefixes', 'display_prefixes'] as $key) {
             if (array_key_exists($key, $payload)) {
-                $payload[$key] = $this->normalizePrefixList($payload[$key]);
+                $payload[$key] = $this->normalizePrefixList($payload[$key], (string) ($payload['base_unit'] ?? ''), $key);
             }
         }
 
@@ -193,7 +210,7 @@ class SpecTypeController extends Controller
     /**
      * @return array<int, string>|null
      */
-    private function normalizePrefixList(mixed $prefixes): ?array
+    private function normalizePrefixList(mixed $prefixes, string $baseUnit, string $field): ?array
     {
         if ($prefixes === null) {
             return null;
@@ -204,11 +221,68 @@ class SpecTypeController extends Controller
         }
 
         $normalized = array_map(
-            fn ($prefix) => $prefix === null ? '' : trim((string) $prefix),
+            fn ($prefix) => $this->normalizePrefix($prefix),
             $prefixes
         );
 
-        return array_values(array_unique($normalized));
+        $normalized = array_values(array_unique($normalized));
+        $hasIec = count(array_intersect($normalized, self::BINARY_IEC_PREFIXES)) > 0;
+
+        if (! $this->isByteBitUnit($baseUnit)) {
+            if ($hasIec) {
+                throw ValidationException::withMessages([
+                    $field => 'IEC接頭語は B / bit / bps 系のスペック詳細だけで使用できます。',
+                ]);
+            }
+
+            return $normalized;
+        }
+
+        $invalid = array_values(array_filter(
+            $normalized,
+            fn ($prefix) => ! in_array($prefix, self::BYTE_BIT_ALLOWED_PREFIXES, true)
+        ));
+        if ($invalid !== []) {
+            throw ValidationException::withMessages([
+                $field => 'B / bit / bps 系では T/G/M/k/無印 または Ti/Gi/Mi/Ki だけを接頭語候補にできます。',
+            ]);
+        }
+
+        $fractional = array_values(array_intersect($normalized, self::DECIMAL_FRACTIONAL_PREFIXES));
+        if ($fractional !== []) {
+            throw ValidationException::withMessages([
+                $field => 'B / bit / bps 系では m/u/n/p/f のような小数系接頭語は使用できません。',
+            ]);
+        }
+
+        $hasDecimal = count(array_intersect($normalized, self::DECIMAL_NON_FRACTIONAL_PREFIXES)) > 0;
+        if ($hasIec && $hasDecimal) {
+            throw ValidationException::withMessages([
+                $field => 'B / bit / bps 系では 10進接頭語（T/G/M/k）と IEC 接頭語（Ti/Gi/Mi/Ki）を同時に選択できません。',
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizePrefix(mixed $prefix): string
+    {
+        $normalized = $prefix === null ? '' : trim((string) $prefix);
+
+        return $normalized === 'K' ? 'k' : $normalized;
+    }
+
+    private function isByteBitUnit(string $unit): bool
+    {
+        return in_array($this->normalizeUnitLabel($unit), self::BYTE_BIT_BASE_UNITS, true);
+    }
+
+    private function normalizeUnitLabel(string $unit): string
+    {
+        $normalized = trim(str_replace(['μ', 'µ', 'Ω'], ['u', 'u', 'Ω'], $unit));
+        $normalized = preg_replace('/\bohms?\b/iu', 'Ω', $normalized) ?? $normalized;
+
+        return preg_replace('/^K(?!i)(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
     }
 
     private function applySpecTypeFilters($query, Request $request): void

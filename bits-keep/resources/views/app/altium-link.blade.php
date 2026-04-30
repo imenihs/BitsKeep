@@ -82,7 +82,7 @@
                   <div class="mt-2 flex flex-wrap gap-2 text-xs">
                     <span class="tag">SchLib/PcbLibを登録</span>
                     <span class="tag">部品詳細でシンボル・フットプリントを紐付け</span>
-                    <span class="tag">削除時は既存リンクをNULL化</span>
+                    <span class="tag">削除時は部品との紐付けを解除</span>
                   </div>
                 </div>
                 <div class="flex flex-wrap gap-2">

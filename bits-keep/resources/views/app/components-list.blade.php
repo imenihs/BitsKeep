@@ -20,7 +20,7 @@
     <section class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-5 mb-4">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p class="text-xs uppercase tracking-[0.2em] opacity-50">Component Index</p>
+          <p class="text-xs uppercase tracking-[0.2em] opacity-50">部品索引</p>
           <div class="flex flex-wrap items-center gap-3 mt-1">
             <h1 class="text-2xl font-bold">部品一覧</h1>
             <span class="text-sm opacity-60">表示 @{{ parts.length }}件 / 全@{{ total }}件</span>
@@ -184,11 +184,11 @@
             </select>
           </div>
           <div>
-            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日From</label>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日（開始）</label>
             <input v-model="advPurchasedFrom" type="date" class="input-text w-full" />
           </div>
           <div>
-            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日To</label>
+            <label class="block text-[11px] font-semibold opacity-60 mb-1">購入日（終了）</label>
             <input v-model="advPurchasedTo" type="date" class="input-text w-full" />
           </div>
         </div>
@@ -271,7 +271,7 @@
                 <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
               </div>
               <div class="mt-1 text-xs opacity-60">
-                部品分類@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 在庫ブロック@{{ part.inventory_blocks_count ?? 0 }}件
+                部品分類@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 棚別在庫@{{ part.inventory_blocks_count ?? 0 }}件
               </div>
             </div>
           </a>

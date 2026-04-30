@@ -1,9 +1,11 @@
 import { ref } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import { useConfirmModal } from '../composables/useConfirmModal.js';
 
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
+    const { ask } = useConfirmModal();
 
     const downloading   = ref(false);
     const downloadError = ref('');
@@ -57,7 +59,7 @@ export default function setup() {
 
     const startRestore = async () => {
         if (!selectedFile.value) return;
-        if (!confirm('現在のDBデータが上書きされます。本当に書き戻しますか？')) return;
+        if (!await ask('現在の登録データを、選択したバックアップファイルの内容で置き換えます。\nこの操作は元に戻せません。復元しますか？')) return;
 
         restoring.value = true;
         restoreResult.value = null;
@@ -65,11 +67,11 @@ export default function setup() {
             const form = new FormData();
             form.append('file', selectedFile.value);
             const r = await api.upload('/backup/restore', form);
-            restoreResult.value = { ok: true, message: r.message ?? 'リストアが完了しました' };
-            toastSuccess('リストアが完了しました');
+            restoreResult.value = { ok: true, message: r.message ?? '復元が完了しました' };
+            toastSuccess('復元が完了しました');
         } catch (e) {
-            restoreResult.value = { ok: false, message: e.message ?? 'リストアに失敗しました' };
-            toastError(e.message ?? 'リストアに失敗しました');
+            restoreResult.value = { ok: false, message: e.message ?? '復元に失敗しました' };
+            toastError(e.message ?? '復元に失敗しました');
         } finally {
             restoring.value = false;
         }

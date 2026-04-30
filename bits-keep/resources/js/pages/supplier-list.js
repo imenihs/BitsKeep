@@ -73,17 +73,17 @@ export default function setup() {
     };
 
     const archiveSupplier = async (s) => {
-        if (!confirm(`「${s.name}」を取引停止にしますか？\n使用件数: ${s.usage_count ?? 0}件`)) return;
+        if (!await ask(`「${s.name}」を取引停止にしますか？\n危険度: 低\n使用件数: ${s.usage_count ?? 0}件\n新規登録時の商社候補から外れますが、過去の価格履歴や部品との紐付けは残り、あとで復元できます。`)) return;
         try { await api.delete(`/suppliers/${s.id}`); await fetchSuppliers(); toastSuccess('取引停止にしました'); }
         catch (e) { toastError(e.message); }
     };
     const restoreSupplier = async (s) => {
-        if (!confirm(`「${s.name}」を復元しますか？`)) return;
+        if (!await ask(`「${s.name}」を復元しますか？\n危険度: 低\n新規登録時の商社候補に戻します。`)) return;
         try { await api.post(`/suppliers/${s.id}/restore`); await fetchSuppliers(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
     const forceDeleteSupplier = async (s) => {
-        if (!confirm(`「${s.name}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
+        if (!await ask(`「${s.name}」を完全削除しますか？\n危険度: 高\nこの操作は元に戻せません。履歴や参照がない商社だけ実行できます。`)) return;
         try { await api.delete(`/suppliers/${s.id}/force`); await fetchSuppliers(); toastSuccess('完全削除しました'); }
         catch (e) { toastError(e.message); }
     };

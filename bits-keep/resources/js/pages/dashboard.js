@@ -12,21 +12,23 @@ import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 const ACTION_DEFS = [
     { key: 'components',    label: '部品一覧',     desc: '登録部品の検索・絞り込み', url: '/components',        icon: '🔩' },
     { key: 'create',        label: '部品登録',     desc: '新規部品を登録する',       url: '/components/create', icon: '➕' },
+    { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
+    { key: 'design-tools',  label: '設計解析ツール', desc: 'ADC/電源/誤差/熱など設計解析', url: '/tools/design', icon: '🔬' },
+    { key: 'calc',          label: 'エンジニアリング計算', desc: '式計算・進数変換・物理定数', url: '/tools/calc',   icon: '🧮' },
+    { key: 'network',       label: '抵抗/容量ネットワーク探索', desc: '抵抗/容量の直並列組み合わせ', url: '/tools/network', icon: '🔌' },
     { key: 'stock-in',      label: '入庫',         desc: '購入部品を続けて入庫する', url: '/stock-in',         icon: '📥' },
     { key: 'stock-alert',   label: '在庫警告',     desc: '発注点を下回る部品を確認', url: '/stock-alert',       icon: '⚠️' },
     { key: 'stock-orders',  label: '部品発注',     desc: '発注候補を商社別に確認・出力', url: '/stock-orders',  icon: '🛒' },
-    { key: 'projects',      label: '案件管理',     desc: '案件ごとの部品・コスト管理', url: '/projects',          icon: '📋' },
     { key: 'master',        label: 'マスタ管理',   desc: '部品分類・パッケージ詳細・スペック詳細', url: '/master',     icon: '⚙️' },
-    { key: 'design-tools',  label: '設計ツール',   desc: 'ADC/電源/誤差/熱など設計解析', url: '/tools/design', icon: '🔬' },
-    { key: 'calc',          label: '電卓',         desc: '式計算・進数変換・物理定数', url: '/tools/calc',   icon: '🧮' },
-    { key: 'network',       label: 'ネットワーク探索', desc: '抵抗/容量の直並列組み合わせ', url: '/tools/network', icon: '🔌' },
+    { key: 'component-series', label: '部品シリーズ', desc: 'シリーズ値と登録部品を管理', url: '/component-series', icon: '▦' },
     { key: 'users',         label: 'ユーザー管理', desc: 'ユーザーの招待・ロール変更', url: '/users',        icon: '👤', adminOnly: true },
     { key: 'audit-logs',    label: '操作ログ',     desc: '変更履歴の監査ログ',         url: '/audit-logs',   icon: '📝', adminOnly: true },
     { key: 'csv-import',    label: 'CSVインポート',desc: 'CSVで部品を一括登録',       url: '/csv-import',   icon: '📥', adminOnly: true },
 ];
 
 const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
-const DEFAULT_QUICK_ACTION_KEYS = ['components', 'stock-in', 'create', 'stock-alert', 'projects'];
+const DEFAULT_QUICK_ACTION_KEYS = ['components', 'create', 'projects', 'design-tools', 'stock-in', 'stock-alert', 'component-series'];
+const RESULT_TYPE_LABELS = { component: '部品', project: '案件', function: '機能' };
 
 const componentTitle = (part) => part?.part_number || part?.common_name || part?.name || '型番未設定';
 const componentMeta = (part, extra = '') => {
@@ -75,6 +77,7 @@ export default function setup() {
             if (partsRes.status === 'fulfilled' && activeFocus.value !== '案件' && activeFocus.value !== '機能') {
                 (partsRes.value.data?.data ?? partsRes.value.data ?? []).forEach(c => results.push({
                     type: 'component', icon: '🔩',
+                    typeLabel: RESULT_TYPE_LABELS.component,
                     label: componentTitle(c),
                     sub: componentMeta(c),
                     url: `/components/${c.id}`,
@@ -83,6 +86,7 @@ export default function setup() {
             if (projectsRes.status === 'fulfilled' && activeFocus.value !== '部品' && activeFocus.value !== '機能') {
                 (projectsRes.value.data?.data ?? projectsRes.value.data ?? []).forEach(p => results.push({
                     type: 'project', icon: '📋',
+                    typeLabel: RESULT_TYPE_LABELS.project,
                     label: p.name,
                     sub: p.status === 'active' ? '進行中' : 'アーカイブ',
                     url: `/projects`,
@@ -94,6 +98,7 @@ export default function setup() {
                     .slice(0, 4)
                     .forEach((action) => results.push({
                         type: 'function',
+                        typeLabel: RESULT_TYPE_LABELS.function,
                         icon: action.icon,
                         label: action.label,
                         sub: action.desc,
@@ -236,6 +241,7 @@ export default function setup() {
         return [
             ...quickActions.value.slice(0, 4).map((action) => ({
                 type: 'function',
+                typeLabel: RESULT_TYPE_LABELS.function,
                 icon: action.icon,
                 label: action.label,
                 sub: action.desc,
@@ -243,6 +249,7 @@ export default function setup() {
             })),
             ...recentParts.value.slice(0, 3).map((part) => ({
                 type: 'component',
+                typeLabel: RESULT_TYPE_LABELS.component,
                 icon: '🔩',
                 label: componentTitle(part),
                 sub: componentMeta(part),

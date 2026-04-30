@@ -6,7 +6,7 @@ use App\Models\SpecType;
 
 class SpecValueNormalizerService
 {
-    private const PREFIX_FACTORS = [
+    private const SI_PREFIX_FACTORS = [
         'Y' => 1e24,
         'Z' => 1e21,
         'E' => 1e18,
@@ -25,10 +25,25 @@ class SpecValueNormalizerService
         'f' => 1e-15,
     ];
 
+    private const IEC_PREFIX_FACTORS = [
+        'Ti' => 1099511627776,
+        'Gi' => 1073741824,
+        'Mi' => 1048576,
+        'Ki' => 1024,
+    ];
+
+    private const PREFIX_FACTORS = self::SI_PREFIX_FACTORS + self::IEC_PREFIX_FACTORS;
+
     // PREFIX_FACTORS に大文字 K (非標準だが実務頻出) を追加した値パーサ専用テーブル
     private const ENGINEERING_VALUE_PREFIX_FACTORS = self::PREFIX_FACTORS + ['K' => 1e3];
 
     private const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
+
+    private const UNIVERSAL_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'Ti', 'Gi', 'Mi', 'Ki', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
+
+    private const BYTE_BIT_PREFIX_ORDER = ['T', 'G', 'M', 'k', ''];
+
+    private const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
 
     private const RANGE_SPLIT_PATTERN = '/\s*(?:〜|~|～|to)\s*/iu';
 
@@ -85,13 +100,14 @@ class SpecValueNormalizerService
         $resolvedUnit = $this->normalizeUnitLabel($rawUnit);
         $normalizedUnit = $baseUnit !== '' ? $baseUnit : ($resolvedUnit !== '' ? $resolvedUnit : null);
         $factor = $this->resolveFactor($specType, $resolvedUnit, $baseUnit);
+        $displayPrefixes = $this->normalizeDisplayPrefixes($specType?->display_prefixes);
 
         return match ($profile) {
-            'range' => $this->normalizeRangePayload($rawMin, $rawMax, $resolvedUnit, $normalizedUnit, $factor),
-            'max_only' => $this->normalizeSinglePayload('max_only', $rawMax, $resolvedUnit, $normalizedUnit, $factor),
-            'min_only' => $this->normalizeSinglePayload('min_only', $rawMin, $resolvedUnit, $normalizedUnit, $factor),
-            'triple' => $this->normalizeTriplePayload($rawMin, $rawTyp, $rawMax, $resolvedUnit, $normalizedUnit, $factor),
-            default => $this->normalizeSinglePayload('typ', $rawTyp, $resolvedUnit, $normalizedUnit, $factor),
+            'range' => $this->normalizeRangePayload($rawMin, $rawMax, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
+            'max_only' => $this->normalizeSinglePayload('max_only', $rawMax, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
+            'min_only' => $this->normalizeSinglePayload('min_only', $rawMin, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
+            'triple' => $this->normalizeTriplePayload($rawMin, $rawTyp, $rawMax, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
+            default => $this->normalizeSinglePayload('typ', $rawTyp, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
         };
     }
 
@@ -150,7 +166,7 @@ class SpecValueNormalizerService
         return 'typ';
     }
 
-    private function normalizeSinglePayload(string $profile, string $rawValue, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
+    private function normalizeSinglePayload(string $profile, string $rawValue, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $parsed = $this->parseEngineeringNumber($rawValue);
         if ($parsed === null) {
@@ -168,7 +184,7 @@ class SpecValueNormalizerService
         }
 
         $canonical = $parsed['value'] * $parsed['factor'] * $factor;
-        [$displayValue, $displayUnit] = $this->humanizeSingle($canonical, $normalizedUnit, $resolvedUnit);
+        [$displayValue, $displayUnit] = $this->humanizeSingle($canonical, $normalizedUnit, $resolvedUnit, $displayPrefixes);
 
         return [
             'value_profile' => $profile,
@@ -183,7 +199,7 @@ class SpecValueNormalizerService
         ];
     }
 
-    private function normalizeRangePayload(string $rawMin, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
+    private function normalizeRangePayload(string $rawMin, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $min = $this->parseEngineeringNumber($rawMin);
         $max = $this->parseEngineeringNumber($rawMax);
@@ -208,7 +224,7 @@ class SpecValueNormalizerService
             [$canonicalMin, $canonicalMax] = [$canonicalMax, $canonicalMin];
         }
 
-        [$displayMin, $displayMax, $displayUnit] = $this->humanizeRange($canonicalMin, $canonicalMax, $normalizedUnit, $resolvedUnit);
+        [$displayMin, $displayMax, $displayUnit] = $this->humanizeRange($canonicalMin, $canonicalMax, $normalizedUnit, $resolvedUnit, $displayPrefixes);
 
         return [
             'value_profile' => 'range',
@@ -223,7 +239,7 @@ class SpecValueNormalizerService
         ];
     }
 
-    private function normalizeTriplePayload(string $rawMin, string $rawTyp, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor): array
+    private function normalizeTriplePayload(string $rawMin, string $rawTyp, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $min = $this->parseEngineeringNumber($rawMin);
         $typ = $this->parseEngineeringNumber($rawTyp);
@@ -253,7 +269,7 @@ class SpecValueNormalizerService
             'min' => $canonicalMin,
             'typ' => $canonicalTyp,
             'max' => $canonicalMax,
-        ], $normalizedUnit, $resolvedUnit);
+        ], $normalizedUnit, $resolvedUnit, $displayPrefixes);
 
         return [
             'value_profile' => 'triple',
@@ -339,13 +355,13 @@ class SpecValueNormalizerService
     /**
      * @return array{0: string, 1: string}
      */
-    private function humanizeSingle(float $canonicalValue, ?string $normalizedUnit, string $fallbackUnit): array
+    private function humanizeSingle(float $canonicalValue, ?string $normalizedUnit, string $fallbackUnit, ?array $displayPrefixes): array
     {
         if (! $this->canHumanize($normalizedUnit)) {
             return [$this->formatDisplayNumber($canonicalValue), $fallbackUnit !== '' ? $fallbackUnit : (string) $normalizedUnit];
         }
 
-        $prefix = $this->choosePrefix($canonicalValue);
+        $prefix = $this->choosePrefix($canonicalValue, $normalizedUnit, $displayPrefixes);
         $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [$this->formatDisplayNumber($canonicalValue / $factor), $prefix.$normalizedUnit];
@@ -354,7 +370,7 @@ class SpecValueNormalizerService
     /**
      * @return array{0: string, 1: string, 2: string}
      */
-    private function humanizeRange(float $canonicalMin, float $canonicalMax, ?string $normalizedUnit, string $fallbackUnit): array
+    private function humanizeRange(float $canonicalMin, float $canonicalMax, ?string $normalizedUnit, string $fallbackUnit, ?array $displayPrefixes): array
     {
         if (! $this->canHumanize($normalizedUnit)) {
             return [
@@ -365,7 +381,7 @@ class SpecValueNormalizerService
         }
 
         $target = max(abs($canonicalMin), abs($canonicalMax));
-        $prefix = $this->choosePrefix($target);
+        $prefix = $this->choosePrefix($target, $normalizedUnit, $displayPrefixes);
         $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [
@@ -379,7 +395,7 @@ class SpecValueNormalizerService
      * @param  array{min: ?float, typ: ?float, max: ?float}  $values
      * @return array{min: string, typ: string, max: string, unit: string}
      */
-    private function humanizeValues(array $values, ?string $normalizedUnit, string $fallbackUnit): array
+    private function humanizeValues(array $values, ?string $normalizedUnit, string $fallbackUnit, ?array $displayPrefixes): array
     {
         $presentValues = array_values(array_filter($values, fn ($value) => $value !== null));
         $displayUnit = $fallbackUnit !== '' ? $fallbackUnit : (string) $normalizedUnit;
@@ -398,7 +414,7 @@ class SpecValueNormalizerService
         }
 
         $target = max(array_map(fn ($value) => abs($value), $presentValues));
-        $prefix = $this->choosePrefix($target);
+        $prefix = $this->choosePrefix($target, $normalizedUnit, $displayPrefixes);
         $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [
@@ -409,14 +425,15 @@ class SpecValueNormalizerService
         ];
     }
 
-    private function choosePrefix(float $value): string
+    private function choosePrefix(float $value, ?string $normalizedUnit, ?array $displayPrefixes): string
     {
         if ($value == 0.0) {
             return '';
         }
 
         $abs = abs($value);
-        foreach (self::HUMAN_PREFIX_ORDER as $prefix) {
+        $order = $this->prefixOrder($normalizedUnit, $displayPrefixes);
+        foreach ($order as $prefix) {
             $factor = self::PREFIX_FACTORS[$prefix];
             $scaled = $abs / $factor;
             if ($scaled >= 1 && $scaled < 1000) {
@@ -424,7 +441,36 @@ class SpecValueNormalizerService
             }
         }
 
-        return $abs >= 1 ? '' : 'f';
+        $best = $order[0] ?? '';
+        $bestDistance = INF;
+        foreach ($order as $prefix) {
+            $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+            $distance = abs(log10($abs / $factor));
+            if ($distance < $bestDistance) {
+                $bestDistance = $distance;
+                $best = $prefix;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  array<int, string>|null  $displayPrefixes
+     * @return array<int, string>
+     */
+    private function prefixOrder(?string $normalizedUnit, ?array $displayPrefixes): array
+    {
+        if ($displayPrefixes !== null && $displayPrefixes !== []) {
+            return array_values(array_filter(
+                self::UNIVERSAL_PREFIX_ORDER,
+                fn ($prefix) => in_array($prefix, $displayPrefixes, true)
+            ));
+        }
+
+        return in_array((string) $normalizedUnit, self::BYTE_BIT_BASE_UNITS, true)
+            ? self::BYTE_BIT_PREFIX_ORDER
+            : self::HUMAN_PREFIX_ORDER;
     }
 
     private function canHumanize(?string $normalizedUnit): bool
@@ -526,7 +572,7 @@ class SpecValueNormalizerService
         $normalized = str_replace(['，', ',', '−', '–', '—'], ['', '', '-', '-', '-'], $normalized);
         $normalized = preg_replace('/\s+/u', '', $normalized) ?? $normalized;
 
-        if (preg_match('/^([+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?)([YZEPTGMkKmunpfµμ]?)$/u', $normalized, $matches) !== 1) {
+        if (preg_match('/^([+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?)(Ti|Gi|Mi|Ki|[YZEPTGMkKmunpfµμ]?)$/u', $normalized, $matches) !== 1) {
             return null;
         }
 
@@ -551,7 +597,24 @@ class SpecValueNormalizerService
         $normalized = trim(str_replace(['μ', 'µ', 'Ω'], ['u', 'u', 'Ω'], $unit));
         $normalized = preg_replace('/\bohms?\b/iu', 'Ω', $normalized) ?? $normalized;
 
-        return preg_replace('/^K(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
+        return preg_replace('/^K(?!i)(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
+    }
+
+    /**
+     * @return array<int, string>|null
+     */
+    private function normalizeDisplayPrefixes(mixed $prefixes): ?array
+    {
+        if (! is_array($prefixes)) {
+            return null;
+        }
+
+        $normalized = array_values(array_unique(array_map(
+            fn ($prefix) => $prefix === null ? '' : trim((string) $prefix),
+            $prefixes
+        )));
+
+        return $normalized === [] ? null : $normalized;
     }
 
     private function formatDecimal(float $value, int $scale): string

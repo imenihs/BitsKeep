@@ -27,7 +27,7 @@
       <option value="updated">更新</option>
       <option value="deleted">削除</option>
     </select>
-    <input v-model="filters.resource_type" @change="applyFilter" type="text" placeholder="リソース種別（例: Component）"
+    <input v-model="filters.resource_type" @change="applyFilter" type="text" placeholder="対象（例: 部品、棚、商社）"
       class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm w-48" />
     <input v-model="filters.date_from" @change="applyFilter" type="date"
       class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm" />
@@ -67,7 +67,8 @@
               </span>
             </td>
             <td class="py-2 pr-3 text-xs">
-              <div class="font-medium">@{{ log.resource_type }}</div>
+              <div class="font-medium">@{{ resourceTypeLabel(log.resource_type) }}</div>
+              <div v-if="resourceTypeLabel(log.resource_type) !== log.resource_type" class="opacity-50">@{{ log.resource_type }}</div>
               <div class="opacity-60">#@{{ log.resource_id }}</div>
             </td>
             <td class="py-2 text-xs">
@@ -84,7 +85,7 @@
               <div class="bg-black/5 rounded p-3 font-mono text-xs space-y-1">
                 <div v-if="diffLines(log.diff).length === 0" class="opacity-50">差分なし</div>
                 <div v-for="dl in diffLines(log.diff)" :key="dl.key" class="flex gap-4">
-                  <span class="w-32 shrink-0 opacity-70 truncate">@{{ dl.key }}</span>
+                  <span class="w-32 shrink-0 opacity-70 truncate">@{{ diffKeyLabel(dl.key) }}</span>
                   <span class="text-red-500 line-through truncate max-w-xs">@{{ JSON.stringify(dl.before) }}</span>
                   <span class="opacity-50">→</span>
                   <span class="text-emerald-600 truncate max-w-xs">@{{ JSON.stringify(dl.after) }}</span>

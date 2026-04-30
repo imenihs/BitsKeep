@@ -50,7 +50,7 @@
           <div class="flex items-center gap-2">
             <span class="w-3 h-3 rounded-full inline-block flex-shrink-0" :style="{ backgroundColor: s.color || '#2563eb' }"></span>
             <span class="font-semibold truncate">@{{ s.name }}</span>
-            <span v-if="s.deleted_at" class="tag tag-warning text-[10px]">アーカイブ済み</span>
+            <span v-if="s.deleted_at" class="tag tag-warning text-[10px]">取引停止中</span>
           </div>
           <a v-if="s.url" :href="s.url" target="_blank" rel="noopener" class="mt-2 block text-xs text-[var(--color-primary)] truncate">@{{ s.url }}</a>
           <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -69,7 +69,7 @@
       </div>
       <div class="ui-action-row mt-3">
         <button @click="openEdit(s)" class="btn-outline text-xs">編集</button>
-        <button v-if="!s.deleted_at" @click="archiveSupplier(s)" class="btn-warning-outline text-xs">アーカイブ</button>
+        <button v-if="!s.deleted_at" @click="archiveSupplier(s)" class="btn-warning-outline text-xs">取引停止</button>
         <button v-else @click="restoreSupplier(s)" class="btn-success-outline text-xs">復元</button>
         <button v-if="s.can_force_delete" @click="forceDeleteSupplier(s)" class="btn-danger-outline text-xs">完全削除</button>
       </div>
@@ -100,7 +100,7 @@
                 :style="{ backgroundColor: s.color || '#2563eb' }"></span>
               <span class="font-medium">@{{ s.name }}</span>
               <span v-if="s.deleted_at" class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                アーカイブ済み
+                取引停止中
               </span>
             </div>
           </td>
@@ -127,7 +127,7 @@
               </button>
               <button v-if="!s.deleted_at" @click="archiveSupplier(s)"
                 class="btn-warning-outline text-xs">
-                アーカイブ
+                取引停止
               </button>
               <button v-else @click="restoreSupplier(s)"
                 class="btn-success-outline text-xs">

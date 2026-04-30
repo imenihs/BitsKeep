@@ -55,7 +55,7 @@ export default function setup() {
     };
 
     const deleteLib = async (l) => {
-        if (!await ask(`「${l.name}」を削除しますか？\n紐づいている部品のリンクがNULLになります。`)) return;
+        if (!await ask(`「${l.name}」を削除しますか？\n紐付いている部品から、このライブラリへのリンクを解除します。`)) return;
         try { await api.delete(`/altium/libraries/${l.id}`); await fetchLibraries(); toastSuccess('削除しました'); }
         catch (e) { toastError(e.message); }
     };

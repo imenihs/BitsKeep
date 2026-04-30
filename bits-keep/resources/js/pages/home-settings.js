@@ -9,6 +9,7 @@ const ACTION_DEFS = [
     { key: 'stock-alert', label: '在庫警告', desc: '発注点を下回る部品を確認', icon: '⚠️', adminOnly: false },
     { key: 'projects', label: '案件管理', desc: '案件ごとの部品・コスト管理', icon: '📋', adminOnly: false },
     { key: 'master', label: 'マスタ管理', desc: '部品分類・パッケージ詳細・スペック詳細', icon: '⚙️', adminOnly: false },
+    { key: 'component-series', label: '部品シリーズ', desc: 'シリーズ値と登録部品を管理', icon: '▦', adminOnly: false },
     { key: 'design-tools', label: '設計ツール', desc: 'ADC/電源/誤差/熱など設計解析', icon: '🔬', adminOnly: false },
     { key: 'calc', label: '電卓', desc: '式計算・進数変換・物理定数', icon: '🧮', adminOnly: false },
     { key: 'network', label: 'ネットワーク探索', desc: '抵抗/容量の直並列組み合わせ', icon: '🔌', adminOnly: false },

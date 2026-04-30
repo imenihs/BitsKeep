@@ -53,7 +53,7 @@
         <a href="#tools"     class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">設計ツール</a>
         <a href="#altium"    class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">Altium 連携</a>
         <a href="#csv"       class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">CSV インポート</a>
-        <a href="#backup"    class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">DB バックアップ</a>
+        <a href="#backup"    class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">データのバックアップ</a>
         <a href="#notion"    class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">Notion 連携設定</a>
         <a href="#trouble"   class="toc-link block py-1 opacity-70 hover:opacity-100 no-underline">困ったときは</a>
       </div>
@@ -69,14 +69,14 @@
         <h3 class="font-semibold mb-2">ログインとアカウント</h3>
         <p class="mb-4 opacity-80">管理者から招待メールが届いたら、メール内のリンクからパスワードを設定してログインします。招待メールが届いていない場合は管理者に連絡してください。</p>
 
-        <h3 class="font-semibold mb-2">権限（ロール）</h3>
+        <h3 class="font-semibold mb-2">権限</h3>
         <p class="mb-2 opacity-80">ログイン後、画面右上に自分の権限が表示されます。権限を変更したい場合は管理者に連絡してください。</p>
         <table class="help-table mb-5">
-          <thead><tr><th>表示</th><th>ロール</th><th>できること</th></tr></thead>
+          <thead><tr><th>表示</th><th>できること</th></tr></thead>
           <tbody>
-            <tr><td><span class="role-pill role-admin">管理</span>（赤枠）</td><td>admin</td><td class="opacity-80">すべての操作</td></tr>
-            <tr><td><span class="role-pill role-editor">編集</span></td><td>editor</td><td class="opacity-80">部品・在庫・案件の登録・編集</td></tr>
-            <tr><td><span class="role-pill role-viewer">閲覧</span></td><td>viewer</td><td class="opacity-80">一覧・詳細の参照のみ</td></tr>
+            <tr><td><span class="role-pill role-admin">管理</span>（赤枠）</td><td class="opacity-80">すべての操作</td></tr>
+            <tr><td><span class="role-pill role-editor">編集</span></td><td class="opacity-80">部品・在庫・案件の登録・編集</td></tr>
+            <tr><td><span class="role-pill role-viewer">閲覧</span></td><td class="opacity-80">一覧・詳細の参照のみ</td></tr>
           </tbody>
         </table>
 
@@ -85,7 +85,7 @@
         <ol class="space-y-3">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80"><strong>部品分類を登録する</strong> — 「マスタ管理 → 部品分類」で「抵抗」「コンデンサ」「FPGA」などを追加します。部品には複数の部品分類を付けられます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80"><strong>パッケージ分類とパッケージ詳細を登録する</strong> — 「マスタ管理 → パッケージ分類」で「SMD」「THT」を追加し、その配下に「0402」「SOT-23」などを追加します。</span></li>
-          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>部品分類ごとのスペック詳細を登録する</strong> — 「マスタ管理 → 部品分類」で入力候補の親を用意し、「マスタ管理 → スペック詳細」で「静電容量」「耐圧」「周波数」などを追加します。英語名・記号・alias・基準単位も設定できます。</span></li>
+          <li class="flex gap-3"><span class="step-badge mt-0.5">3</span><span class="opacity-80"><strong>部品分類ごとのスペック詳細を登録する</strong> — 「マスタ管理 → 部品分類」で入力候補の親を用意し、「マスタ管理 → スペック詳細」で「静電容量」「耐圧」「周波数」などを追加します。英語名・記号・別名・標準単位も設定できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80"><strong>商社を登録する</strong> — 「商社管理」で仕入先を追加します。リードタイムや送料無料閾値も登録できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80"><strong>保管棚を登録する</strong> — 「保管棚管理」で棚を追加します。グループ（例: メインラック）でまとめて管理できます。</span></li>
         </ol>
@@ -111,14 +111,14 @@
         </ul>
 
         <h3 class="font-semibold mb-2">業務別メニュー</h3>
-        <p class="mb-2 opacity-80">ダッシュボード下部に「在庫入力」「在庫警告」「案件管理」などのショートカットが並んでいます。</p>
+        <p class="mb-2 opacity-80">ダッシュボード下部に、部品管理、在庫・購買、案件・設計、マスタ・利用設定、管理・ログ・動作設定の分類でショートカットが並んでいます。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
           <li>ショートカットの並び順は自分でカスタマイズできます</li>
           <li>ヘッダ右上の「ホーム設定」→ ドラッグで並び替え → 「保存」</li>
         </ul>
 
         <h3 class="font-semibold mb-2">全機能一覧</h3>
-        <p class="opacity-80">ヘッダの「全機能一覧」からすべての画面にアクセスできます。権限がない機能はグレーアウトで理由が表示されます。</p>
+        <p class="opacity-80">ヘッダの「全機能一覧」からすべての画面にアクセスできます。登録部品を扱う機能と、マスタ・利用設定、管理・ログ・動作設定を分け、権限がない機能はグレーアウトで理由が表示されます。</p>
       </section>
 
       <!-- 部品管理 -->
@@ -137,9 +137,10 @@
             <tr><td>部品分類</td><td></td><td class="opacity-80">複数選択可。マスタ管理で事前登録が必要</td></tr>
             <tr><td>パッケージ分類</td><td></td><td class="opacity-80">大分類を選ぶとパッケージが絞り込まれる</td></tr>
             <tr><td>パッケージ</td><td></td><td class="opacity-80">0402・SOT-23 など</td></tr>
+            <tr><td>登録単位</td><td></td><td class="opacity-80">単体 / シリーズ。シリーズを選ぶ場合は部品シリーズとシリーズ値へ紐づける</td></tr>
             <tr><td>代表保管棚</td><td></td><td class="opacity-80">この部品を通常置く棚。入庫時の初期値に使われる</td></tr>
             <tr><td>在庫下限</td><td></td><td class="opacity-80">この数を下回ると在庫警告に表示される発注点</td></tr>
-            <tr><td>スペック</td><td></td><td class="opacity-80">「+ スペック追加」でスペック詳細を選び、<code>typ / 範囲 / 最大 / 最小 / 3値</code> の5種から値のコンテキストを選択して入力。通常は部品分類の候補スペック詳細から選び、必要な場合だけ全スペック詳細検索へ切り替えられます。入力中に「基底: 1000Ω / 表示: 1kΩ」のようなリアルタイムプレビューが表示される。候補にないスペック詳細は部品分類が一意に決まる場合だけ行内の「+」から追加可能</td></tr>
+            <tr><td>スペック</td><td></td><td class="opacity-80">「部品分類」「スペック候補」「入力テンプレート」「登録済みスペック」の順に編集します。<code>スペック候補</code> は「追加」で1行、<code>入力テンプレート</code> は「一式追加」で複数行を追加します。値は <code>標準値 / 範囲 / 最大 / 最小 / 最小・標準・最大</code> から入力形式を選びます。入力中は「標準単位換算: 1000Ω / 入力値: 1kΩ」のようなプレビューが表示されます。候補にないスペック詳細は部品分類が一意に決まる場合だけ行内の「+」から追加できます</td></tr>
             <tr><td>仕入先</td><td></td><td class="opacity-80">商社・商社型番・単価・購入単位・価格ブレーク。複数追加可</td></tr>
             <tr><td>部品画像</td><td></td><td class="opacity-80">jpg/png/webp、5MB まで</td></tr>
             <tr><td>データシート</td><td></td><td class="opacity-80">PDF ファイル。複数添付可。各PDFに表示名を付けられる</td></tr>
@@ -149,30 +150,31 @@
         <p class="mb-5 opacity-80">フォームは上部と下部の両方に「保存」ボタンがあります。長いフォームを入力し終えた後、上に戻らず保存できます。未保存のまま別ページへ移動しようとすると確認ダイアログが表示されます。</p>
 
         <h3 class="font-semibold mb-3">スペック詳細の選択</h3>
-        <p class="mb-2 opacity-80">部品登録と部品詳細のスペック編集では、部品分類に応じて <strong>部品分類からの推奨</strong> が先に表示されます。通常候補は選択中の部品分類に紐づく候補スペック詳細だけです。</p>
-        <p class="mb-2 opacity-80">部品分類に紐づく入力テンプレートがある場合は、スペック欄にテンプレートボタンが表示されます。適用するとテンプレート内のスペック行を追加し、既に同じスペック詳細がある行は重複追加しません。</p>
-        <p class="mb-5 opacity-80">想定外の部品や複合部品では <strong>全スペック詳細から選ぶ</strong> に切り替えて全スペック詳細から検索できます。通常表示は選択中の部品分類に紐づく候補スペック詳細だけを表示し、全件検索は明示的な切り替えとして扱います。</p>
+        <p class="mb-2 opacity-80">部品登録と部品詳細のスペック編集は、説明カードではなく <strong>部品分類</strong>、<strong>スペック候補</strong>、<strong>入力テンプレート</strong>、<strong>登録済みスペック</strong> の構造で操作します。</p>
+        <p class="mb-2 opacity-80"><strong>部品分類</strong> はマスタ上の部品分類と <strong>フィルタしない</strong> から選びます。部品詳細のスペック編集では、現在の部品分類を初期選択します。<strong>スペック候補</strong> は選択中の部品分類で絞り込まれ、<strong>追加</strong> で1行を登録済みスペックへ追加します。</p>
+        <p class="mb-2 opacity-80"><strong>入力テンプレート</strong> は選択中の部品分類に紐づくテンプレートを選び、<strong>一式追加</strong> でまとめて行を追加します。選択時は <strong>[ピーク耐圧 V_RRM]</strong> のように実際に追加されるスペック詳細の日本語名と略号をチップで表示し、単なる件数表示だけにはしません。既に同じスペック詳細がある行は重複追加しません。</p>
+        <p class="mb-5 opacity-80">候補やテンプレート自体を整える場合は、スペック編集内のマスタ導線から、選択中の部品分類を引き継いで <strong>スペック詳細</strong>、<strong>スペック候補設定</strong>、<strong>共通スペック詳細</strong>、<strong>許容差スペック詳細</strong>、<strong>入力テンプレート</strong> を開けます。行内の <strong>+</strong> は選択中の部品分類に個別スペック詳細を作るショートカットです。</p>
 
         <h3 class="font-semibold mb-3">データシート解析補助</h3>
         <p class="mb-2 opacity-80">現状の部品登録では、データシートからの補助入力に次の 3 系統があります。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li><strong>ChatGPTで自動入力</strong> — Tampermonkey userscript 経由で <code>PDF選択 → 一時アップロード → ChatGPT Web 解析 → レビュー</code> まで自動化します</li>
           <li><strong>ChatGPTから貼り付け</strong> — ChatGPT で PDF を読ませた結果 JSON を貼り付けてレビューします</li>
-          <li><strong>Geminiで解析</strong> — API 利用を許容する環境だけの任意導線です</li>
+          <li><strong>Geminiで解析</strong> — 外部サービス利用を許容する環境だけの任意導線です</li>
         </ul>
         <p class="mb-2 opacity-80">どちらの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・部品分類候補・入力テンプレート候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
-          <li><strong>部品分類候補</strong> — <code>component_types[]</code> からデコードした複数候補を既存部品分類へ紐付けて選択</li>
-          <li><strong>パッケージ候補</strong> — <code>package_names[]</code> からデコードした複数候補の中から、既存の <code>パッケージ分類 / パッケージ詳細</code> へ紐付けた 1 件を選択</li>
-          <li><strong>スペック候補</strong> — <code>name / name_ja / name_en / symbol</code> を使って既存スペック詳細へ照合し、未一致項目はレビュー画面の「+」から追加、削除</li>
+          <li><strong>部品分類候補</strong> — データシートから読み取った複数候補を既存部品分類へ紐付けて選択</li>
+          <li><strong>パッケージ候補</strong> — データシートから読み取った候補の中から、既存の <code>パッケージ分類 / パッケージ詳細</code> へ紐付けた 1 件を選択</li>
+          <li><strong>スペック候補</strong> — 日本語名、英語名、記号、別名を使って既存スペック詳細へ照合し、未一致項目はレビュー画面の「+」から追加、削除</li>
         </ul>
-        <p class="mb-3 opacity-80">データシート上の元表記は <strong>抽出名</strong> として確認用に表示されますが、保存される正本はスペック詳細です。表記ゆれはスペック詳細の alias に寄せて管理します。</p>
+        <p class="mb-3 opacity-80">データシート上の元表記は <strong>データシート表記</strong> として確認用に表示されますが、保存時は既存のスペック詳細へ紐付けます。表記ゆれはスペック詳細の別名に寄せて管理します。</p>
         <p class="mb-3 opacity-80"><strong>ChatGPTで自動入力</strong> は <strong>Tampermonkey</strong> userscript を前提に、<strong>PDF選択 → BitsKeepへ一時アップロード → ChatGPT Web 解析 → 結果レビュー → 保存</strong> を自動化します。自動化が失敗した場合は、その場で <strong>ChatGPTから貼り付け</strong> へ切り替えられます。</p>
         <p class="mb-3 opacity-80">Tampermonkey helper が未接続でも、部品登録画面を開いただけでは案内モーダルを自動表示しません。<strong>ChatGPTで自動入力</strong> などの解析操作を押した時だけ、導入・更新・手動貼り付けへの切替案内を表示します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li>一時PDFは署名付き URL で ChatGPT タブへ渡されます</li>
           <li>一時PDFの有効期限は 2 時間です</li>
-          <li>保存成功後は正式 datasheet へ確定され、一時 token は再利用できません</li>
+          <li>保存成功後は正式なデータシートとして登録され、一時リンクは再利用できません</li>
           <li>JSON 抽出失敗時は、取得済み応答テキストをコピーして手動貼り付けへ退避できます</li>
         </ul>
         @php($chatGptHelperUrl = url('/tampermonkey/bitskeep-chatgpt-helper.user.js').'?v='.filemtime(public_path('tampermonkey/bitskeep-chatgpt-helper.user.js')))
@@ -395,7 +397,7 @@
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
           <li>「廃止」— 新規入庫時の棚選択候補から非表示になる</li>
           <li>「復元」— 廃止済み棚をいつでも現役に戻せる</li>
-          <li>「完全削除」— 在庫ブロックも実績もない場合のみ許可される</li>
+          <li>「完全削除」— 棚別在庫も実績もない場合のみ許可される</li>
         </ul>
 
         <h3 class="font-semibold mb-2">棚卸しモード</h3>
@@ -430,6 +432,7 @@
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">マスタ管理</h2>
         <p class="mb-4 opacity-80">部品登録時に選択する「部品分類」「パッケージ詳細」「スペック詳細」と、スペック候補設定・入力テンプレートを管理します。全機能一覧 →「マスタ管理」から操作します。</p>
         <p class="mb-4 opacity-80">スペック系のタブは <strong>部品分類</strong>、<strong>スペック詳細</strong>、<strong>スペック候補設定</strong>、<strong>共通スペック詳細</strong>、<strong>許容差スペック詳細</strong>、<strong>入力テンプレート</strong> に責務を分け、入力テンプレートは一番右に置いています。</p>
+        <p class="mb-4 opacity-80">スペック系タブの左ペインは部品分類を選ぶための領域に限定し、分類名の横にそのタブで扱う登録数を小さく「登録:4個」のように表示します。選択後の右ペインヘッダでは、個別、入力候補、共通、許容差、テンプレート、行、採用中、未追加のような短いバッジで内訳を確認します。</p>
 
         <h3 class="font-semibold mb-3">部品分類</h3>
         <p class="mb-2 opacity-80">「抵抗」「コンデンサ」「FPGA」など部品の種類を表すタグです。1つの部品に複数の部品分類を付けられます。部品分類はスペック詳細の候補と入力テンプレートの親でもあります。</p>
@@ -442,12 +445,16 @@
 
         <h3 class="font-semibold mb-3">部品分類と候補スペック詳細</h3>
         <p class="mb-2 opacity-80"><strong>部品分類</strong> は部品そのものに付ける種類・検索タグであり、スペック詳細の候補・並び順・既定値を束ねる入力候補グループでもあります。</p>
-        <p class="mb-5 opacity-80">例: 部品分類が BJT のとき、その中に VCEO、コレクタ電流、hFE、fT などの候補スペック詳細を並べます。DB/API内部名は <code>spec_groups</code> / <code>/api/spec-groups</code> に統一します。旧 <code>/api/categories</code> は使いません。</p>
+        <p class="mb-5 opacity-80">例: 部品分類が BJT のとき、その中に VCEO、コレクタ電流、hFE、fT などの候補スペック詳細を並べます。</p>
 
-        <h3 class="font-semibold mb-3">部品シリーズ（今後の設計方針）</h3>
-        <p class="mb-2 opacity-80">抵抗・コンデンサ・インダクタなど、同一シリーズの中に値違いが大量にある部品は、単体部品を1件ずつ並べるのではなく、<strong>部品シリーズ</strong> と値マトリクスで扱う方針です。一方で IC・MCU・センサ・モジュールなど、型番ごとの差分が大きい部品は従来通り単体部品として管理します。</p>
+        <h3 class="font-semibold mb-3">部品シリーズ</h3>
+        <p class="mb-2 opacity-80">抵抗・コンデンサ・インダクタなど、同一シリーズの中に値違いが大量にある部品は、単体部品を1件ずつ並べるのではなく、<strong>部品シリーズ</strong> とシリーズ値一覧で扱います。一方で IC・MCU・センサ・モジュールなど、型番ごとの差分が大きい部品は従来通り単体部品として管理します。</p>
+        <p class="mb-2 opacity-80">部品シリーズ画面は <code>/component-series</code> です。部品分類には <strong>シリーズを使わない</strong>、<strong>シリーズ登録も使う</strong>、<strong>シリーズ登録を推奨</strong> を設定できます。</p>
+        <p class="mb-4 opacity-80">部品登録画面の <strong>シリーズ</strong> は、既存の部品シリーズとシリーズ値へ登録部品を紐づける導線です。登録済みシリーズがない場合は <strong>部品シリーズ未登録</strong> と表示し、マスタ・利用設定の部品シリーズで先にシリーズ値一覧を作成します。</p>
         <p class="mb-2 opacity-80">値展開方式は E系列だけに固定しません。シリーズごとに <strong>E系列</strong>、<strong>基準系列 + 追加値</strong>、<strong>任意値リスト</strong>、<strong>範囲/刻み</strong> を選べるようにします。たとえば E12 を基準にしつつ一部だけ E24 の値を追加する混在や、ツェナー電圧・水晶周波数・ヒューズ電流・コネクタ極数のように E系列へ乗らない値も正式に扱います。</p>
-        <p class="mb-5 opacity-80">値マトリクス上の値は、在庫や仕入先を持たない <strong>仮想値</strong> と、実際に登録・在庫管理する <strong>実部品</strong> を分けます。シリーズ全体の候補値は広く持ちつつ、実際に使う値だけを部品化して在庫・価格・保管棚を管理することで、値の混在に強い運用にします。</p>
+        <p class="mb-2 opacity-80">部品分類を選ぶと <strong>スペック詳細</strong> の候補をその部品分類に絞ります。単位は選択したスペック詳細の標準単位を自動で使い、シリーズ側では直接編集しません。パッケージは <strong>パッケージ分類</strong> を選んでから <strong>パッケージ詳細</strong> を選びます。</p>
+        <p class="mb-2 opacity-80">E系列は <strong>開始値</strong> と <strong>終了値</strong> を <code>1</code>、<code>0.1</code>、<code>1k</code>、<code>10G</code> のような実数で入力します。0ΩはE系列では生成できないため、<strong>0を含む</strong> チェックで追加します。<strong>範囲/刻み</strong> は別方式で、開始値・終了値・刻み幅を実数で入力します。</p>
+        <p class="mb-5 opacity-80">シリーズ値一覧では、まだ部品として登録していない値と、在庫・仕入先を持つ登録済み部品を分けて扱います。必要な値だけを選び、登録部品として作成できます。</p>
 
         <h3 class="font-semibold mb-3">パッケージ分類・パッケージ詳細</h3>
         <p class="mb-2 opacity-80">パッケージは2階層で管理します。部品登録時は大分類を選んでからパッケージを選びます。</p>
@@ -458,37 +465,39 @@
             <tr><td>パッケージ詳細</td><td class="opacity-80">0402、0603、SOT-23</td><td class="opacity-80">パッケージ分類に属する個別形状</td></tr>
           </tbody>
         </table>
-        <p class="mb-5 opacity-80">パッケージ分類を選ぶとパッケージの候補が自動で絞り込まれます。</p>
+        <p class="mb-2 opacity-80">パッケージ分類を選ぶとパッケージの候補が自動で絞り込まれます。</p>
+        <p class="mb-5 opacity-80">パッケージ詳細の外形寸法は <code>X / Y / Z</code> で登録します。<code>X</code> は縦または長手方向、<code>Y</code> は横または幅、<code>Z</code> は実装高さです。</p>
 
         <h3 class="font-semibold mb-3">スペック詳細</h3>
         <p class="mb-2 opacity-80">「静電容量」「耐圧」「周波数」など、検索・比較したい仕様項目を定義します。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>各スペック詳細に日本語名・英語名・記号・alias・基準単位を設定できます</li>
-          <li>英語名・記号・alias は、英語データシートや略記号から同じスペック詳細へ照合するために使います</li>
-          <li>同じ日本語名のスペック詳細を複数登録できます。例: <code>電源電圧</code> を <code>VDD</code> と <code>VCC</code> で別々に持つ場合は、記号・alias で区別します</li>
-          <li>「スペック詳細」タブでは先に部品分類を選び、その部品分類を主所属に持つ通常スペック詳細だけを表示・追加・編集・アーカイブします。スペック詳細の全件一覧や全件並び替えは行いません</li>
-          <li>主所属を持つスペック詳細は選択中の部品分類の候補として追加・編集・アーカイブします。内部では <code>spec_types.spec_scope='group_local'</code> と <code>owner_spec_group_id</code> で主所属の部品分類を持ちます。これは専用ではなく、再利用できます</li>
-          <li>共通スペック詳細は「共通スペック詳細」タブで左の部品分類を選び、追加・編集・アーカイブと、選択中の部品分類への「候補に入れる / 候補から外す」を扱います</li>
-          <li>スペック候補設定タブの行「編集」は、候補側の種別表示・扱い・既定profile・既定単位・メモだけを編集します。名称・記号・alias・単位等の正本編集は、各スペック詳細タブの「編集」で行います</li>
+          <li>各スペック詳細に日本語名・英語名・記号・別名・標準単位を設定できます</li>
+          <li>英語名・記号・別名は、英語データシートや略記号から同じスペック詳細へ照合するために使います</li>
+          <li>同じ日本語名のスペック詳細を複数登録できます。例: <code>電源電圧</code> を <code>VDD</code> と <code>VCC</code> で別々に持つ場合は、記号・別名で区別します</li>
+          <li>「スペック詳細」タブでは先に部品分類を選び、その部品分類に持たせるスペック詳細を追加・編集・アーカイブします</li>
+          <li>スペック詳細は <code>抵抗値</code> <code>耐圧</code> のように、選択中の部品分類でよく使う仕様項目です。ほかの部品分類でも使いたい項目は、「共通スペック詳細」か「許容差スペック詳細」から候補に入れます</li>
+          <li>共通スペック詳細は「共通スペック詳細」タブで左の部品分類を選び、登録済みの共通スペック詳細から、その部品分類の入力候補に入れるものを選びます</li>
+          <li>スペック候補設定タブの行「編集」は、候補側の範囲・扱い・既定の入力形式・既定単位・メモだけを編集します。名称・記号・別名・単位などスペック詳細そのものの編集は、各スペック詳細タブの「編集」で行います</li>
           <li>スペック候補設定タブで候補へ追加するときは、「スペック詳細から追加」「共通スペック詳細から追加」「許容差スペック詳細から追加」の3系統から既存項目を選びます。このタブではスペック詳細の新規作成やフリー入力を開きません</li>
-          <li>スペック候補設定タブの候補順はドラッグ&ドロップで変更します。上下ボタンでの並び替えは使いません</li>
-          <li>許容差スペック詳細は共通スペック詳細と兄弟の別棚です。画面では左の部品分類を選んで候補状態を見ながら、共通スペック詳細一覧と許容差スペック詳細一覧を分け、追加ボタンも別にします。通常/許容差を切り替えるラジオや、許容差タブ内の行別「許容差」バッジは置きません</li>
-          <li>内部正本はどちらも <code>spec_types</code> です。通常/許容差は <code>spec_kind=normal/tolerance</code> で区別し、許容差は <code>tolerance_settings</code> に <code>default_mode</code>、<code>default_unit</code>、<code>allowed_units</code>、<code>grade_options</code> などを持てます</li>
+          <li>スペック候補設定タブの候補追加・候補設定編集・候補順のドラッグ&ドロップは操作完了時に自動保存します。上下ボタンでの並び替えは使いません</li>
+          <li>許容差スペック詳細は共通スペック詳細と兄弟の別棚です。左の部品分類を選び、登録済みの許容差スペック詳細から、その部品分類の入力候補に入れるものを選びます。通常/許容差を切り替えるラジオや、許容差タブ内の行別「許容差」バッジは置きません</li>
           <li>許容差スペック詳細の例: <code>抵抗値許容差 ±5%</code>、<code>容量許容差 B級 ±0.1pF</code>、<code>容量許容差 Z級 +80/-20%</code>、<code>抵抗温度係数 ±100ppm/℃</code>、<code>容量温度特性 X7R</code></li>
           <li>記号は HTML ではなく <code>h_FE</code> <code>V_CBO</code> <code>V_CE-(sat)</code> のように保存します。<code>_</code> は下付き、<code>~</code> は上付き、<code>-</code> は通常表示へ戻す区切りです</li>
           <li>基準単位は1つ設定できます（例: 静電容量 → F、電流 → A）</li>
+          <li><code>B</code> / <code>bit</code> / <code>bps</code> 系の接頭辞は10進（<code>T/G/M/k/無印</code>）または IEC（<code>Ti/Gi/Mi/Ki</code>）のどちらか一方を選びます。一方を選ぶともう一方は自動で外れ、<code>m/u/n/p/f</code> は候補に出しません</li>
           <li>単位は省略可（無次元の場合や任意テキストで管理したい場合）</li>
-          <li>登録画面では、基準単位から `uA` `kΩ` `ns` のような読みやすい接頭語付き表示へ自動変換します</li>
+          <li>登録画面では、基準単位から <code>uA</code> <code>kΩ</code> <code>ns</code> のような読みやすい接頭語付き表示へ自動変換します。<code>1MB</code> は <code>1000000 B</code>、<code>1MiB</code> は <code>1048576 B</code> として区別します</li>
           <li>部品登録画面のスペック行に自由な「名前」欄はありません。必ずスペック詳細を選び、候補にない場合だけその場の追加モーダルでスペック詳細を登録します</li>
-          <li><code>typ / 範囲 / 最大 / 最小 / 3値</code> を扱え、検索は常に基準単位へ正規化して行います</li>
+          <li><code>標準値 / 範囲 / 最大 / 最小 / 最小・標準・最大</code> を扱え、検索は常に標準単位へ換算して行います</li>
           <li>スペック詳細の入力順は「スペック候補設定」タブで部品分類ごとの候補順として変更します</li>
+          <li>マスタ管理の並び順は一覧のドラッグ&ドロップで変更します。編集モーダルでは内部用の並び順数値を入力しません</li>
         </ul>
         <h3 class="font-semibold mb-3">入力テンプレート</h3>
         <p class="mb-5 opacity-80">入力テンプレートは、部品分類ごとにスペック行をまとめて追加する初期行セットです。候補スペック詳細の所属・並び順・既定値は「スペック候補設定」タブ、入力テンプレートは一番右の「入力テンプレート」タブで編集します。<strong>共通</strong> は部品分類として表示・選択せず、共通スペック詳細として管理します。</p>
-        <p class="mb-5 opacity-80">UI表示名は <strong>部品分類</strong> / <strong>パッケージ詳細</strong> / <strong>スペック詳細</strong> / <strong>スペック候補設定</strong> / <strong>候補スペック詳細</strong> / <strong>入力テンプレート</strong> / <strong>共通スペック詳細</strong> / <strong>許容差スペック詳細</strong> に整理しています。DB/API内部名は <code>spec_groups</code> / <code>packages</code> / <code>spec_types</code> / <code>spec_group_spec_type</code> / <code>spec_templates</code> / <code>/api/spec-groups</code> / <code>/api/packages</code> / <code>/api/spec-types</code> / <code>/api/spec-templates</code> を正とします。旧 <code>categories</code> テーブルは移行元であり、旧 <code>/api/categories</code> は廃止します。対応表は仕様書を正とします。</p>
+        <p class="mb-5 opacity-80">UI表示名は <strong>部品分類</strong> / <strong>パッケージ詳細</strong> / <strong>スペック詳細</strong> / <strong>スペック候補設定</strong> / <strong>候補スペック詳細</strong> / <strong>入力テンプレート</strong> / <strong>共通スペック詳細</strong> / <strong>許容差スペック詳細</strong> に整理しています。</p>
 
         <h3 class="font-semibold mb-2">マスタ共通の廃止 / 復元 / 完全削除</h3>
-        <p class="opacity-80">「廃止（アーカイブ）」にすると選択候補から非表示になりますが、すでに紐付けられた部品への影響はありません。「候補から外す」は部品分類内の候補関係だけを解除する操作で、正本削除ではありません。「復元」でいつでも候補に戻せます。他の部品から参照されていない場合のみ「完全削除」が許可されます。</p>
+        <p class="opacity-80">「廃止（アーカイブ）」にすると選択候補から非表示になりますが、すでに紐付けられた部品への影響はありません。「候補から外す」は部品分類内の候補関係だけを解除する操作で、スペック詳細そのものを削除する操作ではありません。候補から外す操作だけは確認ダイアログを挟みます。「復元」でいつでも候補に戻せます。他の部品から参照されていない場合のみ「完全削除」が許可されます。</p>
       </section>
 
       <!-- ユーザー管理 -->
@@ -540,28 +549,44 @@
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">設計ツール</h2>
         <p class="mb-4 opacity-80">全機能一覧 →「設計ツール」から使えます。電子回路の設計補助ツール群です。</p>
 
-        <h3 class="font-semibold mb-3">抵抗網計算</h3>
-        <p class="mb-2 opacity-80">目標抵抗値に対して、E24/E96 系列の抵抗2本の組み合わせを自動探索します。</p>
+        <h3 class="font-semibold mb-3">抵抗/容量ネットワーク探索</h3>
+        <p class="mb-2 opacity-80">目標抵抗値・目標容量値・分圧比に対して、E系列、任意値、在庫値から候補を探索します。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>直列・並列どちらも対応</li>
-          <li>誤差の小さい順に候補を表示</li>
-          <li>在庫にある抵抗だけに絞り込んで探索もできます</li>
+          <li>抵抗と容量で直列/並列の合成式を切り替えます</li>
+          <li>直列、並列、直並列混在、分圧を候補比較できます</li>
+          <li>分圧は R1/R2、実比率、総抵抗、誤差を表示します</li>
+          <li>登録済み在庫部品の値だけを使った探索もできます</li>
+          <li>可変抵抗 + 固定抵抗は、基準抵抗値と可変幅から要求範囲を作ります。可変幅は % と Ω の両方を使えます</li>
+          <li>基準位置は上限基準、中心基準、下限基準から選べます。上限基準では 10kΩ、20% が 8kΩ〜10kΩ になります</li>
+          <li>理想値と標準値候補は分けて表示し、8kΩ のような理想値だけを採用候補として扱いません</li>
+          <li>固定抵抗を標準値へ丸めて範囲を満たせない場合は、可変抵抗を範囲側へ補正して固定抵抗を再計算します</li>
+          <li>在庫や購入リンクに紐づいていないためPASSは出さず、範囲を含む候補はCHECK、足りない候補はWARNで表示します</li>
         </ul>
 
         <h3 class="font-semibold mb-3">エンジニアリング計算（Calc）</h3>
         <p class="mb-2 opacity-80">電子回路設計に特化した計算機です。</p>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
-          <li>SI 接頭辞（p/n/μ/m/k/M/G/T）と PC 系接頭辞（Ki/Mi/Gi）に対応</li>
+          <li>SI 接頭辞（p/n/μ/m/k/M/G/T）と PC 系接頭辞（Ki/Mi/Gi/Ti）に対応</li>
           <li>複素数演算。虚数は <span class="help-code">j</span> を使用。極座標表記（deg/rad 切り替え）対応</li>
-          <li>論理演算（and/or/not/xor/exnor/nor/nand）対応</li>
+          <li>論理演算（and/or/not/exor/exnor/nor/nand）対応</li>
           <li>進数表示（2進/8進/16進）。最大ビット数・signed/unsigned を選択可</li>
           <li><span class="help-code">solve(式, 変数)</span> で方程式を解ける（例: <span class="help-code">solve(10=1/((1/x)+(1/20)), x)</span>）</li>
+          <li>ユーザー定義関数、配列集計、色コード、日時差分に対応</li>
           <li>計算履歴が残り、過去の式を再利用できます</li>
-          <li>使用できる関数一覧をパネルから確認できます</li>
+          <li>関数一覧、補完候補、構文表示、固定式、結果コピーを使えます</li>
         </ul>
 
         <h3 class="font-semibold mb-2">設計解析ツール</h3>
-        <p class="opacity-80">ADC 設計・電解コンデンサ寿命推定・センサ分圧/温度変換・電流検出・インタフェース余裕解析・電源余裕解析など、専門的な設計解析ツールがタブで並んでいます。</p>
+        <p class="mb-2 opacity-80">ADC 設計・電解コンデンサ寿命推定・センサ分圧/温度変換・電流検出・インタフェース余裕解析・電源余裕解析・ロジックIC参照・コネクタ視点補助・0Ω/未実装/ジャンパ整理など、専門的な設計解析ツールがタブで並んでいます。</p>
+        <ul class="list-disc list-inside space-y-1 opacity-80">
+          <li>入力は <span class="help-code">基本条件</span> <span class="help-code">最悪条件</span> <span class="help-code">部品定格</span> <span class="help-code">出力・保存</span> に整理されています</li>
+          <li>結果カードには PASS/WARN/FAIL/CHECK、支配要因、不足条件、次アクション、コピー用サマリが表示されます</li>
+          <li>条件不足のTVS、ヒューズ、保護協調、ロジックIC参照、コネクタ定格未確認は PASS にせず CHECK と不足条件を返します</li>
+          <li>コネクタ/ケーブル/ジャンパ系では mating face/solder side、Pin1、量産初期値、BOM注記、重複Ref、未定義状態を確認できます</li>
+          <li>登録部品を指定すると、その部品のスペック値を解析入力へ反映できます</li>
+          <li>解析条件は案件、部品、BOMの行番号や識別名と一緒に保存でき、保存済み解析との差分比較もできます</li>
+          <li>MCU ADC入力、3.3V電源、I2Cバス、TVS保護の解析テンプレートを入力へ反映または複製保存できます</li>
+        </ul>
       </section>
 
       <!-- Altium 連携 -->
@@ -597,10 +622,10 @@
         <p class="opacity-80">エラーがある行はスキップして正常行だけ登録されます。エラーの詳細はインポート後の結果画面で行番号付きで確認できます。</p>
       </section>
 
-      <!-- DB バックアップ -->
+      <!-- データのバックアップ -->
       <section id="backup">
-        <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">DB バックアップ</h2>
-        <p class="mb-4 opacity-80">全機能一覧 →「DB バックアップ」から操作します。管理者のみが使える機能です。</p>
+        <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">データのバックアップ</h2>
+        <p class="mb-4 opacity-80">全機能一覧 →「データのバックアップ」から操作します。管理者のみが使える機能です。</p>
 
         <h3 class="font-semibold mb-3">バックアップを取得する</h3>
         <ol class="space-y-2 mb-3">
@@ -611,7 +636,7 @@
 
         <h3 class="font-semibold mb-3">バックアップから書き戻す</h3>
         <div class="warn-banner mb-3">
-          <p class="opacity-90">⚠ 現在の DB データがすべて上書きされます。書き戻す前に必ず最新のバックアップを取得してください。</p>
+          <p class="opacity-90">⚠ 現在の登録データがすべて上書きされます。復元する前に必ず最新のバックアップを取得してください。</p>
         </div>
         <ol class="space-y-2 mb-0">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80">「バックアップから書き戻す」セクションへ移動</span></li>
@@ -641,7 +666,7 @@
         <p class="mb-5 opacity-80">設定済みのトークンはマスク表示されます。「削除」ボタンを明示的に押さない限り、フォームを保存しても既存のトークンは上書きされません。</p>
 
         <h3 class="font-semibold mb-2">同期する</h3>
-        <p class="opacity-80">「案件管理」→「同期」ボタンで Notion から案件データを取り込みます。同期結果（成功 / 失敗 / 件数）が画面上に表示されます。同期エラーの場合は原因（認証失敗 / DB 未共有 / 0件など）が表示され、次のアクションへの導線が出ます。</p>
+        <p class="opacity-80">「案件管理」→「同期」ボタンで Notion から案件データを取り込みます。同期結果（成功 / 失敗 / 件数）が画面上に表示されます。同期エラーの場合は原因（認証失敗 / データベース未共有 / 0件など）が表示され、次のアクションへの導線が出ます。</p>
       </section>
 
       <!-- 困ったときは -->
@@ -658,10 +683,10 @@
             <tr><td class="py-2">スペック詳細が候補に出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック詳細</a>」に追加する。部品登録・詳細編集のスペック行からも管理者ならその場で追加できます</td></tr>
             <tr><td class="py-2">スペックの単位が出ない</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理 → スペック詳細</a>」で基準単位を設定する</td></tr>
             <tr><td class="py-2">入力を間違えて保存してしまった</td><td class="py-2 opacity-80">部品詳細の「編集」で修正する。管理者は「<a href="#auditlog" class="underline">操作ログ</a>」で変更前の値を確認できる</td></tr>
-            <tr><td class="py-2">Notion 同期が失敗する</td><td class="py-2 opacity-80">「<a href="#notion" class="underline">連携設定</a>」でトークンと DB ID を再確認。Notion 側でインテグレーションへのアクセス許可も確認する</td></tr>
-            <tr><td class="py-2">発注リストが消えた</td><td class="py-2 opacity-80">発注画面はブラウザの LocalStorage を使っています。LocalStorage をクリアすると消えます</td></tr>
+            <tr><td class="py-2">Notion 同期が失敗する</td><td class="py-2 opacity-80">「<a href="#notion" class="underline">連携設定</a>」でトークンとデータベースIDを再確認。Notion 側でインテグレーションへのアクセス許可も確認する</td></tr>
+            <tr><td class="py-2">発注リストが消えた</td><td class="py-2 opacity-80">発注画面はブラウザ内に一時保存しています。ブラウザの保存データを消すと発注リストも消えます</td></tr>
             <tr><td class="py-2">画面の表示が崩れる</td><td class="py-2 opacity-80">ブラウザをハードリロード（<kbd class="help-code">Ctrl+Shift+R</kbd>）する</td></tr>
-            <tr><td class="py-2">DB を以前の状態に戻したい</td><td class="py-2 opacity-80">「<a href="#backup" class="underline">DB バックアップ → 書き戻し</a>」を参照（管理者のみ）</td></tr>
+            <tr><td class="py-2">登録データを以前の状態に戻したい</td><td class="py-2 opacity-80">「<a href="#backup" class="underline">データのバックアップ → バックアップから書き戻す</a>」を参照（管理者のみ）</td></tr>
             <tr><td class="py-2">権限を上げてほしい</td><td class="py-2 opacity-80">管理者に「<a href="#users" class="underline">ユーザー管理 → ロール変更</a>」を依頼する</td></tr>
             <tr><td class="py-2">アーカイブしたマスタを元に戻したい</td><td class="py-2 opacity-80">「<a href="#master" class="underline">マスタ管理</a>」でアーカイブ済み表示をオンにして「復元」</td></tr>
             <tr><td class="py-2">廃止した棚が必要になった</td><td class="py-2 opacity-80">「<a href="#location" class="underline">保管棚管理</a>」で廃止済み棚を表示して「復元」（管理者のみ）</td></tr>

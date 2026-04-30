@@ -64,15 +64,15 @@
       <div class="flex justify-between items-center mb-3">
         <button @click="sections.basic = !sections.basic" class="flex items-center gap-2 font-bold">
           <span class="text-lg">@{{ sections.basic ? '▾' : '▸' }}</span>
-          <span>基本情報</span>
+          <span>設計情報</span>
         </button>
         <div class="flex items-center gap-3">
           <button @click="openEdit('specs')" class="text-xs link-text">スペック編集</button>
-          <button @click="openEdit('basic')" class="text-xs link-text">編集</button>
+          <button @click="openEdit('basic')" class="text-xs link-text">基本情報編集</button>
         </div>
       </div>
       <div v-show="sections.basic" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <!-- 左カラム: 画像 + データシート + 在庫内訳 -->
+        <!-- 左カラム: 画像 -->
         <div class="space-y-3">
           <div class="component-image-frame component-image-frame-lg">
             <img v-if="part.image_url" :src="part.image_url" alt="部品画像" class="component-image-preview" />
@@ -81,19 +81,8 @@
               <span>画像未登録</span>
             </div>
           </div>
-          <!-- データシート -->
-          <div>
-            <div v-if="part.datasheets?.length" class="flex flex-wrap gap-2">
-              <a v-for="(sheet, i) in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
-                :title="sheet.original_name || sheet.display_name"
-                class="btn inline-flex items-center gap-2 px-3 py-2 rounded border border-[var(--color-border)] text-sm">
-                📄 @{{ sheet.display_name || sheet.original_name || (part.datasheets.length > 1 ? 'データシート ' + (i + 1) : 'データシート') }}
-              </a>
-            </div>
-            <p v-else class="text-xs opacity-50">データシート未登録</p>
-          </div>
         </div>
-        <!-- 右カラム: ラベル:値 ×2組の横並びグリッド（スマホ1組、sm以上2組） -->
+        <!-- 右カラム: 設計判断順 -->
         <div class="space-y-3">
           <div class="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-5 gap-y-2 text-sm items-baseline">
             <span class="list-label">型番</span>
@@ -107,11 +96,43 @@
               <span v-for="c in part.categories" :key="c.id" class="tag mr-1 text-xs">@{{ c.name }}</span>
               <span v-if="!part.categories.length" class="opacity-40">—</span>
             </span>
+            <span class="sm:col-span-4 block border-t border-[var(--color-border)] mt-1 pt-3"></span>
+            <template v-if="part.specs?.length">
+              <template v-for="s in part.specs" :key="s.id">
+                <span class="list-label">
+                  @{{ specDisplayName(s) }}
+                  <span v-if="specProfileBadge(s)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(s) }}</span>
+                </span>
+                <span class="list-value">
+                  @{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}
+                </span>
+              </template>
+            </template>
+            <template v-else>
+              <span class="list-label">スペック</span>
+              <span class="list-value opacity-40">未登録</span>
+            </template>
             <span class="list-label">パッケージ</span>
             <span>
               <span v-if="part.package" class="tag mr-1 text-xs">@{{ part.package.name }}</span>
               <span v-if="part.package_group" class="opacity-60 text-xs ml-1">(@{{ part.package_group.name }})</span>
               <span v-if="!part.package" class="opacity-40">—</span>
+            </span>
+            <span class="list-label">データシート</span>
+            <span>
+              <template v-if="part.datasheets?.length">
+                <a v-for="(sheet, i) in part.datasheets" :key="sheet.id" :href="sheet.url" target="_blank" rel="noreferrer"
+                  :title="sheet.original_name || sheet.display_name"
+                  class="btn mr-1 mb-1 inline-flex items-center gap-2 px-2 py-1 rounded border border-[var(--color-border)] text-xs">
+                  📄 @{{ sheet.display_name || sheet.original_name || (part.datasheets.length > 1 ? 'データシート ' + (i + 1) : 'データシート') }}
+                </a>
+              </template>
+              <span v-else class="opacity-40">未登録</span>
+            </span>
+            <span class="list-label">最優先仕入先</span>
+            <span class="list-value">
+              @{{ preferredSupplier?.supplier?.name || '—' }}
+              <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">@{{ formatCurrency(preferredSupplier.unit_price, {decimals:2}) }}</span>
             </span>
             <span class="list-label">入手可否</span>
             <span :class="'tag w-fit ' + (part.procurement_status === 'active' ? 'tag-ok' : part.procurement_status === 'eol' ? 'tag-eol' : 'tag-warning')">
@@ -121,24 +142,6 @@
             <span class="list-value">新品 @{{ part.threshold_new }}個 / 中古 @{{ part.threshold_used }}個</span>
             <span class="list-label">代表保管棚</span>
             <span class="list-value">@{{ part.primary_location ? `${part.primary_location.code} / ${part.primary_location.name}` : '—' }}</span>
-            <span class="list-label">最優先仕入先</span>
-            <span class="list-value">
-              @{{ preferredSupplier?.supplier?.name || '—' }}
-              <span v-if="preferredSupplier?.unit_price != null" class="text-xs opacity-60 ml-1">@{{ formatCurrency(preferredSupplier.unit_price, {decimals:2}) }}</span>
-            </span>
-            <template v-if="part.specs?.length">
-              <span class="sm:col-span-4 block border-t border-[var(--color-border)] mt-1 pt-3"></span>
-            </template>
-            <!-- 登録スペック（部品分類によって内容が変わる） -->
-            <template v-for="s in part.specs" :key="s.id">
-              <span class="list-label">
-                @{{ specDisplayName(s) }}
-                <span v-if="specProfileBadge(s)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(s) }}</span>
-              </span>
-              <span class="list-value">
-                @{{ s.value }}@{{ s.unit ? ' ' + s.unit : '' }}
-              </span>
-            </template>
           </div>
           <!-- 説明（あれば） -->
           <div v-if="part.description" class="text-sm border-t border-[var(--color-border)] pt-3">
@@ -148,7 +151,7 @@
           <!-- 棚別在庫内訳 -->
           <div class="border-t border-[var(--color-border)] pt-3">
             <div class="flex items-center justify-between gap-3 mb-2">
-              <p class="text-sm font-semibold opacity-75">在庫内訳</p>
+              <p class="text-sm font-semibold opacity-75">棚別在庫</p>
               <p class="text-sm font-semibold opacity-75 text-right">合計 @{{ stockSummary.new + stockSummary.used }}個 / 新品 @{{ stockSummary.new }}個 / 中古 @{{ stockSummary.used }}個</p>
             </div>
             <div v-if="part.inventory_blocks?.length" class="grid gap-2 text-sm md:grid-cols-2">
@@ -235,8 +238,10 @@
           <div>
             <h3 class="text-sm font-semibold mb-3 opacity-80">使用案件</h3>
             <div class="flex flex-wrap gap-1.5 mb-3">
-              <span v-for="project in part.projects" :key="project.id" class="tag text-xs">
-                @{{ project.business_code ? `${project.business_code}_${project.business_name} / ` : '' }}@{{ project.name }}
+              <span v-for="project in part.projects" :key="project.id" class="tag text-xs max-w-full"
+                :title="project.business_code || project.business_name ? [project.business_code, project.business_name].filter(Boolean).join(' / ') : ''">
+                <span class="break-words">@{{ project.name }}</span>
+                <span v-if="project.project_number" class="opacity-60 ml-1">@{{ project.project_number }}</span>
               </span>
               <span v-if="!part.projects?.length" class="text-sm opacity-40">使用案件なし</span>
             </div>
@@ -579,63 +584,75 @@
 
       <div v-else-if="editModal.section === 'specs'" class="space-y-3">
         <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-sm font-semibold opacity-80">スペック追加</div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="opacity-55">マスタで管理</span>
+              <a :href="masterSpecGroupUrl('spec-types')" target="_blank" rel="noreferrer" class="link-text">スペック詳細</a>
+              <a :href="masterSpecGroupUrl('spec-candidates')" target="_blank" rel="noreferrer" class="link-text">候補設定</a>
+              <a :href="masterSpecGroupUrl('common-spec-types')" target="_blank" rel="noreferrer" class="link-text">共通</a>
+              <a :href="masterSpecGroupUrl('tolerance-spec-types')" target="_blank" rel="noreferrer" class="link-text">許容差</a>
+              <a :href="masterSpecGroupUrl('spec-templates')" target="_blank" rel="noreferrer" class="link-text">入力テンプレート</a>
+            </div>
+          </div>
+          <div class="grid gap-3 lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)_auto] lg:items-start">
             <div>
-              <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Spec</div>
-              <div class="mt-1 text-sm font-semibold">部品分類</div>
-              <p class="mt-1 text-xs leading-5 opacity-60">選択中: @{{ selectedSpecGroupLabel }}</p>
+              <label class="block text-xs font-semibold mb-1">部品分類</label>
+              <select v-model="selectedSpecGroupId" @change="handleSpecGroupPickerChange" class="input-text w-full text-sm">
+                <option value="all">フィルタしない</option>
+                <option v-for="group in specGroupOptions" :key="`detail-spec-filter-${group.id}`" :value="String(group.id)">@{{ group.name }}</option>
+              </select>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button v-if="specGroups.length || specSuggestionTypes.length" type="button" @click="showRecommendedSpecTypes"
-                class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
-                :class="!isAllSpecTypesSelected && !selectedSpecGroupId && (specGroups.length || specSuggestionTypes.length) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-                部品分類からの推奨
-              </button>
-              <button type="button" @click="showAllSpecTypes"
-                class="px-3 py-2 rounded-md border text-xs hover:border-[var(--color-primary)]"
-                :class="isAllSpecTypesSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
-                全スペック詳細から選ぶ
-              </button>
-              <span v-if="specSuggestionLoading" class="text-xs opacity-50">部品分類から推奨を読込中...</span>
+            <div>
+              <label class="block text-xs font-semibold mb-1">スペック候補</label>
+              <select v-model="selectedSpecTypeId" class="input-text w-full text-sm" :disabled="specSuggestionLoading || filteredSpecTypesForPicker().length === 0">
+                <option value="">スペック候補を選択</option>
+                <option v-for="st in filteredSpecTypesForPicker()" :key="`detail-spec-candidate-${st.id}`" :value="String(st.id)">@{{ specTypePickerOptionLabel(st) }}</option>
+              </select>
             </div>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button v-for="group in specGroups" :key="`detail-spec-group-${group.id}`" type="button"
-              @click="selectedSpecGroupId = String(group.id)"
-              class="rounded-md border px-3 py-2 text-left text-xs transition-colors"
-              :class="String(selectedSpecGroupId) === String(group.id) ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)] hover:border-[var(--color-primary)]'">
-              <span class="flex items-center gap-2 font-semibold">
-                <span>@{{ group.name }}</span>
-              </span>
-              <span class="block opacity-70">@{{ group.spec_types?.length ?? group.usage_count ?? 0 }}項目</span>
-            </button>
-            <span v-if="!specGroups.length && !specSuggestionLoading" class="text-xs opacity-50">@{{ part?.categories?.length ? 'この部品分類には候補スペック詳細が未設定です' : '部品分類を設定すると候補スペック詳細を絞り込みます' }}</span>
-          </div>
-          <div class="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-            <input v-model="specTypeSearchQuery" type="text" class="input-text w-full"
-              placeholder="スペック詳細を検索（例: VCEO / GBW / 電源電圧 / オン抵抗）" />
-            <div class="text-xs opacity-60 text-right">
-              表示候補 @{{ filteredSpecTypesForPicker().length }}件 / @{{ selectedSpecGroupLabel }} @{{ scopedSpecTypes.length }}件
+            <button type="button" @click="addSelectedSpecType" :disabled="!selectedSpecTypeId"
+              class="btn btn-primary h-10 px-4 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed lg:mt-5">追加</button>
+            <div class="hidden lg:block"></div>
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold mb-1">入力テンプレート</label>
+              <select v-model="selectedSpecTemplateId" class="input-text w-full text-sm" :disabled="specSuggestionLoading || visibleSpecTemplates.length === 0">
+                <option value="">入力テンプレートを選択</option>
+                <option v-for="template in visibleSpecTemplates" :key="`detail-spec-template-${template.id}`" :value="String(template.id)">@{{ specTemplateLabel(template) }}</option>
+              </select>
+              <div class="min-h-8 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5">
+                <div v-if="specTemplatePreviewItems.length" class="flex flex-wrap gap-1">
+                  <span v-for="item in specTemplatePreviewItems" :key="`detail-template-preview-${item.id}`"
+                    class="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-card-even)] px-1.5 py-0.5 text-[11px] leading-tight">
+                    @{{ item.label }}
+                  </span>
+                </div>
+                <span v-else class="text-[11px] opacity-45">テンプレート未選択</span>
+              </div>
             </div>
+            <button type="button" @click="applySelectedSpecTemplate" :disabled="!selectedSpecTemplateId"
+              class="btn btn-primary h-10 px-4 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed lg:mt-5">一式追加</button>
           </div>
         </div>
+        <div class="pt-1 text-sm font-semibold opacity-80">登録済みスペック</div>
         <div v-for="(spec, index) in editModal.form.specs" :key="index" class="spec-card bg-[var(--color-card-even)]">
           <div class="spec-card-grid spec-card-grid--editor">
             <div class="spec-card-field">
               <label class="spec-card-label">スペック詳細</label>
               <div class="spec-type-picker">
                 <select v-model="spec.spec_type_id" @change="handleSpecTypeSelection(spec)" class="input-text spec-card-control w-full">
-                  <option value="">@{{ selectedSpecGroupLabel }}から選択</option>
+                  <option value="">スペック詳細を選択</option>
                   <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypePickerOptionLabel(st) }}</option>
                 </select>
-                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="スペック詳細を追加" aria-label="スペック詳細を追加">＋</button>
+                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="選択中の部品分類にスペック詳細を追加" aria-label="選択中の部品分類にスペック詳細を追加">＋</button>
               </div>
-              <p class="spec-card-help">候補範囲: @{{ selectedSpecGroupLabel }} / 候補 @{{ filteredSpecTypesForPicker(spec).length }}件</p>
-              <p v-if="spec.name" class="spec-card-help">抽出名: @{{ spec.name }}</p>
+              <p v-if="spec.name" class="spec-card-help">データシート表記: @{{ spec.name }}</p>
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">値の種類</label>
-              <div class="spec-card-profile">
+              <div v-if="isToleranceSpecRow(spec)" class="inline-flex h-8 items-center rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 text-xs font-semibold">
+                許容差
+              </div>
+              <div v-else class="spec-card-profile">
                 <button v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" type="button"
                   @click="changeSpecProfile(spec, option.value)"
                   class="spec-card-profile-button"
@@ -646,27 +663,55 @@
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">値</label>
-              <label v-if="spec.value_profile === 'typ'" class="spec-card-subfield">
+              <template v-if="isToleranceSpecRow(spec)">
+                <div class="spec-card-subfield">
+                  <span class="spec-card-subfield-label">許容値</span>
+                  <div class="tolerance-combobox" @click.stop>
+                    <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full"
+                      :class="toleranceGradeOptionsFor(spec).length ? 'tolerance-combobox-input' : ''"
+                      :placeholder="toleranceValuePlaceholder(spec)"
+                      @keydown.escape.stop="closeToleranceGradeMenu" />
+                    <button v-if="toleranceGradeOptionsFor(spec).length" type="button"
+                      class="tolerance-combobox-toggle"
+                      :class="isToleranceGradeMenuOpen('detail', index) ? 'is-open' : ''"
+                      :aria-expanded="isToleranceGradeMenuOpen('detail', index) ? 'true' : 'false'"
+                      aria-haspopup="listbox"
+                      aria-label="許容差候補を選択"
+                      title="許容差候補を選択"
+                      @click.stop="toggleToleranceGradeMenu('detail', index, spec)">
+                      ▾
+                    </button>
+                    <div v-if="isToleranceGradeMenuOpen('detail', index)" class="tolerance-combobox-menu" role="listbox">
+                      <button v-for="option in toleranceGradeOptionsFor(spec)" :key="`detail-tolerance-grade-${index}-${option.label || option.rank}`"
+                        type="button" class="tolerance-combobox-option" role="option"
+                        @click.stop="selectToleranceGradeOption(spec, option)">
+                        @{{ toleranceGradeOptionLabel(option) }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <label v-else-if="spec.value_profile === 'typ'" class="spec-card-subfield">
                 <span class="spec-card-subfield-label">typ</span>
                 <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="例: 1 / 1e-6" />
               </label>
               <label v-else-if="spec.value_profile === 'max_only'" class="spec-card-subfield">
-                <span class="spec-card-subfield-label">最大値</span>
-                <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+                <span class="spec-card-subfield-label">max</span>
+                <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
               </label>
               <label v-else-if="spec.value_profile === 'min_only'" class="spec-card-subfield">
-                <span class="spec-card-subfield-label">最小値</span>
-                <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+                <span class="spec-card-subfield-label">min</span>
+                <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
               </label>
               <div v-else-if="spec.value_profile === 'range'" class="spec-card-values--range">
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">最小値</span>
-                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="最小値" />
+                  <span class="spec-card-subfield-label">min</span>
+                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
                 </label>
                 <span class="text-xs opacity-50 pb-3">〜</span>
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">最大値</span>
-                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="最大値" />
+                  <span class="spec-card-subfield-label">max</span>
+                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
                 </label>
               </div>
               <div v-else class="spec-card-values--triple">
@@ -686,10 +731,15 @@
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">単位</label>
-              <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full" placeholder="例: uA / kΩ / ns" :list="`spec-unit-detail-${index}`" />
-              <datalist :id="`spec-unit-detail-${index}`">
-                <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`detail-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
-              </datalist>
+              <select v-if="isToleranceSpecRow(spec)" v-model="spec.unit" class="input-text spec-card-control w-full">
+                <option v-for="unitOption in toleranceUnitOptionsFor(spec)" :key="`detail-tolerance-unit-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
+              </select>
+              <template v-else>
+                <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full" placeholder="例: uA / kΩ / ns" :list="`spec-unit-detail-${index}`" />
+                <datalist :id="`spec-unit-detail-${index}`">
+                  <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`detail-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
+                </datalist>
+              </template>
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">確認</label>
@@ -699,10 +749,10 @@
                   <span v-if="specProfileBadge(spec)" class="tag ml-1 text-[10px] align-middle">@{{ specProfileBadge(spec) }}</span>
                 </p>
                 <template v-if="specPreview(spec).hasNumeric">
-                  <p class="opacity-75 break-words">表示: @{{ specPreview(spec).recommendedText }}</p>
-                  <p class="opacity-55 break-words">基底: @{{ specPreview(spec).canonicalText }}</p>
+                  <p class="opacity-75 break-words">入力値: @{{ specPreview(spec).recommendedText }}</p>
+                  <p class="opacity-55 break-words">標準単位換算: @{{ specPreview(spec).canonicalText }}</p>
                 </template>
-                <p v-else class="opacity-50 break-words">数値化できると基底換算を表示します。</p>
+                <p v-else class="opacity-50 break-words">数値として扱える場合は標準単位換算を表示します。</p>
               </div>
             </div>
             <div class="spec-card-field">
@@ -713,7 +763,6 @@
             </div>
           </div>
         </div>
-        <button @click="editModal.form.specs.push(createEmptySpecRow())" class="px-3 py-2 rounded-xl border border-[var(--color-border)] text-sm">+ スペック追加</button>
       </div>
 
       <!-- カスタムフィールド編集 -->
@@ -790,20 +839,58 @@
           <label class="block text-xs font-semibold mb-1">英語名</label>
           <input v-model="inlineSpecTypeModal.form.name_en" type="text" class="input-text w-full" placeholder="例: Collector-Base Voltage" />
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold mb-1">記号</label>
-            <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full" placeholder="例: -V_CBO / h_FE" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold mb-1">基底単位</label>
-            <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: V / A / Ω" />
-          </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">記号</label>
+          <input v-model="inlineSpecTypeModal.form.symbol" type="text" class="input-text w-full font-mono" placeholder="例: V_CBO, h_FE, V_CE-(sat)" />
+          <p class="text-xs opacity-50 mt-1">`_` は下付き、`~` は上付き、`-` は通常表示へ戻す区切りです。例: `V_CE-(sat)`。HTMLは入力しません。</p>
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1">alias</label>
-          <textarea v-model="inlineSpecTypeModal.form.aliases_text" rows="3" class="input-text w-full" placeholder="1行に1つ。データシート上の別表記など"></textarea>
+          <label class="block text-xs font-semibold mb-1">別名・表記ゆれ</label>
+          <textarea v-model="inlineSpecTypeModal.form.aliases_text" rows="3" class="input-text w-full" placeholder="1行に1つ。例: VCBO&#10;Collector Base Breakdown Voltage"></textarea>
         </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">説明</label>
+          <input v-model="inlineSpecTypeModal.form.description" type="text" class="input-text w-full" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">値の型</label>
+          <select v-model="inlineSpecTypeModal.form.value_type" class="input-text w-full">
+            <option value="numeric">数値</option>
+            <option value="text">テキスト</option>
+            <option value="boolean">真偽値</option>
+          </select>
+        </div>
+        <div v-if="inlineSpecTypeModal.form.value_type === 'numeric'">
+          <label class="block text-xs font-semibold mb-1">単位</label>
+          <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: μF" />
+          <p class="text-xs opacity-50 mt-1">不要なら空欄のまま保存します。</p>
+        </div>
+        <template v-if="inlineSpecTypeModal.form.value_type === 'numeric' && inlineSpecTypeModal.form.unit">
+          <div>
+            <label class="block text-xs font-semibold mb-1">入力候補接頭辞</label>
+            <p class="text-xs opacity-50 mb-2">@{{ inlinePrefixPolicyHelp }}</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              <label v-for="option in inlinePrefixOptionsFor()" :key="`inline-sp-${option.value || 'blank'}`"
+                class="flex items-center gap-1 text-sm"
+                :class="option.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'">
+                <input type="checkbox" :value="option.value" v-model="inlineSpecTypeModal.form.suggest_prefixes" :disabled="option.disabled" @change="syncInlinePrefixList('suggest_prefixes', option.value)" class="rounded" />
+                <span class="font-mono">@{{ option.label }}</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">表示接頭辞</label>
+            <p class="text-xs opacity-50 mb-2">値を人間向け表記へ逆変換するとき使う接頭辞。未選択なら大きさに応じて自動選択します。</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              <label v-for="option in inlinePrefixOptionsFor()" :key="`inline-dp-${option.value || 'blank'}`"
+                class="flex items-center gap-1 text-sm"
+                :class="option.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'">
+                <input type="checkbox" :value="option.value" v-model="inlineSpecTypeModal.form.display_prefixes" :disabled="option.disabled" @change="syncInlinePrefixList('display_prefixes', option.value)" class="rounded" />
+                <span class="font-mono">@{{ option.label }}</span>
+              </label>
+            </div>
+          </div>
+        </template>
       </div>
       <div class="flex justify-end gap-3 mt-5">
         <button type="button" @click="closeInlineSpecTypeModal()" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>

@@ -6,6 +6,7 @@ use App\Models\Component;
 use App\Models\Package;
 use App\Models\PackageGroup;
 use App\Models\SpecGroup;
+use App\Models\SpecType;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,5 +132,88 @@ class ComponentDetailRouteSmokeTest extends TestCase
         $this->assertSame('追加確認', $component->customAttributes->last()?->value);
         $component->customAttributes()->delete();
         $component->forceDelete();
+    }
+
+    public function test_specs_route_accepts_tolerance_value_and_returns_master_order(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $this->actingAs($user);
+
+        $group = SpecGroup::create([
+            'name' => '容量部品',
+            'sort_order' => 10,
+        ]);
+        $capacitance = SpecType::create([
+            'name' => '容量',
+            'name_ja' => '容量',
+            'base_unit' => 'F',
+            'spec_scope' => SpecType::SCOPE_GROUP_LOCAL,
+            'owner_spec_group_id' => $group->id,
+            'spec_kind' => SpecType::KIND_NORMAL,
+            'sort_order' => 100,
+        ]);
+        $tolerance = SpecType::create([
+            'name' => '容量許容差',
+            'name_ja' => '容量許容差',
+            'base_unit' => '%',
+            'spec_scope' => SpecType::SCOPE_COMMON,
+            'spec_kind' => SpecType::KIND_TOLERANCE,
+            'tolerance_settings' => [
+                'default_mode' => 'grade',
+                'default_unit' => '%',
+                'allowed_units' => ['%', 'pF'],
+                'grade_options' => [
+                    ['label' => 'J', 'value' => 5, 'unit' => '%'],
+                    ['label' => 'K', 'value' => 10, 'unit' => '%'],
+                ],
+            ],
+            'sort_order' => 10,
+        ]);
+        $group->specTypes()->attach([
+            $capacitance->id => ['sort_order' => 10],
+            $tolerance->id => ['sort_order' => 20],
+        ]);
+
+        $component = Component::create([
+            'part_number' => 'BK-SPEC-ORDER-' . now()->format('Hisv'),
+            'manufacturer' => 'Codex',
+            'common_name' => 'スペック並び確認',
+            'procurement_status' => 'active',
+            'threshold_new' => 0,
+            'threshold_used' => 0,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+        $component->categories()->sync([$group->id]);
+
+        $response = $this->patchJson("/api/components/{$component->id}/specs", [
+            'specs' => [
+                [
+                    'spec_type_id' => $tolerance->id,
+                    'value_profile' => 'typ',
+                    'value_typ' => '5',
+                    'unit' => '%',
+                ],
+                [
+                    'spec_type_id' => $capacitance->id,
+                    'value_profile' => 'typ',
+                    'value_typ' => '10',
+                    'unit' => 'uF',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.specs.0.spec_type_id', $capacitance->id)
+            ->assertJsonPath('data.specs.1.spec_type_id', $tolerance->id)
+            ->assertJsonPath('data.specs.1.value', '5')
+            ->assertJsonPath('data.specs.1.unit', '%')
+            ->assertJsonPath('data.specs.1.value_numeric_typ', 5);
+
+        $this->getJson("/api/components/{$component->id}")
+            ->assertOk()
+            ->assertJsonPath('data.specs.0.spec_type_id', $capacitance->id)
+            ->assertJsonPath('data.specs.1.spec_type_id', $tolerance->id);
     }
 }

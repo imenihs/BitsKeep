@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\AltiumLinkController;
+use App\Http\Controllers\Api\AnalysisSessionController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CalcController;
 use App\Http\Controllers\Api\ComponentCompareController;
 use App\Http\Controllers\Api\ComponentController;
 use App\Http\Controllers\Api\ComponentHelperController;
+use App\Http\Controllers\Api\ComponentSeriesController;
 use App\Http\Controllers\Api\CsvImportController;
 use App\Http\Controllers\Api\IntegrationSettingsController;
 use App\Http\Controllers\Api\LocationController;
@@ -67,6 +69,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('stock-orders/export/notion', [StockOrderController::class, 'exportNotion']);
 
     // ── 部品管理 ────────────────────────────────────────────
+    Route::post('component-series/preview', [ComponentSeriesController::class, 'preview']);
+    Route::post('component-series/{component_series}/sync-values', [ComponentSeriesController::class, 'syncValues']);
+    Route::post('component-series/{component_series}/materialize', [ComponentSeriesController::class, 'materialize']);
+    Route::post('component-series/{component_series}/restore', [ComponentSeriesController::class, 'restore']);
+    Route::apiResource('component-series', ComponentSeriesController::class);
     Route::get('components/compare', [ComponentCompareController::class, 'compare']);
     Route::apiResource('components', ComponentController::class);
 
@@ -138,6 +145,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     // ── 計算ツール ───────────────────────────────────────────
     Route::post('calc/networks/search', [CalcController::class, 'networkSearch']);
+    Route::apiResource('analysis-sessions', AnalysisSessionController::class);
 
     // ── バックアップ（管理者専用） ────────────────────────────
     Route::get('backup/download', [BackupController::class, 'download']);

@@ -43,6 +43,8 @@ class StoreComponentRequest extends FormRequest
             'category_ids.*' => ['integer', 'exists:spec_groups,id'],
             'package_group_id' => ['nullable', 'integer', 'exists:package_groups,id'],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+            'component_series_id' => ['nullable', 'integer', 'exists:component_series,id'],
+            'component_series_value_id' => ['nullable', 'integer', 'exists:component_series_values,id'],
             // スペック（配列）
             'specs' => ['nullable', 'array'],
             'specs.*.spec_type_id' => ['required_with:specs', 'integer', 'exists:spec_types,id'],

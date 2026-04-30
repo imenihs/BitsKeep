@@ -64,6 +64,23 @@ export default function setup() {
     };
 
     const procurementLabel = (v) => ({ active: '入手可', nrnd: 'NRND', eol: 'EOL', custom: 'カスタム' }[v] ?? v);
+    const csvHeaderLabels = {
+        part_number: '型番',
+        common_name: '通称',
+        manufacturer: 'メーカー',
+        description: '説明',
+        procurement_status: '調達状態',
+        quantity_new: '新品在庫数',
+        quantity_used: '中古在庫数',
+        category_names: '分類名',
+        package_name: 'パッケージ名',
+        location_code: '棚コード',
+        supplier_name: '商社名',
+        supplier_part_number: '商社型番',
+        unit_price: '単価',
+        product_url: '商品URL',
+    };
+    const csvHeaderLabel = (header) => csvHeaderLabels[header] ?? header;
     const stepCards = computed(() => ([
         {
             key: 'file',
@@ -93,5 +110,5 @@ export default function setup() {
 
     return { toasts, step, uploading, committing, fileInput, selectedFile,
              preview, result, onFileChange, uploadPreview, goConfirm, commitImport, reset,
-             procurementLabel, stepCards };
+             procurementLabel, csvHeaderLabel, stepCards };
 }

@@ -28,7 +28,7 @@ class ComponentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Component::with(['categories', 'package.packageGroup', 'packages.packageGroup', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
+        $query = Component::with(['categories', 'package.packageGroup', 'packages.packageGroup', 'componentSeries', 'componentSeriesValue', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
             ->withCount('inventoryBlocks');
 
         // フリーワード検索（部品名・型番・メーカー・説明）
@@ -75,6 +75,10 @@ class ComponentController extends Controller
 
         if ($packageGroupId = $request->integer('package_group_id')) {
             $query->whereHas('package', fn ($q) => $q->where('package_group_id', $packageGroupId));
+        }
+
+        if ($componentSeriesId = $request->integer('component_series_id')) {
+            $query->where('component_series_id', $componentSeriesId);
         }
 
         // スペック数値フィルタ（spec_type_id + profile + min/max）
@@ -255,7 +259,7 @@ class ComponentController extends Controller
                 $this->syncRelations($component, $request);
 
                 return ApiResponse::created($this->decorateComponent(
-                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
+                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'componentSeries', 'componentSeriesValue', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets'])
                 ));
             });
         } catch (ValidationException $e) {
@@ -272,6 +276,8 @@ class ComponentController extends Controller
     {
         $component->load([
             'categories', 'package.packageGroup', 'packages.packageGroup',
+            'componentSeries',
+            'componentSeriesValue',
             'specs.specType',
             'customAttributes',
             'componentSuppliers.supplier', 'componentSuppliers.priceBreaks',
@@ -312,7 +318,7 @@ class ComponentController extends Controller
                 $this->syncRelations($component, $request);
 
                 return ApiResponse::success($this->decorateComponent(
-                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets', 'customAttributes'])
+                    $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'componentSeries', 'componentSeriesValue', 'specs.specType', 'componentSuppliers.supplier', 'primaryLocation', 'datasheets', 'customAttributes'])
                 ));
             });
         } catch (ValidationException $e) {
@@ -387,7 +393,7 @@ class ComponentController extends Controller
             }
 
             return ApiResponse::success($this->decorateComponent(
-                $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets', 'customAttributes'])
+                $component->load(['categories', 'package.packageGroup', 'packages.packageGroup', 'componentSeries', 'componentSeriesValue', 'specs.specType', 'componentSuppliers.supplier', 'componentSuppliers.priceBreaks', 'primaryLocation', 'datasheets', 'customAttributes'])
             ));
         });
     }
@@ -709,6 +715,17 @@ class ComponentController extends Controller
             $component->custom_attributes = $component->customAttributes;
         }
 
+        if ($component->relationLoaded('specs')) {
+            $this->sortSpecsByMasterOrder($component);
+        }
+
+        if ($component->relationLoaded('componentSeries')) {
+            $component->component_series_name = $component->componentSeries?->name;
+        }
+        if ($component->relationLoaded('componentSeriesValue')) {
+            $component->component_series_value_text = $component->componentSeriesValue?->value_text;
+        }
+
         if ($component->relationLoaded('inventoryBlocks')) {
             $stockTypeOrder = ['reel' => 0, 'tape' => 1, 'tray' => 2, 'loose' => 3, 'box' => 4];
             $conditionOrder = ['new' => 0, 'used' => 1];
@@ -750,6 +767,66 @@ class ComponentController extends Controller
         $component->cheapest_supplier_name = $cheapest?->supplier?->name;
 
         return $component;
+    }
+
+    private function sortSpecsByMasterOrder(Component $component): void
+    {
+        $categoryIds = $component->relationLoaded('categories')
+            ? $component->categories->pluck('id')->map(fn ($id) => (int) $id)->all()
+            : $component->categories()->pluck('spec_groups.id')->map(fn ($id) => (int) $id)->all();
+
+        $candidateOrder = [];
+        if ($categoryIds !== []) {
+            $rows = DB::table('spec_group_spec_type')
+                ->join('spec_groups', 'spec_groups.id', '=', 'spec_group_spec_type.spec_group_id')
+                ->whereIn('spec_group_spec_type.spec_group_id', $categoryIds)
+                ->whereNull('spec_groups.deleted_at')
+                ->orderBy('spec_groups.sort_order')
+                ->orderBy('spec_groups.name')
+                ->orderBy('spec_group_spec_type.sort_order')
+                ->orderBy('spec_group_spec_type.spec_type_id')
+                ->get([
+                    'spec_group_spec_type.spec_type_id',
+                    'spec_group_spec_type.sort_order as candidate_sort_order',
+                    'spec_groups.sort_order as group_sort_order',
+                    'spec_groups.name as group_name',
+                ]);
+
+            foreach ($rows as $index => $row) {
+                $specTypeId = (int) $row->spec_type_id;
+                $candidateOrder[$specTypeId] ??= [
+                    'rank' => $index,
+                    'group_sort_order' => (int) $row->group_sort_order,
+                    'group_name' => (string) $row->group_name,
+                    'candidate_sort_order' => (int) $row->candidate_sort_order,
+                ];
+            }
+        }
+
+        $component->setRelation('specs', $component->specs
+            ->sort(function ($left, $right) use ($candidateOrder) {
+                $leftType = $left->specType;
+                $rightType = $right->specType;
+                $leftCandidate = $candidateOrder[(int) $left->spec_type_id] ?? null;
+                $rightCandidate = $candidateOrder[(int) $right->spec_type_id] ?? null;
+
+                return [
+                    $leftCandidate === null ? 1 : 0,
+                    $leftCandidate['rank'] ?? PHP_INT_MAX,
+                    $leftCandidate['candidate_sort_order'] ?? PHP_INT_MAX,
+                    (int) ($leftType?->sort_order ?? PHP_INT_MAX),
+                    (string) ($leftType?->name_ja ?? $leftType?->name ?? ''),
+                    (int) $left->id,
+                ] <=> [
+                    $rightCandidate === null ? 1 : 0,
+                    $rightCandidate['rank'] ?? PHP_INT_MAX,
+                    $rightCandidate['candidate_sort_order'] ?? PHP_INT_MAX,
+                    (int) ($rightType?->sort_order ?? PHP_INT_MAX),
+                    (string) ($rightType?->name_ja ?? $rightType?->name ?? ''),
+                    (int) $right->id,
+                ];
+            })
+            ->values());
     }
 
     private function assertPackageSelection(mixed $packageGroupId, mixed $packageId): void

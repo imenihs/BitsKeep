@@ -92,7 +92,7 @@ export default function setup() {
         if (advManufacturer.value) chips.push({ key: 'manufacturer', label: `メーカー: ${advManufacturer.value}` });
         if (advPackageGroupId.value) {
             const groupName = packageGroups.value.find((item) => item.id == advPackageGroupId.value)?.name ?? `#${advPackageGroupId.value}`;
-            chips.push({ key: 'packageGroup', label: `パッケージ分類: ${groupName}` });
+            chips.push({ key: 'packageGroup', label: `Pkg分類: ${groupName}` });
         }
         if (advPackageId.value) {
             const packageName = packages.value.find((item) => item.id == advPackageId.value)?.name ?? `#${advPackageId.value}`;
@@ -110,9 +110,9 @@ export default function setup() {
         if (advMin.value) chips.push({ key: 'specMin', label: `最小: ${advMin.value}` });
         if (advMax.value) chips.push({ key: 'specMax', label: `最大: ${advMax.value}` });
         if (advMinStock.value) chips.push({ key: 'minStock', label: `在庫下限: ${advMinStock.value}` });
-        if (advInventoryState.value) chips.push({ key: 'inventoryState', label: `在庫状態: ${advInventoryState.value}` });
-        if (advPurchasedFrom.value) chips.push({ key: 'purchasedFrom', label: `購入日From: ${advPurchasedFrom.value}` });
-        if (advPurchasedTo.value) chips.push({ key: 'purchasedTo', label: `購入日To: ${advPurchasedTo.value}` });
+        if (advInventoryState.value) chips.push({ key: 'inventoryState', label: `在庫: ${advInventoryState.value}` });
+        if (advPurchasedFrom.value) chips.push({ key: 'purchasedFrom', label: `開始日: ${advPurchasedFrom.value}` });
+        if (advPurchasedTo.value) chips.push({ key: 'purchasedTo', label: `終了日: ${advPurchasedTo.value}` });
         return chips;
     });
     const isFiltered = computed(() => activeFilterChips.value.length > 0);

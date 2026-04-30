@@ -113,30 +113,6 @@
             @{{ comp.categories?.join(', ') || '-' }}
           </td>
         </tr>
-        <tr class="border-b border-[var(--color-border)] bg-[var(--color-card-even)] hover:opacity-90">
-          <td class="py-2 pr-4 opacity-60 text-xs">パッケージ</td>
-          <td v-for="comp in components" :key="comp.id" class="py-2 px-3 border-l border-[var(--color-border)]">
-            @{{ comp.packages?.join(', ') || '-' }}
-          </td>
-        </tr>
-
-        <!-- 在庫 -->
-        <tr class="bg-[var(--color-card-odd)]">
-          <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">在庫</td>
-        </tr>
-        <tr class="border-b border-[var(--color-border)] hover:opacity-90">
-          <td class="py-2 pr-4 opacity-60 text-xs">在庫（新品）</td>
-          <td v-for="comp in components" :key="comp.id" class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
-            @{{ comp.quantity_new }}
-          </td>
-        </tr>
-        <tr class="border-b border-[var(--color-border)] bg-[var(--color-card-even)] hover:opacity-90">
-          <td class="py-2 pr-4 opacity-60 text-xs">最安値</td>
-          <td v-for="comp in components" :key="comp.id" class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
-            @{{ comp.cheapest_price != null ? formatCurrency(comp.cheapest_price, {decimals:2}) : '-' }}
-          </td>
-        </tr>
-
         <!-- スペック -->
         <tr v-if="visibleSpecTypes.length > 0" class="bg-[var(--color-card-odd)]">
           <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">スペック</td>
@@ -158,6 +134,50 @@
               <span v-if="comp.specs[st.key].unit" class="opacity-60 text-xs">@{{ comp.specs[st.key].unit }}</span>
             </template>
             <span v-else class="opacity-30">-</span>
+          </td>
+        </tr>
+
+        <!-- パッケージ -->
+        <tr class="bg-[var(--color-card-odd)]">
+          <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">パッケージ</td>
+        </tr>
+        <tr class="border-b border-[var(--color-border)] bg-[var(--color-card-even)] hover:opacity-90">
+          <td class="py-2 pr-4 opacity-60 text-xs">パッケージ</td>
+          <td v-for="comp in components" :key="`package-${comp.id}`" class="py-2 px-3 border-l border-[var(--color-border)]">
+            @{{ comp.packages?.join(', ') || '-' }}
+          </td>
+        </tr>
+
+        <!-- データシート -->
+        <tr class="bg-[var(--color-card-odd)]">
+          <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">データシート</td>
+        </tr>
+        <tr class="border-b border-[var(--color-border)] hover:opacity-90">
+          <td class="py-2 pr-4 opacity-60 text-xs">データシート</td>
+          <td v-for="comp in components" :key="`datasheet-${comp.id}`" class="py-2 px-3 border-l border-[var(--color-border)]">
+            <a :href="`/components/${comp.id}`" class="link-text text-xs">詳細で確認</a>
+          </td>
+        </tr>
+
+        <!-- 価格 -->
+        <tr class="bg-[var(--color-card-odd)]">
+          <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">価格</td>
+        </tr>
+        <tr class="border-b border-[var(--color-border)] bg-[var(--color-card-even)] hover:opacity-90">
+          <td class="py-2 pr-4 opacity-60 text-xs">最安値</td>
+          <td v-for="comp in components" :key="`price-${comp.id}`" class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
+            @{{ comp.cheapest_price != null ? formatCurrency(comp.cheapest_price, {decimals:2}) : '-' }}
+          </td>
+        </tr>
+
+        <!-- 在庫 -->
+        <tr class="bg-[var(--color-card-odd)]">
+          <td class="py-2 pr-4 opacity-70 text-xs font-semibold uppercase tracking-wide" colspan="100">在庫</td>
+        </tr>
+        <tr class="border-b border-[var(--color-border)] hover:opacity-90">
+          <td class="py-2 pr-4 opacity-60 text-xs">在庫（新品）</td>
+          <td v-for="comp in components" :key="`stock-${comp.id}`" class="py-2 px-3 border-l border-[var(--color-border)] font-mono">
+            @{{ comp.quantity_new }}
           </td>
         </tr>
         <tr class="bg-[var(--color-card-odd)]">

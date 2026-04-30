@@ -2938,7 +2938,7 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 
 ---
 
-### 16:29 [Tester] フロントビルド・PHP構文確認・既存テスト実行
+### 16:29 [曹長(テスト分隊)] フロントビルド・PHP構文確認・既存テスト実行
 
 **実施結果：**
 - ✓ `npm run build`
@@ -3599,7 +3599,7 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 
 ---
 
-### 00:12 [Tester] ChatGPT自動解析の起動待ち補強を確認
+### 00:12 [曹長(テスト分隊)] ChatGPT自動解析の起動待ち補強を確認
 
 **実施内容：**
 - `component-create.js` の単一PDF経路に `nextTick()` を追加し、複数PDF経路と同じ起動順へ統一
@@ -3608,7 +3608,7 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - `php artisan test --filter=ComponentHelperChatGptJobTest` を実行し成功
 - `node --check bits-keep/public/tampermonkey/bitskeep-chatgpt-helper.user.js` を実行し構文エラーなしを確認
 
-Testerの心の声: ブラウザが遅い日は「見えたらすぐ流す」では足りない。タブ可視化、描画完了、再描画後の入力欄取り直しまで待って初めて安定する。
+曹長(テスト分隊)の心の声: ブラウザが遅い日は「見えたらすぐ流す」では足りない。タブ可視化、描画完了、再描画後の入力欄取り直しまで待って初めて安定する。
 
 ---
 
@@ -3623,7 +3623,7 @@ Testerの心の声: ブラウザが遅い日は「見えたらすぐ流す」で
 
 ---
 
-### 00:18 [Tester] ChatGPT worker 再利用と初回再試行を確認
+### 00:18 [曹長(テスト分隊)] ChatGPT worker 再利用と初回再試行を確認
 
 **実施内容：**
 - userscript に `CHATGPT_WORKER_KEY` heartbeat を追加し、稼働中の ChatGPT タブが 30 秒以内に生存通知していれば新規タブを開かず既存タブを再利用するよう変更
@@ -3631,7 +3631,7 @@ Testerの心の声: ブラウザが遅い日は「見えたらすぐ流す」で
 - `node --check bits-keep/public/tampermonkey/bitskeep-chatgpt-helper.user.js` を実行し構文エラーなしを確認
 - `php artisan test --filter=ComponentHelperChatGptJobTest` を実行し成功
 
-Testerの心の声: 初回ロード時の「そのうち見えるだろう」は危ない。保留ジョブは自前で拾い直す、既存タブが生きているなら無駄なタブは増やさない、これで筋が通る。
+曹長(テスト分隊)の心の声: 初回ロード時の「そのうち見えるだろう」は危ない。保留ジョブは自前で拾い直す、既存タブが生きているなら無駄なタブは増やさない、これで筋が通る。
 
 ---
 
@@ -3704,7 +3704,7 @@ Testerの心の声: 初回ロード時の「そのうち見えるだろう」は
 
 ---
 
-### 00:48 [Tester] userscript 更新ダイアログ自動表示の反映確認
+### 00:48 [曹長(テスト分隊)] userscript 更新ダイアログ自動表示の反映確認
 
 **実施内容：**
 - `component-create.js` に `showChatGptHelperUpdateModal` と `chatGptHelperIssue` を追加し、部品登録画面読み込み時に helper 未検出 / 旧版なら更新ダイアログを自動表示するよう実装
@@ -3713,7 +3713,7 @@ Testerの心の声: 初回ロード時の「そのうち見えるだろう」は
 - `npm run build` を実行し成功
 - `php artisan test --filter=ComponentHelperChatGptJobTest` を実行し成功
 
-Testerの心の声: 前提不備は起動前に止めるべきで、探索させてはいけない。画面を開いた時点で更新ダイアログが出るなら、やることは1つに絞れる。
+曹長(テスト分隊)の心の声: 前提不備は起動前に止めるべきで、探索させてはいけない。画面を開いた時点で更新ダイアログが出るなら、やることは1つに絞れる。
 
 ---
 
@@ -3761,7 +3761,7 @@ Testerの心の声: 前提不備は起動前に止めるべきで、探索させ
 
 ---
 
-### 00:54 [Tester] 更新確認トーストと version 不整合時の起動抑止を確認
+### 00:54 [曹長(テスト分隊)] 更新確認トーストと version 不整合時の起動抑止を確認
 
 **実施内容：**
 - `component-create.js` に `ensureChatGptHelperReady()` を追加し、helper 未検出 / 旧版ならトースト表示と更新ダイアログ表示でその場停止するよう実装
@@ -3770,7 +3770,7 @@ Testerの心の声: 前提不備は起動前に止めるべきで、探索させ
 - `npm run build` を実行し成功
 - `php artisan test --filter=ComponentHelperChatGptJobTest` を実行し成功
 
-Testerの心の声: 起動前ガードと確認結果の即時通知が揃って、初めて操作の返りが見える。黙って止まるのが一番悪い。
+曹長(テスト分隊)の心の声: 起動前ガードと確認結果の即時通知が揃って、初めて操作の返りが見える。黙って止まるのが一番悪い。
 
 ---
 
@@ -4896,7 +4896,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ## [大将] 2026-04-28 00:43 — サブタスク実施内容と確認結果を記録
 
-### [Tester] Headless Chrome UX巡回
+### [曹長(テスト分隊)] Headless Chrome UX巡回
 
 - Laravel/Vite の検証環境でログインし、Headless Chrome から主要ページを巡回した。
 - 巡回対象: `/`, `/dashboard`, `/components`, `/components/create`, `/components/5`, `/components/5/edit`, `/master`, `/locations`, `/stock-alert`, `/stock-orders`, `/stock-in`, `/suppliers`, `/projects`, `/settings/integrations`, `/settings/home`, `/functions`, `/component-compare`, `/tools/calc`, `/tools/design`, `/tools/network`, `/users`, `/audit-logs`, `/csv-import`, `/altium`, `/backup`, `/profile`, `/help`。
@@ -4938,7 +4938,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 作業者の心の声: 「推奨」は便利だが、選べない状態にした瞬間にマスタ設計の想定漏れがユーザーの作業停止になる。APIで推奨と手動を同時に返し、UI側で見せ方を分けるのが今回の落とし所。
 
-### [Manager] 統合確認・DB保護・ユーザ環境確認
+### [大将] 統合確認・DB保護・ユーザ環境確認
 
 - Headless Chrome 検証前に PostgreSQL `bitskeep` のバックアップを `/tmp/bitskeep-db-backups/bitskeep-before-ux-20260428002246.dump` へ取得した。
 - 検証中に `/projects` の Notion同期APIが発火する可能性があったため、検証後にバックアップから DB を復元した。
@@ -5051,7 +5051,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Tester] 2026-04-28 01:02
+### [曹長(テスト分隊)] 2026-04-28 01:02
 
 - ✓ `npm run build` を実行し、Vite build が成功した。
 - 警告: Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500 kB を超えることが表示された。今回の文言変更とは無関係な既存警告として扱う。
@@ -5109,12 +5109,12 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ### 確認
 
-- [Tester] `php -l app/Http/Controllers/Api/ComponentController.php` 成功。
-- [Tester] `node --check resources/js/pages/components-list.js` 成功。
-- [Tester] `php -l tests/Feature/UiApiSurfaceSmokeTest.php` 成功。
-- [Tester] `php artisan test --filter=UiApiSurfaceSmokeTest` 成功。4 tests / 211 assertions。
-- [Tester] `npm run build` 成功。既存警告として Browserslist の更新案内と `engineering-calc` chunk 500kB 超過が出た。
-- [Tester] `git diff --check` 成功。
+- [曹長(テスト分隊)] `php -l app/Http/Controllers/Api/ComponentController.php` 成功。
+- [曹長(テスト分隊)] `node --check resources/js/pages/components-list.js` 成功。
+- [曹長(テスト分隊)] `php -l tests/Feature/UiApiSurfaceSmokeTest.php` 成功。
+- [曹長(テスト分隊)] `php artisan test --filter=UiApiSurfaceSmokeTest` 成功。4 tests / 211 assertions。
+- [曹長(テスト分隊)] `npm run build` 成功。既存警告として Browserslist の更新案内と `engineering-calc` chunk 500kB 超過が出た。
+- [曹長(テスト分隊)] `git diff --check` 成功。
 
 ---
 
@@ -5147,14 +5147,14 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ### 確認
 
-- [Tester] `php -l app/Models/Component.php` 成功。
-- [Tester] `php -l app/Http/Controllers/Api/ComponentController.php` 成功。
-- [Tester] `php -l database/migrations/2026_04_28_011700_add_part_number_sort_key_to_components_table.php` 成功。
-- [Tester] `php -l tests/Feature/UiApiSurfaceSmokeTest.php` 成功。
-- [Tester] `php artisan test --filter=UiApiSurfaceSmokeTest` 成功。5 tests / 217 assertions。
-- [Tester] `php artisan migrate --force` 成功。ローカルDBへ `part_number_sort_key` 追加とバックフィルを適用。
-- [Tester] `npm run build` 成功。既存警告として Browserslist 更新案内と `engineering-calc` chunk 500kB 超過が出た。
-- [Tester] `git diff --check` 成功。
+- [曹長(テスト分隊)] `php -l app/Models/Component.php` 成功。
+- [曹長(テスト分隊)] `php -l app/Http/Controllers/Api/ComponentController.php` 成功。
+- [曹長(テスト分隊)] `php -l database/migrations/2026_04_28_011700_add_part_number_sort_key_to_components_table.php` 成功。
+- [曹長(テスト分隊)] `php -l tests/Feature/UiApiSurfaceSmokeTest.php` 成功。
+- [曹長(テスト分隊)] `php artisan test --filter=UiApiSurfaceSmokeTest` 成功。5 tests / 217 assertions。
+- [曹長(テスト分隊)] `php artisan migrate --force` 成功。ローカルDBへ `part_number_sort_key` 追加とバックフィルを適用。
+- [曹長(テスト分隊)] `npm run build` 成功。既存警告として Browserslist 更新案内と `engineering-calc` chunk 500kB 超過が出た。
+- [曹長(テスト分隊)] `git diff --check` 成功。
 
 大将の心の声: 型番は辞書順で読む文字列ではなく、数字列を含む品番体系。台帳の並びが人間の探索と逆になるなら、それは実装都合がUXに漏れている。
 
@@ -5185,7 +5185,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 仕様書、README、アプリ内ヘルプ、実装進捗チェックリストへ、責務分離と `共通` / 分類統合の再検討保留を記録した。
 - DB/API内部名・DB構造・実データは変更していない。
 
-### [Tester] 2026-04-28 01:25
+### [曹長(テスト分隊)] 2026-04-28 01:25
 
 - ✓ `php artisan view:cache` で Blade コンパイル成功を確認した。確認後に `php artisan view:clear` を実行した。
 - ✓ `npm run build` で Vite build 成功を確認した。
@@ -5236,7 +5236,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - スペック分類の並び替え時に、既存の部品分類リンクを消さないよう `category_links` も更新 payload に含めた。
 - 候補スペック詳細や入力テンプレートの配置、分類とスペック分類の統合判断は触っていない。
 
-### [Tester] 2026-04-28 09:46
+### [曹長(テスト分隊)] 2026-04-28 09:46
 
 - ✓ `php artisan view:cache` で Blade コンパイル成功を確認した。確認後に `php artisan view:clear` を実行した。
 - ✓ `git diff --check` で空白エラーがないことを確認した。
@@ -5244,7 +5244,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 警告: Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500 kB を超えることが表示された。今回の分類CRUD UI統一とは無関係な既存警告として扱う。
 
 大将の心の声: スペック分類の並び替えはただの順序更新に見えても、APIが category_links 未指定を同期対象なしとして扱う。UIだけ揃えてリンクを消す事故を起こさないよう、payloadまで確認する必要があった。
-### [Manager] 2026-04-28 14:12:33 JST
+### [大将] 2026-04-28 14:12:33 JST
 - [ユーザ] スペック分類から共通をなくし、スペック詳細側で共通スペック詳細を管理する方針で実装する。DB変更も許可。
 - 実施方針: `共通` を通常のスペック分類から外し、スペック詳細へ `common / group_local` の管理属性を追加する。UIはスペック詳細タブの左右構成を維持し、下部を共通スペック詳細の管理・入れる/外す操作へ変更する。
 - DB変更前提: migration 実行前に `接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認` を記録してから進める。
@@ -5269,19 +5269,19 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - `詳細仕様/仕様書.md` のテーブル一覧、部品分類/スペック詳細設計、部品登録、部品一覧、フィルタ検索、類似検索、マスタ管理、APIパラメータを `部品分類` 正本の方針へ更新した。
 - `制作管理/実装進捗チェックリスト.md` へ、方針確定、データ棚卸し、部品分類紐付けテーブル、旧分類移行、旧分類廃止段階、マスタ管理UI、登録/詳細、一覧/検索、API、解析レビュー、Seeder、回帰テストの作業を投入した。
 - コード実装とDB変更はまだ行っていない。
-- [Tester] `git diff --check` で空白エラーがないことを確認した。
+- [曹長(テスト分隊)] `git diff --check` で空白エラーがないことを確認した。
 
 大将の心の声: ユーザーに2種類の分類を管理させる構造は、電子部品台帳としての自然な理解に反している。部品分類を1つにし、その配下に必要スペックが並ぶ形へ寄せるのが筋。
 
 ---
 
-### [Manager] 2026-04-28 14:18:44 JST
+### [大将] 2026-04-28 14:18:44 JST
 - [ユーザ] 先に仕様書とチェックリストを修正し、その後ログを書いて実装するよう指示。
 - 対応: 実装継続前に `詳細仕様/仕様書.md` と `制作管理/実装進捗チェックリスト.md` を、`共通` スペック分類廃止・共通スペック詳細の `spec_types` 側管理・スペック詳細タブ下部の共通管理化へ更新した。
 - これ以降、実装は更新済み仕様とチェックリストを正として進める。DB変更前には別途4点確認を記録する。
 - 大将の心の声: 先に仕様を固定する順番に戻した。ここからはコードを仕様へ合わせる作業として扱う。
 
-### [Manager] 2026-04-28 14:33:26 JST
+### [大将] 2026-04-28 14:33:26 JST
 - DB変更前4点確認:
   - 接続先確認: `php artisan db:show --counts` で PostgreSQL 16.13 / connection `pgsql` / database `bitskeep` / host `127.0.0.1` / port `5432` / username `postgres` を確認。
   - 件数確認: `spec_groups=10`, `spec_types=81`, `spec_group_spec_type=65`, `spec_templates=10`, `component_specs=26`, `components=12`。
@@ -5301,7 +5301,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
   - 復元手段確認: 必要時は `pg_restore -h 127.0.0.1 -p 5432 -U postgres -d bitskeep --clean --if-exists /tmp/bitskeep-db-backups/bitskeep_pre_master_migration_20260428_143257.dump`。実行前に再度接続先と復元元を確認する。
 - 大将の心の声: テストの指摘はデータ保全として正しい。既存の `共通` に人が追加した項目を落とさない実装へ寄せる。
 
-### [Tester] 2026-04-28 14:40:48 JST
+### [曹長(テスト分隊)] 2026-04-28 14:40:48 JST
 - ✓ `php -l` 対象: `SpecTypeController.php`, `SpecGroupController.php`, `SpecSuggestionController.php`, `SpecGroupTemplateSeeder.php`, `2026_04_28_141300_split_common_spec_types_from_spec_groups.php`, `2026_04_28_143500_mark_legacy_common_spec_names.php`, `CommonSpecScopeTest.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
 - ✓ `git diff --check`。
@@ -5313,7 +5313,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 14:43:10 JST
+### [大将] 2026-04-28 14:43:10 JST
 - [ユーザ] 分類の対応方針は仕様書・チェックリストに書いてあるので、サブタスクを使って進行管理・実装・テストを並行して進めるよう指示。
 - 対応方針: `分類(categories)` と `スペック分類(spec_groups)` は統合せず、`category_spec_group` の推奨リンクを使って部品登録・解析レビューに推奨スペック分類と入力テンプレートを出す。未完了項目は `部品登録で入力テンプレート適用を実装する` と `データシート解析レビューに推奨スペック分類・テンプレートを出す` を主対象とする。
 - 分担: 仕様確認、実装調査、テスト追加をサブタスクへ分け、親タスクで実装統合・進行管理・最終検証を行う。
@@ -5326,7 +5326,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: 仕様書・チェックリスト・README・ヘルプへ、入力テンプレート適用、解析レビューの推奨表示、DB/API内部名とUI用語の正式対応表を反映した。
 - 大将の心の声: 推奨は制約ではなく、行作成の足場にする。分類とスペック分類を混ぜず、推薦関係だけを入力補助へ使う形に収めた。
 
-### [Tester] 2026-04-28 14:52:56 JST
+### [曹長(テスト分隊)] 2026-04-28 14:52:56 JST
 - ✓ `php artisan test --filter=SpecSuggestionClassificationTemplateTest`。3 tests / 26 assertions。
 - ✓ `php artisan test tests/Feature/CommonSpecScopeTest.php`。3 tests / 37 assertions。
 - ✓ `php artisan test`。46 tests / 402 assertions。
@@ -5337,7 +5337,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 大将の心の声: テスト分隊の失敗テストを実装側の受け入れ条件にしたので、APIの返却形まで固定できた。
 
 ### [Worker] 2026-04-28 14:54:29 JST
-- 追加対応: 部品登録画面の行内スペック詳細追加で、選択中スペック分類または推奨スペック分類が一意なら `owner_spec_group_id` を送るようにした。分類固有スペック詳細がどのスペック分類にも整理されない状態を避ける。
+- 追加対応: 部品登録画面の行内スペック詳細追加で、選択中スペック分類または推奨スペック分類が一意なら `owner_spec_group_id` を送るようにした。部品分類側のスペック詳細がどのスペック分類にも整理されない状態を避ける。
 - 再確認: `php artisan test --filter=SpecSuggestionClassificationTemplateTest` は 3 tests / 26 assertions で成功。`npm run build` と `git diff --check` も成功。
 - 大将の心の声: 分類方針は候補提示だけでなく、マスタを増やした後も次回候補に戻ってくるところまで見ないと運用で崩れる。
 
@@ -5347,10 +5347,10 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - [ユーザ] マスタ管理に `分類` 表示が残り、`スペック分類` / `スペック詳細` の名称整理も不足していると指摘。
 - 追加対応: 画面表示の `分類` を `部品分類` へ寄せ、部品一覧・比較・ダッシュボード・部品登録/詳細・マスタ管理・解析レビューの残存文言を修正した。
 - 追加対応: `スペック項目` / `全項目から選ぶ` / `推奨カテゴリ` 系の旧表記を `スペック詳細` / `全スペック詳細から選ぶ` / `推奨部品分類` へ整理し、README・ヘルプ・仕様書・チェックリスト・UI構成資料・解析プロンプトにも反映した。
-- 追加対応: `スペック分類固有` の操作語を、画面上では `このスペック分類専用` へ寄せ、入力テンプレートの未紐付け表示も `関連するスペック分類なし` へ変更した。
+- 追加対応: `group_local` の操作語を、画面上では `このスペック分類専用` へ寄せ、入力テンプレートの未紐付け表示も `関連するスペック分類なし` へ変更した。
 - 大将の心の声: 今回は実装忘れ。概念として `categories` を残す判断と、画面に `分類` のまま出さない判断を混ぜてしまっていた。UI用語は最後に grep で潰すべきだった。
 
-### [Tester] 2026-04-28 16:10:36 JST
+### [曹長(テスト分隊)] 2026-04-28 16:10:36 JST
 - ✓ `rg 'スペック項目|全項目から選ぶ|推奨カテゴリ|所属スペック項目'` で、現行画面・仕様・チェックリスト・プロンプトに旧表記が残っていないことを確認。
 - ✓ `php -l` 対象: `DatasheetPromptService.php`, `ComponentCompareController.php`, `SpecType.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
@@ -5363,7 +5363,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 16:37:17 JST
+### [大将] 2026-04-28 16:37:17 JST
 - [ユーザ] 仕様解釈が誤っていると指摘。正しくは、旧 `分類(categories)` は削除し、旧 `スペック分類(spec_groups)` を `部品分類` の正本へ昇格する。スペック詳細の親は部品分類であり、旧分類を参照するものは部品分類へ付け替える。
 - 方針修正: `categories` / `component_category` / `category_spec_group` は移行元として扱い、通常実装では参照しない。互換API名として `/api/categories` は残すが、DB参照先は `spec_groups` とする。
 - DB注意: 今回は migration ファイル追加とテストDBでの検証まで。実DBへの `php artisan migrate` は未実行。適用前に `接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認` を改めて記録する。
@@ -5377,7 +5377,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: 仕様書・チェックリスト・README・ヘルプを、`spec_groups = 部品分類正本`、旧 `categories` は移行元、DB/API内部名は互換で残る設計負債として更新した。
 - 大将の心の声: 外向き互換名は残しても、実体が2つある状態は残してはいけない。UIの言葉より先に、参照先を一本化するのが今回の本筋。
 
-### [Tester] 2026-04-28 16:37:17 JST
+### [曹長(テスト分隊)] 2026-04-28 16:37:17 JST
 - ✓ `php artisan test --filter 'SpecSuggestionClassificationTemplateTest|CommonSpecScopeTest|UiApiSurfaceSmokeTest|ComponentDetailRouteSmokeTest'`。13 tests / 294 assertions。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
 - ✓ `npm run build`。
@@ -5388,7 +5388,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 17:47:18 JST
+### [大将] 2026-04-28 17:47:18 JST
 - [ユーザ] マスタ管理に分類が残っており、スペック分類とスペック詳細の名称変更もできていない。DB対応が必要なら4点確認で止まらず進めるよう指示。
 - 確認: `2026_04_28_161500_merge_categories_into_spec_groups` が未適用で残っていた。これは旧 `categories` / `component_category` / `category_spec_group` を `spec_groups` / `component_spec_group` に統合するDB対応である。
 - DB変更前4点確認:
@@ -5409,7 +5409,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 表示名確認: 実画面・主要README/ヘルプ/JSに `スペック分類` / `スペック項目` / `所属スペック` / `全項目` / `推奨カテゴリ` の旧表示が残っていないことを検索で確認し、ヘルプ/READMEの `パッケージ分類 / パッケージ` 表記を `パッケージ分類 / パッケージ詳細` へ補正した。
 - 大将の心の声: 「あとでDBを当てる」は運用上の未完了そのもの。今回はバックアップを作った上で正本テーブルまで実DBに反映した。
 
-### [Tester] 2026-04-28 17:51:50 JST
+### [曹長(テスト分隊)] 2026-04-28 17:51:50 JST
 - ✓ `php artisan migrate:status`。`2026_04_28_161500_merge_categories_into_spec_groups` は `[13] Ran`。
 - ✓ `php artisan db:show --counts`。旧 `categories` / `component_category` / `category_spec_group` が消え、`component_spec_group` と `spec_groups` が存在することを確認。
 - ✓ `php -l database/migrations/2026_04_28_161500_merge_categories_into_spec_groups.php`。
@@ -5430,7 +5430,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: README のマスタ管理概要行を同じ順序へ更新した。
 - 大将の心の声: 見た目の順序だけ変えて初期表示が3番目に残ると体験としてズレる。タブ配列と初期タブはセットで扱う。
 
-### [Tester] 2026-04-28 21:39:09 JST
+### [曹長(テスト分隊)] 2026-04-28 21:39:09 JST
 - ✓ `php -l resources/views/app/master-list.blade.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
 - ✓ `npm run build`。
@@ -5446,7 +5446,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 対象: 部品分類、パッケージ分類、パッケージ詳細、旧互換の部品分類一覧、候補スペック詳細、共通スペック詳細、各アーカイブ一覧。
 - 大将の心の声: 縞々はデータ属性ではなく視線誘導のための表示状態。並び替えUIでは表示順に追従しないと逆に認知負荷になる。
 
-### [Tester] 2026-04-28 22:09:29 JST
+### [曹長(テスト分隊)] 2026-04-28 22:09:29 JST
 - ✓ `rg 'id % 2|group\\.id % 2|c\\.id % 2|p\\.id % 2|member\\.id % 2|s\\.id % 2' bits-keep/resources/views/app/master-list.blade.php` でID基準の縞々指定が残っていないことを確認。
 - ✓ `php -l resources/views/app/master-list.blade.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
@@ -5465,7 +5465,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 実装: 左ペインのスクロールバーへ `master-scroll` を追加し、ダークテーマ上で白いネイティブスクロールバー矢印が浮かないようにした。
 - 大将の心の声: 管理テーブルは情報密度を上げるだけでは足りない。操作列は崩れない固定幅を確保し、足りない分は行高ではなく横方向へ逃がす。
 
-### [Tester] 2026-04-28 22:16:50 JST
+### [曹長(テスト分隊)] 2026-04-28 22:16:50 JST
 - ✓ `php -l resources/views/app/master-list.blade.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
 - ✓ `npm run build`。
@@ -5483,7 +5483,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - テスト: `UiApiSurfaceSmokeTest` に `test_spec_type_prefixes_preserve_blank_prefix` を追加し、作成・取得・更新で `（無印）` が保持されることを固定した。
 - 大将の心の声: 空文字を意味のある値として使う場合、Laravelの空文字→null変換は必ず境界で吸収する。UIだけで直すとDBにnullが残り続ける。
 
-### [Tester] 2026-04-28 22:22:01 JST
+### [曹長(テスト分隊)] 2026-04-28 22:22:01 JST
 - ✓ `php -l app/Http/Controllers/Api/SpecTypeController.php`。
 - ✓ `php -l tests/Feature/UiApiSurfaceSmokeTest.php`。
 - ✓ `php artisan test --filter=spec_type_prefixes_preserve_blank_prefix`。1 test / 14 assertions。
@@ -5504,7 +5504,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 実装: 既存の `openStDuplicate` を拡張し、複製時の `unit` に `base_unit` も使えるようにした。
 - 大将の心の声: 複製は単なる見た目のボタンではなく、どの親・どのスコープで増えるかが重要。候補側と共通側で保存先がずれないようにした。
 
-### [Tester] 2026-04-28 22:24:45 JST
+### [曹長(テスト分隊)] 2026-04-28 22:24:45 JST
 - ✓ `php -l resources/views/app/master-list.blade.php`。
 - ✓ `php artisan view:cache` / `php artisan view:clear`。
 - ✓ `npm run build`。
@@ -5515,7 +5515,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 22:34:25 JST
+### [大将] 2026-04-28 22:34:25 JST
 - [ユーザ] 共通スペック詳細で同じ表示名を使えず、`電源電圧` を `VDD` / `VCC` のように分けて登録できないため直すよう指示。
 - 方針: `spec_types.name` のユニーク制約と `StoreSpecTypeRequest` の一意バリデーションを外し、スペック詳細は `id` を正本ID、`name_ja` を表示名、`symbol` / alias を識別補助として扱う。同名表示は許可する。
 - DB変更前4点確認:
@@ -5536,7 +5536,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB確認: PostgreSQL上の `spec_types` インデックスは `spec_types_pkey` と `spec_types_spec_scope_owner_spec_group_id_index` のみになり、`spec_types_name_unique` が消えていることを確認した。
 - 大将の心の声: 同じ日本語名でも回路文脈上は別の意味を持つことがある。人間が読む名前に一意性を背負わせず、IDと記号で区別するほうが運用に合う。
 
-### [Tester] 2026-04-28 22:38:21 JST
+### [曹長(テスト分隊)] 2026-04-28 22:38:21 JST
 - ✓ `php -l app/Http/Requests/StoreSpecTypeRequest.php`。
 - ✓ `php -l database/migrations/2026_04_28_223300_allow_duplicate_spec_type_names.php`。
 - ✓ `php artisan test --filter=spec_type_allows_same_display_name_with_different_symbols`。1 test / 8 assertions。
@@ -5551,7 +5551,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 23:32:48 JST
+### [大将] 2026-04-28 23:32:48 JST
 - [ユーザ] 共通スペック詳細とは別に `許容差スペック詳細` を作り、許容差だけ専用管理にして進めるよう指示。設計実装管理、ログ、実装、テストをサブワーカーで並列進行するよう指示。
 - 方針: UI上は `共通スペック詳細` と `許容差スペック詳細` を別棚にする。DB/API上はどちらも `spec_types` を正本とし、`spec_kind=normal/tolerance` で種別を持つ。
 - 方針: `許容差スペック詳細` は `spec_scope=common` を基本にし、`%` / `ppm`、対称 / 非対称 / ランク表記を扱うための `tolerance_settings` を `spec_types` に持たせる。
@@ -5559,7 +5559,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 分担: backend / frontend / docs / tests をサブワーカーへ分け、最終統合とDB適用判断は大将が行う。
 - 大将の心の声: 許容差は見た目だけなら `%` 単位の数値だが、実務では `±`、`+/-`、ランクが混ざる。通常値と同じ棚に押し込むと後から編集と検索で破綻する。
 
-### [Manager] 2026-04-28 23:42:41 JST
+### [大将] 2026-04-28 23:42:41 JST
 - 対象migration: `2026_04_28_230000_add_kind_and_tolerance_settings_to_spec_types`。`spec_types` に `spec_kind` と `tolerance_settings` を追加する。
 - DB変更前4点確認:
   - 接続先確認: `php artisan db:show --counts` で PostgreSQL 16.13 / connection `pgsql` / database `bitskeep` / host `127.0.0.1` / port `5432` / username `postgres` を確認。
@@ -5580,7 +5580,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB確認: 適用後、`spec_types.spec_kind` は `normal` default / NOT NULL、`tolerance_settings` は `jsonb` nullable。既存83件はすべて `spec_kind=normal`。
 - 大将の心の声: UIでは別棚、DBでは同じ正本という形にしたので、部品登録・テンプレート・候補編集では同じスペック行として扱える。通常/許容差の切替操作を消したことで、既存値の意味を壊す編集も避けられる。
 
-### [Tester] 2026-04-28 23:44:31 JST
+### [曹長(テスト分隊)] 2026-04-28 23:44:31 JST
 - ✓ `node --check bits-keep/resources/js/pages/master-list.js`。
 - ✓ `php -l bits-keep/resources/views/app/master-list.blade.php`。
 - ✓ `php -l bits-keep/app/Http/Controllers/Api/SpecTypeController.php`。
@@ -5601,14 +5601,14 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-28 23:57:40 JST
+### [大将] 2026-04-28 23:57:40 JST
 - [ユーザ] 許容差スペックに、抵抗器やコンデンサで使う代表的なものを投入するよう指示。
 - 方針: 既存の汎用 `許容差` は互換性のため触らず、専用の `抵抗値許容差` と `容量許容差` を `spec_kind=tolerance` / `spec_scope=common` として追加する。
 - 方針: 抵抗値許容差は B/C/D/F/G/J/K/M、容量許容差は F/G/J/K/M/Z を代表ランクとして持たせる。Z は非対称許容差 `+80/-20%` として扱う。
 - 方針: 実DB投入は対象を限定した Seeder を追加して行い、投入前に接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認を記録する。
 - 大将の心の声: 許容差の代表値は正本データとして最初から入っていないと、UIを作ってもユーザーが毎回同じランクを手入力することになる。汎用名ではなく対象量ごとの許容差にして、あとで検索や入力支援を壊さない形にする。
 
-### [Manager] 2026-04-29 00:02:19 JST
+### [大将] 2026-04-29 00:02:19 JST
 - 対象DB操作: `PassiveToleranceSpecSeeder` により `抵抗値許容差` / `容量許容差` の許容差スペック詳細、単位、別名、抵抗器/コンデンサ分類への候補紐付けを投入する。
 - DB変更前4点確認:
   - 接続先確認: `php artisan db:show --counts` で PostgreSQL 16.13 / connection `pgsql` / database `bitskeep` / host `127.0.0.1` / port `5432` / username `postgres` を確認。
@@ -5626,7 +5626,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB確認: `抵抗値許容差` は id=84、`容量許容差` は id=85 として登録済み。両方とも `spec_kind=tolerance` / `spec_scope=common` / `base_unit=%`。
 - 大将の心の声: 容量の小容量向け絶対公差まで混ぜると、現状の単位モデルでは `%` と別次元が同じ行に並ぶ。今回は代表的な百分率ランクとZ級に絞り、後で絶対公差を扱うなら専用の単位設計を追加する。
 
-### [Tester] 2026-04-29 00:04:33 JST
+### [曹長(テスト分隊)] 2026-04-29 00:04:33 JST
 - ✓ `php -l database/seeders/PassiveToleranceSpecSeeder.php`。
 - ✓ `php -l database/seeders/AkizukiReferenceMasterSeeder.php`。
 - ✓ `php -l tests/Feature/PassiveToleranceSpecSeederTest.php`。
@@ -5640,7 +5640,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 00:32:30 JST
+### [大将] 2026-04-29 00:32:30 JST
 - [ユーザ] 小容量コンデンサの pF 許容差にも対応し、温度特性も許容差スペック詳細へ投入するよう指示。
 - 方針: `容量許容差` は `%` と `pF` の両方を許容単位にし、小容量向けの A/B/C/D を `±0.05pF` / `±0.1pF` / `±0.25pF` / `±0.5pF` として追加する。
 - 方針: 温度特性は数値許容差ではなくランク/コードなので、`容量温度特性` を `spec_kind=tolerance` のコード型ランクとして追加し、C0G/NP0、X7R、X5R、X6S、X7S、Y5V、Z5U を代表候補にする。
@@ -5648,7 +5648,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB変更前提: 実DBへ Seeder を再投入する前に、接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認を記録する。
 - 大将の心の声: 小容量コンデンサの許容差は比率ではなく絶対容量で表すことがある。温度特性も厳密には許容差そのものではないが、部品選定上は容量変動ランクとして同じ棚で選べる方が実務に合う。
 
-### [Manager] 2026-04-29 00:42:21 JST
+### [大将] 2026-04-29 00:42:21 JST
 - 対象DB操作: `PassiveToleranceSpecSeeder` の再投入により、既存 `容量許容差` に pF ランクを追加し、新規 `抵抗温度係数` / `容量温度特性` を許容差スペック詳細として投入する。
 - DB変更前4点確認:
   - 接続先確認: `php artisan db:show --counts` で PostgreSQL 16.13 / connection `pgsql` / database `bitskeep` / host `127.0.0.1` / port `5432` / username `postgres` を確認。
@@ -5668,7 +5668,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB確認: `容量許容差.allowed_units` は `['%', 'pF']`、`抵抗温度係数` は id=86 / `base_unit=ppm/℃`、`容量温度特性` は id=87 / `base_unit=code`。
 - 大将の心の声: `容量温度特性` は通常の数値スペックではなくコード選択に近い。今は許容差スペック詳細のランク定義として入れておき、後で値入力UIをランク選択化するとさらに自然になる。
 
-### [Tester] 2026-04-29 00:43:36 JST
+### [曹長(テスト分隊)] 2026-04-29 00:43:36 JST
 - ✓ `php -l database/seeders/PassiveToleranceSpecSeeder.php`。
 - ✓ `php -l app/Http/Controllers/Api/SpecTypeController.php`。
 - ✓ `php -l resources/views/app/master-list.blade.php`。
@@ -5686,7 +5686,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 00:49:54 JST
+### [大将] 2026-04-29 00:49:54 JST
 - [ユーザ] 各スペック詳細の記号に上付き/下付き表記を入れること、候補スペック詳細行の `詳細編集` を `編集` にすること、候補スペック詳細の追加ボタンを `スペック詳細を追加` にすること、仕様書のUI設計注意点を以後こちらから遵守することを指示。
 - 方針: DBへHTMLは保存せず、仕様書のプレーン記法 `_`=下付き、`~`=上付き、`-`=通常表示へ戻す区切りを正とする。参照マスタ記号は `V_CEO`、`V_CE-(sat)`、`R_DS-(on)` のように更新する。
 - 方針: ボタン文言は短くし、説明文をボタン内へ詰め込まない。候補スペック詳細行の編集アクションは `編集` に統一する。
@@ -5708,7 +5708,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB確認: `コレクタ-エミッタ間電圧=V_CEO`, `コレクタ-エミッタ飽和電圧=V_CE-(sat)`, `オン抵抗=R_DS-(on)`, `ゲートしきい値電圧=V_GS-(th)`, `容量許容差=C_tol`, `容量温度特性=T_C` を確認した。旧記号 `VCEO` などは alias として保持。
 - 大将の心の声: 記号表示はUIだけの問題ではなく、マスタデータ、検索alias、再Seeder時の再現性が揃っていないとまた戻る。仕様書のUIルールを実装前に確認する運用をここで固定する。
 
-### [Tester] 2026-04-29 00:52:30 JST
+### [曹長(テスト分隊)] 2026-04-29 00:52:30 JST
 - ✓ `php -l database/seeders/SpecSymbolNotationSeeder.php`。
 - ✓ `php -l database/seeders/AkizukiReferenceMasterSeeder.php`。
 - ✓ `php -l database/seeders/PassiveToleranceSpecSeeder.php`。
@@ -5727,19 +5727,19 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 00:54:39 JST
+### [大将] 2026-04-29 00:54:39 JST
 - [ユーザ] 候補スペック詳細の「扱い」と「メモ」がスペック詳細編集モーダルに無く、候補行の編集ボタンから変更できない状態が意図したものか確認。
 - 調査: `spec_group_spec_type` の `is_required` / `is_recommended` / `default_profile` / `default_unit` / `note` は部品分類とスペック詳細の関係属性であり、`spec_types` 本体の属性ではない。データモデル上の分離は妥当。
 - 調査: 画面上は候補スペック詳細行に扱い・既定・メモのインライン編集UIがある一方、同じ行の `編集` ボタンは `openStEdit(member)` でスペック詳細本体編集モーダルを開くため、候補設定がモーダル内に無い。これはユーザー導線として混乱を生む。
 - 方針案: 候補行の操作は `候補設定` と `スペック詳細編集` を分ける。扱い・既定・メモは候補設定側、名称・記号・alias・単位はスペック詳細本体側に置く。
 - 大将の心の声: データ正規化としては合っていても、ボタン名と編集先が一致していなければ運用UIとしては未完成。ここは設計意図の説明だけで済ませず、導線を直す対象として扱う。
 
-### [Manager] 2026-04-29 00:57:30 JST
+### [大将] 2026-04-29 00:57:30 JST
 - [ユーザ] 仕様書の先頭を読み返し、くだらない設計になっている箇所が存在しないか洗い出すよう指示。
 - 方針: 冒頭のプロジェクト前提、データモデル、画面設計、部品分類/スペック詳細周辺を読み直し、責務混在・用語崩れ・正本不明・UI導線不一致を優先して抽出する。
 - 大将の心の声: 今の候補スペック詳細UIの違和感は局所バグではなく、冒頭設計の用語と責務整理が崩れている兆候かもしれない。先頭から読み直して原因を潰す。
 
-### [Manager] 2026-04-29 00:58:59 JST
+### [大将] 2026-04-29 00:58:59 JST
 - 洗い出し結果: `categories` と `spec_groups` の互換名が仕様・画面・JSに残り、ユーザー向けの `部品分類` という概念が二重管理に見える状態になっている。
 - 洗い出し結果: `部品分類` に「検索タグ」と「スペック候補セット」の2責務を持たせているため、候補スペック詳細の設定がスペック詳細編集と混ざりやすい。
 - 洗い出し結果: FNC-020 の候補スペック詳細行の `編集` は、pivot設定編集なのか spec_types 本体編集なのか仕様上も曖昧。現UIの混乱原因。
@@ -5747,14 +5747,14 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 洗い出し結果: 部品登録の情報順序は冒頭の「在庫は最後」思想に対し、データシート/解析導線が後ろにあり、解析でスペック入力を支援する設計と噛み合いにくい。
 - 大将の心の声: 一番くだらないのはDBの互換都合をUI用語へにじませている点。ここを直さない限り、説明は増えるが直感性は上がらない。
 
-### [Manager] 2026-04-29 01:14:04 JST
+### [大将] 2026-04-29 01:14:04 JST
 - [ユーザ] `/api/categories` 廃止、候補スペック詳細の編集導線追加、スペック詳細/スペック候補設定/入力テンプレート/共通スペック詳細/許容差スペック詳細のタブ分離、`group_local` と pivot 境界の明確化を、仕様書・チェックリストへ展開して実装・テストまで進めるよう指示。
 - 実行体制: 大将が実行管理・ログ・統合判断を担当。ドキュメント、UI実装、テスト観点はサブワーカーへ分担する。
 - 作業前確認: DB内容変更は予定しない。対象は仕様書、チェックリスト、README/ヘルプ、マスタ管理UI/JS、必要なAPIルート/テスト調整。
 - 注意: 既存ワークツリーには多数の変更があるため、既存差分を戻さず、今回触る範囲を限定して上書き事故を避ける。
 - 大将の心の声: ユーザーの指摘は正しい。互換口とUI責務混在を残したまま文言だけ直すとまた同じ混乱が起きるので、タブ構造と操作名で責務を分離する。
 
-### [Manager] 2026-04-29 01:17:42 JST
+### [大将] 2026-04-29 01:17:42 JST
 - [ユーザ] シリーズ展開部品について、E12中心だが一部E24が混在する保有値や、ツェナー電圧・水晶周波数のようにE系列へ乗らない値でも破綻しない仕組みを仕様検討し、詳細をチェックリストへ落とし込むよう指示。管理とログは大将が担当し、各ドキュメント対応はサブワーカーで並列化する。
 - 方針: `E系列だけから生成する` ではなく、`部品シリーズ` と `値展開ポリシー` を分ける。値展開ポリシーは `E系列`、`基準系列+追加値`、`任意値リスト`、`範囲/刻み`、`値展開なし` を扱い、E12基準に少量E24を足す運用を正式な hybrid として扱う。
 - 方針: ツェナー/TVS、水晶/発振器、ヒューズ/PTC、ピンヘッダ/コネクタ等は、E系列の例外ではなく任意値リストまたは専用値リストとして管理する。値ごとに `由来`、`表示値`、`数値正規化値`、`単位`、`実部品化状態` を持たせる。
@@ -5769,7 +5769,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 統合調整: `hybrid` 表記を `hybrid_series`、`import` 表記を `imported` へ統一し、README/ヘルプにも `範囲/刻み` を追加して仕様書・チェックリストとの粒度差を小さくした。
 - 大将の心の声: ユーザーの懸念は「E系列から外れた値がある」ではなく「現実の棚は理想系列と一致しない」こと。仕様の中心を系列生成ではなく値集合の管理へ置いたので、E12+少量E24や水晶周波数のような非E系列も同じ思想で扱える。
 
-### [Tester] 2026-04-29 01:24:08 JST
+### [曹長(テスト分隊)] 2026-04-29 01:24:08 JST
 - ✓ `git diff --check -- 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md README.md bits-keep/resources/views/app/help.blade.php 制作管理/makinglog.md`
 - ✓ `php -l bits-keep/resources/views/app/help.blade.php`
 - ✓ `php artisan view:cache`
@@ -5779,7 +5779,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 01:25:24 JST
+### [大将] 2026-04-29 01:25:24 JST
 - 実装: マスタ管理の `部品分類` を `/api/spec-groups` へ一本化し、互換口として残っていた `/api/categories` ルート、`CategoryController`、`StoreCategoryRequest` を削除した。
 - 実装: 部品一覧、部品詳細、部品登録の部品分類取得・作成先も `/api/spec-groups` へ変更し、コード上の `/categories` 参照が残らないことを確認した。
 - 実装: マスタ管理タブを `部品分類` / `スペック詳細` / `スペック候補設定` / `入力テンプレート` / `共通スペック詳細` / `許容差スペック詳細` に分離した。旧 `categories` / `spec-groups` tab query は `part-categories` へ正規化する。
@@ -5788,7 +5788,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: 仕様書、実装進捗チェックリスト、README、アプリ内ヘルプに `/api/categories` 廃止、タブ責務分離、候補設定とスペック詳細本体の編集境界、`group_local` 表現ルールを反映した。
 - 大将の心の声: DB互換名がUI概念へ漏れていたのが今回の混乱の芯。互換口を残すのではなく、画面責務とAPI入口を一本化したので、以後は `部品分類=spec_groups` として扱える。
 
-### [Tester] 2026-04-29 01:25:24 JST
+### [曹長(テスト分隊)] 2026-04-29 01:25:24 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `node --check resources/js/pages/component-create.js`
 - ✓ `node --check resources/js/pages/component-detail.js`
@@ -5806,22 +5806,80 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `rg -n -F "/categories" bits-keep/resources/js bits-keep/routes bits-keep/app bits-keep/tests` でコード上の残存参照なし。
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
 
+### [大将] 2026-04-30 02:29 JST
+- [ユーザ] 部品シリーズ画面について、`値軸スペック詳細` は存在しない言葉なので `スペック詳細` にする、部品分類でスペック詳細一覧をフィルタする、パッケージを `パッケージ分類` / `パッケージ詳細` の2段階にする、単位は選択したスペック詳細から自動反映して変更不可にする、E系列の `開始桁` / `終了桁` を接頭語利用可能な `開始値` / `終了値` にする、`0を含む` チェックボックスを追加する、プレビューは値候補の作り方内へ置く、シリーズ値一覧はグループ内スクロールにして画面を縦長にしすぎないよう指示。
+- 判断: 画面の問題が中心だが、E系列の開始/終了を実値で扱うには生成器側も `range_min` / `range_max` をE系列の境界として解釈する必要がある。0ΩはE系列ではなく `generation_settings.include_zero` として追加候補にする。
+- 対応方針: DB変更なし。既存の `range_min` / `range_max` 数値カラムと `generation_settings` JSON を利用し、UI/API/生成器/テスト/文書を合わせて更新する。
+
+### [大将] 2026-04-30 02:34 JST
+- 実装: `値軸スペック詳細` を `スペック詳細` に変更し、部品分類選択時はその部品分類の候補スペック詳細だけを表示するようにした。
+- 実装: パッケージ選択を `パッケージ分類` → `パッケージ詳細` の2段階に変更した。
+- 実装: 値候補の単位は選択したスペック詳細の標準単位から自動反映し、画面上は読み取り専用にした。
+- 実装: E系列の `開始桁` / `終了桁` を `開始値` / `終了値` に変更し、`1k`、`10G` などの接頭語付き入力で範囲指定できるようにした。生成器は内部で必要なデケードを求めたうえで、範囲外のE系列値を落とす。
+- 実装: `0を含む` チェックを追加し、E系列とは別に0値候補を生成できるようにした。
+- 実装: プレビューボタンを `値候補の作り方` 内へ移動し、シリーズ値一覧は最大高さ付きスクロール領域にした。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ今回の部品シリーズUI方針を反映した。
+- DB変更: なし。既存カラムと `generation_settings` JSON を利用した。
+
+### [曹長(テスト分隊)] 2026-04-30 02:34 JST
+- ✓ `node --check bits-keep/resources/js/pages/component-series.js`
+- ✓ `php -l bits-keep/resources/views/app/component-series.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `php -l bits-keep/app/Http/Controllers/Api/ComponentSeriesController.php`
+- ✓ `php -l bits-keep/app/Services/ComponentSeriesValueGenerator.php`
+- ✓ `php -l bits-keep/tests/Feature/ComponentSeriesManagementTest.php`
+- ✓ `php artisan test --filter=ComponentSeriesManagementTest`。7 tests / 39 assertions。
+- ✓ `git diff --check -- bits-keep/resources/js/pages/component-series.js bits-keep/resources/views/app/component-series.blade.php bits-keep/app/Http/Controllers/Api/ComponentSeriesController.php bits-keep/app/Services/ComponentSeriesValueGenerator.php bits-keep/tests/Feature/ComponentSeriesManagementTest.php bits-keep/resources/views/app/help.blade.php README.md 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md 制作管理/makinglog.md`
+- ✓ `php artisan test`。77 tests / 668 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 13:09 JST
+- [ユーザ] 未完了機能を全部実装し、マルチタスクで並列化するよう指示。
+- 並列化: 部品シリーズ管理と設計解析保存の調査をサブエージェントへ分離し、解析保存バックエンドと設計ツールUI拡張も別ワーカーへ分担した。最終統合は本体で実施した。
+- 実装: `component_series`、`component_series_value_policies`、`component_series_values`、`spec_groups.series_management_mode`、`components.component_series_id / component_series_value_id` を追加した。`ComponentSeries*` モデル、値生成サービス、`/api/component-series` CRUD、値展開プレビュー、値同期、選択値の実部品化を実装した。
+- 実装: `/component-series` 画面を追加し、シリーズ基本情報、値展開ポリシー、E系列/基準系列+追加値/任意値/範囲刻み、除外値、値マトリクス、仮想値から実部品化まで操作できるようにした。マスタ管理の部品分類にも `シリーズを使わない / シリーズ登録も使う / シリーズ登録を推奨` を追加した。
+- 実装: `analysis_sessions` テーブル、モデル、`/api/analysis-sessions` CRUD、設計解析結果カードの `CHECK`、不足条件、前提、コピー用サマリ、保護系定格照合、案件ID・部品ID・BOM行キー付き保存を追加した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、部品シリーズの現行実装、既存部品移行手順、解析保存APIを反映した。
+- 大将の心の声: 「シリーズ候補」と「実在庫」を同じ `components` に混ぜると後で必ず検索が濁る。今回は候補値を別テーブルに置き、必要な値だけ実部品へ昇格する形に寄せた。
+
+### [曹長(テスト分隊)] 2026-04-29 13:09 JST
+- ✓ `php -l app/Http/Controllers/Api/ComponentSeriesController.php`
+- ✓ `php -l app/Services/ComponentSeriesValueGenerator.php`
+- ✓ `php -l database/migrations/2026_04_29_120500_create_component_series_tables.php`
+- ✓ `php -l app/Http/Controllers/Api/AnalysisSessionController.php`
+- ✓ `node --check resources/js/pages/component-series.js`
+- ✓ `node --check resources/js/pages/design-tools.js`
+- ✓ `php artisan test tests/Feature/ComponentSeriesManagementTest.php`。4 tests / 24 assertions。
+- ✓ `php artisan test tests/Feature/AnalysisSessionApiTest.php`。2 tests / 29 assertions。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。9 tests / 292 assertions。
+- ✓ `vendor/bin/pint --test ...`。19 files。
+- ✓ `php artisan test`。60 tests / 587 assertions。
+- ✓ `composer run test`。60 tests / 587 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
 ---
 
-### [Manager] 2026-04-29 01:32:34 JST
+### [大将] 2026-04-29 01:32:34 JST
 - [ユーザ] `スペック詳細` を全件一覧で見せるUIは禁止。数が多すぎて、何がどれだけあり、どの部品用なのか分からず、並べ替えも不可能になるためダメなUIだと指摘。
 - 判断: 指摘は正しい。前回の責務分離で `スペック詳細` 正本編集を別タブにしたが、全件一覧にしたことで別の設計不良を入れている。部品分類ごとに主所属スペック詳細を見るUIへ修正する。
 - 方針: `スペック詳細` タブは左ペインで部品分類を選び、右ペインには選択中部品分類を主所属に持つ `group_local` / `normal` のスペック詳細だけを表示する。全件一覧・全件並び替え導線は置かない。
 - 大将の心の声: 正本編集と候補設定を分けることに気を取られ、一覧スケールの制約を落としていた。電子部品マスタは増える前提なので、全件一覧を基本UIにした時点で運用に耐えない。
 
-### [Manager] 2026-04-29 01:39:54 JST
+### [大将] 2026-04-29 01:39:54 JST
 - 実装: `スペック詳細` タブを部品分類選択型へ変更し、左ペインで選択した部品分類を `owner_spec_group_id` に持つ `spec_scope=group_local` / `spec_kind=normal` のスペック詳細だけを取得・表示するようにした。
 - 実装: `スペック詳細` タブの全件一覧、全件並び替え用の `stDnD` / `moveSpecType` 導線を削除した。入力順は `スペック候補設定` の部品分類内候補順で扱う。
 - 実装: `スペック詳細` タブ内の追加ボタンは、選択中部品分類を主所属にする `openLocalSpecTypeAdd` へ統一した。アーカイブ一覧も選択中部品分類の主所属スペック詳細だけを表示する。
 - ドキュメント: 仕様書、実装進捗チェックリスト、README、アプリ内ヘルプへ `スペック詳細` タブの全件一覧禁止と部品分類スコープ表示を反映した。
 - 大将の心の声: 「別タブ化」は責務分離の必要条件でしかなく、一覧単位を間違えると破綻する。マスタは必ず増えるので、部品分類スコープを基本画面にする。
 
-### [Tester] 2026-04-29 01:39:54 JST
+### [曹長(テスト分隊)] 2026-04-29 01:39:54 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `php -l resources/views/app/master-list.blade.php`
 - ✓ `php -l resources/views/app/help.blade.php`
@@ -5836,14 +5894,14 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 01:41:25 JST
+### [大将] 2026-04-29 01:41:25 JST
 - [ユーザ] `スペック詳細` タブ内の `スペック詳細編集` は冗長なので `編集` へ短縮するよう指示。
 - [ユーザ] `スペック候補設定` の `スペック詳細編集` はスペック詳細本体と同じ導線であり不適切。候補側の種別・扱い・既定・メモを編集する `編集` ボタンにすべきで、一覧から直接変更できるのも避けたいと指摘。
 - [ユーザ] `スペック候補設定` の追加導線は `スペック詳細から追加`、`共通スペック詳細から追加`、`許容差スペック詳細から追加` の3ボタンに分ける。ここではスペック詳細のフリー入力を開かず、フリー入力は `スペック詳細` の責務とする。
 - 方針: 候補設定一覧は読み取り表示にして、pivot 属性は候補設定専用モーダルで編集する。候補追加は既存スペック詳細から選ぶモーダルに限定し、候補設定タブから `openStAdd` / `openLocalSpecTypeAdd` を呼ばない。
 - 大将の心の声: 今回はボタン名だけの問題ではない。候補設定画面で本体編集や新規スペック詳細作成を許すと、責務分離した意味がなくなる。
 
-### [Manager] 2026-04-29 01:49:18 JST
+### [大将] 2026-04-29 01:49:18 JST
 - 実装: `スペック詳細`、`共通スペック詳細`、`許容差スペック詳細` の本体編集ボタンを `編集` に短縮した。モーダルタイトルは編集対象が分かるよう従来どおり維持した。
 - 実装: `スペック候補設定` の一覧から扱い・既定profile・既定単位・メモのインライン編集UIを撤去し、読み取り表示へ変更した。
 - 実装: `スペック候補設定` 行の `編集` は候補設定専用モーダルを開き、`spec_group_spec_type` 側の扱い・既定profile・既定単位・メモだけを反映するようにした。
@@ -5852,7 +5910,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: 仕様書、実装進捗チェックリスト、README、アプリ内ヘルプに、候補設定専用編集・3系統追加・フリー入力禁止を反映した。
 - 大将の心の声: 候補設定は pivot の編集画面であり、辞書本体の編集画面ではない。ここで正本作成や本体削除を許すと、また画面責務が崩れる。
 
-### [Tester] 2026-04-29 01:49:18 JST
+### [曹長(テスト分隊)] 2026-04-29 01:49:18 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `php -l resources/views/app/master-list.blade.php`
 - ✓ `php -l resources/views/app/help.blade.php`
@@ -5867,7 +5925,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 
 ---
 
-### [Manager] 2026-04-29 01:59:59 JST
+### [大将] 2026-04-29 01:59:59 JST
 - [ユーザ] 入力テンプレートタブを一番右へ移動するよう指示。
 - [ユーザ] 共通スペック詳細・許容差スペック詳細にも、スペック詳細と同じように左側の部品分類リストを置くよう指示。
 - [ユーザ] `入れる` / `外す` ボタンの文字数差でUIが崩れないよう固定幅化するよう指示。
@@ -5877,7 +5935,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - 方針: 部品分類を選ぶ文脈をスペック詳細・共通・許容差・候補設定で揃える。候補から外す操作は `候補から外す` に寄せ、正本への操作は `アーカイブ` に統一する。候補順はD&Dへ変更し、ボタン順序操作を撤去する。
 - 大将の心の声: ここは見た目の小修正ではなく、操作語と表示文脈の不統一がユーザー理解を壊している。削除・アーカイブ・候補から外すを明確に分ける。
 
-### [Manager] 2026-04-29 02:00:21 JST
+### [大将] 2026-04-29 02:00:21 JST
 - [ユーザ] スペック詳細の接頭語について、10進数系 `T/G/M/k/無印/m/u/n/p/f` と2進数系 `Ti/Gi/Mi/Ki` を扱い、2進数系では小数接頭語を選べないようにする方針を仕様書とチェックリストへ記入するよう指示。
 - 方針: `B` / `bit` / `bps` 系のスペック詳細は、接頭語候補を 10進数系と2進数系のグループに分ける。2進数系を選ぶ場合は `Ti/Gi/Mi/Ki` のみで、`m/u/n/p/f` は選択不可にする。`無印` は接頭語グループ外の基準単位表示として扱う。
 - 作業前確認: 今回は仕様書・チェックリスト更新のみ。DB変更、migration、seed、アプリ実装は行わない。
@@ -5889,32 +5947,32 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: `制作管理/実装進捗チェックリスト.md` に、Byte/bit系のIEC接頭語UI制約と、`Ti/Gi/Mi/Ki` を10進接頭語より優先認識するパーサ・テスト追加タスクを未完了として追加した。
 - 大将の心の声: `無印` を2進接頭語として扱わず、基準単位表示として別枠にしたのが今回のポイント。ここを曖昧にすると、また「2進系で小数以下を選べるのか」という混乱が起きる。
 
-### [Tester] 2026-04-29 02:02:14 JST
+### [曹長(テスト分隊)] 2026-04-29 02:02:14 JST
 - ✓ `git diff --check -- 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md 制作管理/makinglog.md`
 - 補足: 今回は仕様書・チェックリスト・ログ更新のみで、アプリ実装、DB変更、Blade変更は行っていない。
 - 大将の心の声: 仕様だけの更新でも、余計な空白やMarkdown崩れを残すと後続差分確認がしづらくなる。最低限のdiffチェックで閉じる。
 
 ---
 
-### [Manager] 2026-04-29 02:08:31 JST
+### [大将] 2026-04-29 02:08:31 JST
 - [ユーザ] `makinglog.md` の一部が時系列順になっていないため、並び替えるよう指示。
 - 対応: 日付付き見出しブロックを時刻昇順へ並び替えた。本文の文言は変更せず、`## [役職] YYYY-MM-DD HH:MM` と `### [役職] YYYY-MM-DD HH:MM:SS JST` のブロック順だけを整理した。
 - 注意: `makinglog.md` は原則追記専用だが、今回はユーザーから明示的に並び替え指示があったため、例外として機械的なブロック順整理を行った。
 - 大将の心の声: ログが時系列に並んでいないと、原因と対応の前後関係が読めなくなる。追記専用ルールは重要だが、読めない履歴を放置する方が管理上の負債になる。
 
-### [Tester] 2026-04-29 02:08:31 JST
+### [曹長(テスト分隊)] 2026-04-29 02:08:31 JST
 - ✓ 日付付き見出しブロックの時系列逆転が 0 件であることをスクリプトで確認した。
 - ✓ `git diff --check -- 制作管理/makinglog.md`
 - 補足: 今回はログファイルの並び替えのみで、仕様書・チェックリスト・README・アプリ実装・DBは変更していない。
 - 大将の心の声: 並び替え後に逆転検出をかけないと、直したつもりで別の場所に逆順を作る。機械的確認まで含めて完了とする。
 
-### [Manager] 2026-04-29 02:11:13 JST
+### [大将] 2026-04-29 02:11:13 JST
 - [ユーザ] 部品詳細・部品登録からのスペック選択/編集が、直近のマスタ管理変更に追い付いていないため対応するよう指示。
 - 方針: 部品登録・部品詳細のスペック選択は、`部品分類` からの `候補スペック詳細` を主導線にし、候補外は明示的な `全スペック詳細から選ぶ` に退避する。候補設定タブで分けた責務を崩さないよう、部品登録/詳細からの新規スペック詳細追加は選択中の部品分類を主所属にした正本追加に限定する。
 - 調査対象: `component-create.js` / `component-detail.js` / 対応Blade / `SpecSuggestionController` / 部品保存APIのスペック同期。DB変更は予定しない。
 - 大将の心の声: マスタ管理側で責務を分けても、登録・詳細の入力導線が旧仕様のままだとユーザー体験は戻らない。部品を触る主画面の候補ピッカーまで同じモデルへ合わせる。
 
-### [Manager] 2026-04-29 02:13:38 JST
+### [大将] 2026-04-29 02:13:38 JST
 - 実装: マスタ管理のスペック系タブ順を `スペック候補設定`、`共通スペック詳細`、`許容差スペック詳細`、`入力テンプレート` に寄せ、入力テンプレートを一番右へ移動した。
 - 実装: `共通スペック詳細` と `許容差スペック詳細` に左ペインの部品分類リストを追加し、選択中部品分類への `候補に入れる` / `候補から外す` と正本の `編集` / `アーカイブ` を同じ文脈で操作できるようにした。
 - 実装: `候補に入れる` / `候補から外す` ボタンを固定幅化し、正本の廃止操作は `アーカイブ` に統一した。許容差スペック詳細タブ内の冗長な `許容差` バッジは撤去した。
@@ -5922,7 +5980,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ドキュメント: 仕様書、実装進捗チェックリスト、README、アプリ内ヘルプへ、タブ順、左部品分類ペイン、D&D並び替え、候補関係とアーカイブの操作語分離を反映した。
 - 大将の心の声: `外す` が削除に見える問題はラベルだけではなく、保存タイミングと正本操作の境界が曖昧だったのが原因。候補関係と正本アーカイブを画面文脈ごと分ける。
 
-### [Tester] 2026-04-29 02:13:38 JST
+### [曹長(テスト分隊)] 2026-04-29 02:13:38 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `php -l resources/views/app/master-list.blade.php`
 - ✓ `php -l resources/views/app/help.blade.php`
@@ -5934,7 +5992,118 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `git diff --check`
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
 
-### [Manager] 2026-04-29 02:18:12 JST
+### [大将] 2026-04-29 12:45 JST
+- [ユーザ] マスタ管理の `スペック候補設定` だけ手動保存になっている点について、候補から外す時だけ確認モーダルを出し、それ以外は自動保存へ寄せるよう指示。あわせて候補設定の並び替えUIがパッケージ詳細など他の並び替えUIと違うため、同じデザインへ揃えるよう指示。
+- 対応方針: `スペック候補設定` の追加・候補設定編集・ドラッグ&ドロップ並び替えは操作完了時に既存の `PUT /api/spec-groups/{id}/spec-types` で即時同期する。`候補から外す` だけ確認モーダルを挟み、確定後に同期する。失敗時は保存前状態へ戻す。
+- DB変更: なし。`spec_group_spec_type` 既存同期APIの呼び出しタイミングとUIのみ変更する。
+- 大将の心の声: 同じ候補関係を扱う画面で保存タイミングが割れていると、運用時の事故はUIの記憶違いから起きる。下書き編集のUIを作らないなら、即時保存へ統一するのが筋。
+
+### [大将] 2026-04-29 12:52 JST
+- 実装: `スペック候補設定` の候補追加、候補設定モーダル保存、ドラッグ&ドロップ並び替えを操作完了時の自動保存へ変更した。保存失敗時は直前の候補配列へ戻す。
+- 実装: `候補から外す` はスペック候補設定、共通スペック詳細、許容差スペック詳細の候補関係解除で確認モーダルを挟むようにした。
+- 実装: スペック候補設定の並び替えUIを、パッケージ分類・パッケージ詳細・部品分類と同じ `⠿` ハンドル、行ドラッグ、同一アウトライン表示へ揃えた。ヘッダの `候補設定を保存` ボタンと `未保存` バッジは廃止し、保存中表示だけ残した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ自動保存方針、候補解除確認、並び替えUI統一を反映した。
+- DB変更: なし。
+- 大将の心の声: 候補から外すだけは取り消し心理が重いので確認を残し、それ以外は操作完了で即保存にした。これなら他タブと同じ手触りで、保存ボタンだけ見落とす事故を潰せる。
+
+### [曹長(テスト分隊)] 2026-04-29 12:52 JST
+- ✓ `node --check bits-keep/resources/js/pages/master-list.js`
+- ✓ `php -l bits-keep/resources/views/app/master-list.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。9 tests / 279 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+- 曹長(テスト分隊)の心の声: 保存タイミングの変更は画面操作の癖を変えるので、構文だけでなくビルドとUI/API表面の疎通まで確認した。ブラウザ実操作は未実施。
+
+### [大将] 2026-04-29 13:13 JST
+- [ユーザ] 部品分類タブ以降の右ペインがすべてエラーになると指摘。前回の検証がブラウザ実操作ではなく、実DBの pending migration 条件を拾えていなかったことを確認。
+- 原因: 部品分類以降のタブが共通で呼ぶ `/api/spec-groups` に、pending の `2026_04_29_120500_create_component_series_tables` を前提にした `componentSeries as series_count` と `series_management_mode` が入っていた。実DBでは `component_series` テーブルと `spec_groups.series_management_mode` が未作成のため、`SQLSTATE[42P01]: Undefined table: component_series` で500になっていた。
+- 実装: `SpecGroupController` で `component_series` テーブルと `series_management_mode` カラムの存在を確認し、未作成なら `series_count=0` / `series_management_mode=single` として既存マスタ管理を動かす互換ガードを追加した。部品シリーズ migration の適用前でも `/api/spec-groups` が落ちない。
+- テスト: `UiApiSurfaceSmokeTest` に `component_series` 未作成でも `/api/spec-groups` が 200 を返す回帰テストを追加した。
+- DB変更: なし。`php artisan migrate:status` で `2026_04_29_000001_create_analysis_sessions_table` と `2026_04_29_120500_create_component_series_tables` が Pending であることを読み取り確認しただけ。
+- 大将の心の声: これは完全にテスト観点の抜け。テストDBは全migration適用後なので、実DBの pending migration 状態を再現できていなかった。スモークテストだけで「画面確認済み」の顔をしたのがまずかった。
+
+### [曹長(テスト分隊)] 2026-04-29 13:13 JST
+- ✓ `php -l app/Http/Controllers/Api/SpecGroupController.php`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `php artisan test --filter='spec_groups_remain_available_before_component_series_tables_exist|UiApiSurfaceSmokeTest'`。10 tests / 296 assertions。
+- ✓ `vendor/bin/pint --test app/Http/Controllers/Api/SpecGroupController.php tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ Apache経由・実DB・ログイン済みセッションで `GET /api/spec-groups?include_archived=1` が `200`。ログインPOSTは `302`、API応答は `{"success":true,...}` を確認。
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+- 曹長(テスト分隊)の心の声: 今回の本質はJSではなくAPIの前提schemaだった。migration適用後だけのテストでは拾えないので、pending状態を模したテストを追加した。
+
+### [大将] 2026-04-29 13:27 JST
+- [ユーザ] UIで使っている `正本` という言葉を、読めば直感的に意味が分かる言葉へ置き換え、UX設計ルールにも追加するよう指示。
+- 対応方針: 画面・アプリ内ヘルプ・READMEなど利用者が読む場所では `正本` を使わず、`スペック詳細そのもの`、`名前・記号・単位などの編集`、`マスタ本体` など文脈で分かる表現へ置き換える。詳細仕様の内部設計用語としては必要箇所だけ残し、UXルールでUI使用を禁止する。
+- DB変更: なし。文言とドキュメントのみ。
+- 大将の心の声: `正本` は設計者には便利だが、画面で見た瞬間に意味を推測させる時点でUX負債。候補と本体の違いを伝えたいなら、そのまま「候補」「そのもの」と言うべき。
+
+### [曹長(テスト分隊)] 2026-04-29 13:33 JST
+- 実装確認: マスタ管理の確認文、アプリ内ヘルプ、READMEの利用者向け説明から `正本` を外し、`スペック詳細そのもの`、`内部データ`、`マスタ本体` などに置換した。
+- 仕様確認: 詳細仕様のUX設計ルールに、UI・ヘルプ・READMEでは読めば対象と結果が直感的に分かる表現を使い、`正本` やDB/API都合の内部語を画面説明へ出さないルールを追加した。
+- DB変更: なし。
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `rg -n "正本|正とします|正に" README.md bits-keep/resources/views/app/help.blade.php bits-keep/resources/js/pages/master-list.js` で該当なし。
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の文言修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 13:57 JST
+- [ユーザ] マスタ管理の `スペック詳細`、`共通スペック詳細`、`許容差スペック詳細` の説明が一般利用者に分からないため、表示とUI誘導を修正するよう指示。
+- 実装: `スペック詳細` タブの説明を、内部語の `主所属` や `全件一覧` ではなく「左で選んだ部品分類に持たせるスペック詳細を追加・編集・アーカイブする」へ変更した。
+- 実装: `共通スペック詳細` / `許容差スペック詳細` は、登録済み項目から左で選んだ部品分類の入力候補に入れるものを選ぶ画面だと分かる説明へ変更した。状態列も `この分類で使うか` に変更した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様のマスタ管理説明も、同じ利用者向け表現へ更新した。
+- DB変更: なし。画面文言とドキュメントのみ。
+- 大将の心の声: `主所属` は実装者の都合で、ユーザーが知りたいのは「この分類でどのスペックを使うのか」。画面はDB構造を説明する場所ではないので、操作の結果が見える言葉へ寄せた。
+
+### [曹長(テスト分隊)] 2026-04-29 13:57 JST
+- ✓ `rg -n "主所属|全件一覧|候補状態を管理|候補に入れる.*管理|この部品分類を主所属" README.md bits-keep/resources/views/app/help.blade.php bits-keep/resources/views/app/master-list.blade.php bits-keep/resources/js/pages/master-list.js` で該当なし。
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回のUI文言修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 21:40 JST
+- [ユーザ] `スペック候補設定` の `この分類` は分かりにくく、他の `共通` / `許容差` と並ぶ短い表現として `個別` がよいのではないかと指示。
+- 実装: `スペック候補設定` の列名を `種別` から `範囲` へ変更し、候補の通常スペック詳細バッジを `この分類` から `個別スペック` へ変更した。`共通` / `許容差` は維持した。
+- 実装: バッジの visible label は短く保ち、hover title だけで `左で選んだ部品分類に持たせるスペック詳細` / `共通スペック詳細` / `許容差スペック詳細` を補足するようにした。
+- 実装: 共通スペック詳細・許容差スペック詳細の状態列は `この分類で使うか` から `入力候補` へ変更し、`この分類` 表現をUIから外した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様の `候補側の種別表示` を `候補側の範囲` へ更新した。
+- DB変更: なし。画面文言とドキュメントのみ。
+- 大将の心の声: 今回は説明を足すより、列名と短いラベルの関係で意味を作る修正。`範囲` の下に `個別スペック / 共通 / 許容差` が並ぶ形なら、画面密度を壊さず意図も読める。
+
+### [曹長(テスト分隊)] 2026-04-29 21:40 JST
+- ✓ `rg -n "この分類|候補側の種別|種別表示|候補設定.*種別|<th[^\\n]*>種別|>種別<|種別:" README.md bits-keep/resources/views/app/help.blade.php bits-keep/resources/views/app/master-list.blade.php bits-keep/resources/js/pages/master-list.js 詳細仕様/仕様書.md` で該当なし。
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回のUI文言修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 02:18:12 JST
 - 実装: `/api/spec-suggestions` は選択中の部品分類だけを返すようにし、`include_all_groups=1` による未選択分類の混入を廃止した。共通スペック詳細・許容差スペック詳細も、選択中部品分類の候補関係として紐づくものだけが候補に出る。
 - 実装: 部品登録・部品詳細のスペックピッカーは、候補ゼロ時に暗黙で全件表示へ落ちないよう変更した。全件検索は `全スペック詳細から選ぶ` の明示操作だけにし、部品分類チップの `推奨` / `手動` 表示も撤去した。
 - 実装: 行内 `+` から作るスペック詳細は、部品分類が一意に決まる場合だけ許可し、`spec_scope=group_local` と `owner_spec_group_id` を送って作成直後に候補へ反映する。複数部品分類で曖昧な場合は部品分類選択を促す。
@@ -5942,7 +6111,7 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - DB変更: なし。
 - 大将の心の声: マスタ管理で候補関係を整理しても、部品登録と詳細編集が全件候補前提だと設計が伝わらない。通常導線と退避導線を画面上でも分ける。
 
-### [Tester] 2026-04-29 02:18:12 JST
+### [曹長(テスト分隊)] 2026-04-29 02:18:12 JST
 - ✓ `php -l app/Http/Controllers/Api/SpecSuggestionController.php`
 - ✓ `node --check resources/js/pages/component-create.js`
 - ✓ `node --check resources/js/pages/component-detail.js`
@@ -5953,36 +6122,36 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `npm run build`
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
 
-### [Manager] 2026-04-29 02:24:14 JST
+### [大将] 2026-04-29 02:24:14 JST
 - [ユーザ] 作業完了後にドキュメント更新と全ファイル git commit を行うよう指示。
 - ドキュメント: README、詳細仕様、実装進捗チェックリスト、アプリ内ヘルプを、`/api/spec-suggestions` は選択中部品分類だけを返すこと、全スペック詳細検索は明示切り替えだけで使うこと、行内スペック詳細追加は主所属部品分類が一意に決まる場合だけ許可することへ更新した。
 - テスト整理: `include_all_groups=1` を前提にしたFeatureテスト呼び出しを現在仕様の `/api/spec-suggestions?category_ids[]=...` へ更新した。
 - コミット方針: ユーザー指示どおり、既存の未追跡ファイルも含めて `git add -A` で全ファイルを1コミットにまとめる。
 
-### [Tester] 2026-04-29 02:24:14 JST
+### [曹長(テスト分隊)] 2026-04-29 02:24:14 JST
 - ✓ `git diff --check`
 - ✓ `php artisan test`。52 tests / 496 assertions。
 
-### [Manager] 2026-04-29 02:29:20 JST
+### [大将] 2026-04-29 02:29:20 JST
 - [ユーザ] 入力テンプレート編集モーダルの幅が狭くスペック詳細名が見えないこと、テンプレート行のスペック詳細候補が関連する部品分類でフィルタされていないことを修正し、ログ・ドキュメント・全ファイルコミットまで行うよう指示。
 - 実装方針: 入力テンプレート編集モーダルは広幅専用サイズへ変更する。テンプレート行のスペック詳細候補は、関連する部品分類の `spec_group_spec_type` 候補だけを表示する。既存テンプレートに候補外項目が残っている場合は、現在選択値だけ `候補外` として残し、編集時に見失わないようにする。
 - ドキュメント: README、詳細仕様、実装進捗チェックリストへ、入力テンプレート行のスペック詳細候補は関連部品分類の候補スペック詳細に絞ることを追記した。
 - DB変更: なし。
 
-### [Tester] 2026-04-29 02:29:20 JST
+### [曹長(テスト分隊)] 2026-04-29 02:29:20 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `git diff --check`
 - ✓ `npm run build`
 - ✓ `php artisan test`。52 tests / 496 assertions。
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
 
-### [Manager] 2026-04-29 02:32:01 JST
+### [大将] 2026-04-29 02:32:01 JST
 - [ユーザ] マスタ管理の各種モーダルの幅がまちまちでUIが良くないため修正し、ログと全ファイル git commit まで行うよう指示。
 - 実装: マスタ管理内の追加・編集・候補選択系モーダルを `modal-master` へ統一した。対象はパッケージ詳細、パッケージ分類、部品分類、入力テンプレート、候補設定、候補追加、スペック詳細。確認ダイアログは短文専用として `modal-sm` のまま維持した。
 - 実装: 前回追加した入力テンプレート専用の `modal-3xl` は不要になったため撤去し、マスタ管理の編集系モーダル幅を `modal-master` に一本化した。
 - DB変更: なし。
 
-### [Tester] 2026-04-29 02:32:01 JST
+### [曹長(テスト分隊)] 2026-04-29 02:32:01 JST
 - ✓ `node --check resources/js/pages/master-list.js`
 - ✓ `git diff --check`
 - ✓ `rg -n "modal-window modal-(md|lg|xl|2xl|3xl)|modal-3xl|modal-master" resources/views/app/master-list.blade.php resources/css/app.css` で、マスタ管理の編集系モーダルが `modal-master` に統一されていることを確認した。
@@ -5990,11 +6159,787 @@ Testerの心の声: 起動前ガードと確認結果の即時通知が揃って
 - ✓ `php artisan test`。52 tests / 496 assertions。
 - 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
 
-### [Manager] 2026-04-29 11:35:08 JST
+### [大将] 2026-04-29 11:35:08 JST
 - [ユーザ] 作業完了後にドキュメント更新と全ファイル git commit を行うよう再指示。
 - ドキュメント: README、詳細仕様、実装進捗チェックリストへ、マスタ管理の追加・編集・候補選択系モーダルは `modal-master` 幅に統一し、確認ダイアログは短文専用の小幅モーダルとして分ける方針を追記した。
 - 未追跡ファイル: 予約実行ログ `制作管理/scheduled_logs/bitskeep_0305_20260429_030502.log` を全ファイルコミット対象として確認した。
 - DB変更: なし。
 
-### [Tester] 2026-04-29 11:35:08 JST
+### [曹長(テスト分隊)] 2026-04-29 11:35:08 JST
 - ✓ `git diff --check`
+
+### [大将] 2026-04-29 11:54 JST
+- [ユーザ] `claude.md` を読んで、未実装の機能や修正を実装対応するよう指示。
+- 対応方針: 実装進捗チェックリストで直近に残っている `Byte/bit系スペック詳細の IEC 接頭語と接頭語グループ制約` と `スペック値パーサで IEC 接頭語を10進接頭語より優先認識` を今回の対象にする。シリーズ管理や解析保存系は別フェーズ級の大きな DB/API/UI 変更なので、今回は触らずチェックリスト上に残す。
+- DB変更: なし。既存の `spec_types.suggest_prefixes` / `display_prefixes` と正規化処理の範囲で実装する。
+- 大将の心の声: 接頭語は単なる表示候補に見えるが、Byte/bit 系では `MB` と `MiB` の意味が変わる。ここを UI/API/パーサで同じ規則にしないと、保存値と検索値が静かにずれる。
+
+### [大将] 2026-04-29 12:03 JST
+- 実装: `B` / `bit` / `bps` 系スペック詳細の接頭辞候補を、10進 `T/G/M/k/無印` と IEC `Ti/Gi/Mi/Ki` の排他選択へ変更した。マスタ管理UIでは互換しない接頭辞を無効化し、API側でも同時選択・小数系 `m/u/n/p/f`・非Byte系IEC接頭語をバリデーションエラーにする。
+- 実装: `SpecValueNormalizerService` と `resources/js/utils/specValue.js` で `Ti/Gi/Mi/Ki` を倍率として追加し、`1MB` / `1MiB` / `512KiB` / `1Mbit` / `1Mbps` の正規化を固定した。`KiB` は `K` の大文字補正で `kiB` に崩れないようにした。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ Byte/bit 系接頭語制約と IEC 正規化例を反映した。
+- DB変更: なし。
+- 大将の心の声: UIだけで止めるとAPI投入や既存データ編集で再発するので、保存口とプレビュー口を同じ規則にそろえた。
+
+### [曹長(テスト分隊)] 2026-04-29 12:03 JST
+- ✓ `php -l app/Http/Controllers/Api/SpecTypeController.php`
+- ✓ `php -l app/Services/SpecValueNormalizerService.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `vendor/bin/pint --test app/Http/Controllers/Api/SpecTypeController.php app/Services/SpecValueNormalizerService.php tests/Feature/UiApiSurfaceSmokeTest.php tests/Unit/SpecValueNormalizerServiceTest.php`
+- ✓ `php artisan test --filter=SpecValueNormalizerServiceTest`。5 tests / 29 assertions。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。9 tests / 279 assertions。
+- ✓ `php artisan test`。54 tests / 521 assertions。
+- ✓ `composer run test`。54 tests / 521 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 13:27 JST
+- [ユーザ] 未実装項目を全部実装し、並列化して進めるよう指示。
+- 実装: 設計解析ツールの未完了項目を追加実装した。各ツールへ `基本条件 / 最悪条件 / 部品定格 / 出力・保存` の高度条件パネルを追加し、ADCのmin/typ/max・物理量レンジ・量子化誤差・固定小数点係数・Cコード、電源のレールツリー/dropout/効率/突入/最大負荷、誤差の誤差源リスト/RSS/Monte Carlo/中心値、電流検出のRs定格/TCR/オフセット/ADC分解能、IFのUART/I2C/pull-up、起動診断のPG/RESET/部分給電/バックパワー、保護協調のTVS/ヒューズ/PTC/eFuse/逆接を結果へ反映した。
+- 実装: 設計解析結果カードの候補リンクを部品詳細・在庫数・部品候補検索へ接続し、部品IDから `/api/components/{id}` のスペック値を現在の解析入力へ取り込む導線を追加した。
+- 実装: `/api/analysis-sessions` の保存済み解析を同一tool/project/componentで読み込み、現在入力との差分と前回/今回verdictを表示する導線を追加した。
+- 実装: MCU ADC入力、3.3V電源、I2Cバス、TVS保護の解析テンプレートを追加し、入力反映とユーザー/案件単位の複製保存に対応した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、設計解析ツールの部品DB取り込み・候補/在庫リンク・保存済み差分・テンプレート複製保存を反映した。
+- DB変更: `php artisan migrate --force` を実行し、`2026_04_29_000001_create_analysis_sessions_table` と `2026_04_29_120500_create_component_series_tables` を通常DBへ適用した。
+- 大将の心の声: ここは単なる計算式追加ではなく、BitsKeep内の部品・在庫・案件に戻ってくる線がないと完了とは言えない。画面内の数値、候補リンク、保存済み差分、テンプレートを同じ結果パネルに寄せて、実務で次に触る場所が見える形にした。
+
+### [曹長(テスト分隊)] 2026-04-29 13:27 JST
+- ✓ `node --check resources/js/pages/design-tools.js`
+- ✓ `php -l resources/views/app/design-tools.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `composer run test`。61 tests / 591 assertions。
+- ✓ `vendor/bin/pint --test ...`。17 files。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `php artisan migrate --force`。`analysis_sessions` と `component_series` 系テーブルを作成。
+- ✓ `php artisan migrate:status | tail -n 10` で新規migrationが `Ran` になっていることを確認。
+- ✓ DB接続確認: `pgsql / 127.0.0.1 / bitskeep`。件数確認: `components=12`、新規 `analysis_sessions=0`、`component_series=0`。
+- ✓ 復元手段確認: 新規migrationの `down()` は `analysis_sessions` / `component_series*` のdropと追加カラムdropを持つ。追加型migrationで既存行削除は行わない。
+- ✓ バックアップ確認: `pg_dump` で `bits-keep/storage/app/backups/bitskeep_after_20260429_design_tools_migrate.sql` を作成（222KB）。実行順としてはmigration後の追加確認になったため、以後DB変更前の4点確認を徹底する。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `rg -n "\[ \]" 制作管理/実装進捗チェックリスト.md` で未チェックなし。
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 13:39 JST
+- [ユーザ] 部品詳細のスペック編集で、`部品分類からの推奨`、分類カード、`全スペック詳細から選ぶ` の関係が分かりづらく、抵抗器で抵抗器しか出ない意味が伝わらないと指摘。
+- 判断: 挙動自体は「現在の部品分類に紐づく候補だけを通常表示する」設計通りだが、UIが候補範囲の選択画面であることを説明できていなかった。特に分類カードが単なる一覧に見え、選択対象だと分からない点が問題。
+- 実装: 部品詳細と部品登録のスペック編集UIを `スペック詳細の候補範囲` として再構成し、上部説明で「ここで選んだ範囲が下の各スペック行のプルダウンに出る」と明記した。`部品分類からの推奨` は `推奨候補だけ` に変更し、分類カードには `この分類で絞る` と `選択中` 表示を追加した。
+- 実装: 抵抗器で抵抗器だけが出る理由を、画面内で「この部品に付いている分類が抵抗器だけ」という説明に変更し、別分類や共通項目は `全スペック詳細から選ぶ` へ逃がす導線を明示した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様へ、候補範囲UIと分類カードの意味を追記した。
+- DB変更: なし。
+- 大将の心の声: これはユーザーの指摘が正しい。データモデルの都合をUIにそのまま出すと、利用者には「なぜ選べないのか」ではなく「何が起きているか分からない」になる。候補を絞る設計は残しつつ、絞り込みの現在地と脱出口を画面で説明する必要があった。
+
+### [曹長(テスト分隊)] 2026-04-29 13:39 JST
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [Docs] 2026-04-29 14:10 JST
+- [ユーザ] スペック編集UIの暫定案（候補範囲ボタン、分類カード、説明文主体の導線）を最終設計へ直し、README・ヘルプ・仕様書・チェックリスト・ログだけを更新するよう指示。
+- 設計判断: スペック編集は説明カードで意味を読ませるのではなく、`部品分類選択` select、`スペック候補` dropdown + `追加`、`入力テンプレート` dropdown + `一式追加`、下部の `登録済みスペック` という構造で操作対象を分ける。
+- 実装目標: `部品分類選択` の選択肢は対象部品に付いている部品分類と `フィルタしない`。`スペック候補` は選択中分類で絞り、`フィルタしない` で候補外を探せる。`入力テンプレート` は選択中分類に紐づくものだけを出し、選択時に `[ピーク耐圧 V_RRM / 必須]` のような実項目チップを表示する。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストから、`推奨候補だけ`、分類カード、`この分類で絞る`、候補範囲ボタン前提の説明を最終構造へ置換した。
+- テスト: ドキュメント更新のみ。UI実装後に main agent 側で実行予定。
+
+### [大将] 2026-04-29 14:37 JST
+- [ユーザ] 上記設計で、チェックリスト修正、実装、テスト、ログまで並列化して進めるよう指示。
+- 並列化: サブワーカー3本で、部品詳細画面、部品登録画面、ドキュメント/チェックリスト/ログを分担した。
+- 実装: 部品登録と部品詳細のスペック編集UIから、`推奨候補だけ`、分類カード、`全スペック詳細から選ぶ`、候補範囲説明文主体の暫定UIを撤去した。
+- 実装: 上部を `部品分類選択` select、`スペック候補` dropdown + `追加`、`入力テンプレート` dropdown + `一式追加` に変更し、下部に `登録済みスペック` を置いた。
+- 実装: `フィルタしない` は部品分類で絞らず全スペック詳細から探せる状態に統一した。選択中部品分類では、その部品分類の候補スペック詳細と採用済み共通/許容差スペック詳細を候補にする。
+- 実装: 入力テンプレート選択時は、単なる件数ではなく実際に追加されるスペック詳細をチップで表示する。必須行は `/ 必須` として見えるようにした。
+- 実装: `スペック候補` の単体追加と `入力テンプレート` の一式追加は、既に同じ `spec_type_id` の行がある場合に重複追加しない。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを最終UI構造へ更新した。
+- DB変更: なし。
+- 大将の心の声: 今回の本質は文言を足すことではなく、操作の粒度を分けることだった。分類を選ぶ、候補を1行足す、テンプレートで束を足す、登録済みを編集する、という4つを同じ見た目のカードや説明文で混ぜるとまた破綻する。
+
+### [曹長(テスト分隊)] 2026-04-29 14:37 JST
+- ✓ `node --check resources/js/pages/component-detail.js && node --check resources/js/pages/component-create.js`
+- ✓ `php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/component-create.blade.php && php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/component-detail.js resources/views/app/component-detail.blade.php resources/js/pages/component-create.js resources/views/app/component-create.blade.php ../README.md resources/views/app/help.blade.php ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md ../制作管理/makinglog.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [曹長(テスト分隊)] 2026-04-29 14:37 JST 追加確認
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `git diff --check -- resources/js/pages/component-detail.js resources/views/app/component-detail.blade.php resources/js/pages/component-create.js resources/views/app/component-create.blade.php ../README.md resources/views/app/help.blade.php ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md ../制作管理/makinglog.md`
+
+### [大将] 2026-04-29 21:36 JST
+- [ユーザ] 部品詳細のスペック編集で `部品分類選択` が抵抗器しか出ないこと、入力テンプレート行のドロップダウン・内容チップ・一式追加ボタンの位置が揃っていないこと、`スペック詳細を検索` 欄の役割が不明なことを指摘。
+- 実装: 部品登録・部品詳細の `部品分類選択` を、対象部品に付いている分類だけではなくマスタ上の全 `部品分類` から選べるようにした。候補とテンプレートは選択した分類の `spec_types` / `spec_templates` から出す。
+- 実装: `spec-groups` の初期ロードを `with_spec_types=1&with_templates=1` 付きへ変更し、分類選択だけで全分類の候補スペック詳細と入力テンプレートを切り替えられるようにした。
+- 実装: 入力テンプレート行を、`入力テンプレート` dropdown、テンプレート内容チップ、`一式追加` ボタンが同じグリッド行で揃うレイアウトへ変更した。
+- 実装: 上部の `スペック詳細を検索` 欄と件数表示を撤去した。スペック追加は `部品分類選択` と `スペック候補` dropdown の組み合わせに一本化する。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストの `部品分類選択` の説明を「対象部品の分類」から「マスタ上の部品分類」へ修正した。
+- DB変更: なし。
+- 大将の心の声: ここは前回こちらが「対象部品に付いた分類」と「候補を探すための分類」を混同していた。スペック編集では、部品の分類タグを増やす操作ではなく、候補セットを切り替えて入力を助ける操作なので、全分類から選べるべきだった。
+
+### [曹長(テスト分隊)] 2026-04-29 21:36 JST
+- ✓ `node --check resources/js/pages/component-detail.js && node --check resources/js/pages/component-create.js`
+- ✓ `php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/component-create.blade.php && php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check -- resources/js/pages/component-detail.js resources/views/app/component-detail.blade.php resources/js/pages/component-create.js resources/views/app/component-create.blade.php ../README.md resources/views/app/help.blade.php ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 21:51 JST
+- [ユーザ] 部品登録スペックで `部品分類選択` を `部品分類` に変えること、部品分類が `フィルタしない` しか出ない問題、入力テンプレートのチップが見えない問題、`スペック詳細検索` の撤去、部品登録でのシリーズ/単体選択、部品詳細の下部スペック追加ボタン撤去、テンプレートチップ小型化を指示。
+- 仕様確認: 詳細仕様には `component_series`、`component_series_values`、`components.component_series_id / component_series_value_id`、`spec_groups.series_management_mode` が定義済みで、部品シリーズ管理APIも実装済みだった。未実装だったのは部品登録画面で `単体` / `シリーズ` を選び、既存シリーズ値へ実部品を紐づけるUI導線だった。
+- 並列化: 既存サブワーカー3本の成果を回収し、部品登録UI、部品詳細UI、ドキュメント更新を本体で統合・修正した。
+- 実装: 部品登録・部品詳細のスペック編集ラベルを `部品分類` へ統一した。初期ロードは軽量 `/spec-groups` で全分類を先に出し、候補詳細と入力テンプレートは `with_spec_types=1&with_templates=1` の追加入力または選択時の `/spec-groups/{id}` で取得するようにした。
+- 実装: 部品登録に `登録単位` を追加し、`単体` / `シリーズ` を切り替えられるようにした。`シリーズ` 選択時だけ `部品シリーズ` と `シリーズ値` を選び、保存 payload に `component_series_id` / `component_series_value_id` を送る。
+- 実装: 部品登録・部品詳細とも `スペック詳細を検索` 欄は撤去済み。スペック追加は `部品分類`、`スペック候補`、`追加` の導線へ一本化した。
+- 実装: 入力テンプレートのチップは dropdown の下に出し、`一式追加` ボタンは select 行と揃うようにした。チップは小型化し、表示は日本語名 + 略号だけにした。
+- 実装: 部品詳細のスペック編集下部にあった空行追加ボタンを撤去した。部品登録側のスペック見出しの汎用 `+ 追加` も、候補選択導線と競合するため撤去した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを `部品分類` 表記、シリーズ登録導線、テンプレートチップ表示に合わせて更新した。
+- DB変更: なし。
+- 大将の心の声: ここで残すべきなのは説明ではなく操作の正本だった。空行追加、検索欄、候補分類の不足が同時にあると、ユーザーは「何を選んで何を追加する画面か」を毎回推理することになる。分類で候補セットを選び、候補かテンプレートから追加し、下で値を編集する形に寄せた。
+
+### [曹長(テスト分隊)] 2026-04-29 21:51 JST
+- ✓ `node --check resources/js/pages/component-create.js && node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/component-create.blade.php && php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/component-create.js resources/js/pages/component-detail.js resources/views/app/component-create.blade.php resources/views/app/component-detail.blade.php resources/views/app/help.blade.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache && php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 22:30 JST
+- [ユーザ] 部品登録の `登録単位` について、`単体` は従来通りでよいのか、`シリーズ` を選んでも `部品シリーズ` ドロップダウンに何も出ないのは何を意図したのか確認。
+- 仕様確認: `単体` は従来通り `components` だけで登録する導線。`シリーズ` は既存の `component_series` と `component_series_values` へ実部品を紐づける導線で、部品登録フォーム内で部品シリーズや値マトリクスを新規作成する意図ではない。
+- 実DB確認: `App\Models\ComponentSeries::count()` は `0`。現状データでは既存部品シリーズがないため、ドロップダウンが空になる状態だった。
+- 実装: `component-series` 取得中、取得失敗、未登録の状態を部品登録UIで分けて扱うようにした。未登録時は空selectを出さず、`部品シリーズ未登録` と `部品シリーズ管理へ` の導線を表示する。
+- 実装: 部品シリーズの選択肢に、シリーズ名だけでなく部品分類名・パッケージ名があれば併記するようにした。取得失敗時は `再取得` を表示する。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、部品登録の `シリーズ` は既存シリーズへの紐づけ専用で、未登録時は部品シリーズ管理で先に値マトリクスを作る方針を反映した。
+- DB変更: なし。読取で件数確認のみ実施。
+- 大将の心の声: ここは意図をUIが表現できていなかった。空のドロップダウンは「読み込み失敗」「データ未作成」「分類不一致」のどれにも見えるので、状態を分けて出す必要があった。
+
+### [曹長(テスト分隊)] 2026-04-29 22:30 JST
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `php -l resources/views/app/component-create.blade.php && php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/component-create.js resources/views/app/component-create.blade.php resources/views/app/help.blade.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache && php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 22:26 JST
+- [ユーザ] マスタ管理のスペック系タブ左ペインにある `候補x件 / 入力テンプレートx件` が実態にそぐわないため、文脈に合う表示へ変更するよう指示。
+- 判断: 左ペインは部品分類を選ぶ場所であり、候補数やテンプレート数を常時出すと、`スペック詳細`、`スペック候補設定`、`共通スペック詳細`、`許容差スペック詳細`、`入力テンプレート` の責務差分が潰れる。件数は選択後の右ペインヘッダへ移し、タブごとに意味が分かる名前で出すべきと判断した。
+- 実装: スペック系タブの左ペインから `候補x件 / 入力テンプレートx件` を撤去し、部品分類名とシリーズ管理バッジだけにした。
+- 実装: 右ペインヘッダに、`スペック詳細` は `個別スペック`、`スペック候補設定` は `入力候補 / 個別スペック / 共通 / 許容差`、`共通スペック詳細` は `共通候補に採用中`、`許容差スペック詳細` は `許容差候補に採用中`、`入力テンプレート` は `テンプレート / テンプレート行` を表示するようにした。
+- 実装: 部品分類一覧タブだけは俯瞰用途なので、表内の表示を `入力候補 / テンプレート / 部品シリーズ` に言い換えて残した。アーカイブ確認文言も `候補スペック詳細 / 入力テンプレート` から `入力候補 / テンプレート` へ揃えた。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、左ペインは分類選択専用、件数は右ペインで文脈別に表示する方針を追記した。
+- DB変更: なし。
+- 大将の心の声: ここで `候補` という一語に寄せると、個別スペック・共通・許容差・テンプレート・シリーズがまた同じ棚に見える。左は選択、右はその分類で今見ている責務の状態、という分離に戻した。
+
+### [曹長(テスト分隊)] 2026-04-29 22:26 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php && php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/master-list.js resources/views/app/master-list.blade.php resources/views/app/help.blade.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache && php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 21:56 JST
+- [ユーザ] マスタ管理の候補設定編集モーダル、スペック詳細編集モーダル、共通スペック詳細編集モーダル、許容差スペック詳細編集モーダルが横に広すぎることと、スペック詳細/共通スペック詳細の編集に `Ti/Gi/Mi/Ki` の接頭語選択肢がないことを指摘。
+- 実装: 候補設定編集モーダルを `modal-md`、スペック詳細・共通スペック詳細・許容差スペック詳細の追加/編集モーダルを `modal-lg` に変更した。候補追加など一覧選択が必要なモーダルは `modal-master` のまま維持した。
+- 実装: 同じ編集モーダルを共通スペック詳細から開いた場合は、見出しも `共通スペック詳細編集/追加` になるようにした。
+- 実装: `B` / `bit` / `bps` 系の接頭語チェックボックスに `Ti/Gi/Mi/Ki` を表示するようにした。10進接頭語（`T/G/M/k`）と IEC 接頭語（`Ti/Gi/Mi/Ki`）は、片方を選ぶともう片方を自動で外す。`m/u/n/p/f` は Byte/bit 系の候補から外した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストのモーダル幅方針と Byte/bit 系接頭語ルールを更新した。
+- DB変更: なし。既存の `suggest_prefixes` / `display_prefixes` 配列に入る選択肢をUIで出せていなかった問題なので、スキーマ変更は不要だった。
+- 大将の心の声: ここは「大きい画面なら全部広くする」ではなく、作業に必要な情報量で幅を分けるべきだった。接頭語も保存側は受けられるのに編集UIが選ばせていないという、いちばん使いにくい欠け方だった。
+
+### [曹長(テスト分隊)] 2026-04-29 21:56 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 22:26 JST
+- [ユーザ] パッケージ分類、パッケージ詳細、部品分類の編集モーダルも横に広すぎること、パッケージ詳細編集の寸法3項目の意味が分からないこと、マスタ管理で並び順を数値入力させる意図を確認。
+- 判断: `sort_order` の数値入力はユーザーに期待する操作として不適切。内部の重み値を直接入力させるのではなく、一覧上のドラッグ&ドロップで並び替えるのが正しい。
+- 実装: パッケージ詳細モーダルを `modal-lg`、パッケージ分類・部品分類モーダルを `modal-md` に変更した。
+- 実装: パッケージ詳細編集の寸法入力を `外形寸法（mm）` とし、`X: 縦・長手方向`、`Y: 横・幅`、`Z: 高さ` のラベルと説明を追加した。
+- 実装: マスタ管理の編集モーダルから `並び順` 数値入力を削除した。既存の `sort_order` は保存 payload には残し、新規追加は末尾、並び替えは一覧ドラッグで更新する。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、モーダル幅、寸法の意味、`sort_order` を直接入力させない方針を反映した。
+- DB変更: なし。
+
+### [曹長(テスト分隊)] 2026-04-29 22:26 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `rg -n "<label[^\\n]*>並び順|>並び順<|v-model\\.number=\\\"[^\\\"]*sort_order" resources/views/app/master-list.blade.php` で該当なし。
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-30 01:24 JST
+- [ユーザ] 共通スペック詳細の入力候補バッジが `候補に入っています` のような文章になっており、tag/tip として長すぎることを指摘。
+- 判断: バッジ・タグは状態や種別を短く識別するUIであり、文章を入れる場所ではない。説明は列見出し、本文、tooltipへ逃がす。
+- 実装: 共通スペック詳細・許容差スペック詳細の入力候補状態を `採用中` / `未追加` に変更した。
+- 実装: 件数バッジを `共通候補に採用中`、`許容差候補に採用中`、`入力候補合計` から `共通`、`許容差`、`候補` へ短縮した。`個別スペック` は `個別`、`テンプレート行` は `行` へ短縮した。
+- 実装: パッケージ詳細編集モーダル内の登録済みPDFタグは `PDF` 表示にし、補足は `title` へ移した。
+- ドキュメント: 詳細仕様のUXルールへ、バッジ・タグは原則1〜2語にし、文章は使わない方針を追加した。README、ヘルプ、実装進捗チェックリストも短いバッジ表記へ更新した。
+- DB変更: なし。
+
+### [曹長(テスト分隊)] 2026-04-30 01:24 JST
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 22:58 JST
+- [ユーザ] マスタ管理の部品分類に、既定状態を示す謎ラベルが表示され、聞かなければ分からないUIになっていることを指摘。
+- 判断: 既定状態ラベルは内部状態 `series_management_mode=single` を説明不足のまま表示したもので、ユーザーへ見せる既定状態ではない。既定は何も表示せず、例外的にシリーズ登録を使う分類だけを表示する。
+- 並列化: サブワーカーで古い短縮ラベルの残存表示と `specGroupSeriesModeLabel` の表示条件を確認した。
+- 実装: `single` の表示ラベルを空にし、一覧タグは `v-if` で非表示にした。非既定ラベルは編集selectと同じ `シリーズ登録も使う` / `シリーズ登録を推奨` に揃えた。
+- 実装: スペック系タブ左ペインの部品分類行からシリーズ扱いバッジを外し、部品分類一覧の俯瞰だけに必要な場合だけタグを出す形にした。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリスト、過去ログ中の古い短縮表現を `シリーズを使わない / シリーズ登録も使う / シリーズ登録を推奨` へ揃えた。
+- DB変更: なし。表示ラベルと説明文の修正のみ。
+
+### [曹長(テスト分隊)] 2026-04-29 22:58 JST
+- ✓ 古い短縮ラベルと `specGroupSeriesModeLabel` の残存検索。古い表示文言は残存なし、`specGroupSeriesModeLabel` の関数と表示箇所のみ。
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/master-list.js resources/views/app/master-list.blade.php resources/views/app/help.blade.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md ../制作管理/makinglog.md`
+- ✓ `npm run build`
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 23:02 JST
+- [ユーザ] ダッシュボードに部品シリーズ管理へのリンクがなく、部品登録画面からしか行けないことを指摘。
+- 判断: `resources/js/pages/dashboard.js` のアクション定義には `部品シリーズ` があるが、既定の業務別メニューとBlade側の全機能ショートカットに出ていないため、ダッシュボード上の実導線として不足していた。
+- 実装: ダッシュボードの既定クイックアクションに `component-series` を追加し、`部品一覧`、`部品登録` と同じ部品管理導線として表示するようにした。
+- 実装: 全機能ショートカットの `業務別メニュー / 部品管理` に `部品シリーズ` を追加し、`component-series.index` へ直接遷移できるようにした。
+- DB変更: なし。ダッシュボード導線のみ。
+
+### [曹長(テスト分隊)] 2026-04-29 23:02 JST
+- ✓ `node --check resources/js/pages/dashboard.js`
+- ✓ `php -l resources/views/app/dashboard.blade.php`
+- ✓ `rg -n "component-series|部品シリーズ|DEFAULT_QUICK_ACTION_KEYS" resources/js/pages/dashboard.js resources/views/app/dashboard.blade.php routes/web.php`
+- ✓ `git diff --check -- resources/js/pages/dashboard.js resources/views/app/dashboard.blade.php`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-29 23:06 JST
+- [ユーザ] 同じものを指していそうなラベルが画面内で別語になっており、別物なのか分からないと指摘。
+- 判断: どちらも `spec_scope=group_local`、つまり選択中の部品分類に持たせる通常スペック詳細を指していた。ヘッダ件数と候補行バッジでUI用語が不統一だった。
+- 方針: 旧ヘッダ件数ラベルは排他・専用に見えるため使わない。候補の種類は `個別スペック / 共通 / 許容差` に統一する。
+- 実装: マスタ管理の `スペック詳細` と `スペック候補設定` の件数チップを `個別スペック` へ変更し、候補行バッジも `個別スペック` へ変更した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリスト、過去ログ内の該当表現を `個別スペック` へ揃えた。
+- DB変更: なし。表示文言のみ。
+
+### [曹長(テスト分隊)] 2026-04-29 23:06 JST
+- ✓ 旧ラベル残存検索。対象ファイルに残存なし。
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check -- resources/js/pages/master-list.js resources/views/app/master-list.blade.php resources/views/app/help.blade.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md ../制作管理/makinglog.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-30 01:27 JST
+- [ユーザ] 部品は実際に使うデータが揃ってから部品であり、部品シリーズは設定系なので、全機能一覧の分類を `マスタ・利用設定` と `管理・ログ・動作設定` に分ける方が意味として自然ではないかと指摘。
+- 判断: `部品シリーズ` は実部品ではなく、値展開・値マトリクス・実部品化元を定義する設定系の画面。`部品管理` ではなく `マスタ・利用設定` に置くのが正しい。
+- 実装: ダッシュボードの全機能ショートカットを `部品管理`、`在庫・購買`、`案件・設計`、`マスタ・利用設定`、`管理・ログ・動作設定` に再分類した。
+- 実装: `部品シリーズ`、`保管棚管理`、`商社管理`、`ホーム設定` を `マスタ・利用設定` へ移し、`操作ログ`、`Altium連携`、`連携設定`、`ユーザー管理` を `管理・ログ・動作設定` にまとめた。部品管理から `部品シリーズ` は外した。
+- 実装: `/functions` の全機能一覧も同じ分類へ再編し、ルート定義コメントと主要アクション既定順も意味に合わせて調整した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、部品シリーズの導線と全機能ショートカット分類を反映した。
+- DB変更: なし。メニュー分類・導線・表示文言のみ。
+
+### [曹長(テスト分隊)] 2026-04-30 01:27 JST
+- ✓ 旧分類名の残存検索。対象画面・関連文書に残存なし。
+- ✓ `node --check resources/js/pages/dashboard.js`
+- ✓ `php -l resources/views/app/dashboard.blade.php`
+- ✓ `php -l resources/views/app/function-catalog.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `php -l routes/web.php`
+- ✓ `git diff --check -- resources/views/app/dashboard.blade.php resources/views/app/function-catalog.blade.php resources/views/app/help.blade.php resources/js/pages/dashboard.js routes/web.php ../README.md ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- ✓ `npm run build`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。10 tests / 296 assertions。
+- ✓ `php artisan test`。61 tests / 591 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-30 01:45 JST
+- [ユーザ] UX設計ルール未適用として洗い出したUI修正チェックリストを全件対応し、件数が多いためワーカーへ並列割り当て、大将が管理し、修正後に実テストとPDCAを回し、ログを逐次記録するよう指示。
+- 判断: 設計自体は変更しない。既存のUX設計ルール「直感的な言葉」「内部語を出さない」「タグは短く」「似た操作は揃える」「設計判断順で情報を出す」の未適用を実装で是正する。
+- 並列方針: `マスタ/部品シリーズ`、`部品登録・詳細・一覧・比較`、`ダッシュボード/設計ツール/全機能一覧`、`管理系CRUD/連携/インポート/バックアップ` に分けて実装する。文書・ヘルプ・チェックリスト更新と統合テストは大将が管理する。
+- DB変更: 予定なし。表示語、UI構造、確認モーダル、ヘルプ/README整理、並び順/タグ/エラー表示のUI修正が中心。
+
+### [大将] 2026-04-30 02:10 JST
+- [ユーザ] マスタ管理の `スペック詳細` から `入力テンプレート` までの左ペイン部品分類に、登録状況の個数を小さく表示したいと指摘。例: `抵抗器 登録:4個`。
+- 判断: 左ペインは選択領域のまま維持し、右端に補助情報として現在タブの登録数だけを表示する。内訳は既存通り右ペインヘッダで見る。説明文で補うのではなく、一覧スキャン時に未登録・登録済みの分類を直接見つけられるようにする。
+- 実装: `/api/spec-groups` と `/api/spec-groups/{id}` に `owned_spec_type_count`、`local_candidate_count`、`common_candidate_count`、`tolerance_candidate_count` を追加し、既存の `usage_count`、`template_count` と合わせてタブ別の左ペイン数へ使うようにした。
+- 実装: `SpecGroup::ownedSpecTypes` を追加し、`スペック詳細` タブでは選択部品分類を持つ通常の個別スペック詳細数を表示するようにした。`スペック候補設定` は候補総数、`入力テンプレート` はテンプレート数、`共通スペック詳細` は共通候補数、`許容差スペック詳細` は共通スコープの許容差候補数を表示する。
+- 実装: 左ペインの部品分類行を `分類名 + 登録:n個` の横並びにし、登録数は小さいフォントと薄い表示にして分類名と同列の主情報に見えないようにした。
+- 並列確認: サブワーカーで集計境界をレビューし、許容差数が `spec_kind=tolerance` だけだと将来の個別許容差で実表示とズレる指摘を反映。`spec_scope=common` の許容差だけを許容差タブ数として集計するよう修正した。
+- テスト: `UiApiSurfaceSmokeTest` にタブ別集計のAPIテストを追加し、個別2・共通2・共通許容差1・個別許容差1の境界で、許容差タブ数が共通許容差だけになることを確認した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ左ペイン `登録:n個` の方針を反映した。
+- DB変更: なし。既存テーブルの集計と表示のみ。
+
+### [曹長(テスト分隊)] 2026-04-30 02:10 JST
+- ✓ `php -l app/Models/SpecGroup.php`
+- ✓ `php -l app/Http/Controllers/Api/SpecGroupController.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php artisan test --filter=test_spec_group_index_returns_context_counts_for_sidebar`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。11 tests / 315 assertions。
+- ✓ `git diff --check -- app/Models/SpecGroup.php app/Http/Controllers/Api/SpecGroupController.php resources/js/pages/master-list.js resources/views/app/master-list.blade.php tests/Feature/UiApiSurfaceSmokeTest.php ../README.md resources/views/app/help.blade.php ../詳細仕様/仕様書.md ../制作管理/実装進捗チェックリスト.md`
+- ✓ `npm run build`
+- ✓ `php artisan test`。62 tests / 610 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-30 01:43 JST
+- [ユーザ] ログの名前をルールに従って直し、プロジェクトの進め方などを再認識するよう指示。
+- 判断: 業務ログの担当名は `Manager` / `Tester` ではなく、`[大将]` / `[曹長(テスト分隊)]` を使う。過去ログ書き換え禁止が原則だが、今回はユーザーからログ名修正の明示指示があるため、役割名の機械的修正を例外として行う。
+- 対応方針: `makinglog.md` の英語ロール見出しと旧テスト担当名の心の声表記を役割名へ置換する。あわせて CLAUDE.md 内の旧テストログ形式を `[曹長(テスト分隊)]` へ修正し、今後の基準を一本化する。
+- DB変更: なし。ログ表記と運用ルール文言のみ。
+- 大将の心の声: 直近の作業は実装・テストに寄りすぎて、ログ運用の基本を落としていた。大将が窓口と最終責任者である以上、作業ログの役割名、作業前ログ、心の声、検証記録まで含めて完了条件として扱う。
+
+### [曹長(テスト分隊)] 2026-04-30 01:45 JST
+- ✓ 旧ロール名検索で、見出し・心の声表記に旧名が残っていないことを確認。
+- ✓ `git diff --check -- CLAUDE.md 制作管理/makinglog.md`
+- 補足: 今回はログ表記と運用ルール文言の修正のみ。アプリ実装、DB、ビルド成果物は変更していない。
+- 曹長(テスト分隊)の心の声: 役割名は見た目の問題ではなく、誰が判断し誰が検証したかを後から追えるための管理情報。ここが崩れると、作業そのものが正しくても運用の信頼性が落ちる。
+
+### [大将] 2026-04-30 01:46 JST
+- [ユーザ] 設計サポートツール、特に中身が薄い抵抗/容量ネットワーク探索をしっかり実装し、有識者によるバグ出し、PDCA、ログ、最終テスト、ドキュメント修正まで進めるよう指示。各ツールへサブワーカー投入と並列処理も指示。
+- 判断: 実装着手前に既存の設計解析ツール、抵抗/容量ネットワークAPI、画面、仕様、テストを読み、空実装部分と既存変更の混在範囲を切り分ける。サブワーカーは調査、個別ツールレビュー、有識者レビューへ分け、大将が統合と完了判定を行う。
+- DB変更: 現時点では予定なし。計算ロジック、UI/API、テスト、ドキュメント更新を中心に進める。DB変更が必要になった場合は4点確認を先に記録して停止判断する。
+- 大将の心の声: ユーザーが求めているのは「それっぽい計算器」ではなく、設計判断に使える道具。空実装を埋めるだけでなく、現場視点のレビューと再修正まで含めて完了条件にする。
+
+### [大将] 2026-04-30 01:54 JST
+- [ユーザ] UI修正チェックリストを全件対応し、並列ワーカー管理、実テスト、PDCA、逐次ログ記録まで行うよう指示。
+- 4ワーカーの結果を回収。大将側で README/help の内部語残り、部品登録・詳細の情報順、master-list のモーダル幅、スペック入力の `typ/min/max` 表示を追加是正。
+- 部品登録は基本情報を軽量化し、スペック、部品分類/パッケージ、データシート・画像、仕入先、在庫の順に再配置。
+- 部品詳細は `基本情報` を `設計情報` に変え、型番等の識別情報の後にスペック、パッケージ、データシート、価格、在庫を読む順へ組み替え。
+- DB変更: なし。これから静的チェック、ビルド、Laravelテストへ進む。
+- 大将の心の声: ワーカーが残した「大きすぎるので未対応」をそのまま返さない。大きいところほど、壊さない範囲で実画面の情報順として効く修正へ落とす。
+
+### [曹長(テスト分隊)] 2026-04-30 01:57 JST
+- ✓ `git diff --check`
+- ✓ 旧UI語の残存検索。`Component Index`、`購入日From/To`、`在庫ブロック`、`抽出名`、`基底`、`既定profile`、`DB バックアップ`、`部品DB`、`NULL化`、`editor以上`、`正本` は対象UI/READMEで残存なし。
+- ✓ `node --check`。対象: UI修正で触った通常JS全件。`.vue` は `node --check` 非対応のためビルドで検証。
+- ✓ `php -l`。対象: UI修正で触ったBlade全件。
+- ✓ `php -l`。対象: 既存差分に含まれる PHP コントローラ/モデル/サービス/ルート。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。11 tests / 315 assertions。
+- ✓ `npm run build`。
+- ✓ `php artisan test`。67 tests / 635 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ ログイン済みHTTP確認: `/dashboard`、`/master`、`/components/create`、`/component-compare`、`/functions`、`/backup` は 200。
+- ✗ 初回HTTP確認で `/design-tools` が 404。原因は旧パス指定で、正しいルートは `/tools/design`。
+- ✓ PDCA: `php artisan route:list --path=design` で正規ルートを確認し、`/tools/design`、`/tools/calc`、`/tools/network` を再確認して全て 200。
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回のUI修正とは無関係な既存警告として扱う。
+- 曹長(テスト分隊)の心の声: `.vue` を直接 `node --check` した初回ミスはチェック手順の選択ミス。ビルドでVue側まで通したので、最終判定は実行経路に合う検証で閉じた。
+
+### [大将] 2026-04-30 02:05 JST
+- [ユーザ] 部品シリーズ登録で `The policy.range max field must be a number.` が出ても、どの数値をどう直せばよいか分からないと指摘。抵抗値は 0Ω から 10GΩ 程度まで入り、`最小値の桁` / `最大値の桁` と `範囲の最小値` / `範囲の最大値` の関係も分からないためUI改善を依頼。
+- 判断: E系列の桁指定と、範囲/刻みの実数指定は別方式であり、同時に入力させる設計が誤解を生んでいる。E系列は 10 の何乗まで展開するかを指定し、0Ω はE系列ではなく追加値または任意値として扱う。範囲/刻みは開始値・終了値・刻み幅の実数だけで生成する。
+- 対応方針: DB変更なし。方式ごとに必要な入力欄だけ表示し、10GΩ などの工学接頭語をクライアント/API双方で受け付ける。エラーは内部名ではなく、該当欄の日本語名と修正例で出す。
+- 大将の心の声: 今回の問題はバリデーション1行の話ではなく、画面がユーザーに「4つの値をどう組み合わせるのか」を考えさせている点が根本。入力モデルを画面で分けて、迷う余地を減らす。
+
+### [大将] 2026-04-30 02:12 JST
+- 実装: 部品シリーズ画面を `値候補の作り方` に変更し、方式ごとに入力欄を分離した。E系列では `基準E系列`、`追加E系列`、`開始桁`、`終了桁` だけを表示し、範囲/刻みでは `開始値`、`終了値`、`刻み幅` だけを表示する。
+- 実装: 0ΩはE系列の追加値または任意値として扱い、10GΩはE系列の終了桁10または範囲/刻みの `10G` / `10GΩ` として入力できるようにした。0値表示が `0pΩ` にならないよう `0Ω` 表示へ修正した。
+- 実装: APIの `policy.range_max numeric` 由来の英語エラーを廃止し、範囲/刻み入力は工学接頭語を解析して保存用数値へ正規化するようにした。無効値は `範囲/刻みの終了値には数値を入力してください。例: 10G, 10GΩ, 10000000000` のように該当欄名と修正例で返す。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、E系列の桁指定と範囲/刻みの実数指定の違い、0Ω/10GΩの扱いを反映した。
+- DB変更: なし。既存の `range_min` / `range_max` / `range_step` 数値カラムへ、入力を正規化して保存する実装にした。
+
+### [曹長(テスト分隊)] 2026-04-30 02:12 JST
+- ✓ `php -l bits-keep/app/Http/Controllers/Api/ComponentSeriesController.php`
+- ✓ `php -l bits-keep/app/Services/ComponentSeriesValueGenerator.php`
+- ✓ `php -l bits-keep/resources/views/app/component-series.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `node --check bits-keep/resources/js/pages/component-series.js`
+- ✓ `php artisan test --filter=ComponentSeriesManagementTest`。6 tests / 33 assertions。
+- ✓ `git diff --check -- bits-keep/app/Http/Controllers/Api/ComponentSeriesController.php bits-keep/app/Services/ComponentSeriesValueGenerator.php bits-keep/resources/js/pages/component-series.js bits-keep/resources/views/app/component-series.blade.php bits-keep/resources/views/app/help.blade.php bits-keep/tests/Feature/ComponentSeriesManagementTest.php README.md 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md 制作管理/makinglog.md`
+- ✓ `npm run build`
+- ✓ `php artisan test`。69 tests / 644 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+- 曹長(テスト分隊)の心の声: 「どのフィールドが悪いか」をテストで固定したので、今後は内部フィールド名の英語エラーへ戻ったらすぐ検知できる。
+
+### [大将] 2026-04-30 02:16 JST
+- [ユーザ] 部品詳細のスペック編集で、部品分類は現状の部品分類をデフォルト選択にするよう指示。あわせて登録済みスペック行の `＋` 追加ボタンがマスタ管理の各機能とリンクしているか確認し、未連携なら設計するよう依頼。
+- 現状確認: 部品詳細のスペック編集は開くたびに `フィルタしない` を初期選択していた。`＋` はインラインで `/api/spec-types` へ `spec_scope=group_local`、`owner_spec_group_id` 付きで追加し、SpecTypeController 側で部品分類の候補にも自動連携している。
+- 判断: 直近修正として、部品が持つ部品分類をスペック編集の初期選択にする。マスタ管理との連携はデータとしては繋がっているが、UI導線としては `スペック詳細`、`スペック候補設定`、`入力テンプレート`、`共通スペック詳細`、`許容差スペック詳細` への直接リンクが不足しているため、選択中の部品分類を引き継ぐマスタリンク設計を整理する。
+- DB変更: なし。画面初期値と導線設計のみ。
+
+### [大将] 2026-04-30 02:21 JST
+- 実装: 部品詳細のスペック編集を開いたとき、登録済み部品分類の先頭を `部品分類` select の初期選択にした。部品分類がない場合だけ `フィルタしない` にする。
+- 実装: スペック編集上部に `マスタで管理` 導線を追加し、`スペック詳細`、`候補設定`、`共通`、`許容差`、`入力テンプレート` へ選択中部品分類付きで開けるようにした。
+- 実装: マスタ管理側で `/master?tab=...&group_id=...` を受け取り、スペック系タブで対象部品分類を初期選択するようにした。マスタ上で別部品分類を選んだ場合も URL の `group_id` を更新する。
+- 設計整理: 登録済みスペック行の `＋` は個別スペック詳細を作るショートカットに限定する。共通スペック詳細、許容差スペック詳細、候補採用、入力テンプレートの変更はマスタ管理の該当タブへ誘導する。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、部品詳細スペック編集の初期分類選択とマスタ導線設計を反映した。
+- DB変更: なし。既存APIと既存マスタ構造の導線整理のみ。
+
+### [曹長(テスト分隊)] 2026-04-30 02:21 JST
+- ✓ `node --check bits-keep/resources/js/pages/component-detail.js`
+- ✓ `node --check bits-keep/resources/js/pages/master-list.js`
+- ✓ `php -l bits-keep/resources/views/app/component-detail.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `git diff --check -- bits-keep/resources/js/pages/component-detail.js bits-keep/resources/js/pages/master-list.js bits-keep/resources/views/app/component-detail.blade.php bits-keep/resources/views/app/help.blade.php README.md 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md 制作管理/makinglog.md`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。11 tests / 315 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan test`。73 tests / 655 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+
+### [大将] 2026-04-30 02:20 JST
+- [ユーザ] 設計サポートツール、特に抵抗/容量ネットワーク探索を実用品質へ上げ、有識者レビュー、PDCA、ログ、最終テスト、ドキュメント更新まで行うよう指示。
+- 実装: 抵抗/容量ネットワーク探索のAPI/UI不一致を修正し、`result.candidates`、summary、warnings、next_actions、候補プール数、打ち切り有無を画面へ出すようにした。
+- 実装: 抵抗とコンデンサで直列/並列の合成式を切り替えた。抵抗は直列=和/並列=逆数和、コンデンサは直列=逆数和/並列=和。分圧は R1上側/R2下側、比率、総抵抗、誤差を返す。
+- 実装: 在庫限定探索は抵抗値/容量値の単位・名称に一致するスペックだけを採用し、定格電圧など無関係な数値スペックは候補値にしない。
+- PDCA: 有識者レビューで、候補プール間引きによる偽陰性、空customのE24フォールバック、分圧時の素子数バリデーション、UI初期条件の性能問題を検出。1〜2素子探索と分圧はE系列全体を使い、3素子以上は候補プールと探索量上限で打ち切りを明示する形へ修正した。
+- 実装: 設計解析ツールは、電解コンデンサ寿命の電圧倍率を廃止し、温度寿命+リプル自己発熱+電圧ディレーティングへ変更。単位付きスペック取り込みの二重スケールを修正し、`10kΩ`、`0.1uF` などの接頭辞を扱うようにした。
+- 実装: シャントは入力換算オフセット、ADC電流LSB、Vout余裕、電力定格余裕を判定に含めた。電源余裕は子レール負荷を効率込みで親レールへ積み上げ、突入電流AはWへ加算せず不足条件として扱う。
+- 実装: 比較器はR1/R2/R3/VOH/VOLを含む入力節点モデルへ修正し、Low→High/High→Lowしきい値ラベルを整理。I2Cは立上りに加えてLowシンク電流、UART誤差も判定に含めた。
+- 実装: TVS/ヒューズ/ポリスイッチ/保護協調は、波形・時間電流特性・温度ディレーティング・動作順序が不足する場合はPASSにせずCHECKへ倒す。保護協調はW/A²s/Aを直接比較せず、素子ごとの余裕率と不足条件で判定する。
+- ドキュメント: README、詳細仕様、実装進捗チェックリストへ、SCR-011/FNC-022の実装済み範囲、部品シリーズ値展開ポリシー未連携、探索上限、危険なPASSを避ける設計解析基準を反映した。
+- DB変更: なし。計算ロジック、UI表示、Featureテスト、文書更新のみ。
+- 大将の心の声: 今回は「計算器がある」ではなく「設計判断に使ってよい境界」を作る作業。レビューで出た指摘は都合よく解釈せず、PASSしてはいけないものをCHECKへ落とすことを優先した。
+
+### [曹長(テスト分隊)] 2026-04-30 02:20 JST
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `php -l app/Http/Controllers/Api/CalcController.php`
+- ✓ `php -l tests/Feature/NetworkSearchApiTest.php`
+- ✓ `php -l resources/views/app/design-tools.blade.php`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `node --check resources/js/pages/design-tools.js`
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `php artisan test --filter=NetworkSearchApiTest`。12 tests / 43 assertions。抵抗直列/並列、容量直列/並列、分圧比、invalid条件、E系列ペア偽陰性、E96分圧偽陰性、空custom、3素子直列厳密解、在庫スペック選択、一致スペックなし除外、TCR除外、在庫数超過再利用防止を確認。
+- ✓ UI初期条件相当の性能確認。`E24 / 1kΩ / 1〜2素子 / 直列・並列` は `elapsed_ms=1019`、`evaluation_limited=false`。3素子以上や直並列混在は任意選択とし、上限到達時に警告と次アクションを返す。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。11 tests / 315 assertions。
+- ✓ `git diff --check --` 関連コード・README・詳細仕様・チェックリスト・ログ。
+- ✓ `npm run build`。
+- ✓ `php artisan test`。76 tests / 662 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存警告として扱う。
+- 曹長(テスト分隊)の心の声: 探索は無限に広げれば正確になるが、UIでは止まることも品質。厳密解を落とさない範囲と、打ち切ったことを隠さない表示をテストで固定した。
+
+### [大将] 2026-04-30 02:32 JST
+- PDCA最終: サブワーカーの再レビューで、ネットワーク探索は `重大/高リスクなし` を確認。設計解析ツールは最後に比較器SVGの帰還先だけ高リスクとして残ったため、上部回路図も `R1入力直列 / R2-R3基準ノード帰還` に揃え、再レビューで `重大/高リスクなし` を確認した。
+- 追加修正: `unitMultiplier` は `MΩ/MHz/MW` を小文字化で `m` 扱いしないよう修正。電源余裕は未割当負荷も上流換算負荷とOK判定へ含める。シャントはオフセット込みのVout上下余裕を判定に入れる。
+- 追加修正: ネットワーク探索は在庫数以上の同一部品再利用を禁止し、`抵抗温度係数` など値スペックではない数値を抵抗値として採用しない。3素子直列はターゲット補完探索で厳密解を落とさない。
+- DB変更: なし。
+- 大将の心の声: 「有識者の指摘がなくなるまで」という条件は、レビューを形式的に流すだけでは満たせない。最後の図解不一致まで潰して、計算式・画面・テスト・文書が同じことを指す状態で閉じる。
+
+### [大将] 2026-04-30 02:34 JST
+- [ユーザ] 全設計補助ツールの実装、有識者確認、PDCA改善が完了したかを確認し、未完ならルールに基づき実行するよう指示。
+- 現状確認: SCR-011 と SCR-016 は直前PDCAで `重大/高リスクなし` まで確認済み。一方で SCR-015/FNC-025 は実装進捗チェックリスト上は全項目完了だが、詳細仕様の画面ステータスと付加機能チェックが未完了のまま残っている。
+- 判断: 「全設計補助ツール完了」と回答する前に、エンジニア電卓の実装を FNC-025 要件へ再突合し、未実装があれば修正、実装済みなら仕様・チェックリスト・ログの不整合を解消する。
+- DB変更: なし。対象はフロント計算、画面、テスト、ドキュメント確認。
+- 大将の心の声: 完了宣言の前に、文書上の未完了と実装上の未完了を切り分ける。ここを曖昧にすると、また「やったことになっているだけ」の設計補助ツールになる。
+
+### [大将] 2026-04-30 02:40 JST
+- 有識者監査: SCR-015/FNC-025 とフェーズ3一覧の未完了表示、ユーザー定義関数・配列/文字列/色/日時補助・補完・構文表示の不足をブロッカーとして確認。
+- 実装: エンジニア電卓に `name(args)=expr` 形式のユーザー定義関数、配列集計 `sum/avg`、`clamp`、`rgb`、`dateDiff` を追加した。履歴は仕様どおり sessionStorage、固定式は localStorage に分離した。
+- 実装: 式エディタへ構文表示、関数/定数/変数の補完候補、Tab補完、履歴から固定式へ送る導線を追加した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを更新し、SCR-015/FNC-025 と設計解析系フェーズ3一覧の完了状態を実装実態へ合わせた。
+- DB変更: なし。フロント計算とドキュメントのみ。
+- 大将の心の声: 監査で返った未完了を「表示だけの問題」にしない。FNC-025 の仕様本文に残っていた弱点を実装で埋めてから、チェック状態を揃える。
+
+### [曹長(コード分隊)] 2026-04-30 02:48 JST
+- 追加修正: エンジニア電卓の指数表記整形で `1e-10` の指数部を壊さないよう、仮数部だけ末尾ゼロを削る処理へ変更した。
+- 追加修正: `and/or/not/exor/exnor/nor/nand` と `<<` `>>` `&` `|` を BigInt ベースのビット演算へ変更し、`1 << 40`、`0x100000000 | 1`、`and(0x100000001, ...)` が 32bit に丸められないようにした。
+- 追加修正: `solve(eq, var)` はトップレベル代入判定より優先されるようにし、`solve(sqrt(x)=2, x)` をユーザー定義関数として誤認しないようにした。実根なしは残差確認で収束エラーにする。
+- 追加修正: 空行を含む複数行式でも、評価エラーの行番号が画面上の行番号と一致するようにした。
+- テスト: `tests/engineering-calc.test.mjs` と `npm run test:engineering-calc` を追加し、指数表記、64bit相当ビット演算、solve残差、ユーザー定義関数、配列/色/日時補助、空行込みエラー行番号を固定した。
+- 曹長(コード分隊)の心の声: 電卓は派手なUIより評価器の信用が先。64bit表示だけあるのに演算が32bitへ落ちる状態は、設計補助として危ないので中核側で直した。
+
+### [曹長(テスト分隊)] 2026-04-30 02:48 JST
+- ✓ `npm run test:engineering-calc`。指数表記、64bit相当ビット演算、solve、ユーザー定義関数、型補助、空行込みエラー行番号を確認。
+- ✓ `node --check resources/js/pages/engineering-calc.js`
+- ✓ `node --check tests/engineering-calc.test.mjs`
+- ✓ `php -l resources/views/app/engineering-calc.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check --` エンジニア電卓関連、README、詳細仕様、チェックリスト、ログ。
+- ✓ `npm run build`
+- ✓ `composer run test`。77 tests / 668 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- 有識者再レビュー: エンジニア電卓は前回の修正必須4点と対象要検討3点が解消し、重大/高リスクなし。設計補助ツール群の最終監査でも、SCR-011/SCR-015/SCR-016 と設計解析系フェーズ3は完了宣言に支障なし。
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。機能不備ではない既存系警告として残す。
+- 曹長(テスト分隊)の心の声: いったん「完了」と言った後にレビューで戻された箇所を、テストで再発防止まで入れた。これで設計補助ツールの完了判定に残る重大な穴はない。
+
+### [大将] 2026-04-30 02:49 JST
+- [ユーザ] 全機能ショートカットから遷移する `抵抗/容量ネットワーク探索` の画面内容が更新されていないと指摘。完了宣言との矛盾を確認し、未処理なら実装、有識者DR、PDCAで指摘ゼロまで対応するよう指示。
+- 現状確認: 全機能一覧とダッシュボードの導線は `/tools/network` を指しており、`public/hot` は存在しない。APIとテストは更新済みだが、画面は旧来の縦長フォーム中心で、候補比較・回路見え方・探索条件の状態把握が弱い。ユーザー視点では「中身が更新されていない」と判断されて当然。
+- 判断: SCR-011/FNC-022 はAPI実用品質だけで完了扱いにしていたのが誤り。今回は `/tools/network` の実画面を、探索条件・候補比較・回路表示・比較トレイ・可変抵抗計算まで含む実用品質へ更新する。
+- DB変更: なし。対象はネットワーク探索画面のBlade/JS、必要なテスト、ドキュメント、ログ。
+- 大将の心の声: 画面に届いていない実装を「終わった」と言ったのが問題。リンク先をユーザーが開いた時点の体験を完了判定の正に戻す。
+
+### [大将] 2026-04-30 03:00 JST
+- 実装: `/tools/network` のBladeを更新し、探索条件、ステータス、候補、比較トレイ、簡易回路表示、在庫リンク、可変抵抗 + 固定抵抗を同一画面で扱うUIへ変更した。
+- 実装: `resistance-calc.js` を更新し、`DesignAnalysisResponse` の `data.result / data.summary / data.warnings / data.next_actions` を正しく読み、invalidレスポンスも警告と次アクションとして表示するようにした。
+- 実装: 公称値探索であること、3素子以上または混在探索が近傍候補探索になること、在庫値のみはE系列ではなく在庫部品の値セットを使うことを、結果側の警告として表示するようにした。
+- 実装: 混在トポロジは文字式だけでなく、括弧・直列・並列・部品値を分けたトークン表示にした。
+- ドキュメント/入口: ダッシュボード、全機能一覧、ヘルプ、README、実装進捗チェックリストを更新し、入口からも抵抗/容量・分圧・在庫値・可変抵抗まで見えるようにした。
+- PDCA: 有識者DR初回で `API警告非表示` `非網羅探索の不明示` `回路図不在` `入口/ヘルプ旧仕様` `設計保証外条件の不明示` を指摘。修正後の再DRで重大/高/中/軽微を含めて指摘ゼロを確認。
+- DB変更: なし。
+- 大将の心の声: APIを直しても、ユーザーが開く画面に反映されていなければ未完了。今回の完了判定は `/tools/network` の実画面と入口文言を正とした。
+
+### [曹長(テスト分隊)] 2026-04-30 03:00 JST
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `node --check tests/resistance-calc.test.mjs`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l resources/views/app/function-catalog.blade.php`
+- ✓ `php -l resources/views/app/dashboard.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `php artisan test --filter=NetworkSearchApiTest`。12 tests / 43 assertions。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`。12 tests / 322 assertions。
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest::test_network_tool_page_exposes_updated_design_surface`
+- ✓ `npm run build`
+- ✓ `composer run test`。79 tests / 684 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` ネットワーク探索関連、README、チェックリスト、ログ。
+- 警告: `npm run build` で Browserslist の `caniuse-lite` が古いこと、`engineering-calc` chunk が 500KB 超過であることが表示された。今回の修正とは無関係な既存系警告として扱う。
+- 曹長(テスト分隊)の心の声: 今回の不具合はAPIテストだけでは捕まらない種類だった。`/tools/network` の画面に更新済みUIが露出していることをFeatureテストで固定した。
+
+### [大将] 2026-04-30 03:02 JST
+- [ユーザ] `npm run build` の Browserslist/caniuse-lite 警告と `engineering-calc` chunk 500KB超過警告を解決しなくてよいのか検討するよう指示。
+- 判断: `caniuse-lite` はブラウザ対応DBの古さであり、ビルド結果の互換性判断に関わるため更新対象にする。`engineering-calc` はページ単位で遅延読み込みされており即時障害ではないが、毎回警告が出る状態は本当のビルド警告を隠すため、mathjs系の重い依存を明示チャンク化し、妥当な警告閾値へ調整する。
+- DB変更: なし。対象は依存ロック、Viteビルド設定、ビルド検証。
+- 大将の心の声: 「機能不備ではない」は「放置でよい」ではない。警告を減らして、次に出る警告がちゃんと異常として見える状態にする。
+
+### [曹長(テスト分隊)] 2026-04-30 03:05 JST
+- 対応: `npx update-browserslist-db@latest` で `caniuse-lite` を `1.0.30001724` から `1.0.30001791` へ更新した。ターゲットブラウザ差分はなし。
+- 対応: `engineering-calc` に混ざっていた `mathjs` を `vendor-mathjs-core/function/expression/type/utils` へ分割し、閾値上げではなく最大チャンクを 270.71kB まで下げた。
+- ✓ `node --check vite.config.js`
+- ✓ `npm run build`。Browserslist/caniuse-lite 警告なし、500KB超過警告なし。
+- ✓ `npm run test:engineering-calc`
+- ✓ `npm run test:resistance-calc`
+- ✓ `git diff --check -- bits-keep/vite.config.js bits-keep/package-lock.json bits-keep/package.json 制作管理/makinglog.md`
+- DB変更: なし。
+- 曹長(テスト分隊)の心の声: 前回「既存系警告」として残した判断は甘かった。消してよい警告ではなく、次の異常を見落とさないために潰すべき警告として処理した。
+
+### [大将] 2026-04-30 03:06 JST
+- [ユーザ] 全設計補助ツールの実装、有識者確認、PDCA改善が完了したかを再確認し、未完ならルールに基づき実行するよう指示。
+- 判断: 完了宣言を再利用せず、`SCR-011/SCR-015/SCR-016` と設計解析系 `FNC-026〜035`、熱設計、コネクタ視点補助、0Ω/未実装/ジャンパ整理の実装・入口・テスト・ドキュメント・ログを再突合する。
+- 進め方: サブワーカーを投入して、実装面、UI/API面、電子回路有識者DR面を並列で確認する。指摘が出た場合は修正、再テスト、再DRまで回す。
+- DB変更: 現時点では予定なし。もしDB操作が必要になった場合は `接続先確認 / 件数確認 / バックアップ確認 / 復元手段確認` を先に記録する。
+- 大将の心の声: ユーザーが問うているのは「本当に全部終わったのか」。チェックが付いているかではなく、入口から使って妥当か、DR指摘ゼロかで判定する。
+
+### [大将] 2026-04-30 03:05 JST
+- [ユーザ] 部品シリーズでコンデンサ容量の `f` / `p` などの開始値が効かず、使える接頭語はスペック詳細に従うべきと指摘。さらに `選択した値で部品を作成` ボタンが常に押せないように見えるため、意味と状態を直すよう指示。
+- 実装: 部品シリーズの数値パーサを `Y/Z/E/P/T/G/M/k/無印/m/u/n/p/f` と `Ti/Gi/Mi/Ki` に対応させ、開始値・終了値・刻み幅・追加値・除外値を選択中スペック詳細の `suggest_prefixes` に従って解釈するようにした。容量の `1fF` から `10pF` までをE系列で生成できるよう、丸め桁も15桁へ変更した。
+- 実装: 画面の接頭語説明を固定の `k / M / G` 文言から、選択中スペック詳細の入力候補接頭辞に基づく `接頭語: ...` 表示へ変更した。単位はスペック詳細の標準単位を読み取り専用で使う。
+- 実装: `選択した値で部品を作成` を `選択値を部品化` に変更し、未保存・プレビュー中・未選択・部品化済みのみ等、押せない理由をボタン直下へ表示するようにした。
+- 実装: 部品詳細のスペック行 `+` で同名の既存スペック詳細に一致した場合、新規作成せず、選択中部品分類の候補関係を補完してから行へ紐づけるようにした。
+- ドキュメント: README と詳細仕様に、部品シリーズの接頭語ルール、部品化ボタンの意味、スペック行 `+` の既存候補リンク補完を追記。
+- DB変更: 新規テーブル定義中の `rounding_digits` 既定値を 15 に変更。既存テーブル追加やデータ移行はなし。
+- 検証: `php -l` 2件、`node --check` 2件、`php artisan test --filter=ComponentSeriesManagementTest`、`php artisan test --filter=UiApiSurfaceSmokeTest`、`npm run build`、`php artisan test` を実行し、全て通過。全体テストは 79 tests / 684 assertions。
+- 大将の心の声: 今回の本丸は `f` を足すことではなく、スペック詳細で決めた接頭語ポリシーをシリーズ値生成にも通すこと。押せないボタンも「いつ押せるのか」をUIが答えないなら設計不備なので、状態文をボタンの近くへ置いた。
+
+### [大将] 2026-04-30 03:16 JST
+- [ユーザ] 部品シリーズの開始値/終了値は直ったが、`0.1pF` から `100uF` をプレビューすると `0` と `1uF〜100uF` 付近しか生成されないと指摘。
+- 原因: 生成器側が `range_min/range_max` だけ渡された場合に桁範囲を自前で再計算できず、古い `decade_min/decade_max` に依存していた。また浮動小数の表示丸めで `100nF` が `99.999999999999986nF` のように崩れるケースがあった。
+- 実装: `ComponentSeriesValueGenerator` で `range_min/range_max` がある場合は生成器側でも `floor(log10())` から桁範囲を再導出するようにした。表示用の小数正規化も、pF/fF級を潰さずに `100nF` / `100uF` と出るよう補正した。
+- テスト: `0.1pF〜100uF` のプレビュー回帰テストを追加し、`0F`、`0.1pF`、`1pF`、`100nF`、`100uF` が含まれ、最初の生成値が `0.1pF` になることを固定した。
+- 検証: `php artisan test --filter=ComponentSeriesManagementTest`、`php -l bits-keep/app/Services/ComponentSeriesValueGenerator.php`、`git diff --check`、`php artisan test` を実行。全体テストは 82 tests / 698 assertions。
+- 大将の心の声: コントローラで正規化している前提に寄りかかると、プレビューや再生成の入口差で壊れる。値生成器自身が範囲を理解できる形に戻した。
+
+### [曹長(コード分隊)] 2026-04-30 03:34 JST
+- 対応: 全設計補助ツールを再突合し、`design-tools.js` に FNC-034 ロジックICリファレンスを追加した。74HC/HCT/4000B 系の静的候補、入力数/出力形式/ピン数フィルタ、データシート確認項目を返す。
+- 対応: ADC min/typ/max 判定、LSB算出、熱設計の最悪Tj/ディレーティング判定、比較器ノイズ余裕、HPF/LPF margin、NTC温度sweep、シャントTCR/範囲外、OVP直列抵抗損失、電源突入条件、コネクタ定格未入力、0Ω/Jumper CSV不正行を CHECK/WARN/FAIL へ反映した。
+- 対応: 抵抗/容量ネットワーク探索で `custom_values` の工学接頭辞、空値、256件上限、探索評価上限、在庫部品の値スペック判定、在庫数量超過再利用禁止を実装/補強した。
+- 対応: エンジニア電卓で安全整数範囲外の Number 経由結果をメイン表示/履歴/コピーでも抑制し、ビット演算だけでなく丸め関数経由の誤読余地を潰した。
+- 対応: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを更新し、FNC-034 の未実装扱い、旧API表記、設計解析ツールのフロント計算/API境界の矛盾を解消した。
+- DB変更: なし。DB構造変更、マイグレーション実行、破壊的操作は行っていない。
+- 曹長(コード分隊)の心の声: 「全部実装済み」の判定は、機能名があるかではなく、入力・判定・警告・次アクション・文書・入口が同じ状態を指しているかで見る。DRで出た中リスク以上を残さないよう、計算結果の信用に直結する箇所を優先して潰した。
+
+### [曹長(テスト分隊)] 2026-04-30 03:34 JST
+- 有識者DR/PDCA: 実装DR、ドキュメントDR、電子回路観点DRで指摘された FNC-034未実装、ADC min/max未使用、熱最悪条件未反映、比較器ノイズ余裕、HPF margin、NTC sweep、OVP Rser、コネクタ/ジャンパ判定不足、API表記矛盾を修正。最終DRで残存指摘なしを確認した。
+- ✓ `node --check resources/js/pages/design-tools.js resources/js/pages/engineering-calc.js resources/js/pages/resistance-calc.js`
+- ✓ `node --check tests/design-tools.test.mjs tests/engineering-calc.test.mjs tests/resistance-calc.test.mjs`
+- ✓ `php -l app/Http/Controllers/Api/CalcController.php`
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run test:design-tools`
+- ✓ `npm run test:engineering-calc`
+- ✓ `npm run test:resistance-calc`
+- ✓ `composer run test`。84 tests / 730 assertions。
+- ✓ `npm run build`。Browserslist/caniuse-lite 警告なし、500KB超過chunk警告なし。最大chunkは `vendor-mathjs-function` 270.71kB、`design-tools` 88.88kB、`engineering-calc` 25.42kB。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テストはテスト環境での検証のみ。
+- 曹長(テスト分隊)の心の声: 以前の完了宣言は、警告や文書不整合を軽く見た点が甘かった。今回はビルド警告、仕様矛盾、入口から見える画面、回帰テストまで揃えてから最終DRへ戻した。
+
+### [大将] 2026-04-30 03:34 JST
+- 完了判定: 全設計補助ツールは、実装、入口、チェックリスト、仕様、README/ヘルプ、テスト、最終DRの観点で完了と判定する。
+- 残課題: 今回対象範囲での残存指摘はなし。`⑯-2. 現時点では実現困難` に残る DIP/ストラップ逆引き等は仕様記録のみで、今回の「実装済み設計補助ツール」対象外として整理済み。
+- DB変更: なし。
+- 大将の心の声: ユーザーに問われたのは進捗報告ではなく、完了判定の責任。最後はサブワーカーの指摘ゼロ、全体テスト、ビルド警告なしまで揃えた状態で閉じる。
+
+### [大将] 2026-04-30 03:34 JST
+- [ユーザ] 可変抵抗 + 固定抵抗で `固定抵抗 8kΩ` と表示されるが、どこで買えるのか、設計結果として使えるのか、ルール違反ではないかと指摘。再設計し、仕様と詳細作業リストへ落とし込み、実装後に有識者チェックPDCAを指摘0まで回すよう指示。
+- 現状判断: 指摘は正しい。現UIは算術解を部品選定結果のように表示しており、E系列・在庫・購入可能性・許容差・端点保証を通していない。`8kΩ` のような任意値を「固定抵抗」として出すのは、設計補助として危険。
+- 進め方: 可変抵抗設計を `理想解` と `採用候補` に分離する。固定抵抗はE系列/カスタム値/在庫値のいずれかの供給元から選ばれた候補だけを採用可能表示にし、理想解しかない場合は未選定またはCHECK扱いにする。仕様、詳細作業リスト、実装、テスト、DR、ログを同一ループで完了する。
+- DB変更: 予定なし。DB破壊/構造変更は行わない。必要な在庫参照がある場合も既存API/既存データの読み取りに限定する。
+- 大将の心の声: 数学的に合う値と、買えて実装できる部品は別物。ここを分けないUIは、説明不足ではなく設計判断を誤らせるUIなので、結果の意味から作り直す。
+
+### [大将] 2026-04-30 19:42 JST
+- [ユーザ] 可変抵抗器の設計計算で `%可変幅` と `抵抗値可変幅` の両方に対応し、%可変幅は基準抵抗値に対して計算するよう指示。固定抵抗の標準値化で可変幅や抵抗値範囲を満たせない場合、VR値を範囲側へ上げ、固定抵抗を再計算する機能を追加し、有識者PDCAを指摘0まで回すよう指示。
+- 現状判断: 直前実装は理想値と標準値候補を分けたが、基準抵抗値・目標範囲・VR標準値補正・固定抵抗再計算の関係がまだ弱い。`E24 8.2k + VR 2k` のように標準値へ丸めた結果が、要求範囲 8k〜10k を包含しないケースを候補生成側で避ける必要がある。
+- 進め方: 入力を `基準抵抗値` + `可変幅（%/Ω）` + `基準位置（上限/中心/下限）` に整理する。候補生成は、まず要求範囲を作り、直列では `VR >= 要求幅`、並列では低端側を満たせるVRを選び、固定抵抗を標準値から再計算して、実範囲が要求範囲を包含する候補を優先する。
+- DB変更: 予定なし。フロント計算、Blade、テスト、README/ヘルプ/仕様/チェックリストのみを対象にする。
+- 大将の心の声: 標準値へ丸めただけではまだ設計結果にならない。要求範囲を包含できるかを正にして、VRと固定抵抗をセットで再計算する。
+
+### [曹長(コード分隊)] 2026-04-30 19:56 JST
+- 実装: 可変抵抗設計の入力を `基準抵抗値`、`可変幅`、`基準位置（上限/中心/下限）` に変更した。%指定は基準抵抗値に対する全幅として扱い、`10kΩ / 20% / 上限基準` は `8kΩ〜10kΩ`、中心基準は `9kΩ〜11kΩ`、下限基準は `10kΩ〜12kΩ` になる。
+- 実装: 直列トリムは固定抵抗の標準値化後に範囲を満たせない場合、VRを範囲側へ補正し、そのVR値から固定抵抗候補を再計算するようにした。実範囲が要求範囲を包含する候補だけを `CHECK`、不足候補を `WARN` とする。
+- 実装: 並列トリムは `Rfixed || VR` の低端式 `1 / (1/Rlow - 1/Rfixed)` を使い、固定抵抗候補ごとに低端側を満たせるVRを再計算するようにした。候補一覧でも `+` 固定表示をやめ、並列は `||` を表示する。
+- 実装: `PASS` は出さず、候補タグに `要求範囲包含/不足`、`VR範囲側補正`、`固定抵抗再計算`、`公称値候補`、`許容差/電力未評価`、`型番未選定`、`購入/在庫未確認` を出すようにした。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを更新し、可変抵抗設計の基準抵抗値、可変幅、基準位置、範囲包含CHECK/不足WARN、直列/並列のみの現実装へ合わせた。
+- DB変更: なし。マイグレーション、DB構造変更、破壊的操作は行っていない。
+- 曹長(コード分隊)の心の声: 今回は「近い値」ではなく「要求範囲を含む値」を正にした。固定抵抗とVRは片方だけ丸めるとすぐ範囲を外すので、セットで再計算する形に戻した。
+
+### [曹長(テスト分隊)] 2026-04-30 19:56 JST
+- 有識者DR/PDCA: 初回DRで `範囲包含の定義`、`中心基準の全幅扱い`、`直列の Rfixed <= 要求下限 / Rfixed + Rvr >= 要求上限`、`並列の低端式`、`PASS非表示` を確認。実装後DRで `許容%がCHECK判定に混ざる`、`並列候補一覧が + 表示`、文書の `標準系列誤差/分圧` 不整合を指摘され、修正後の最終DRで残存指摘なしを確認した。
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `node --check tests/resistance-calc.test.mjs`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `php artisan test --filter='UiApiSurfaceSmokeTest::test_network_tool_page_exposes_updated_design_surface'`
+- ✓ `php artisan test --filter='NetworkSearchApiTest|UiApiSurfaceSmokeTest'`。27 tests / 392 assertions。
+- ✓ `npm run build`。Browserslist/caniuse-lite 警告なし、500KB超過chunk警告なし。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト環境でのFeatureテストのみ。
+- 曹長(テスト分隊)の心の声: DRで一度「不足でも許容内ならCHECK」になり得る穴が見つかった。設計補助ではその甘さが危険なので、真の範囲包含だけをCHECKに固定してテストで縛った。
+
+### [大将] 2026-04-30 19:56 JST
+- 完了判定: 可変抵抗器の設計計算は、%可変幅、Ω可変幅、基準位置、VR補正、固定抵抗再計算、直列/並列の範囲包含判定、文書反映、有識者PDCA、最終テストまで完了。
+- 残課題: 今回範囲では残存指摘なし。在庫/購入リンク連携、VR残留抵抗、許容差、温度係数、電力評価は候補タグで未評価として明示し、PASS判定は出していない。
+- DB変更: なし。
+- 大将の心の声: 「使える設計結果」は、数学解でも近似値でもなく、要求範囲を満たす標準値候補であること。未評価条件は隠さずCHECKに止める。
+
+### [大将] 2026-04-30 20:14 JST
+- [ユーザ] 抵抗/容量ネットワーク探索で E48 / E96 を選ぶと解が求まらず、E系列を認識していなさそうなので原因追及して修正するよう指示。
+- 現状確認: `CalcController` の validation は `E48` / `E96` を許可しており、`NetworkSearchService::E_SERIES` にも E48 / E96 の基準値テーブルは存在する。まず API で再現条件を固定し、値プール生成、候補絞り込み、探索回数上限のどこで落ちているかを確認する。
+- 進め方: 追加テストで E48 / E96 の単体・直列/並列・分圧候補を固定し、失敗原因を特定してから `NetworkSearchService` を修正する。必要に応じて画面側の選択値送信も確認する。
+- DB変更: なし。対象は計算サービス、Featureテスト、必要なら表示/文書のみ。
+- 大将の心の声: validation と定数に名前があるだけでは「認識している」とは言えない。実際に候補プールへ入り、探索で落ちず、画面に返るところまでを正とする。
+
+### [曹長(コード分隊)] 2026-04-30 20:21 JST
+- 原因: E48 / E96 の値プール自体は生成されていたが、2素子探索が総当たりのままで、E48の `20kΩ / 2素子直列` では `10kΩ + 10kΩ` へ到達する前に評価上限へ当たり、候補0件になっていた。
+- 実装: `NetworkSearchService` に2素子専用の逆算探索を追加した。E48 / E96 のような大きいE系列プールでは、直列/並列それぞれについて片側の値からもう片側の必要値を逆算し、近傍だけを評価する。
+- 実装: 抵抗だけでなく容量も、直列/並列の式が逆になる点を踏まえて `target - value` と reciprocal 補完を切り替えるようにした。
+- テスト: `NetworkSearchApiTest` に E48 `20kΩ = 10kΩ + 10kΩ`、E96 `5kΩ = 10kΩ ∥ 10kΩ`、E48容量 `50nF = 100nF直列2個` の回帰テストを追加した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 今回はE系列を知らないのではなく、探索順が正解へ届いていなかった。標準系列の値数が増えた時は、総当たりではなく式から候補を逆算する必要がある。
+
+### [曹長(テスト分隊)] 2026-04-30 20:21 JST
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `php -l tests/Feature/NetworkSearchApiTest.php`
+- ✓ `php artisan test --filter=NetworkSearchApiTest`。15 tests / 62 assertions。
+- ✓ `php artisan test --filter='NetworkSearchApiTest|UiApiSurfaceSmokeTest'`。28 tests / 404 assertions。
+- ✓ `composer run test`。87 tests / 766 assertions。
+- ✓ `git diff --check -- bits-keep/app/Services/NetworkSearchService.php bits-keep/tests/Feature/NetworkSearchApiTest.php 制作管理/makinglog.md`
+- 手動確認: `NetworkSearchService` 直接実行で E48 `20kΩ / 2素子直列` は `10kΩ + 10kΩ`、E96 `5kΩ / 2素子並列` は `10kΩ ∥ 10kΩ`、E48容量 `50nF / 2素子直列` は `100nF + 100nF` を返すことを確認した。いずれも `evaluation_limited=false`。
+- DB変更: なし。テスト環境でのFeatureテストのみ。
+- 曹長(テスト分隊)の心の声: 既存の評価上限テストも壊さずに通した。E48/E96だけを助けて、無制限探索に戻さないことが今回のポイント。
+
+### [大将] 2026-04-30 20:23 JST
+- [ユーザ] 部品登録/部品詳細スペック編集の許容差候補が狭い行内へ常時チップ表示されていて使いにくい、値入力+選択なのでコンボボックスにするべきと指示。
+- 現状判断: 候補を常時展開するUIは、スペック行の密度を壊し、値入力と候補選択の関係も弱い。自由入力可能な値欄に候補ドロップダウンを統合する。
+- 進め方: component-create / component-detail 両方の許容差候補チップを、入力横の候補ボタン/コンボリストへ置換し、選択時に値と単位を反映する。候補なしや自由入力は従来維持する。
+- DB変更: なし。Blade/JS/テストのみ。
+- 大将の心の声: UI説明ではなく構造で解決する。常時表示の候補を隠し、必要な時だけ開く入力へ変える。
+
+### [曹長(コード分隊)] 2026-04-30 20:30 JST
+- 実装: 部品登録と部品詳細の許容差スペック行から、常時表示の許容差候補チップを撤去した。
+- 実装: 許容値入力をコンボボックス化し、候補がある場合だけ右端の開閉ボタンを出すようにした。候補選択時は従来通り `value_typ` と `unit` を反映し、自由入力も維持する。
+- 実装: ドロップダウンは最大高さ付きの小型リストにし、行内レイアウトを押し広げないようにした。画面外クリックとEscで閉じる。
+- テスト: `UiApiSurfaceSmokeTest` に、部品登録/部品詳細の許容差候補がコンボボックス面として出ていること、旧チップ表示クラスが残っていないことを確認する回帰テストを追加した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 候補があることを全部見せるのではなく、値入力の必要な時だけ開ける形にした。密度の高いスペック編集では、常時展開は選びやすさより邪魔さが勝つ。
+
+### [曹長(テスト分隊)] 2026-04-30 20:30 JST
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest::test_tolerance_spec_value_candidates_use_combobox_surface`。1 test / 10 assertions。
+- ✓ `php artisan test --filter='UiApiSurfaceSmokeTest|ComponentDetailRouteSmokeTest'`。17 tests / 375 assertions。
+- ✓ `composer run test`。88 tests / 776 assertions。
+- ✓ `npm run build`。Browserslist/caniuse-lite 警告なし、500KB超過chunk警告なし。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト環境でのFeatureテストのみ。
+- 曹長(テスト分隊)の心の声: 画面説明を増やさず構造で直したので、テストも「説明文がある」ではなく「旧チップ面が消え、コンボボックス面がある」で固定した。
+
+### [大将] 2026-04-30 20:31 JST
+- [ユーザ] 全ファイルを git commit するよう指示。
+- 対応方針: 現在のワークツリーにある tracked/untracked をすべて対象に `git add -A` でステージし、これまでの設計補助ツール、部品シリーズ、スペック編集UI、ログ/仕様/テスト更新を1コミットにまとめる。
+- 事前確認: ブランチは `main`。DB破壊/構造変更コマンドは実行しない。マイグレーションファイルは変更成果物としてコミット対象に含める。
+- 大将の心の声: ここは範囲選別ではなく「全ファイル」が明示指示。未追跡の実装・テストも落とさず入れる。

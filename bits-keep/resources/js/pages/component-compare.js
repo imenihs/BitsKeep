@@ -177,7 +177,7 @@ export default function setup() {
         }
     };
 
-    const statusLabel = (s) => ({ active: '入手可', nrnd: 'NRND', eol: 'EOL', custom: 'カスタム' }[s] ?? s);
+    const statusLabel = (s) => ({ active: '量産中', nrnd: '新規非推奨', eol: 'EOL', last_time: '在庫限り', custom: 'カスタム' }[s] ?? s);
     const statusClass = (s) => ({ active: 'tag-ok', nrnd: 'tag-warning', eol: 'tag-eol' }[s] ?? '');
     const specProfileBadge = (profile) => getSpecProfileBadgeLabel(profile);
     const compareCountLabel = computed(() => `${components.value.length}件比較中`);

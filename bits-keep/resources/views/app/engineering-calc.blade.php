@@ -4,18 +4,18 @@
   @include('partials.theme-init')
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>エンジニア電卓 - BitsKeep</title>
+  <title>エンジニアリング計算 - BitsKeep</title>
   @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-@include('partials.app-header', ['current' => 'エンジニア電卓'])
+@include('partials.app-header', ['current' => 'エンジニアリング計算'])
 <div id="app" data-page="engineering-calc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
-  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニア電卓', 'current' => true]]])
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニアリング計算', 'current' => true]]])
 
   <header class="mb-6 pb-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold">エンジニア電卓</h1>
+      <h1 class="text-2xl font-bold">エンジニアリング計算</h1>
       <p class="text-sm opacity-60 mt-1">数式を入力して Enter で評価</p>
     </div>
   </header>
@@ -30,12 +30,15 @@
         </div>
       </div>
       <div class="space-y-2 max-h-[70vh] overflow-y-auto">
-        <button v-for="item in history" :key="item.id" @click="useHistory(item)"
-          class="w-full text-left rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 hover:border-[var(--color-primary)]">
-          <div class="font-mono text-xs opacity-70 whitespace-pre-line">@{{ item.expr }}</div>
-          <div class="mt-1 text-sm font-semibold">@{{ item.result }}</div>
-          <div class="mt-1 text-[11px] opacity-50">@{{ item.meta }}</div>
-        </button>
+        <div v-for="item in history" :key="item.id"
+          class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 hover:border-[var(--color-primary)]">
+          <button @click="useHistory(item)" class="w-full text-left">
+            <div class="font-mono text-xs opacity-70 whitespace-pre-line">@{{ item.expr }}</div>
+            <div class="mt-1 text-sm font-semibold">@{{ item.result }}</div>
+            <div class="mt-1 text-[11px] opacity-50">@{{ item.meta }}</div>
+          </button>
+          <button @click="pinHistory(item)" class="mt-2 text-[11px] link-text">固定式へ</button>
+        </div>
         <div v-if="history.length === 0" class="text-center py-6 opacity-30 text-xs">履歴なし</div>
       </div>
 
@@ -64,7 +67,7 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <div>
-          <textarea v-model="expr" rows="14"
+          <textarea ref="calcTextarea" v-model="expr" rows="14" @input="onEditorInput" @keyup="updateCompletion" @click="updateCompletion" @keydown="onEditorKeydown"
             class="input-text min-h-[320px] w-full px-4 py-3 font-mono text-sm leading-6 resize-none"
             :class="error ? 'border-red-400 text-red-700' : ''"
             placeholder="例:
@@ -72,6 +75,26 @@ vin = 5
 r1 = 10k
 r2 = 3.3k
 vin * r2 / (r1 + r2)"></textarea>
+
+          <div v-if="completionSuggestions.length" class="mt-2 flex flex-wrap gap-2">
+            <button v-for="item in completionSuggestions" :key="`${item.group}-${item.label}`"
+              @mousedown.prevent="insertCompletion(item)"
+              class="rounded border border-[var(--color-border)] px-2.5 py-1 text-[11px] font-mono hover:border-[var(--color-primary)]">
+              @{{ item.insert }} <span class="font-sans opacity-50">@{{ item.group }}</span>
+            </button>
+          </div>
+
+          <div class="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs font-semibold opacity-60 mb-2">構文</div>
+            <div class="space-y-1 font-mono text-xs max-h-40 overflow-y-auto">
+              <div v-for="line in syntaxLines" :key="line.number" class="flex gap-3">
+                <span class="w-6 shrink-0 text-right opacity-35">@{{ line.number }}</span>
+                <span class="min-w-0 flex-1 whitespace-pre-wrap break-all">
+                  <span v-for="(token, tokenIndex) in line.tokens" :key="`${line.number}-${tokenIndex}`" :class="tokenClass(token.type)">@{{ token.text }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
 
           <div v-if="error" class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
             <div class="text-xs font-semibold text-red-700">エラー箇所</div>
@@ -91,7 +114,7 @@ vin * r2 / (r1 + r2)"></textarea>
           <div class="mt-3">
             <div class="text-xs font-semibold opacity-60 mb-2">式サンプル</div>
             <div class="flex flex-wrap gap-2">
-            <button v-for="snippet in snippets" :key="snippet.label" @click="expr = snippet.value"
+            <button v-for="snippet in snippets" :key="snippet.label" @click="applySnippet(snippet.value)"
               class="px-3 py-1.5 rounded border border-[var(--color-border)] text-xs hover:bg-[var(--color-primary)] hover:text-white transition-colors">
               @{{ snippet.label }}
             </button>
@@ -237,7 +260,7 @@ vin * r2 / (r1 + r2)"></textarea>
     </section>
   </div>
 
-  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニア電卓', 'current' => true]], 'class' => 'mt-6'])
+  @include('partials.app-breadcrumbs', ['items' => [['label' => 'エンジニアリング計算', 'current' => true]], 'class' => 'mt-6'])
 
 </div>
 </body>

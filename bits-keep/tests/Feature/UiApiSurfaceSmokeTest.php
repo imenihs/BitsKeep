@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\AltiumLibrary;
+use App\Models\AnalysisSession;
 use App\Models\AuditLog;
 use App\Models\Component;
+use App\Models\ComponentSeries;
 use App\Models\ComponentSupplier;
 use App\Models\Location;
 use App\Models\Package;
@@ -17,6 +19,7 @@ use App\Models\StockOrder;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class UiApiSurfaceSmokeTest extends TestCase
@@ -42,6 +45,8 @@ class UiApiSurfaceSmokeTest extends TestCase
         $component = $fixture['component'];
         $comparisonComponent = $fixture['comparisonComponent'];
         $project = $fixture['project'];
+        $componentSeries = $fixture['componentSeries'];
+        $analysisSession = $fixture['analysisSession'];
 
         foreach ([
             '/api/spec-groups?include_archived=1',
@@ -52,6 +57,8 @@ class UiApiSurfaceSmokeTest extends TestCase
             '/api/locations?include_archived=1',
             '/api/components?per_page=10',
             "/api/components/{$component->id}",
+            '/api/component-series',
+            "/api/component-series/{$componentSeries->id}",
             "/api/components/{$component->id}/similar",
             '/api/stock-alerts',
             '/api/projects',
@@ -62,6 +69,8 @@ class UiApiSurfaceSmokeTest extends TestCase
             "/api/projects/{$project->id}",
             "/api/projects/{$project->id}/components",
             "/api/projects/{$project->id}/cost",
+            '/api/analysis-sessions',
+            "/api/analysis-sessions/{$analysisSession->id}",
             '/api/users',
             '/api/audit-logs',
             '/api/altium/libraries',
@@ -158,6 +167,110 @@ class UiApiSurfaceSmokeTest extends TestCase
         $specType->refresh();
         $this->assertSame(['k', ''], $specType->suggest_prefixes);
         $this->assertSame(['k', ''], $specType->display_prefixes);
+    }
+
+    public function test_group_local_spec_type_create_stores_master_equivalent_fields(): void
+    {
+        $group = SpecGroup::create([
+            'name' => 'トランジスタ',
+            'sort_order' => 10,
+        ]);
+
+        $response = $this->postJson('/api/spec-types', [
+            'name' => 'コレクタ電流',
+            'name_ja' => 'コレクタ電流',
+            'name_en' => 'Collector Current',
+            'symbol' => 'I_C',
+            'description' => '部品詳細のスペック編集から追加したスペック詳細',
+            'value_type' => 'numeric',
+            'unit' => 'A',
+            'suggest_prefixes' => ['k', '', 'm', 'u'],
+            'display_prefixes' => ['', 'm', 'u'],
+            'spec_scope' => 'group_local',
+            'owner_spec_group_id' => $group->id,
+            'aliases' => [
+                ['alias' => 'IC'],
+                ['alias' => 'Collector Current'],
+            ],
+            'sort_order' => 40,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name_ja', 'コレクタ電流')
+            ->assertJsonPath('data.name_en', 'Collector Current')
+            ->assertJsonPath('data.symbol', 'I_C')
+            ->assertJsonPath('data.description', '部品詳細のスペック編集から追加したスペック詳細')
+            ->assertJsonPath('data.base_unit', 'A')
+            ->assertJsonPath('data.suggest_prefixes', ['k', '', 'm', 'u'])
+            ->assertJsonPath('data.display_prefixes', ['', 'm', 'u'])
+            ->assertJsonPath('data.owner_spec_group_id', $group->id);
+
+        $specType = SpecType::with(['aliases', 'units', 'specGroups'])->findOrFail($response->json('data.id'));
+        $this->assertSame('group_local', $specType->spec_scope);
+        $this->assertSame($group->id, $specType->owner_spec_group_id);
+        $this->assertSame(['k', '', 'm', 'u'], $specType->suggest_prefixes);
+        $this->assertSame(['', 'm', 'u'], $specType->display_prefixes);
+        $this->assertSame('A', $specType->units->first()?->unit);
+        $this->assertSame(['IC', 'Collector Current'], $specType->aliases->pluck('alias')->all());
+        $this->assertTrue($specType->specGroups->contains('id', $group->id));
+    }
+
+    public function test_byte_bit_spec_type_prefixes_enforce_decimal_or_iec_group(): void
+    {
+        $iecResponse = $this->postJson('/api/spec-types', [
+            'name' => 'Memory size',
+            'name_ja' => 'メモリ容量',
+            'value_type' => 'numeric',
+            'unit' => 'B',
+            'suggest_prefixes' => ['Mi', 'Ki', ''],
+            'display_prefixes' => ['Mi', 'Ki', ''],
+            'spec_scope' => 'common',
+        ]);
+
+        $iecResponse
+            ->assertCreated()
+            ->assertJsonPath('data.suggest_prefixes', ['Mi', 'Ki', ''])
+            ->assertJsonPath('data.display_prefixes', ['Mi', 'Ki', '']);
+
+        $mixResponse = $this->postJson('/api/spec-types', [
+            'name' => 'Mixed memory size',
+            'name_ja' => '混在メモリ容量',
+            'value_type' => 'numeric',
+            'unit' => 'B',
+            'suggest_prefixes' => ['M', 'Mi', ''],
+            'spec_scope' => 'common',
+        ]);
+
+        $mixResponse
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('suggest_prefixes');
+
+        $fractionalResponse = $this->postJson('/api/spec-types', [
+            'name' => 'Fractional memory size',
+            'name_ja' => '小数メモリ容量',
+            'value_type' => 'numeric',
+            'unit' => 'bit',
+            'display_prefixes' => ['m', ''],
+            'spec_scope' => 'common',
+        ]);
+
+        $fractionalResponse
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('display_prefixes');
+
+        $nonByteIecResponse = $this->postJson('/api/spec-types', [
+            'name' => 'IEC Voltage',
+            'name_ja' => 'IEC電圧',
+            'value_type' => 'numeric',
+            'unit' => 'V',
+            'suggest_prefixes' => ['Ki', ''],
+            'spec_scope' => 'common',
+        ]);
+
+        $nonByteIecResponse
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('suggest_prefixes');
     }
 
     public function test_spec_type_allows_same_display_name_with_different_symbols(): void
@@ -284,6 +397,7 @@ class UiApiSurfaceSmokeTest extends TestCase
             '/components/create',
             "/components/{$component->id}",
             "/components/{$component->id}/edit",
+            '/component-series',
             '/component-compare',
             '/master',
             '/locations',
@@ -325,6 +439,43 @@ class UiApiSurfaceSmokeTest extends TestCase
                 ->assertDontSee('Undefined variable', false)
                 ->assertDontSee('Internal Server Error', false);
         }
+    }
+
+    public function test_network_tool_page_exposes_updated_design_surface(): void
+    {
+        $this->get('/tools/network')
+            ->assertOk()
+            ->assertSee('data-page="resistance-calc"', false)
+            ->assertSee('比較トレイ', false)
+            ->assertSee('可変抵抗 + 固定抵抗', false)
+            ->assertSee('基準抵抗値', false)
+            ->assertSee('要求範囲', false)
+            ->assertSee('採用候補', false)
+            ->assertSee('理想値', false)
+            ->assertSee('在庫値', false);
+
+        $this->get('/functions')
+            ->assertOk()
+            ->assertSee('直列・並列・混在・分圧・在庫値・可変抵抗', false);
+    }
+
+    public function test_tolerance_spec_value_candidates_use_combobox_surface(): void
+    {
+        $fixture = $this->createUiFixture();
+
+        $this->get('/components/create')
+            ->assertOk()
+            ->assertSee('tolerance-combobox', false)
+            ->assertSee('toggleToleranceGradeMenu', false)
+            ->assertSee('selectToleranceGradeOption', false)
+            ->assertDontSee('mt-2 flex flex-wrap gap-1', false);
+
+        $this->get("/components/{$fixture['component']->id}")
+            ->assertOk()
+            ->assertSee('tolerance-combobox', false)
+            ->assertSee('toggleToleranceGradeMenu', false)
+            ->assertSee('selectToleranceGradeOption', false)
+            ->assertDontSee('mt-2 flex flex-wrap gap-1', false);
     }
 
     public function test_components_default_order_uses_catalog_context_not_recent_update(): void
@@ -438,6 +589,118 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertNotContains($manualSpecType->id, $topLevelSpecTypeIds);
     }
 
+    public function test_spec_group_index_returns_context_counts_for_sidebar(): void
+    {
+        $group = SpecGroup::create([
+            'name' => 'カウント確認分類',
+            'description' => 'sidebar count fixture',
+            'sort_order' => 10,
+        ]);
+
+        $localA = SpecType::create([
+            'name' => 'カウント個別A',
+            'name_ja' => 'カウント個別A',
+            'base_unit' => 'Ω',
+            'spec_scope' => SpecType::SCOPE_GROUP_LOCAL,
+            'owner_spec_group_id' => $group->id,
+            'spec_kind' => SpecType::KIND_NORMAL,
+        ]);
+        $localB = SpecType::create([
+            'name' => 'カウント個別B',
+            'name_ja' => 'カウント個別B',
+            'base_unit' => 'V',
+            'spec_scope' => SpecType::SCOPE_GROUP_LOCAL,
+            'owner_spec_group_id' => $group->id,
+            'spec_kind' => SpecType::KIND_NORMAL,
+        ]);
+        $commonA = SpecType::create([
+            'name' => 'カウント共通A',
+            'name_ja' => 'カウント共通A',
+            'base_unit' => 'Hz',
+            'spec_scope' => SpecType::SCOPE_COMMON,
+            'spec_kind' => SpecType::KIND_NORMAL,
+        ]);
+        $commonB = SpecType::create([
+            'name' => 'カウント共通B',
+            'name_ja' => 'カウント共通B',
+            'base_unit' => 'A',
+            'spec_scope' => SpecType::SCOPE_COMMON,
+            'spec_kind' => SpecType::KIND_NORMAL,
+        ]);
+        $tolerance = SpecType::create([
+            'name' => 'カウント許容差',
+            'name_ja' => 'カウント許容差',
+            'base_unit' => '%',
+            'spec_scope' => SpecType::SCOPE_COMMON,
+            'spec_kind' => SpecType::KIND_TOLERANCE,
+        ]);
+        $localTolerance = SpecType::create([
+            'name' => 'カウント個別許容差',
+            'name_ja' => 'カウント個別許容差',
+            'base_unit' => '%',
+            'spec_scope' => SpecType::SCOPE_GROUP_LOCAL,
+            'owner_spec_group_id' => $group->id,
+            'spec_kind' => SpecType::KIND_TOLERANCE,
+        ]);
+
+        $group->specTypes()->attach([
+            $localA->id => ['sort_order' => 10],
+            $localB->id => ['sort_order' => 20],
+            $commonA->id => ['sort_order' => 30],
+            $commonB->id => ['sort_order' => 40],
+            $tolerance->id => ['sort_order' => 50],
+            $localTolerance->id => ['sort_order' => 60],
+        ]);
+        $group->templates()->create([
+            'name' => 'カウント確認テンプレート',
+            'sort_order' => 10,
+        ]);
+
+        $this->getJson('/api/spec-groups?include_archived=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'カウント確認分類')
+            ->assertJsonPath('data.0.usage_count', 6)
+            ->assertJsonPath('data.0.local_candidate_count', 2)
+            ->assertJsonPath('data.0.common_candidate_count', 2)
+            ->assertJsonPath('data.0.tolerance_candidate_count', 1)
+            ->assertJsonPath('data.0.owned_spec_type_count', 2)
+            ->assertJsonPath('data.0.template_count', 1);
+
+        $this->getJson("/api/spec-groups/{$group->id}")
+            ->assertOk()
+            ->assertJsonPath('data.usage_count', 6)
+            ->assertJsonPath('data.local_candidate_count', 2)
+            ->assertJsonPath('data.common_candidate_count', 2)
+            ->assertJsonPath('data.tolerance_candidate_count', 1)
+            ->assertJsonPath('data.owned_spec_type_count', 2)
+            ->assertJsonPath('data.template_count', 1);
+    }
+
+    public function test_spec_groups_remain_available_before_component_series_tables_exist(): void
+    {
+        SpecGroup::create([
+            'name' => '抵抗',
+            'description' => 'migration guard',
+            'sort_order' => 10,
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('component_series_values');
+        Schema::dropIfExists('component_series_value_policies');
+        Schema::dropIfExists('component_series');
+        Schema::enableForeignKeyConstraints();
+
+        $this->getJson('/api/spec-groups?include_archived=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', '抵抗')
+            ->assertJsonPath('data.0.series_count', 0)
+            ->assertJsonPath('data.0.local_candidate_count', 0)
+            ->assertJsonPath('data.0.common_candidate_count', 0)
+            ->assertJsonPath('data.0.tolerance_candidate_count', 0)
+            ->assertJsonPath('data.0.owned_spec_type_count', 0)
+            ->assertJsonPath('data.0.series_management_mode', 'single');
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -535,6 +798,41 @@ class UiApiSurfaceSmokeTest extends TestCase
             'pcb_footprint' => 'R_0603',
         ]);
 
+        $componentSeries = ComponentSeries::create([
+            'spec_group_id' => $category->id,
+            'value_spec_type_id' => $specType->id,
+            'package_id' => $package->id,
+            'manufacturer' => 'Codex Test',
+            'name' => 'UI確認抵抗シリーズ',
+            'status' => 'active',
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+        $componentSeries->policy()->create([
+            'value_set_type' => 'hybrid_series',
+            'primary_series' => 'E12',
+            'extra_series' => ['E24'],
+            'extra_values' => ['4.99'],
+            'excluded_values' => [],
+            'unit' => 'Ω',
+            'decade_min' => 0,
+            'decade_max' => 0,
+        ]);
+        $componentSeries->values()->create([
+            'value_text' => '4.7kΩ',
+            'value_key' => 'ω|4700',
+            'value_numeric' => 4700,
+            'unit' => 'Ω',
+            'origin' => 'manual',
+            'is_enabled' => true,
+            'is_stocked' => true,
+            'materialized_component_id' => $component->id,
+        ]);
+        $component->forceFill([
+            'component_series_id' => $componentSeries->id,
+            'component_series_value_id' => $componentSeries->values()->first()->id,
+        ])->save();
+
         StockOrder::create([
             'component_id' => $component->id,
             'supplier_id' => $supplier->id,
@@ -558,6 +856,21 @@ class UiApiSurfaceSmokeTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
         $project->components()->attach($component->id, ['required_qty' => 3]);
+
+        $analysisSession = AnalysisSession::create([
+            'tool_id' => 'power',
+            'title' => 'UI確認 電源余裕',
+            'verdict' => 'PASS',
+            'summary' => 'UI smoke analysis session',
+            'input_payload' => ['supply_w' => 10],
+            'result_payload' => ['margin_w' => 3],
+            'candidate_links' => [['label' => $component->part_number, 'component_id' => $component->id]],
+            'project_id' => $project->id,
+            'component_id' => $component->id,
+            'bom_line_key' => 'ui-smoke-line',
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
 
         ProjectSyncRun::create([
             'triggered_by' => $this->admin->id,
@@ -589,7 +902,9 @@ class UiApiSurfaceSmokeTest extends TestCase
             'location',
             'component',
             'comparisonComponent',
-            'project'
+            'project',
+            'componentSeries',
+            'analysisSession'
         );
     }
 

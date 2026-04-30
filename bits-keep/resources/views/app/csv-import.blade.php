@@ -68,11 +68,13 @@
     <div class="mt-4 grid gap-3 md:grid-cols-3">
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
         <div class="font-semibold">必須列</div>
-        <code class="mt-1 block break-all opacity-70">part_number, common_name</code>
+        <div class="mt-1 opacity-70">型番、通称</div>
+        <code class="mt-1 block break-all opacity-55">例: part_number, common_name</code>
       </div>
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
         <div class="font-semibold">候補列</div>
-        <code class="mt-1 block break-all opacity-70">procurement_status, quantity_new, category_names, package_name</code>
+        <div class="mt-1 opacity-70">調達状態、新品在庫数、分類名、パッケージ名</div>
+        <code class="mt-1 block break-all opacity-55">例: procurement_status, quantity_new, category_names, package_name</code>
       </div>
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3 text-xs">
         <div class="font-semibold">完了条件</div>
@@ -112,7 +114,10 @@
       <table class="w-full text-xs border-collapse">
         <thead class="sticky top-0 bg-[var(--color-bg)]">
           <tr class="border-b border-[var(--color-border)] text-left opacity-70">
-            <th v-for="h in preview.headers" :key="h" class="py-1.5 pr-3 whitespace-nowrap">@{{ h }}</th>
+            <th v-for="h in preview.headers" :key="h" class="py-1.5 pr-3 whitespace-nowrap">
+              <div>@{{ csvHeaderLabel(h) }}</div>
+              <code v-if="csvHeaderLabel(h) !== h" class="block text-[10px] opacity-50">@{{ h }}</code>
+            </th>
           </tr>
         </thead>
         <tbody>

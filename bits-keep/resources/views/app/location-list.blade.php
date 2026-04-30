@@ -188,7 +188,7 @@
       </p>
       <div v-if="archiveModal.loc?.inventory_block_count || archiveModal.loc?.primary_component_count"
         class="mb-4 px-3 py-2 rounded bg-red-50 border border-red-200 text-xs text-red-700 space-y-0.5">
-        <div v-if="archiveModal.loc?.inventory_block_count">在庫ブロック: @{{ archiveModal.loc.inventory_block_count }}件</div>
+        <div v-if="archiveModal.loc?.inventory_block_count">棚別在庫: @{{ archiveModal.loc.inventory_block_count }}件</div>
         <div v-if="archiveModal.loc?.primary_component_count">代表棚に設定されている部品: @{{ archiveModal.loc.primary_component_count }}件</div>
       </div>
       <div class="flex justify-end gap-3 mt-2">

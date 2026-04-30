@@ -36,12 +36,41 @@
   <!-- アクティブツールの説明 -->
   <p v-if="activeTool?.desc" class="text-xs opacity-60 mb-5">@{{ activeTool.desc }}</p>
 
+  <section v-if="advancedInputGroups.length" class="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">入力条件</div>
+        <h2 class="mt-1 text-sm font-bold">基本条件 / 最悪条件 / 部品定格 / 出力・保存</h2>
+      </div>
+      <span class="tag text-[10px]">@{{ activeTool?.label }}</span>
+    </div>
+    <div class="grid gap-3 lg:grid-cols-4">
+      <div v-for="group in advancedInputGroups" :key="group.label" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+        <div class="mb-2 text-xs font-semibold opacity-60">@{{ group.label }}</div>
+        <div class="grid gap-2">
+          <label v-for="item in group.fields" :key="`${group.label}-${item.key}`" class="block">
+            <span class="block text-[11px] opacity-60 mb-1">@{{ item.label }}</span>
+            <textarea v-if="item.type === 'textarea'" v-model="item.target[item.key]"
+              @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
+              rows="4" class="input-text w-full font-mono text-xs"></textarea>
+            <input v-else-if="item.type === 'text'" v-model="item.target[item.key]"
+              @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
+              type="text" class="input-text w-full font-mono text-xs" />
+            <input v-else v-model.number="item.target[item.key]"
+              @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
+              type="number" step="any" class="input-text w-full font-mono text-xs" />
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section v-if="activeDiagram" class="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)] lg:items-stretch">
       <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Circuit Context</div>
+            <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">回路の前提</div>
             <h2 class="mt-1 text-sm font-bold">@{{ activeDiagram.title }}</h2>
             <p class="mt-1 text-xs leading-5 opacity-60">@{{ activeDiagram.subtitle }}</p>
           </div>
@@ -72,7 +101,7 @@
             <g :class="diagramItemClass(activeDiagram.keys.output)" @mouseenter="focusDiagram(activeDiagram.keys.output)" @mouseleave="clearDiagramFocus" @click="focusDiagram(activeDiagram.keys.output)">
               <circle cx="180" cy="130" r="6" class="circuit-junction"></circle>
               <rect x="430" y="105" width="120" height="50" rx="8" class="circuit-box"></rect>
-              <text x="490" y="126" text-anchor="middle" class="circuit-label">@{{ activeDiagram.type === 'divider' ? 'Vout' : 'Temp' }}</text>
+              <text x="490" y="126" text-anchor="middle" class="circuit-label">@{{ activeDiagram.type === 'divider' ? 'Vout' : '温度' }}</text>
               <text x="490" y="143" text-anchor="middle" class="circuit-note">@{{ activeDiagram.type === 'divider' ? 'ADC/後段へ' : '換算結果' }}</text>
             </g>
             <g :class="diagramItemClass(activeDiagram.keys.lower)" @mouseenter="focusDiagram(activeDiagram.keys.lower)" @mouseleave="clearDiagramFocus" @click="focusDiagram(activeDiagram.keys.lower)">
@@ -142,10 +171,10 @@
               <text x="520" y="108" class="circuit-label">OUT</text>
             </g>
             <g :class="diagramItemClass('R3')" @mouseenter="focusDiagram('R3')" @mouseleave="clearDiagramFocus" @click="focusDiagram('R3')">
-              <path d="M 510 120 C 510 42 255 42 255 100" class="circuit-wire"></path>
+              <path d="M 510 120 C 510 42 260 42 290 145" class="circuit-wire"></path>
               <rect x="348" y="26" width="70" height="34" rx="6" class="circuit-symbol-fill"></rect>
               <text x="383" y="48" text-anchor="middle" class="circuit-label">R3</text>
-              <text x="430" y="44" class="circuit-note">帰還</text>
+              <text x="430" y="44" class="circuit-note">基準帰還</text>
             </g>
             <g :class="diagramItemClass('Vcc')" @mouseenter="focusDiagram('Vcc')" @mouseleave="clearDiagramFocus" @click="focusDiagram('Vcc')">
               <text x="440" y="70" class="circuit-note">Vcc = @{{ comp.Vcc }} V</text>
@@ -224,7 +253,7 @@
             </g>
             <g :class="diagramItemClass('margin')" @mouseenter="focusDiagram('margin')" @mouseleave="clearDiagramFocus" @click="focusDiagram('margin')">
               <rect x="260" y="180" width="160" height="42" rx="8" class="circuit-box"></rect>
-              <text x="340" y="206" text-anchor="middle" class="circuit-label">margin @{{ powerResult.margin }} W</text>
+              <text x="340" y="206" text-anchor="middle" class="circuit-label">余裕 @{{ powerResult.margin }} W</text>
             </g>
           </template>
 
@@ -365,12 +394,13 @@
     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-[11px] uppercase tracking-[0.18em] opacity-50">Design Verdict</span>
+          <span class="text-[11px] uppercase tracking-[0.18em] opacity-50">判定結果</span>
           <span class="tag"
             :class="{
-              'tag-ok': analysisReport.tone === 'ok',
+              'tag-ok': analysisReport.tone === 'ok' && analysisReport.verdict !== 'CHECK',
               'tag-warning': analysisReport.tone === 'warn',
-              'tag-eol': analysisReport.tone === 'bad'
+              'tag-eol': analysisReport.tone === 'bad',
+              'border border-[var(--color-tag-warning)] text-[var(--color-tag-warning)]': analysisReport.verdict === 'CHECK'
             }">@{{ analysisReport.verdict }}</span>
         </div>
         <p class="mt-2 text-sm font-semibold leading-6">@{{ analysisReport.summary }}</p>
@@ -378,7 +408,7 @@
       <div v-if="analysisReport.dominantFactors.length" class="shrink-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
         <div class="text-[11px] font-semibold opacity-50">支配要因</div>
         <div class="mt-1 flex flex-wrap gap-1">
-          <span v-for="factor in analysisReport.dominantFactors" :key="factor" class="tag text-[10px]">@{{ factor }}</span>
+          <span v-for="factor in analysisReport.dominantFactors" :key="factor" :title="factor" class="tag text-[10px]">@{{ factor.length > 10 ? factor.slice(0, 10) + '...' : factor }}</span>
         </div>
       </div>
     </div>
@@ -389,7 +419,29 @@
         <div class="mt-1 break-words font-mono text-sm font-semibold">@{{ metric.value }}</div>
       </div>
     </div>
+    <div class="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-xs font-semibold opacity-60">コピー用サマリ</div>
+        <button type="button" @click="copyAnalysisSummary"
+          class="rounded border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-card-odd)]">
+          コピー
+        </button>
+      </div>
+      <p class="mt-2 text-xs leading-5 opacity-75">@{{ analysisReport.copySummary }}</p>
+    </div>
     <div class="mt-4 grid gap-3 lg:grid-cols-2">
+      <div v-if="analysisReport.missingConditions.length" class="rounded-xl border border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_8%,var(--color-bg))] px-3 py-2">
+        <div class="text-xs font-semibold text-[var(--color-tag-warning)]">判定に必要な不足条件</div>
+        <ul class="mt-1 list-disc pl-5 text-xs leading-5">
+          <li v-for="condition in analysisReport.missingConditions" :key="condition">@{{ condition }}</li>
+        </ul>
+      </div>
+      <div v-if="analysisReport.assumptions.length" class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+        <div class="text-xs font-semibold opacity-60">前提</div>
+        <ul class="mt-1 list-disc pl-5 text-xs leading-5">
+          <li v-for="assumption in analysisReport.assumptions" :key="assumption">@{{ assumption }}</li>
+        </ul>
+      </div>
       <div v-if="analysisReport.warnings.length" class="rounded-xl border border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_8%,var(--color-bg))] px-3 py-2">
         <div class="text-xs font-semibold text-[var(--color-tag-warning)]">不足条件・注意</div>
         <ul class="mt-1 list-disc pl-5 text-xs leading-5">
@@ -401,6 +453,110 @@
         <ul class="mt-1 list-disc pl-5 text-xs leading-5">
           <li v-for="action in analysisReport.nextActions" :key="action">@{{ action }}</li>
         </ul>
+      </div>
+    </div>
+    <div v-if="analysisReport.candidateLinks.length" class="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+      <div class="text-xs font-semibold opacity-60">候補リンク</div>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <a v-for="link in analysisReport.candidateLinks" :key="link.url || link.label"
+          :href="link.url" target="_blank" rel="noopener noreferrer"
+          class="tag text-[10px] hover:opacity-80">@{{ link.label || link.url }}</a>
+      </div>
+    </div>
+    <div class="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-3">
+      <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(8rem,0.35fr))_auto] lg:items-end">
+        <label class="block">
+          <span class="block text-[11px] font-semibold opacity-60 mb-1">保存</span>
+          <input v-model="outputSave.title" type="text" class="input-text w-full"
+            :placeholder="`${activeTool?.label || activeToolId} ${analysisReport.verdict}`" />
+        </label>
+        <label class="block">
+          <span class="block text-[11px] font-semibold opacity-60 mb-1">案件</span>
+          <input v-model="outputSave.projectId" type="number" min="1" class="input-text w-full font-mono" />
+        </label>
+        <label class="block">
+          <span class="block text-[11px] font-semibold opacity-60 mb-1">部品</span>
+          <input v-model="outputSave.componentId" type="number" min="1" class="input-text w-full font-mono" />
+        </label>
+        <label class="block">
+          <span class="block text-[11px] font-semibold opacity-60 mb-1">BOMの行番号/識別名</span>
+          <input v-model="outputSave.bomLineKey" type="text" class="input-text w-full font-mono" />
+        </label>
+        <button type="button" @click="saveAnalysisReport" :disabled="outputSave.saving"
+          class="rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)] disabled:cursor-not-allowed disabled:opacity-50">
+          @{{ outputSave.saving ? '保存中...' : '解析セッション保存' }}
+        </button>
+      </div>
+      <div class="mt-4 grid gap-3 lg:grid-cols-3">
+        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3">
+          <div class="text-xs font-semibold opacity-60">登録部品から取り込み</div>
+          <button type="button" @click="loadComponentContext" :disabled="componentImport.loading"
+            class="mt-2 rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)] disabled:cursor-not-allowed disabled:opacity-50">
+            @{{ componentImport.loading ? '読込中...' : '部品から取り込み' }}
+          </button>
+          <div v-if="componentImport.component" class="mt-2 text-xs leading-5">
+            <div class="font-semibold">@{{ loadedComponentName }}</div>
+            <div class="opacity-60">在庫 @{{ loadedComponentStock }} pcs / スペック件数 @{{ componentImport.component.specs?.length || 0 }}</div>
+            <ul v-if="componentImport.applied.length" class="mt-1 list-disc pl-4 opacity-70">
+              <li v-for="item in componentImport.applied" :key="item">@{{ item }}</li>
+            </ul>
+          </div>
+          <p v-if="componentImport.status === 'success'" class="mt-2 text-xs text-[var(--color-tag-ok)]">@{{ componentImport.message }}</p>
+          <div v-if="componentImport.status === 'error'" class="mt-2 rounded-lg border border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))] p-3 text-xs">
+            <div class="font-semibold text-[var(--color-tag-eol)]">取り込みに失敗しました</div>
+            <p class="mt-1 opacity-80">@{{ componentImport.error }}</p>
+            <button type="button" @click="loadComponentContext" class="mt-2 rounded border border-[var(--color-tag-eol)] px-2 py-1">再試行</button>
+          </div>
+        </div>
+        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3">
+          <div class="text-xs font-semibold opacity-60">保存済み解析差分</div>
+          <button type="button" @click="loadSavedAnalysis" :disabled="savedAnalysis.loading"
+            class="mt-2 rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)] disabled:cursor-not-allowed disabled:opacity-50">
+            @{{ savedAnalysis.loading ? '取得中...' : '再計算・差分比較' }}
+          </button>
+          <div v-if="savedAnalysis.diff" class="mt-2 text-xs leading-5">
+            <div class="font-semibold">@{{ savedAnalysis.diff.title }}</div>
+            <div class="opacity-60">@{{ savedAnalysis.diff.previousVerdict }} -> @{{ savedAnalysis.diff.currentVerdict }}</div>
+            <ul v-if="savedAnalysis.diff.changes.length" class="mt-1 list-disc pl-4 opacity-70">
+              <li v-for="change in savedAnalysis.diff.changes" :key="change">@{{ change }}</li>
+            </ul>
+            <p v-else class="mt-1 opacity-60">入力条件に差分はありません。</p>
+          </div>
+          <p v-if="savedAnalysis.status === 'success'" class="mt-2 text-xs text-[var(--color-tag-ok)]">@{{ savedAnalysis.message }}</p>
+          <div v-if="savedAnalysis.status === 'error'" class="mt-2 rounded-lg border border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))] p-3 text-xs">
+            <div class="font-semibold text-[var(--color-tag-eol)]">差分取得に失敗しました</div>
+            <p class="mt-1 opacity-80">@{{ savedAnalysis.error }}</p>
+            <button type="button" @click="loadSavedAnalysis" class="mt-2 rounded border border-[var(--color-tag-eol)] px-2 py-1">再試行</button>
+          </div>
+        </div>
+        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3">
+          <div class="text-xs font-semibold opacity-60">解析テンプレート</div>
+          <select v-model="templateState.selected" class="input-text mt-2 w-full text-xs">
+            <option v-for="template in analysisTemplates" :key="template.id" :value="template.id">@{{ template.label }}</option>
+          </select>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button type="button" @click="applyAnalysisTemplate"
+              class="rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)]">
+              入力へ反映
+            </button>
+            <button type="button" @click="duplicateAnalysisTemplate" :disabled="outputSave.saving"
+              class="rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)] disabled:cursor-not-allowed disabled:opacity-50">
+              複製保存
+            </button>
+          </div>
+          <p v-if="templateState.status === 'success'" class="mt-2 text-xs text-[var(--color-tag-ok)]">@{{ templateState.message }}</p>
+          <div v-if="templateState.status === 'error'" class="mt-2 rounded-lg border border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))] p-3 text-xs">
+            <div class="font-semibold text-[var(--color-tag-eol)]">テンプレート操作に失敗しました</div>
+            <p class="mt-1 opacity-80">@{{ templateState.error }}</p>
+            <button type="button" @click="applyAnalysisTemplate" class="mt-2 rounded border border-[var(--color-tag-eol)] px-2 py-1">再試行</button>
+          </div>
+        </div>
+      </div>
+      <p v-if="outputSave.status === 'success'" class="mt-2 text-xs text-[var(--color-tag-ok)]">@{{ outputSave.message }}</p>
+      <div v-if="outputSave.status === 'error'" class="mt-2 rounded-lg border border-[var(--color-tag-eol)] bg-[color-mix(in_srgb,var(--color-tag-eol)_8%,var(--color-bg))] p-3 text-xs">
+        <div class="font-semibold text-[var(--color-tag-eol)]">保存に失敗しました</div>
+        <p class="mt-1 opacity-80">@{{ outputSave.error }}</p>
+        <button type="button" @click="saveAnalysisReport" class="mt-2 rounded border border-[var(--color-tag-eol)] px-2 py-1">再試行</button>
       </div>
     </div>
   </section>
@@ -444,7 +600,11 @@
           <span class="font-mono">@{{ adcResult.lsb_mv }} mV</span></div>
         <div class="flex justify-between"><span class="opacity-60 text-sm">フルスケール比</span>
           <span class="font-mono">@{{ adcResult.percent }}%</span></div>
-        <p v-if="adcResult.clipped" class="text-red-500 text-xs mt-2">⚠ 入力がレンジ外です（クリッピング）</p>
+        <div v-if="adcResult.clipped" class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+          <div class="font-semibold">入力範囲の警告</div>
+          <p class="mt-1">入力がレンジ外です（クリッピング）。Vrefまたは入力電圧を見直してください。</p>
+          <button type="button" @click="activeToolId = 'adc'" class="mt-2 rounded border border-red-300 px-2 py-1">再確認</button>
+        </div>
       </div>
     </div>
   </div>
@@ -467,11 +627,20 @@
           <span class="font-mono font-bold text-xl">@{{ capResult.life_h.toLocaleString() }} h</span></div>
         <div class="flex justify-between"><span class="opacity-60 text-sm">年換算</span>
           <span class="font-mono font-bold">@{{ capResult.life_y }} 年</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">最悪温度寿命</span>
+          <span class="font-mono">@{{ capResult.worst_life_y }} 年</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">目標寿命余裕</span>
+          <span class="font-mono">@{{ capResult.target_margin_y }} 年</span></div>
         <div class="flex justify-between"><span class="opacity-60 text-sm">温度係数</span>
           <span class="font-mono">× @{{ capResult.temp_factor }}</span></div>
-        <div class="flex justify-between"><span class="opacity-60 text-sm">電圧係数</span>
-          <span class="font-mono">× @{{ capResult.voltage_factor }}</span></div>
-        <p class="text-xs opacity-50 mt-2">※ アレニウス則 + 電圧加速則（n=3）による簡易推定</p>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">実効温度</span>
+          <span class="font-mono">@{{ capResult.effective_temp_c }} °C</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">自己発熱</span>
+          <span class="font-mono">@{{ capResult.self_heat_c }} °C</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">リプル損失</span>
+          <span class="font-mono">@{{ capResult.ripple_loss_w }} W</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">電圧derating</span>
+          <span class="font-mono" :class="capResult.derating_ok ? 'text-emerald-600' : 'text-red-500'">@{{ capResult.derating_ok ? 'OK' : 'NG' }}</span></div>
       </div>
     </div>
   </div>
@@ -586,6 +755,8 @@
         </template>
         <div class="flex justify-between"><span class="opacity-60 text-sm">シャント損失</span>
           <span class="font-mono">@{{ shuntResult.P_mW }} mW</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">入力換算オフセット</span>
+          <span class="font-mono">@{{ shuntResult.offset_error_a }} A</span></div>
       </div>
     </div>
   </div>
@@ -632,7 +803,19 @@
             :style="{ width: Math.min(100, parseFloat(powerResult.percent)) + '%' }"></div>
         </div>
         <div class="text-xs text-center opacity-60">@{{ powerResult.percent }}% 使用</div>
-        <p v-if="!powerResult.ok" class="text-red-500 text-xs">⚠ 供給電力を超過しています</p>
+        <div v-if="powerResult.railMargins.length" class="mt-3 space-y-1 border-t border-[var(--color-border)] pt-3">
+          <div v-for="rail in powerResult.railMargins" :key="rail.name" class="flex items-center justify-between gap-3 text-xs">
+            <span class="opacity-70">@{{ rail.name }}</span>
+            <span class="font-mono" :class="rail.overloaded ? 'text-red-500' : 'text-emerald-600'">
+              @{{ rail.rolledLoadW.toFixed(3) }} / @{{ rail.capacityW.toFixed(3) }} W
+            </span>
+          </div>
+        </div>
+        <div v-if="!powerResult.ok" class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+          <div class="font-semibold">電源余裕の警告</div>
+          <p class="mt-1">供給電力を超過しています。負荷または供給電力を見直してください。</p>
+          <button type="button" @click="activeToolId = 'power'" class="mt-2 rounded border border-red-300 px-2 py-1">再確認</button>
+        </div>
       </div>
     </div>
   </div>
@@ -642,7 +825,7 @@
     <h2 class="font-bold text-lg mb-4">比較器しきい値/ヒステリシス</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
-        <div v-for="[key, label, step, diagramKey] in [['Vcc','Vcc 電源電圧 (V)',0.1,'Vcc'],['Vref','Vref 基準入力 (V)',0.01,'Vref'],['R1','R1 入力抵抗 (Ω)',1000,'R1'],['R2','R2 基準側抵抗 (Ω)',1000,'R2'],['R3','R3 帰還抵抗 (Ω, 0=なし)',1000,'R3']]" :key="key"
+        <div v-for="[key, label, step, diagramKey] in [['Vcc','Vcc 電源電圧 (V)',0.1,'Vcc'],['Vref','Vref 基準電圧 (V)',0.01,'Vref'],['VOH','出力High電圧 (V)',0.01,'out'],['VOL','出力Low電圧 (V)',0.01,'out'],['R1','R1 入力直列抵抗 (Ω)',1000,'R1'],['R2','R2 基準側抵抗 (Ω)',1000,'R2'],['R3','R3 基準帰還抵抗 (Ω, 0=なし)',1000,'R3']]" :key="key"
           class="flex items-center gap-3">
           <label class="w-36 text-sm">@{{ label }}</label>
           <input v-model.number="comp[key]" type="number" :step="step"
@@ -653,17 +836,19 @@
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 space-y-2">
         <div class="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-xs">
           <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
-            <div>Vin</div><div>R1</div><div>+IN</div>
+            <div>Vin</div><div>R1</div><div>比較入力</div>
             <div class="col-span-3 border-t border-[var(--color-border)]"></div>
-            <div>Vref</div><div>R2</div><div>OUT → R3 → +IN</div>
+            <div>Vref</div><div>R2</div><div>基準ノード ← R3 ← OUT</div>
           </div>
         </div>
-        <div class="flex justify-between"><span class="opacity-60 text-sm">High → Low しきい値</span>
-          <span class="font-mono font-bold text-lg">@{{ compResult.Vth_high }} V</span></div>
         <div class="flex justify-between"><span class="opacity-60 text-sm">Low → High しきい値</span>
-          <span class="font-mono font-bold text-lg">@{{ compResult.Vth_low }} V</span></div>
+          <span class="font-mono font-bold text-lg">@{{ compResult.Vth_rising }} V</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">High → Low しきい値</span>
+          <span class="font-mono font-bold text-lg">@{{ compResult.Vth_falling }} V</span></div>
         <div class="flex justify-between border-t border-[var(--color-border)] pt-2"><span class="opacity-60 text-sm">ヒステリシス幅</span>
           <span class="font-mono font-bold">@{{ compResult.hysteresis }} V</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">モデル</span>
+          <span class="font-mono">@{{ compResult.topology }}</span></div>
       </div>
     </div>
   </div>
@@ -717,7 +902,11 @@
             <span class="font-mono">@{{ n.T }} °C</span>
           </div>
         </div>
-        <p v-if="!thermalResult.ok" class="text-red-500 text-xs mt-2">⚠ Tj が閾値を超えています</p>
+        <div v-if="!thermalResult.ok" class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+          <div class="font-semibold">熱設計の警告</div>
+          <p class="mt-1">Tj が閾値を超えています。熱抵抗、消費電力、雰囲気温度を見直してください。</p>
+          <button type="button" @click="activeToolId = 'thermal'" class="mt-2 rounded border border-red-300 px-2 py-1">再確認</button>
+        </div>
         <div class="mt-4 border-t border-[var(--color-border)] pt-3">
           <div class="text-xs font-semibold opacity-60 mb-2">熱設計: 代表値</div>
           <div class="grid gap-2">
@@ -777,9 +966,27 @@
             <span v-else class="text-emerald-600 text-xs ml-1">✓ OK</span>
           </div>
         </div>
-        <p v-if="!ifaceResult.high_ok || !ifaceResult.low_ok" class="text-red-500 text-xs mt-2">
-          ⚠ 余裕がありません。電圧レベル変換が必要な可能性があります。
-        </p>
+        <div class="flex justify-between items-center">
+          <span class="opacity-60 text-sm">I2C立上り</span>
+          <span class="font-mono" :class="parseFloat(ifaceResult.i2c_rise_ns) <= iface.i2cRiseNsLimit ? 'text-emerald-600' : 'text-red-500'">@{{ ifaceResult.i2c_rise_ns }} ns</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="opacity-60 text-sm">UART誤差</span>
+          <span class="font-mono" :class="Math.abs(parseFloat(ifaceResult.uart_error_pct)) <= 2 ? 'text-emerald-600' : 'text-amber-600'">
+            @{{ ifaceResult.uart_error_pct }} %
+          </span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="opacity-60 text-sm">I2C Lowシンク</span>
+          <span class="font-mono" :class="ifaceResult.i2c_sink_ok ? 'text-emerald-600' : 'text-red-500'">
+            @{{ ifaceResult.i2c_sink_ma }} mA
+          </span>
+        </div>
+        <div v-if="!ifaceResult.high_ok || !ifaceResult.low_ok || !ifaceResult.i2c_sink_ok" class="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+          <div class="font-semibold">インタフェース余裕の警告</div>
+          <p class="mt-1">余裕がありません。電圧レベル変換が必要な可能性があります。</p>
+          <button type="button" @click="activeToolId = 'interface'" class="mt-2 rounded border border-red-300 px-2 py-1">再確認</button>
+        </div>
       </div>
     </div>
   </div>
@@ -814,9 +1021,9 @@
           'border-[var(--color-tag-ok)]': quickTool.tone === 'ok',
           'border-[var(--color-tag-warning)]': quickTool.tone === 'warn',
           'border-[var(--color-tag-eol)]': quickTool.tone === 'bad',
-          'border-[var(--color-border)]': !quickTool.tone
+          'border-[var(--color-border)]': !quickTool.tone || quickTool.tone === 'check'
         }">
-        <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">Result</div>
+        <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">計算結果</div>
         <div class="mt-3 space-y-2">
           <div v-for="row in quickTool.rows" :key="row[0]" class="flex items-start justify-between gap-4 border-b border-[var(--color-border)] pb-2 last:border-b-0">
             <span class="text-sm opacity-65">@{{ row[0] }}</span>
@@ -824,11 +1031,12 @@
           </div>
         </div>
         <div class="mt-4 flex flex-wrap gap-2 text-xs">
-          <span class="tag">入力即時反映</span>
-          <span class="tag">初期値あり</span>
+          <span class="tag">即時</span>
+          <span class="tag">初期値</span>
           <span v-if="quickTool.tone === 'bad'" class="tag tag-eol">要見直し</span>
           <span v-else-if="quickTool.tone === 'warn'" class="tag tag-warning">要確認</span>
-          <span v-else class="tag tag-ok">目安OK</span>
+          <span v-else-if="quickTool.tone === 'check'" class="tag tag-warning">定格待ち</span>
+          <span v-else class="tag tag-ok">OK</span>
         </div>
       </div>
     </div>

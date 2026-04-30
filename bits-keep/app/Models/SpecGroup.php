@@ -15,6 +15,7 @@ class SpecGroup extends Model
         'name',
         'description',
         'sort_order',
+        'series_management_mode',
     ];
 
     public function specTypes(): BelongsToMany
@@ -26,6 +27,15 @@ class SpecGroup extends Model
             ->orderBy('spec_types.name');
     }
 
+    public function ownedSpecTypes(): HasMany
+    {
+        return $this->hasMany(SpecType::class, 'owner_spec_group_id')
+            ->where('spec_scope', SpecType::SCOPE_GROUP_LOCAL)
+            ->where('spec_kind', SpecType::KIND_NORMAL)
+            ->orderBy('sort_order')
+            ->orderBy('name');
+    }
+
     public function components(): BelongsToMany
     {
         return $this->belongsToMany(Component::class, 'component_spec_group', 'spec_group_id', 'component_id');
@@ -34,5 +44,10 @@ class SpecGroup extends Model
     public function templates(): HasMany
     {
         return $this->hasMany(SpecTemplate::class)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function componentSeries(): HasMany
+    {
+        return $this->hasMany(ComponentSeries::class);
     }
 }

@@ -3,11 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Component extends Model
 {
@@ -21,6 +21,8 @@ class Component extends Model
         'image_path', 'datasheet_path',
         'primary_location_id',
         'package_id',
+        'component_series_id',
+        'component_series_value_id',
         'created_by', 'updated_by',
     ];
 
@@ -29,9 +31,9 @@ class Component extends Model
     ];
 
     protected $casts = [
-        'quantity_new'   => 'integer',
-        'quantity_used'  => 'integer',
-        'threshold_new'  => 'integer',
+        'quantity_new' => 'integer',
+        'quantity_used' => 'integer',
+        'threshold_new' => 'integer',
         'threshold_used' => 'integer',
     ];
 
@@ -74,6 +76,16 @@ class Component extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function componentSeries(): BelongsTo
+    {
+        return $this->belongsTo(ComponentSeries::class);
+    }
+
+    public function componentSeriesValue(): BelongsTo
+    {
+        return $this->belongsTo(ComponentSeriesValue::class);
     }
 
     // 旧UI互換: 単一パッケージを1件コレクションとして扱う
@@ -120,8 +132,8 @@ class Component extends Model
     public function suppliers(): BelongsToMany
     {
         return $this->belongsToMany(Supplier::class, 'component_suppliers')
-                    ->withPivot('supplier_part_number', 'product_url', 'unit_price', 'price_updated_at', 'is_preferred')
-                    ->withTimestamps();
+            ->withPivot('supplier_part_number', 'product_url', 'unit_price', 'price_updated_at', 'is_preferred')
+            ->withTimestamps();
     }
 
     // 在庫ブロック
@@ -140,7 +152,7 @@ class Component extends Model
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'component_project')
-                    ->withPivot('required_qty');
+            ->withPivot('required_qty');
     }
 
     // Altium連携
@@ -165,7 +177,7 @@ class Component extends Model
     {
         return $query->where(function ($q) {
             $q->whereRaw('quantity_new < threshold_new')
-              ->orWhereRaw('quantity_used < threshold_used');
+                ->orWhereRaw('quantity_used < threshold_used');
         });
     }
 }

@@ -23,104 +23,100 @@
 
   <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
     <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Inventory</div>
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">部品管理</div>
       <div class="space-y-2">
         <a href="{{ route('components.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品一覧</a>
         <a href="{{ route('components.create') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品登録</a>
-        <a href="{{ route('stock.alert') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">在庫警告</a>
-        <a href="{{ route('locations.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">棚管理</a>
-        <a href="{{ route('suppliers.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">商社管理</a>
+        <a href="{{ route('components.compare') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品比較</a>
+        @if ($isAdmin)
+        <a href="{{ route('csv.import') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">CSVインポート</a>
+        @else
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>CSVインポート</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ実行できます</div>
+        </div>
+        @endif
       </div>
     </section>
 
     <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-even)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Projects</div>
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">案件・設計</div>
       <div class="space-y-2">
         <a href="{{ route('projects.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">案件管理</a>
-        <a href="{{ route('components.compare') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品比較</a>
-        <a href="{{ route('master.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">マスタ管理</a>
-        @if ($canEdit)
-        <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">
-          <span class="feature-lock">編</span> 連携設定
+        <a href="{{ route('tools.design') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">設計解析ツール</a>
+        <a href="{{ route('tools.calc') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">エンジニアリング計算</a>
+        <a href="{{ route('tools.network') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">
+          <span class="block font-semibold">抵抗/容量ネットワーク探索</span>
+          <span class="mt-1 block text-xs opacity-60">直列・並列・混在・分圧・在庫値・可変抵抗</span>
         </a>
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">在庫・購買</div>
+      <div class="space-y-2">
+        <a href="{{ route('stock.in') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">入庫</a>
+        <a href="{{ route('stock.alert') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">在庫警告</a>
+        <a href="{{ route('stock.orders') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品発注</a>
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-even)]">
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">マスタ・利用設定</div>
+      <div class="space-y-2">
+        <a href="{{ route('master.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">マスタ管理</a>
+        <a href="{{ route('component-series.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">部品シリーズ</a>
+        <a href="{{ route('locations.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">保管棚管理</a>
+        <a href="{{ route('suppliers.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">商社管理</a>
+        <a href="{{ route('settings.home') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム設定</a>
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">管理・ログ・動作設定</div>
+      <div class="space-y-2">
+        @if ($canEdit)
+        <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]"><span class="feature-lock">編</span> 連携設定</a>
         @else
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
           <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">編</span><span>連携設定</span></div>
-          <div class="mt-1 text-xs opacity-70">閲覧者のため変更できません</div>
+          <div class="mt-1 text-xs opacity-70">閲覧者は変更できません</div>
         </div>
         @endif
-      </div>
-    </section>
-
-    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Tools</div>
-      <div class="space-y-2">
-        <a href="{{ route('tools.design') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">設計解析ツール</a>
-        <a href="{{ route('tools.calc') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">エンジニア電卓</a>
-        <a href="{{ route('tools.network') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ネットワーク探索</a>
-      </div>
-    </section>
-
-    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-even)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Account</div>
-      <div class="space-y-2">
-        <a href="{{ route('dashboard') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム</a>
-        <a href="{{ route('settings.home') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム設定</a>
-        <a href="{{ route('profile.edit') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">プロフィール</a>
-        <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
-          現在の権限: {{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}
-        </div>
-      </div>
-    </section>
-
-    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Permissions</div>
-      <div class="space-y-2">
-        @if ($isAdmin)
-          <a href="{{ route('users.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ユーザー管理</a>
-          <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
-            権限変更は `ユーザー管理` から実施します。
-          </div>
-        @else
-          <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
-            <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>ユーザー管理</span></div>
-            <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
-          </div>
-          @if ($canEdit)
-          <a href="{{ route('settings.integrations') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]"><span class="feature-lock">編</span> 連携設定</a>
-          @else
-          <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
-            <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">編</span><span>連携設定</span></div>
-            <div class="mt-1 text-xs opacity-70">閲覧者は変更できません</div>
-          </div>
-          @endif
-        @endif
-      </div>
-    </section>
-
-    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-odd)]">
-      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">Admin</div>
-      <div class="space-y-2">
         @if ($isAdmin)
         <a href="{{ route('users.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ユーザー管理</a>
         <a href="{{ route('audit.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">操作ログ</a>
-        <a href="{{ route('csv.import') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">CSVインポート</a>
+        <a href="{{ route('altium.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">Altium連携</a>
         <a href="{{ route('backup.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">DBバックアップ</a>
         @else
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
           <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>ユーザー管理</span></div>
           <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
         </div>
-        <a href="{{ route('audit.index') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">操作ログ</a>
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
-          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>CSVインポート</span></div>
-          <div class="mt-1 text-xs opacity-70">管理者のみ実行できます</div>
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>操作ログ</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ閲覧できます</div>
+        </div>
+        <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
+          <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>Altium連携</span></div>
+          <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
         </div>
         <div class="feature-disabled rounded-xl border border-[var(--color-border)] px-4 py-3">
           <div class="flex items-center gap-2 font-semibold"><span class="feature-lock">管</span><span>DBバックアップ</span></div>
           <div class="mt-1 text-xs opacity-70">管理者のみ操作できます</div>
         </div>
         @endif
+      </div>
+    </section>
+
+    <section class="rounded-3xl border border-[var(--color-border)] p-5 bg-[var(--color-card-even)]">
+      <div class="text-xs uppercase tracking-[0.2em] opacity-50 mb-3">アカウント</div>
+      <div class="space-y-2">
+        <a href="{{ route('dashboard') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">ホーム</a>
+        <a href="{{ route('profile.edit') }}" class="block rounded-xl border border-[var(--color-border)] px-4 py-3 no-underline hover:border-[var(--color-primary)]">プロフィール</a>
+        <div class="rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm opacity-70">
+          現在の権限: {{ auth()->user()->role === 'admin' ? '管理者' : (auth()->user()->role === 'editor' ? '編集者' : '閲覧者') }}
+        </div>
       </div>
     </section>
   </div>

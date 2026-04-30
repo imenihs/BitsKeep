@@ -107,8 +107,12 @@
       <!-- 招待完了 -->
       <div v-if="inviteModal.result" class="p-6">
         <p class="text-emerald-600 font-medium mb-3">✓ 招待ユーザーを作成しました</p>
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 mb-3">
-          発行直後の確認状態: 招待メール送信済み / 仮パスワード発行済み
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 mb-3 space-y-2">
+          <div class="font-semibold">発行直後の状態</div>
+          <div class="flex flex-wrap gap-2">
+            <span class="tag tag-ok">招待メール送信済み</span>
+            <span class="tag tag-ok">仮パスワード発行済み</span>
+          </div>
         </div>
         <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded p-3 font-mono text-lg text-center tracking-widest">
           @{{ inviteModal.result.temp_password }}

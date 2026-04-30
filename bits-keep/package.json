@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:design-tools": "node tests/design-tools.test.mjs",
+        "test:engineering-calc": "node tests/engineering-calc.test.mjs",
+        "test:resistance-calc": "node tests/resistance-calc.test.mjs"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",

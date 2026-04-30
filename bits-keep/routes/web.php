@@ -24,14 +24,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/components/{id}', fn ($id) => view('app.component-detail', compact('id')))->name('components.show');
     Route::get('/components/{id}/edit', fn ($id) => view('app.component-create', compact('id')))->name('components.edit');
 
-    // マスタ管理
+    // マスタ・利用設定
     Route::get('/master', fn () => view('app.master-list'))->name('master.index');
+    Route::get('/component-series', fn () => view('app.component-series'))->name('component-series.index');
 
-    // 在庫・棚・商社
-    Route::get('/locations', fn () => view('app.location-list'))->name('locations.index');
+    // 在庫・購買
     Route::get('/stock-alert', fn () => view('app.stock-alert'))->name('stock.alert');
     Route::get('/stock-orders', fn () => view('app.stock-orders'))->name('stock.orders');
     Route::get('/stock-in', fn () => view('app.stock-in'))->name('stock.in');
+
+    // 利用設定
+    Route::get('/locations', fn () => view('app.location-list'))->name('locations.index');
     Route::get('/suppliers', fn () => view('app.supplier-list'))->name('suppliers.index');
 
     // 案件管理

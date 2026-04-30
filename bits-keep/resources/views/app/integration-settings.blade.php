@@ -108,7 +108,7 @@
           <div class="flex gap-3 pt-1">
             <button @click="save" :disabled="saving || !canEdit"
               class="btn-primary px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
-              :title="!canEdit ? 'editor以上の権限が必要です' : ''">
+              :title="!canEdit ? '編集者以上の権限が必要です' : ''">
               @{{ saving ? '保存中...' : '保存' }}
             </button>
             <a href="{{ route('projects.index') }}" class="px-4 py-2 rounded-xl border border-[var(--color-border)] text-sm no-underline text-inherit">案件管理へ</a>
@@ -169,7 +169,7 @@
           <div class="pt-1">
             <button @click="saveGemini" :disabled="geminiSaving || !canEdit || !geminiForm.api_key.trim()"
               class="btn-primary px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
-              :title="!canEdit ? 'editor以上の権限が必要です' : ''">
+              :title="!canEdit ? '編集者以上の権限が必要です' : ''">
               @{{ geminiSaving ? '保存中...' : 'APIキーを保存' }}
             </button>
           </div>

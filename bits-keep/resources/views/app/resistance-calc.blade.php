@@ -2,310 +2,469 @@
 <html lang="ja">
 <head>
   @include('partials.theme-init')
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>ネットワーク探索 - BitsKeep</title>
+  <title>抵抗/容量ネットワーク探索 - BitsKeep</title>
   @include('partials.favicon')
   @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
-@include('partials.app-header', ['current' => 'ネットワーク探索'])
+@include('partials.app-header', ['current' => '抵抗/容量ネットワーク探索'])
 <div id="app" data-page="resistance-calc" class="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto">
-  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ネットワーク探索', 'current' => true]]])
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '抵抗/容量ネットワーク探索', 'current' => true]]])
 
-  <header class="mb-6 pb-4 border-b border-[var(--color-border)]">
-    <h1 class="text-2xl font-bold">🔌 抵抗/容量ネットワーク探索</h1>
+  <header class="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-[var(--color-border)] pb-4">
+    <div>
+      <h1 class="text-2xl font-bold">抵抗/容量ネットワーク探索</h1>
+      <div class="mt-2 flex flex-wrap gap-2 text-xs">
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">直列</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">並列</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">直並列混在</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">分圧</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">在庫値</span>
+      </div>
+    </div>
+    <div class="flex rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-1">
+      <button v-for="mode in modeOptions" :key="mode.value" @click="activeMode = mode.value"
+        class="rounded-md px-3 py-2 text-sm font-semibold"
+        :class="activeMode === mode.value ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'">
+        @{{ mode.label }}
+      </button>
+    </div>
   </header>
 
-  <div class="mb-5 flex flex-wrap gap-2">
-    <button @click="activeMode = 'network'"
-      class="px-4 py-2 rounded-xl border text-sm"
-      :class="activeMode === 'network' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)]'">
-      ネットワーク探索
-    </button>
-    <button @click="activeMode = 'variable'"
-      class="px-4 py-2 rounded-xl border text-sm"
-      :class="activeMode === 'variable' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)]'">
-      可変抵抗 + 固定抵抗
-    </button>
-  </div>
+  <section v-if="activeMode === 'network'" class="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <aside class="space-y-4">
+      <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">探索条件</h2>
+          <span class="text-xs opacity-60">@{{ partTypeLabel }}</span>
+        </div>
 
-  <div v-if="activeMode === 'network'" class="flex gap-6" style="min-height: 70vh">
+        <div class="mb-4 grid grid-cols-3 gap-2">
+          <button v-for="type in partTypeOptions" :key="type.value" @click="setPartType(type.value)"
+            class="rounded border px-3 py-2 text-sm font-semibold"
+            :class="form.part_type === type.value ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)]'">
+            @{{ type.label }}
+          </button>
+        </div>
 
-    <!-- 左: 条件入力 -->
-    <div class="w-80 flex-shrink-0 space-y-5">
+        <div class="grid gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">目標値</span>
+            <input v-model="form.target_raw" type="text" :placeholder="targetHint" @keyup.enter="search"
+              class="input-text w-full font-mono"
+              :class="form.target_raw && !targetValid ? 'border-red-400' : ''" />
+          </label>
 
-      <!-- 部品種別 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">初期入力例</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">許容誤差</span>
+              <input v-model.number="form.tolerance_pct" type="number" min="0.001" max="50" step="0.1"
+                class="input-text w-full font-mono" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">E系列</span>
+              <select v-model="form.series" class="input-text w-full">
+                <option v-for="series in seriesOptions" :key="series" :value="series">@{{ series }}</option>
+              </select>
+            </label>
+          </div>
+
+          <textarea v-if="form.series === 'custom'" v-model="form.custom_values"
+            rows="4"
+            class="input-text w-full resize-none font-mono text-sm"
+            placeholder="100, 220, 470, 1k, 2.2k"></textarea>
+
+          <div v-if="form.part_type !== 'divider'" class="grid grid-cols-3 gap-2">
+            <button v-for="type in circuitOptions" :key="type.value" @click="toggleCircuitType(type.value)"
+              class="rounded border px-2 py-2 text-sm"
+              :class="form.circuit_types.includes(type.value) ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-[var(--color-card-even)]' : 'border-[var(--color-border)] bg-[var(--color-bg)]'">
+              @{{ type.label }}
+            </button>
+          </div>
+
+          <div v-if="form.part_type !== 'divider'" class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">最小素子数</span>
+              <select v-model.number="form.min_elements" class="input-text w-full">
+                <option v-for="n in 4" :key="`min-${n}`" :value="n">@{{ n }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">最大素子数</span>
+              <select v-model.number="form.max_elements" class="input-text w-full">
+                <option v-for="n in 4" :key="`max-${n}`" :value="n">@{{ n }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div v-if="form.part_type === 'divider'" class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 min</span>
+              <input v-model="form.total_res_min_raw" class="input-text w-full font-mono" placeholder="1k" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 max</span>
+              <input v-model="form.total_res_max_raw" class="input-text w-full font-mono" placeholder="100k" />
+            </label>
+          </div>
+
+          <label class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+            <span class="text-sm font-semibold">在庫値のみ</span>
+            <input type="checkbox" v-model="form.inventory_only" class="h-5 w-5 accent-[var(--color-primary)]" />
+          </label>
+
+          <button @click="search" :disabled="!formValid || searching"
+            class="btn-primary rounded-lg px-4 py-3 text-sm font-bold disabled:opacity-40">
+            @{{ searching ? '探索中' : '探索' }}
+          </button>
+
+          <div v-if="error || !formValid" class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            @{{ error || validationMessage }}
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <div class="mb-3 text-sm font-bold">プリセット</div>
         <div class="grid gap-2">
           <button v-for="preset in presets" :key="preset.label" @click="applyPreset(preset)"
-            class="rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 py-2 text-left text-xs hover:border-[var(--color-primary)]">
-            @{{ preset.label }}
+            class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-left text-sm hover:border-[var(--color-primary)]">
+            <span class="font-semibold">@{{ preset.label }}</span>
+            <span class="ml-2 text-xs opacity-60">@{{ preset.meta }}</span>
           </button>
         </div>
       </div>
+    </aside>
 
-      <!-- 部品種別 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">部品種別</label>
-        <div class="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
-          <button v-for="t in [{v:'R',l:'抵抗'},{v:'C',l:'コンデンサ'},{v:'divider',l:'分圧比'}]" :key="t.v"
-            @click="form.part_type = t.v"
-            :class="form.part_type === t.v ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-card-odd)] hover:opacity-80'"
-            class="flex-1 py-2 text-sm font-medium transition-colors">
-            @{{ t.l }}
-          </button>
+    <main class="min-w-0 space-y-4">
+      <div class="grid gap-3 md:grid-cols-4">
+        <div v-for="metric in statusMetrics" :key="metric.label" class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+          <div class="text-xs opacity-55">@{{ metric.label }}</div>
+          <div class="mt-1 truncate font-mono text-lg font-bold">@{{ metric.value }}</div>
         </div>
       </div>
 
-      <!-- 目標値 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">目標値</label>
-        <input v-model="form.target_raw" type="text" :placeholder="targetHint"
-          @keyup.enter="search"
-          :class="form.target_raw && !targetValid ? 'border-red-400' : 'border-[var(--color-border)]'"
-          class="w-full border rounded-lg px-3 py-2 text-sm bg-[var(--color-card-odd)] focus:border-[var(--color-primary)] outline-none" />
-        <p class="text-xs opacity-50 mt-1">@{{ targetHint }}</p>
-        <p v-if="form.part_type === 'divider'" class="text-xs opacity-50">分圧比: 0〜1 または 0%〜100% で入力</p>
-      </div>
-
-      <!-- 許容誤差 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">
-          許容誤差: @{{ form.tolerance_pct }}%
-        </label>
-        <input v-model.number="form.tolerance_pct" type="range" min="0.1" max="20" step="0.1"
-          class="w-full accent-[var(--color-primary)]" />
-        <div class="flex justify-between text-xs opacity-40 mt-0.5">
-          <span>0.1%</span><span>20%</span>
+      <div v-if="warnings.length || nextActions.length" class="grid gap-2">
+        <div v-for="message in warnings" :key="`warn-${message}`" class="rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          @{{ message }}
+        </div>
+        <div v-for="message in nextActions" :key="`next-${message}`" class="rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2 text-sm">
+          @{{ message }}
         </div>
       </div>
 
-      <!-- E系列 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">E系列</label>
-        <div class="flex flex-wrap gap-1">
-          <button v-for="s in ['E6','E12','E24','E48','E96','custom']" :key="s"
-            @click="form.series = s"
-            :class="form.series === s ? 'bg-[var(--color-primary)] text-white' : 'border border-[var(--color-border)] hover:opacity-80'"
-            class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors">
-            @{{ s }}
-          </button>
+      <section v-if="comparedCandidates.length" class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">比較トレイ</h2>
+          <button @click="clearCompare" class="text-xs link-text">クリア</button>
         </div>
-        <!-- カスタム値入力 -->
-        <textarea v-if="form.series === 'custom'" v-model="form.custom_values"
-          placeholder="値をカンマ区切りで入力（例: 100, 220, 470, 1k, 2.2k）"
-          rows="3" class="w-full mt-2 border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs bg-[var(--color-card-odd)] focus:border-[var(--color-primary)] outline-none resize-none" />
-      </div>
-
-      <!-- 回路種別 -->
-      <div v-if="form.part_type !== 'divider'">
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">探索回路種別</label>
-        <div class="space-y-1">
-          <label v-for="t in [{v:'series',l:'直列'},{v:'parallel',l:'並列'},{v:'mixed',l:'直並列混在'}]" :key="t.v"
-            class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" :value="t.v" :checked="form.circuit_types.includes(t.v)"
-              @change="toggleCircuitType(t.v)" class="accent-[var(--color-primary)]" />
-            <span class="text-sm">@{{ t.l }}</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 素子数 -->
-      <div>
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-2">素子数</label>
-        <div class="flex items-center gap-3">
-          <div>
-            <span class="text-xs opacity-60">最小</span>
-            <select v-model.number="form.min_elements"
-              class="ml-1 border border-[var(--color-border)] rounded px-2 py-1 text-sm bg-[var(--color-card-odd)]">
-              <option v-for="n in 4" :key="n" :value="n">@{{ n }}</option>
-            </select>
-          </div>
-          <span class="opacity-40">〜</span>
-          <div>
-            <span class="text-xs opacity-60">最大</span>
-            <select v-model.number="form.max_elements"
-              class="ml-1 border border-[var(--color-border)] rounded px-2 py-1 text-sm bg-[var(--color-card-odd)]">
-              <option v-for="n in 4" :key="n" :value="n">@{{ n }}</option>
-            </select>
+        <div class="grid gap-3 md:grid-cols-3">
+          <div v-for="candidate in comparedCandidates" :key="candidate.id" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-xs opacity-60">@{{ candidate.topology_label || circuitTypeLabel(candidate.circuit_type) }}</span>
+              <span class="font-mono text-sm font-bold" :class="errorClass(candidate.error_pct)">@{{ candidate.error_display }}</span>
+            </div>
+            <div class="mt-2 font-mono text-sm">@{{ candidate.actual_display }}</div>
+            <div class="mt-1 truncate font-mono text-xs opacity-70">@{{ candidate.expression }}</div>
           </div>
         </div>
-        <p class="text-xs opacity-40 mt-1">※ 3素子以上は計算時間が増加します</p>
-      </div>
+      </section>
 
-      <div v-if="form.part_type === 'divider'" class="space-y-2">
-        <label class="block text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">分圧総抵抗範囲</label>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <input v-model="form.total_res_min_raw" type="text" placeholder="最小 例: 1k"
-            class="w-full border rounded-lg px-3 py-2 text-sm bg-[var(--color-card-odd)] border-[var(--color-border)] outline-none" />
-          <input v-model="form.total_res_max_raw" type="text" placeholder="最大 例: 100k"
-            class="w-full border rounded-lg px-3 py-2 text-sm bg-[var(--color-card-odd)] border-[var(--color-border)] outline-none" />
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)]">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
+          <div>
+            <h2 class="text-sm font-bold">候補</h2>
+            <div class="text-xs opacity-60">@{{ summaryText }}</div>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span v-if="truncated" class="rounded border border-amber-400 px-2 py-1 text-amber-700">上限到達</span>
+            <span v-if="elapsedMs !== null" class="rounded border border-[var(--color-border)] px-2 py-1">@{{ elapsedMs }}ms</span>
+          </div>
         </div>
-      </div>
 
-      <!-- 在庫限定 -->
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" v-model="form.inventory_only" class="accent-[var(--color-primary)]" />
-        <span class="text-sm">在庫がある部品のみ対象</span>
-      </label>
+        <div v-if="searching" class="grid min-h-80 place-items-center text-sm opacity-60">探索中</div>
+        <div v-else-if="elapsedMs === null" class="grid min-h-80 place-items-center text-sm opacity-45">候補待ち</div>
+        <div v-else-if="results.length === 0" class="grid min-h-80 place-items-center text-sm opacity-60">該当候補なし</div>
 
-      <!-- 探索ボタン -->
-      <button @click="search" :disabled="!targetValid || searching"
-        class="w-full btn-primary py-3 rounded-xl font-bold text-base disabled:opacity-40 transition-opacity">
-        @{{ searching ? '探索中...' : '🔍 探索開始' }}
-      </button>
-
-      <p v-if="error" class="text-sm text-red-500">@{{ error }}</p>
-    </div>
-
-    <!-- 右: 結果 -->
-    <div class="flex-1 min-w-0">
-
-      <!-- 結果ヘッダ -->
-      <div v-if="results.length > 0 || elapsedMs !== null" class="mb-4 flex items-center justify-between">
-        <div>
-          <span class="font-bold text-lg">@{{ results.length }} 件</span>
-          <span class="text-sm opacity-60 ml-2">候補が見つかりました</span>
-          <span v-if="truncated" class="text-xs text-amber-600 ml-2">（上位50件を表示）</span>
-        </div>
-        <span v-if="elapsedMs !== null" class="text-xs opacity-40">@{{ elapsedMs }}ms</span>
-      </div>
-
-      <!-- 候補カード一覧 -->
-      <div class="space-y-2">
-        <div v-for="(c, idx) in results" :key="idx"
-          class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-xl p-4">
-          <div class="flex items-start justify-between gap-4">
-            <!-- 回路表現 -->
-            <div class="flex-1 min-w-0">
-              <div class="font-mono text-sm font-medium break-all">@{{ c.expression }}</div>
-              <div class="text-sm opacity-70 mt-1">合成値: <span class="font-mono">@{{ c.actual_display }}</span></div>
-              <div class="flex items-center gap-3 mt-1.5 flex-wrap">
-                <!-- 素子数バッジ -->
-                <span class="text-xs bg-[var(--color-card-even)] px-2 py-0.5 rounded">
-                  @{{ c.elements_count }}素子
-                </span>
-                <!-- 回路種別バッジ -->
-                <span class="text-xs bg-[var(--color-card-even)] px-2 py-0.5 rounded">
-                  @{{ c.topology_label || circuitTypeLabel(c.circuit_type) }}
-                </span>
-                <!-- 在庫バッジ -->
-                <span v-if="c.from_inventory" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                  在庫あり
-                </span>
-                <span v-if="c.total_display" class="text-xs bg-[var(--color-card-even)] px-2 py-0.5 rounded">
-                  総抵抗 @{{ c.total_display }}
-                </span>
+        <div v-else class="divide-y divide-[var(--color-border)]">
+          <article v-for="candidate in rankedResults" :key="candidate.id" class="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+            <div class="min-w-0">
+              <div class="mb-3 flex flex-wrap items-center gap-2">
+                <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs font-semibold">#@{{ candidate.rank }}</span>
+                <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs">@{{ candidate.topology_label || circuitTypeLabel(candidate.circuit_type) }}</span>
+                <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs">@{{ candidate.elements_count }}素子</span>
+                <span v-if="candidate.from_inventory" class="rounded border border-[var(--color-tag-ok)] px-2 py-1 text-xs text-[var(--color-tag-ok)]">在庫</span>
+                <button @click="toggleCompare(candidate)"
+                  class="ml-auto rounded border px-2 py-1 text-xs"
+                  :class="isCompared(candidate) ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                  @{{ isCompared(candidate) ? '比較中' : '比較' }}
+                </button>
               </div>
-              <div v-if="c.parts?.length" class="mt-2 flex flex-wrap gap-2">
-                <template v-for="(part, pidx) in c.parts" :key="`${idx}-${pidx}`">
-                  <a v-if="part.url" :href="part.url" class="text-xs px-2 py-1 rounded border border-[var(--color-border)] hover:border-[var(--color-primary)] no-underline">
+
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div v-if="candidate.circuit_type === 'divider'" class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
+                  <div class="rounded border border-[var(--color-border)] px-3 py-2 text-center">
+                    <div class="text-xs opacity-50">R1</div>
+                    <div class="font-mono">@{{ candidate.parts?.[0]?.label }}</div>
+                  </div>
+                  <div class="font-mono text-xs opacity-60">Vout</div>
+                  <div class="rounded border border-[var(--color-border)] px-3 py-2 text-center">
+                    <div class="text-xs opacity-50">R2</div>
+                    <div class="font-mono">@{{ candidate.parts?.[1]?.label }}</div>
+                  </div>
+                </div>
+                <div v-else-if="candidate.circuit_type === 'series'" class="flex flex-wrap items-center gap-2">
+                  <template v-for="(part, partIndex) in candidate.parts" :key="`${candidate.id}-s-${partIndex}`">
+                    <span v-if="partIndex > 0" class="h-px w-5 bg-[var(--color-border)]"></span>
+                    <span class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm">@{{ part.label }}</span>
+                  </template>
+                </div>
+                <div v-else-if="candidate.circuit_type === 'parallel'" class="grid gap-2">
+                  <div v-for="(part, partIndex) in candidate.parts" :key="`${candidate.id}-p-${partIndex}`" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm">
                     @{{ part.label }}
+                  </div>
+                </div>
+                <div v-else class="grid gap-2">
+                  <div class="text-xs font-semibold opacity-60">混在トポロジ</div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span v-for="(token, tokenIndex) in topologyTokens(candidate.expression)" :key="`${candidate.id}-token-${tokenIndex}`"
+                      class="rounded px-2 py-1 font-mono text-sm"
+                      :class="token.type === 'part' ? 'border border-[var(--color-border)] bg-[var(--color-card-odd)]' : 'bg-[var(--color-card-even)] opacity-75'">
+                      @{{ token.text }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                <template v-for="(part, partIndex) in candidate.parts" :key="`${candidate.id}-part-${partIndex}`">
+                  <a v-if="part.url" :href="part.url" class="rounded border border-[var(--color-border)] px-2 py-1 text-xs no-underline hover:border-[var(--color-primary)]">
+                    <span class="opacity-50">@{{ part.role }}</span>
+                    <span class="ml-1">@{{ part.label }}</span>
+                    <span v-if="part.stock_quantity !== null" class="ml-1 opacity-50">在庫@{{ part.stock_quantity }}</span>
                   </a>
-                  <span v-else class="text-xs px-2 py-1 rounded border border-[var(--color-border)]">
-                    @{{ part.label }}
+                  <span v-else class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+                    <span class="opacity-50">@{{ part.role }}</span>
+                    <span class="ml-1">@{{ part.label }}</span>
                   </span>
                 </template>
               </div>
             </div>
-            <!-- 誤差 -->
-            <div class="text-right flex-shrink-0">
-              <div :class="errorClass(c.error_pct)" class="font-bold text-lg">
-                @{{ c.error_pct.toFixed(2) }}%
+
+            <div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">合成値</div>
+                <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.actual_display }}</div>
               </div>
-              <div class="text-xs opacity-50">誤差</div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">誤差</div>
+                <div class="mt-1 font-mono text-lg font-bold" :class="errorClass(candidate.error_pct)">@{{ candidate.error_display }}</div>
+              </div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">@{{ candidate.circuit_type === 'divider' ? '総抵抗' : '差分' }}</div>
+                <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.total_display || candidate.error_abs_display }}</div>
+              </div>
             </div>
-          </div>
+          </article>
         </div>
-
-        <!-- 結果なし -->
-        <div v-if="!searching && results.length === 0 && elapsedMs !== null"
-          class="text-center py-16 opacity-40">
-          <div class="text-4xl mb-3">🔍</div>
-          <p class="text-sm">条件に合う組み合わせが見つかりませんでした。</p>
-          <p class="text-xs mt-1">許容誤差を広げるか素子数を増やしてみてください。</p>
-        </div>
-
-        <!-- 初期状態 -->
-        <div v-if="elapsedMs === null && !searching"
-          class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-8">
-          <div class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
-              <div class="text-xs uppercase tracking-[0.18em] opacity-50">入力</div>
-              <div class="mt-2 text-sm font-semibold">目標値とE系列を選ぶ</div>
-            </div>
-            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
-              <div class="text-xs uppercase tracking-[0.18em] opacity-50">探索</div>
-              <div class="mt-2 text-sm font-semibold">回路方式と素子数を絞る</div>
-            </div>
-            <div class="rounded-2xl bg-[var(--color-bg)] p-4">
-              <div class="text-xs uppercase tracking-[0.18em] opacity-50">比較</div>
-              <div class="mt-2 text-sm font-semibold">誤差・回路図・在庫リンクを見る</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ローディング -->
-        <div v-if="searching" class="text-center py-16 opacity-50">
-          <p class="text-sm">探索中...</p>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <section v-if="activeMode === 'variable'" class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    <div class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-5 space-y-4">
-      <label class="block">
-        <span class="block text-xs font-semibold opacity-60 mb-1">総抵抗値</span>
-        <input v-model="variable.total_raw" class="input-text w-full font-mono" placeholder="例: 10k" />
-      </label>
-      <label class="block">
-        <span class="block text-xs font-semibold opacity-60 mb-1">可変幅</span>
-        <input v-model="variable.span_raw" class="input-text w-full font-mono" placeholder="例: 20 または 2k" />
-      </label>
-      <div>
-        <span class="block text-xs font-semibold opacity-60 mb-1">可変幅指定</span>
-        <div class="flex rounded-xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-1">
-          <button @click="variable.span_mode = 'percent'" class="flex-1 rounded-lg px-3 py-2 text-sm"
-            :class="variable.span_mode === 'percent' ? 'bg-[var(--color-primary)] text-white' : ''">%</button>
-          <button @click="variable.span_mode = 'ohm'" class="flex-1 rounded-lg px-3 py-2 text-sm"
-            :class="variable.span_mode === 'ohm' ? 'bg-[var(--color-primary)] text-white' : ''">Ω</button>
-        </div>
-      </div>
-      <div>
-        <span class="block text-xs font-semibold opacity-60 mb-1">方式</span>
-        <select v-model="variable.circuit" class="input-text w-full">
-          <option value="series">固定抵抗 + 可変抵抗（直列）</option>
-          <option value="parallel">固定抵抗 ∥ 可変抵抗（並列目安）</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card-odd)] p-5">
-      <div class="grid gap-3 md:grid-cols-2">
-        <div class="rounded-2xl bg-[var(--color-bg)] p-4">
-          <div class="text-xs uppercase tracking-[0.18em] opacity-50">可変抵抗</div>
-          <div class="mt-2 font-mono text-2xl font-bold">@{{ variableResult.potDisplay }}</div>
-        </div>
-        <div class="rounded-2xl bg-[var(--color-bg)] p-4">
-          <div class="text-xs uppercase tracking-[0.18em] opacity-50">固定抵抗</div>
-          <div class="mt-2 font-mono text-2xl font-bold">@{{ variableResult.fixedDisplay }}</div>
-        </div>
-        <div class="rounded-2xl bg-[var(--color-bg)] p-4 md:col-span-2">
-          <div class="text-xs uppercase tracking-[0.18em] opacity-50">可変範囲</div>
-          <div class="mt-2 font-mono text-xl font-bold">@{{ variableResult.rangeDisplay }}</div>
-        </div>
-      </div>
-      <div class="mt-5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4 font-mono text-sm">
-        <div v-if="variable.circuit === 'series'">[固定抵抗] -- [可変抵抗] で総抵抗と可変幅を作る</div>
-        <div v-else>[固定抵抗] ∥ [可変抵抗] の簡易目安。実機では端点抵抗と負荷を確認</div>
-      </div>
-    </div>
+      </section>
+    </main>
   </section>
-  @include('partials.app-breadcrumbs', ['items' => [['label' => 'ネットワーク探索', 'current' => true]], 'class' => 'mt-6'])
+
+  <section v-if="activeMode === 'variable'" class="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <aside class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+      <h2 class="mb-4 text-sm font-bold">可変抵抗 + 固定抵抗</h2>
+      <div class="grid gap-3">
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold opacity-60">基準抵抗値</span>
+          <input v-model="variable.reference_raw" class="input-text w-full font-mono" placeholder="10k" />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold opacity-60">可変幅</span>
+          <input v-model="variable.span_raw" class="input-text w-full font-mono" placeholder="20 または 2k" />
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <button @click="variable.span_mode = 'percent'" class="rounded border px-3 py-2 text-sm"
+            :class="variable.span_mode === 'percent' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">%</button>
+          <button @click="variable.span_mode = 'ohm'" class="rounded border px-3 py-2 text-sm"
+            :class="variable.span_mode === 'ohm' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">Ω</button>
+        </div>
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold opacity-60">基準位置</span>
+          <select v-model="variable.reference_position" class="input-text w-full">
+            <option v-for="position in variableReferencePositionOptions" :key="position.value" :value="position.value">
+              @{{ position.label }}
+            </option>
+          </select>
+        </label>
+        <select v-model="variable.circuit" class="input-text w-full">
+          <option value="series">直列トリム</option>
+          <option value="parallel">並列トリム</option>
+        </select>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">固定抵抗ソース</span>
+            <select v-model="variable.fixed_source" class="input-text w-full">
+              <option v-for="source in variableFixedSourceOptions" :key="`fixed-${source}`" :value="source">@{{ source }}</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">VRソース</span>
+            <select v-model="variable.pot_source" class="input-text w-full">
+              <option v-for="source in variablePotSourceOptions" :key="`pot-${source}`" :value="source">
+                @{{ source === 'vr-common' ? '標準VR値' : source }}
+              </option>
+            </select>
+          </label>
+        </div>
+        <textarea v-if="variable.fixed_source === 'custom'" v-model="variable.fixed_custom_values"
+          rows="3"
+          class="input-text w-full resize-none font-mono text-sm"
+          placeholder="7.5k, 8.2k, 9.1k"></textarea>
+        <textarea v-if="variable.pot_source === 'custom'" v-model="variable.pot_custom_values"
+          rows="3"
+          class="input-text w-full resize-none font-mono text-sm"
+          placeholder="1k, 2k, 5k, 10k"></textarea>
+      </div>
+    </aside>
+
+    <main class="space-y-4">
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <h2 class="mb-3 text-sm font-bold">要求範囲</h2>
+        <div class="grid gap-3 md:grid-cols-4">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">基準抵抗値</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.referenceDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">可変幅</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.spanDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">要求下限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.requirementLowDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">要求上限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.requirementHighDisplay }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">採用候補</h2>
+          <span v-if="variableResult.bestCandidate"
+            class="rounded border px-2 py-1 text-xs font-semibold"
+            :class="variableStatusClass(variableResult.bestCandidate.status)">
+            @{{ variableResult.bestCandidate.verdict }}
+          </span>
+        </div>
+      <div class="grid gap-3 md:grid-cols-4">
+        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs opacity-50">候補固定抵抗</div>
+          <div class="mt-1 font-mono text-xl font-bold">@{{ variableResult.selectedFixedDisplay }}</div>
+        </div>
+        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs opacity-50">候補VR</div>
+          <div class="mt-1 font-mono text-xl font-bold">@{{ variableResult.selectedPotDisplay }}</div>
+        </div>
+        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs opacity-50">候補下限</div>
+          <div class="mt-1 font-mono text-xl font-bold">@{{ variableResult.selectedLowDisplay }}</div>
+        </div>
+        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="text-xs opacity-50">候補上限</div>
+          <div class="mt-1 font-mono text-xl font-bold">@{{ variableResult.selectedHighDisplay }}</div>
+        </div>
+      </div>
+      <div v-if="variableResult.bestCandidate" class="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+        <div class="font-mono text-sm">@{{ variableResult.bestCandidate.expression }}</div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span v-for="tag in variableResult.bestCandidate.tags" :key="tag"
+            class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+            @{{ tag }}
+          </span>
+        </div>
+        <div class="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+          <div class="rounded border border-[var(--color-border)] px-3 py-2">
+            <span class="opacity-50">下限余裕</span>
+            <span class="ml-2 font-mono">@{{ variableResult.bestCandidate.lowMarginDisplay }}</span>
+          </div>
+          <div class="rounded border border-[var(--color-border)] px-3 py-2">
+            <span class="opacity-50">上限余裕</span>
+            <span class="ml-2 font-mono">@{{ variableResult.bestCandidate.highMarginDisplay }}</span>
+          </div>
+          <div class="rounded border border-[var(--color-border)] px-3 py-2">
+            <span class="opacity-50">範囲判定</span>
+            <span class="ml-2 font-mono">@{{ variableResult.bestCandidate.rangeMarginDisplay }}</span>
+          </div>
+        </div>
+      </div>
+      <div v-if="!variableResult.valid" class="mt-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        入力値の組み合わせを確認してください
+      </div>
+      <div v-else-if="!variableResult.candidates.length" class="mt-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        候補値ソースを確認してください
+      </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <h2 class="mb-3 text-sm font-bold">候補一覧</h2>
+        <div v-if="variableResult.candidates.length" class="grid gap-3">
+          <article v-for="candidate in variableResult.candidates" :key="`${candidate.fixed}-${candidate.pot}-${candidate.low}`"
+            class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded border px-2 py-1 text-xs font-semibold" :class="variableStatusClass(candidate.status)">
+                @{{ candidate.verdict }}
+              </span>
+              <span class="font-mono text-sm font-bold">@{{ candidate.fixedDisplay }} @{{ candidate.operatorDisplay }} VR @{{ candidate.potDisplay }}</span>
+              <span class="ml-auto font-mono text-xs">@{{ candidate.lowDisplay }} 〜 @{{ candidate.highDisplay }}</span>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span v-for="tag in candidate.tags" :key="`${candidate.fixed}-${candidate.pot}-${tag}`"
+                class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+                @{{ tag }}
+              </span>
+            </div>
+          </article>
+        </div>
+        <div v-else class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4 text-sm opacity-60">
+          候補なし
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <h2 class="mb-3 text-sm font-bold">理想値</h2>
+        <div class="grid gap-3 md:grid-cols-4">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想固定抵抗</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.idealFixedDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想VR</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.idealPotDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想下限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.idealLowDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想上限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ variableResult.idealHighDisplay }}</div>
+          </div>
+        </div>
+        <div class="mt-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-sm">
+          @{{ variableResult.expression }}
+        </div>
+      </section>
+    </main>
+  </section>
+
+  @include('partials.app-breadcrumbs', ['items' => [['label' => '抵抗/容量ネットワーク探索', 'current' => true]], 'class' => 'mt-6'])
 </div>
 </body>
 </html>

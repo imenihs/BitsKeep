@@ -41,6 +41,13 @@ export default function setup() {
     const syncConfig  = ref({ configured: false, token_configured: false, root_page_configured: false, missing: [] });
     const supportError = ref('');
     const detailError = ref('');
+    const syncConfigLabel = (key) => ({
+        api_token: 'Notion APIトークン',
+        notion_api_token: 'Notion APIトークン',
+        root_page_url: '同期元ページURL',
+        business_database_id: '事業データベースID',
+    }[key] ?? key);
+    const missingSyncLabels = () => (syncConfig.value.missing ?? []).map(syncConfigLabel);
 
     const fetchProjects = async () => {
         loading.value = true;
@@ -124,7 +131,7 @@ export default function setup() {
     // Notion同期
     const syncNotion = async () => {
         if (!syncConfig.value.configured) {
-            toastError(`Notion同期は未設定です: ${syncConfig.value.missing.join(', ')}`);
+            toastError(`Notion同期は未設定です: ${missingSyncLabels().join(', ')}`);
             return;
         }
         syncing.value = true;
@@ -193,7 +200,7 @@ export default function setup() {
                 tone: 'warning',
                 badge: '未設定',
                 title: 'Notion連携を先に整える',
-                summary: syncConfig.value.missing?.length ? `不足: ${syncConfig.value.missing.join(', ')}` : '連携設定が必要です',
+                summary: syncConfig.value.missing?.length ? `不足: ${missingSyncLabels().join(', ')}` : '連携設定が必要です',
                 actionLabel: '連携設定を開く',
                 actionType: 'settings',
             };

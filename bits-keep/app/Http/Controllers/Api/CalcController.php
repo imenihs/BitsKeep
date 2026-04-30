@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class CalcController extends Controller
 {
+    private const MAX_CUSTOM_VALUES = 256;
+
     /**
      * POST /api/calc/networks/search
      * 抵抗/容量ネットワーク探索（FNC-022）
@@ -24,7 +26,7 @@ class CalcController extends Controller
      *   tolerance_pct float   許容誤差 % (default: 5.0)
      *   part_type     string  'R' | 'C' | 'divider' (default: 'R')
      *   series        string  'E6'|'E12'|'E24'|'E48'|'E96'|'custom' (default: 'E24')
-     *   custom_values float[] series='custom' の時の値リスト
+     *   custom_values float[] series='custom' の時の値リスト (max: 256)
      *   min_elements  int     素子数下限 (default: 1)
      *   max_elements  int     素子数上限 (default: 3, max: 4)
      *   inventory_only bool   在庫限定フラグ (default: false)
@@ -38,12 +40,12 @@ class CalcController extends Controller
     public function networkSearch(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'target'        => ['required', 'numeric', 'min:0'],
+            'target'        => ['required', 'numeric', 'gt:0'],
             'tolerance_pct' => ['nullable', 'numeric', 'min:0.001', 'max:50'],
             'part_type'     => ['nullable', 'in:R,C,divider'],
             'series'        => ['nullable', 'in:E6,E12,E24,E48,E96,custom'],
-            'custom_values' => ['nullable', 'array'],
-            'custom_values.*' => ['numeric', 'min:0'],
+            'custom_values' => ['nullable', 'array', 'max:'.self::MAX_CUSTOM_VALUES],
+            'custom_values.*' => ['numeric', 'gt:0'],
             'min_elements'  => ['nullable', 'integer', 'min:1', 'max:4'],
             'max_elements'  => ['nullable', 'integer', 'min:1', 'max:4'],
             'inventory_only'=> ['nullable', 'boolean'],
@@ -53,11 +55,40 @@ class CalcController extends Controller
             'total_res_max' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        // 目標値0は探索不能
-        if ($validated['target'] == 0) {
+        $partType = $validated['part_type'] ?? 'R';
+        if (($validated['series'] ?? null) === 'custom' && empty($validated['custom_values'])) {
             return DesignAnalysisResponse::invalid(
-                '目標値が 0 のため探索できません',
-                ['0より大きい目標値を入力してください']
+                '任意値が入力されていません',
+                ['E系列を選ぶか、任意値を1つ以上入力してください']
+            );
+        }
+        if ($partType === 'divider' && ((float) $validated['target'] <= 0 || (float) $validated['target'] >= 1)) {
+            return DesignAnalysisResponse::invalid(
+                '分圧比は 0 より大きく 1 より小さい値で指定してください',
+                ['例: 0.5 または 50% のように Vout/Vin を入力してください']
+            );
+        }
+        if ($partType !== 'divider' && ($validated['min_elements'] ?? 1) > ($validated['max_elements'] ?? 4)) {
+            return DesignAnalysisResponse::invalid(
+                '素子数の最小値が最大値を超えています',
+                ['最小素子数を最大素子数以下にしてください']
+            );
+        }
+        if (array_key_exists('circuit_types', $validated) && $validated['circuit_types'] === []) {
+            return DesignAnalysisResponse::invalid(
+                '探索回路種別が選択されていません',
+                ['直列、並列、直並列混在のいずれかを選んでください']
+            );
+        }
+        if (
+            array_key_exists('total_res_min', $validated)
+            && array_key_exists('total_res_max', $validated)
+            && $validated['total_res_max'] !== null
+            && (float) $validated['total_res_min'] > (float) $validated['total_res_max']
+        ) {
+            return DesignAnalysisResponse::invalid(
+                '分圧総抵抗範囲の最小値が最大値を超えています',
+                ['総抵抗の最小値を最大値以下にしてください']
             );
         }
 
@@ -70,6 +101,10 @@ class CalcController extends Controller
         if ($result['truncated'] ?? false) {
             $warnings[]    = '候補が多すぎるため上位のみ表示しています';
             $nextActions[] = '許容誤差を狭めるか、素子数の上限を下げてください';
+        }
+        if ($result['evaluation_limited'] ?? false) {
+            $warnings[]    = '探索量上限に達したため途中までの候補を表示しています';
+            $nextActions[] = '直並列混在を外すか、E系列/任意値/素子数を絞って再探索してください';
         }
         if (empty($result['candidates'])) {
             $nextActions[] = '許容誤差を広げるか、素子数の上限を増やしてください';

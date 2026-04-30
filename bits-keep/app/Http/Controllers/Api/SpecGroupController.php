@@ -5,20 +5,23 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\SpecGroup;
+use App\Models\SpecType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class SpecGroupController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $hasComponentSeries = $this->hasComponentSeriesTable();
+        $hasSeriesManagementMode = $this->hasSeriesManagementModeColumn();
+        $countRelations = $this->countRelations($hasComponentSeries);
+
         $query = SpecGroup::query()
             ->where('name', '!=', '共通')
-            ->withCount([
-                'specTypes as usage_count',
-                'templates as template_count',
-            ]);
+            ->withCount($countRelations);
 
         if ($request->boolean('include_archived')) {
             $query->withTrashed();
@@ -36,15 +39,25 @@ class SpecGroupController extends Controller
             ]);
         }
 
-        $groups = $query->orderBy('sort_order')->orderBy('name')->get()->map(function (SpecGroup $group) {
+        $groups = $query->orderBy('sort_order')->orderBy('name')->get()->map(function (SpecGroup $group) use ($hasComponentSeries, $hasSeriesManagementMode) {
+            if (! $hasComponentSeries) {
+                $group->series_count = 0;
+            }
+            if (! $hasSeriesManagementMode) {
+                $group->series_management_mode = 'single';
+            }
+
             $group->can_force_delete = (bool) $group->deleted_at
                 && (int) $group->usage_count === 0
-                && (int) $group->template_count === 0;
+                && (int) $group->template_count === 0
+                && (int) $group->series_count === 0;
             $group->force_delete_reason = $group->can_force_delete
                 ? ''
                 : ((int) $group->usage_count > 0
                     ? "スペック詳細{$group->usage_count}件が候補に設定されています"
-                    : ((int) $group->template_count > 0 ? "テンプレート{$group->template_count}件が所属中" : '先にアーカイブしてください'));
+                    : ((int) $group->template_count > 0
+                        ? "テンプレート{$group->template_count}件が所属中"
+                        : ((int) $group->series_count > 0 ? "部品シリーズ{$group->series_count}件が所属中" : '先にアーカイブしてください')));
 
             return $group;
         });
@@ -54,7 +67,7 @@ class SpecGroupController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
@@ -70,7 +83,7 @@ class SpecGroupController extends Controller
 
     public function update(Request $request, SpecGroup $specGroup): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
@@ -81,7 +94,7 @@ class SpecGroupController extends Controller
 
     public function destroy(Request $request, SpecGroup $specGroup): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
@@ -92,7 +105,7 @@ class SpecGroupController extends Controller
 
     public function restore(Request $request, int $specGroup): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
@@ -104,15 +117,17 @@ class SpecGroupController extends Controller
 
     public function forceDestroy(Request $request, int $specGroup): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
+        $countRelations = $this->countRelations($this->hasComponentSeriesTable());
+
         $model = SpecGroup::withTrashed()
-            ->withCount(['specTypes as usage_count', 'templates as template_count'])
+            ->withCount($countRelations)
             ->findOrFail($specGroup);
 
-        if (!$model->deleted_at) {
+        if (! $model->deleted_at) {
             return ApiResponse::error('完全削除の前にアーカイブしてください', [], 422);
         }
         if ((int) $model->usage_count > 0) {
@@ -120,6 +135,9 @@ class SpecGroupController extends Controller
         }
         if ((int) $model->template_count > 0) {
             return ApiResponse::error("テンプレート{$model->template_count}件が所属中のため完全削除できません", [], 422);
+        }
+        if ((int) ($model->series_count ?? 0) > 0) {
+            return ApiResponse::error("部品シリーズ{$model->series_count}件が所属中のため完全削除できません", [], 422);
         }
 
         $model->forceDelete();
@@ -129,7 +147,7 @@ class SpecGroupController extends Controller
 
     public function syncSpecTypes(Request $request, SpecGroup $specGroup): JsonResponse
     {
-        if (!$request->user()?->isAdmin()) {
+        if (! $request->user()?->isAdmin()) {
             return ApiResponse::forbidden();
         }
 
@@ -171,13 +189,19 @@ class SpecGroupController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('spec_groups', 'name')->ignore($group?->id)],
             'description' => ['nullable', 'string', 'max:500'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
+            'series_management_mode' => ['nullable', Rule::in(['single', 'series_optional', 'series_recommended'])],
         ]);
 
-        return [
+        $payload = [
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'sort_order' => $validated['sort_order'] ?? 0,
         ];
+        if ($this->hasSeriesManagementModeColumn()) {
+            $payload['series_management_mode'] = $validated['series_management_mode'] ?? 'single';
+        }
+
+        return $payload;
     }
 
     private function loadForEditor(SpecGroup $group): SpecGroup
@@ -196,9 +220,58 @@ class SpecGroupController extends Controller
             'spec_types.sort_order',
         ]);
 
-        return $group->load([
+        $hasComponentSeries = $this->hasComponentSeriesTable();
+        $countRelations = $this->countRelations($hasComponentSeries);
+
+        $group->load([
             'specTypes' => $compactSpecType,
             'templates' => fn ($q) => $q->with(['items.specType' => $compactSpecType]),
-        ])->loadCount(['specTypes as usage_count', 'templates as template_count']);
+        ])->loadCount($countRelations);
+
+        if (! $hasComponentSeries) {
+            $group->series_count = 0;
+        }
+        if (! $this->hasSeriesManagementModeColumn()) {
+            $group->series_management_mode = 'single';
+        }
+
+        return $group;
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function countRelations(bool $includeSeries = true): array
+    {
+        $relations = [
+            'specTypes as usage_count',
+            'specTypes as local_candidate_count' => fn ($q) => $q
+                ->where('spec_scope', SpecType::SCOPE_GROUP_LOCAL)
+                ->where('spec_kind', SpecType::KIND_NORMAL),
+            'specTypes as common_candidate_count' => fn ($q) => $q
+                ->where('spec_scope', SpecType::SCOPE_COMMON)
+                ->where('spec_kind', SpecType::KIND_NORMAL),
+            'specTypes as tolerance_candidate_count' => fn ($q) => $q
+                ->where('spec_scope', SpecType::SCOPE_COMMON)
+                ->where('spec_kind', SpecType::KIND_TOLERANCE),
+            'ownedSpecTypes as owned_spec_type_count',
+            'templates as template_count',
+        ];
+
+        if ($includeSeries) {
+            $relations[] = 'componentSeries as series_count';
+        }
+
+        return $relations;
+    }
+
+    private function hasComponentSeriesTable(): bool
+    {
+        return Schema::hasTable('component_series');
+    }
+
+    private function hasSeriesManagementModeColumn(): bool
+    {
+        return Schema::hasColumn('spec_groups', 'series_management_mode');
     }
 }
