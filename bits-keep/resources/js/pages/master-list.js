@@ -1030,10 +1030,10 @@ export default function setup() {
     const memberStateLabel = (member) => ({ required: '必須', recommended: '推奨', optional: '任意' })[memberState(member)] ?? '任意';
     const defaultProfileLabel = (profile) => ({
         typ: 'TYP',
-        range: 'MIN-MAX',
-        max_only: '≤MAX',
-        min_only: '≥MIN',
-        triple: 'Min/Typ/Max',
+        range: 'MIN..MAX',
+        max_only: 'MAX',
+        min_only: 'MIN',
+        triple: 'MIN/TYP/MAX',
     })[profile] ?? '未指定';
     const memberDefaultLabel = (member) => {
         const profile = defaultProfileLabel(member?.pivot?.default_profile);

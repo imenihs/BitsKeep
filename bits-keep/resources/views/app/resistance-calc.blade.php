@@ -124,8 +124,13 @@
 
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
-              <span class="mb-1 block text-xs font-semibold opacity-60">許容誤差</span>
+              <span class="mb-1 block text-xs font-semibold opacity-60">@{{ activeMode === 'network' ? '探索許容誤差' : '許容誤差' }}</span>
               <input v-model.number="form.tolerance_pct" type="number" min="0.001" max="50" step="0.1"
+                class="input-text w-full font-mono" />
+            </label>
+            <label v-if="activeMode === 'network'" class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">採用素子許容差</span>
+              <input v-model.number="form.element_tolerance_pct" name="element_tolerance_pct" type="number" min="0" max="100" step="0.1"
                 class="input-text w-full font-mono" />
             </label>
             <label class="block">
@@ -133,6 +138,18 @@
               <select v-model="form.series" class="input-text w-full">
                 <option v-for="series in seriesOptions" :key="series" :value="series">@{{ series }}</option>
               </select>
+            </label>
+          </div>
+          <div v-if="activeMode === 'divider'" class="grid grid-cols-2 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">R1許容差</span>
+              <input v-model.number="form.divider_upper_tolerance_pct" type="number" min="0" max="100" step="0.1"
+                class="input-text w-full font-mono" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">R2許容差</span>
+              <input v-model.number="form.divider_lower_tolerance_pct" type="number" min="0" max="100" step="0.1"
+                class="input-text w-full font-mono" />
             </label>
           </div>
 
@@ -333,6 +350,25 @@
                   @{{ candidate.output_error_display }}
                 </div>
               </div>
+              <div v-if="candidate.divider_rss_range_display" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">素子誤差範囲</div>
+                <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.divider_rss_range_display }}</div>
+                <div class="mt-1 grid gap-1 font-mono text-xs opacity-70">
+                  <span>@{{ candidate.divider_tolerance_display }}</span>
+                  <span>RSS最大 @{{ candidate.divider_rss_max_error_display }} / @{{ candidate.divider_rss_max_error_pct_display }}</span>
+                  <span>コーナー @{{ candidate.divider_corner_range_display }} / 最大 @{{ candidate.divider_corner_max_error_pct_display }}</span>
+                </div>
+              </div>
+              <div v-if="candidate.rss_range_display || candidate.low_equivalent_display" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">独立RSS目安</div>
+                <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.rss_range_display || candidate.tolerance_range_display || `${candidate.low_equivalent_display} 〜 ${candidate.high_equivalent_display}` }}</div>
+                <div class="mt-1 grid gap-1 font-mono text-xs opacity-70">
+                  <span>採用素子 ±@{{ candidate.element_tolerance_display }}</span>
+                  <span v-if="candidate.rss_equivalent_spread_display">RSS幅 ±@{{ candidate.rss_equivalent_spread_display }} / @{{ candidate.rss_equivalent_spread_pct_display }}</span>
+                  <span v-if="candidate.rss_max_target_deviation_display">最大偏差 @{{ candidate.rss_max_target_deviation_display_value }} / @{{ candidate.rss_max_target_deviation_display }}</span>
+                  <span v-if="candidate.corner_range_display">コーナー @{{ candidate.corner_range_display }} / 最大 @{{ candidate.max_target_deviation_display }}</span>
+                </div>
+              </div>
               <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                 <div class="text-xs opacity-50">@{{ candidate.circuit_type === 'divider' ? '総抵抗' : '差分' }}</div>
                 <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.total_display || candidate.error_abs_display }}</div>
@@ -400,6 +436,18 @@
                 @{{ source === 'vr-common' ? '標準VR値' : source }}
               </option>
             </select>
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">固定抵抗許容差</span>
+            <input v-model.number="variable.fixed_tolerance_pct" type="number" min="0" max="100" step="0.1"
+              class="input-text w-full font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">VR許容差</span>
+            <input v-model.number="variable.pot_tolerance_pct" type="number" min="0" max="100" step="0.1"
+              class="input-text w-full font-mono" />
           </label>
         </div>
         <textarea v-if="variable.fixed_source === 'custom'" v-model="variable.fixed_custom_values"
@@ -483,6 +531,16 @@
           <div class="rounded border border-[var(--color-border)] px-3 py-2">
             <span class="opacity-50">範囲判定</span>
             <span class="ml-2 font-mono">@{{ variableResult.bestCandidate.rangeMarginDisplay }}</span>
+          </div>
+        </div>
+        <div v-if="variableResult.bestCandidate.rssAdjustableRangeDisplay" class="mt-3 rounded border border-[var(--color-border)] px-3 py-2 text-xs">
+          <div class="font-semibold opacity-60">素子誤差範囲</div>
+          <div class="mt-1 font-mono text-sm font-bold">@{{ variableResult.bestCandidate.rssAdjustableRangeDisplay }}</div>
+          <div class="mt-1 grid gap-1 font-mono opacity-70">
+            <span>@{{ variableResult.bestCandidate.toleranceDisplay }}</span>
+            <span>RSS下限 @{{ variableResult.bestCandidate.rssLowEndpointRangeDisplay }}</span>
+            <span>RSS上限 @{{ variableResult.bestCandidate.rssHighEndpointRangeDisplay }}</span>
+            <span>コーナー @{{ variableResult.bestCandidate.cornerAdjustableRangeDisplay }}</span>
           </div>
         </div>
       </div>
@@ -636,6 +694,23 @@
             </select>
           </label>
         </div>
+        <div class="grid grid-cols-3 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">R上許容差</span>
+            <input v-model.number="dividerVariable.top_tolerance_pct" type="number" min="0" max="100" step="0.1"
+              class="input-text w-full font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">VR許容差</span>
+            <input v-model.number="dividerVariable.pot_tolerance_pct" type="number" min="0" max="100" step="0.1"
+              class="input-text w-full font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">R下許容差</span>
+            <input v-model.number="dividerVariable.bottom_tolerance_pct" type="number" min="0" max="100" step="0.1"
+              class="input-text w-full font-mono" />
+          </label>
+        </div>
         <textarea v-if="form.series === 'custom'" v-model="form.custom_values"
           rows="3"
           class="input-text w-full resize-none font-mono text-sm"
@@ -752,9 +827,19 @@
               <span class="opacity-50">負荷電流</span>
               <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.outputCurrentDisplay }}</span>
             </div>
-            <div class="rounded border border-[var(--color-border)] px-3 py-2">
-              <span class="opacity-50">範囲判定</span>
-              <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.rangeMarginDisplay }}</span>
+          <div class="rounded border border-[var(--color-border)] px-3 py-2">
+            <span class="opacity-50">範囲判定</span>
+            <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.rangeMarginDisplay }}</span>
+          </div>
+        </div>
+          <div v-if="dividerVariableResult.bestCandidate.rssOutputRangeDisplay" class="mt-3 rounded border border-[var(--color-border)] px-3 py-2 text-xs">
+            <div class="font-semibold opacity-60">素子誤差範囲</div>
+            <div class="mt-1 font-mono text-sm font-bold">@{{ dividerVariableResult.bestCandidate.rssOutputRangeDisplay }}</div>
+            <div class="mt-1 grid gap-1 font-mono opacity-70">
+              <span>@{{ dividerVariableResult.bestCandidate.toleranceDisplay }}</span>
+              <span>RSS下限端 @{{ dividerVariableResult.bestCandidate.rssLowEndpointRangeDisplay }}</span>
+              <span>RSS上限端 @{{ dividerVariableResult.bestCandidate.rssHighEndpointRangeDisplay }}</span>
+              <span>コーナー @{{ dividerVariableResult.bestCandidate.cornerOutputRangeDisplay }}</span>
             </div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">

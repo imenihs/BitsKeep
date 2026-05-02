@@ -7231,3 +7231,300 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 対応方針: 値種別の主ラベルを uppercase の同一体系へ統一し、`select` をやめて固定幅コードと説明を持つカスタム選択UIへ置き換える。
 - DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
 - 大将の心の声: 「言われた単語を入れる」ではなく、操作面と説明面を分けるのがUI設計だった。ここは作り直す。
+
+### [曹長(コード分隊)] 2026-05-02 14:12 JST
+- 実装: 値種別の可視表記を `TYP / MIN..MAX / MAX / MIN / MIN/TYP/MAX` に統一し、`Min/Typ/Max` や `≤MAX` などの混在表記を廃止した。
+- 実装: スペック行の常時説明文を削除し、意味の補足は `title` / `aria-label` に限定した。選択後の意味は入力欄の `TYP` `MIN` `MAX` 構造で示す。
+- 実装: 登録画面、詳細編集、解析候補レビュー、マスタ管理、一覧検索用ラベル、README、ヘルプ、仕様書、進捗チェックリストを同じ表記へ更新した。
+- 復旧: 確認コマンドの誤ったリダイレクトで `component-create.blade.php` と空ファイル `✕` に確認出力が流れたため、当該ファイルだけ復旧してから変更を再適用した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 説明文でUIを支えるのではなく、表記体系と入力欄の形で意味を伝えるべきだった。確認コマンドのミスも含めて、作業の雑さを潰す。
+
+### [曹長(テスト分隊)] 2026-05-02 14:14 JST
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check --` 今回対象ファイル。
+- ✓ `npm run build`
+- ✓ `composer run test`。92 tests / 837 assertions。
+- ✓ `public/hot` が存在しないことを確認。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 値種別の見た目は表記統一と常時説明削除で締めた。誤リダイレクト復旧後にビルドと全体テストで壊れていないことも確認した。
+
+### [大将] 2026-05-02 14:19 JST
+- [ユーザ] スペック詳細選択後の単位欄について、単位は基底単位で固定し、接頭語は値側へ付けるべきではないかと確認。
+- 判断: 指摘通り。スペック詳細が物理量と基底単位を持つなら、単位欄で `kΩ` や `mA` を選ばせるのは責務分離が悪い。値欄は `10k` のような工学接頭語を受け、単位欄は `Ω` のような基底単位を示すべき。
+- 対応方針: 単位候補生成とスペック詳細選択時の unit セットを確認し、登録/詳細編集/解析候補レビューで基底単位に寄せる。既存の正規化処理が値側接頭語を受けられる前提で、UIから prefixed unit 候補を出さない方向へ直す。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 単位とスケールを分けないと、マスタの意味が崩れる。Ωは物理量の単位で、kは入力値の桁表現だ。
+
+### [曹長(コード分隊)] 2026-05-02 14:28 JST
+- 実装: `getSpecUnitSuggestions()` は `base_unit` がある通常スペックでは基準単位だけを返すように変更し、`kΩ` `mA` のような接頭語付き単位候補を出さないようにした。
+- 実装: 登録画面、詳細編集、解析候補レビューの通常スペック単位欄を、スペック詳細の基準単位がある場合は readonly 表示に変更した。許容差スペックは従来通り allowed_units を選択できる。
+- 実装: 既存データや解析候補が `value=10` `unit=kΩ` の形で来ても、編集UIへ載せる時点で `value=10k` `unit=Ω` へ寄せる `normalizeSpecDraftUnitToBase()` を追加した。
+- ドキュメント: README、ヘルプ、詳細仕様、進捗チェックリストへ「単位は基準単位、接頭語は値欄」の方針を反映した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 今回の本質は候補を減らすことではなく、物理量の単位と桁表現を混ぜないことだった。既存データの見え方も合わせて直した。
+
+### [曹長(テスト分隊)] 2026-05-02 14:29 JST
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `node --input-type=module` で `value=10, unit=kΩ` が `value=10k, unit=Ω` へ変換されることを確認。
+- ✓ `git diff --check --` 今回対象ファイル。
+- ✓ `npm run build`
+- ✓ `composer run test`。95 tests / 1352 assertions。
+- ✓ `public/hot` が存在しないことを確認。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 単位欄の責務を基準単位に寄せても、既存の保存・検索・抵抗計算系の回帰は崩れていない。UIの見え方はブラウザ確認が残る。
+
+### [大将] 2026-05-02 14:17 JST
+- [ユーザ] 抵抗/容量ネットワーク探索で、各採用素子に許容差がある場合に理想からどれだけずれるかも示すよう指示。仕様書と進捗チェックリストへ投入、実装、テスト、有識者チェック、PDCA異常0、サブワーカー並列対応も指示。
+- 設計判断: 既存の `探索許容誤差` は目標値に対する候補採用幅として残し、別入力として `部品許容差` を追加する。抵抗/容量の直列・並列・混在トポロジは各素子値に対して単調なので、全素子を低側/高側へ振った同一トポロジ評価を worst-case の低値/高値として扱う。
+- 表示方針: 候補ごとに公称合成値に加え、許容差込み範囲、目標からの最大ずれ、部品許容差を表示する。これは公称値ベースの最悪値見積もりであり、温度係数、電圧係数、経年、寄生成分、ロット相関、統計分布、Monte Carlo は扱わない。
+- 並列化: ドキュメント担当、テスト担当、有識者レビュー担当をサブワーカーとして起動した。AI同士の連絡は英語で行う。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 探索誤差と部品許容差は別物。ここを混ぜると、候補の近さと実機でのズレを取り違える。
+
+### [曹長(コード分隊)] 2026-05-02 14:24 JST
+- 実装: `/api/calc/networks/search` に `element_tolerance_pct` を追加し、抵抗/容量ネットワーク候補ごとに `low_equivalent_value/display`、`high_equivalent_value/display`、`max_target_deviation_pct/display`、符号付き低側/高側偏差を返すようにした。
+- 実装: 直列・並列・既存の直並列混在トポロジを、採用素子許容差の低側/高側へ同一倍率で再評価する。候補ソートは部品許容差がある場合、最大偏差を先に見てから公称誤差を見る。
+- UI: ネットワーク探索に `採用素子許容差` 入力を追加し、既存の `許容誤差` は `探索許容誤差` として表示する。候補カードに `公差範囲` と `最大偏差` を表示する。
+- ドキュメント: README、ヘルプ、詳細仕様、実装進捗チェックリストへ `tolerance_pct` と `element_tolerance_pct` の責務分離、worst-case範囲、限界条件を追記した。
+- 有識者チェック: 正値のR/C直列・並列・既存の直並列混在は各素子値に対して単調であり、全素子Low/全素子Highで低値/高値を出す設計は妥当。ただし分圧比、ブリッジ、周波数依存、ESR/ESL、温度/電圧係数、統計歩留まりには拡張しない前提を明記した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 探索の合否と採用品のばらつきは別の軸。表示上もAPI上も分けておけば、名目上近いだけの候補を実機公差込みで見直せる。
+
+### [曹長(テスト分隊)] 2026-05-02 14:24 JST
+- ✓ `php -l bits-keep/app/Services/NetworkSearchService.php`
+- ✓ `php -l bits-keep/app/Http/Controllers/Api/CalcController.php`
+- ✓ `php -l bits-keep/resources/views/app/resistance-calc.blade.php`
+- ✓ `node --check bits-keep/resources/js/pages/resistance-calc.js`
+- ✓ `node tests/resistance-calc.test.mjs`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。20 tests / 111 assertions。
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。16 tests / 879 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。95 tests / 1352 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- PDCA結果: 追加契約テストで赤を確認予定だった欠落項目を実装し、対象テスト、全体テスト、ビルド、Bladeコンパイルまで異常0。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 10kΩ+10kΩの±5%で19kΩ〜21kΩ、10kΩ||10kΩで4.75kΩ〜5.25kΩ、100nF直列の±10%で45nF〜55nFを固定した。単位表示とAPI形まで回帰に入った。
+
+### [大将] 2026-05-02 14:27 JST
+- [ユーザ] サブワーカーの声がログに入らない理由を確認。
+- 原因: サブワーカーは別実行単位で最終報告を返すだけで、`makinglog.md` へ自動追記されない。大将が回収してログ化する責任があるが、14:24の記録ではコード分隊/テスト分隊の代表ログに集約し、個別サブワーカーの声を独立項目として転記していなかった。
+- 是正: 今回の3サブワーカー（ドキュメント担当、テスト担当、有識者レビュー担当）の報告を、事後記録で個別に追記する。以後、サブワーカーを使った場合は回収時に `サブワーカー名 / 担当 / 結果 / 心の声` を必ず別項目で残す。
+- DB変更: なし。
+- 大将の心の声: 並列化したなら、誰が何を見て何を判断したかまでログに残すべきだった。代表ログだけでは、サブワーカーを使った事実と判断の出どころが弱い。
+
+### [サブワーカー: ドキュメント担当] 2026-05-02 14:27 JST
+- 担当: README、ヘルプ、詳細仕様、実装進捗チェックリストに、抵抗/容量ネットワーク探索の `部品許容差` 仕様を反映。
+- 結果: `tolerance_pct` は探索許容誤差、`element_tolerance_pct` は採用素子のばらつき確認用として分離して記載。全素子Low/Highのworst-case評価、表示項目、温度/電圧/経年/寄生成分/ロット相関/Monte Carlo対象外を明文化。
+- 検証: `git diff --check -- README.md bits-keep/resources/views/app/help.blade.php 詳細仕様/仕様書.md 制作管理/実装進捗チェックリスト.md` を通過。
+- DB変更: なし。
+- ドキュメント担当の心の声: 探索許容誤差と部品許容差を同じ「許容差」として書くと、設計者が候補フィルタと実部品のばらつきを混同する。文書ではまず責務分離を固定した。
+
+### [サブワーカー: テスト担当] 2026-05-02 14:27 JST
+- 担当: API/UI/フロント契約テストで、`element_tolerance_pct` の期待仕様を先に固定。
+- 結果: 10kΩ+10kΩ直列の±5%で19kΩ〜21kΩ、10kΩ||10kΩの±5%で4.75kΩ〜5.25kΩ、100nF直列相当の±10%で45nF〜55nFを検証対象に追加。UIには `element_tolerance_pct`、`採用素子許容差`、`公差範囲`、`最大偏差` が出ることを確認するテストを追加。
+- 検証: 実装前の不足点として `low_equivalent_display` などの未実装を検出できる契約テストにした。実装後は `NetworkSearchApiTest`、`UiApiSurfaceSmokeTest`、`resistance-calc.test.mjs` で緑化済み。
+- DB変更: なし。
+- テスト担当の心の声: 仕様が曖昧なまま実装すると表示名だけ追加して終わる。具体値のLow/Highと最大偏差をテストで固定して、計算とUI契約を同時に縛った。
+
+### [サブワーカー: 有識者レビュー担当] 2026-05-02 14:27 JST
+- 担当: R/Cネットワークで全素子Low/Highをworst-case範囲にする設計の妥当性レビュー。
+- 結果: 正値の抵抗/容量で、直列・並列・既存の直並列混在トポロジは各素子値に対して単調。したがって全素子を下限値にした評価が最小、全素子を上限値にした評価が最大になる設計は妥当。
+- 注意: この結論は等価R/Cを求める既存対応トポロジに限る。分圧比、ブリッジ、負荷付き伝達関数、周波数依存、ESR/ESL、温度係数、電圧係数、統計歩留まり、部品ロット相関にはそのまま拡張しない。
+- DB変更: なし。
+- 有識者レビュー担当の心の声: 単調性が成立する範囲を限定すれば、Low/High評価は説明可能で堅い。一方で分圧や周波数依存まで同じ顔で出すと危ないので、制約を表示と仕様に残す必要がある。
+
+### [大将] 2026-05-02 14:27 JST
+- [ユーザ] `採用素子許容差の公差範囲は全素子を同方向に振った公称値ベースの最悪見積もり` という表示に対し、独立した±5%抵抗が全て+5%へ揃う前提は現実的ではなく、設計として不適切ではないかと指摘。
+- 判断: 指摘通り、単一表示として全素子同方向のコーナーだけを出すと、現実の独立ばらつき目安と保証境界を混同する。コーナー値は絶対境界確認としては意味があるが、採用候補の主評価にするには過大評価になりやすい。一方で同一リール/同一ロットの系統偏りもあるため、完全独立の確率分布だけを保証値として扱うのも危険。
+- 対応方針: UI/APIは `独立RSS目安` を主表示し、`全素子同方向コーナー` は保証確認用の併記へ降格する。RSSは各素子の正規化感度を数値微分し、`sqrt(sum((S_i * 許容差)^2))` で公称合成値まわりの独立ばらつき幅を出す。仕様と警告文も、確率・保証・ロット相関を混ぜない表現へ直す。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: コーナーは「保証境界」であって「起きやすいズレ」ではない。ユーザーに言われるまで主表示にしていたのは設計判断として甘かった。
+
+### [曹長(コード分隊)] 2026-05-02 14:51 JST
+- 実装: 抵抗/容量ネットワーク候補の部品許容差表示を、全素子同方向コーナー主表示から `独立RSS目安` 主表示へ変更した。各素子の正規化感度を数値微分し、`f * tolerance * sqrt(sum(S_i^2))` でRSS幅を算出する。
+- 実装: API候補へ `rss_low_equivalent_*`、`rss_high_equivalent_*`、`rss_equivalent_spread_*`、`rss_max_target_deviation_*` を追加した。既存の `low_equivalent_*` / `high_equivalent_*` / `max_target_deviation_*` は保証確認用のコーナー値として残した。
+- 実装: 候補ソートは部品許容差がある場合、RSS最大偏差を優先するよう修正した。UIは `独立RSS目安` を大きく表示し、`コーナー` を補足表示へ変更した。
+- ドキュメント: README、ヘルプ、仕様書、実装進捗チェックリストで、RSS目安は保証値ではないこと、全素子同方向コーナーは起きやすさではなく保証境界確認用であること、ロット相関や実測分布は別確認であることを明記した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 現場で欲しいのは「どれくらい散りそうか」と「保証境界はどこか」の両方。片方だけを公差範囲と言い切るのは危険だった。
+
+### [曹長(テスト分隊)] 2026-05-02 14:51 JST
+- ✓ `php -l bits-keep/app/Services/NetworkSearchService.php`
+- ✓ `php -l bits-keep/resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `node --check bits-keep/resources/js/pages/resistance-calc.js`
+- ✓ `node tests/resistance-calc.test.mjs`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。20 tests / 128 assertions。
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。17 tests / 1374 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。96 tests / 1864 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- ✓ `public/hot` が存在しないことを確認。
+- 検証固定値: 10kΩ+10kΩの±5%はRSS最大偏差3.5355%、コーナー最大5%。10kΩ+10kΩ+10kΩの±5%はRSS最大偏差2.8868%、コーナー最大5%。100nF相当の容量直列±10%はRSS最大偏差7.0711%、コーナー最大10%。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: ユーザー指摘の3本抵抗ケースをテストに入れて、RSSとコーナーが別の数字になることを固定した。これで同じ過大表示へ戻りにくい。
+
+### [曹長(コード分隊)] 2026-05-02 14:32 JST
+- [ユーザ] スペック詳細選択後の単位コンボが接頭語付き候補を出すのは責務としておかしく、接頭語は値側へ付けるべきではないかと指摘。
+- 対応: 物理量の `base_unit` がある通常スペックでは、編集UIの単位欄を基底単位表示に固定し、`k/m/u/n` などの接頭語は値欄へ入力する形へ変更。既存表示が `10 + kΩ` のような形でも、編集時は `10k + Ω` へ寄せる正規化を追加。
+- 補足: 許容差スペックの `%` / `ppm` など、基底単位ではなく選択肢が意味を持つものは従来どおり選択UIを維持。
+- 検証: `git diff --check` 通過。直前の `npm run build`、`composer run test` は通過済み。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 単位候補に接頭語を並べると、設計値のスケール表現と物理量の単位定義が混ざる。基底単位は固定し、スケールは値の入力で表す方が技術者には読みやすい。
+
+### [大将] 2026-05-02 14:33 JST
+- [ユーザ] 「どう思う？」への回答を先に返すべきだったと指摘。仕様書・チェックリストと実装差分をなくし、テストをPDCAで異常0にするよう指示。追加で、登録済みスペック行の右にある `+` は意味が分かりにくく、上のスペック追加欄へ未登録スペック詳細追加の導線を持たせるべきではないかと相談。
+- 判断: 指摘どおり。登録済みスペック行は登録済み/選択済みの行編集領域であり、未登録のスペック詳細マスタを追加する導線を置くと、行の登録とマスタ登録の責務が混ざる。未登録スペック詳細の追加は上部のスペック追加領域へ集約し、追加後にスペック候補へ反映して行追加できる流れにする。
+- 進め方: 実装、仕様書、README、ヘルプ、実装進捗チェックリスト、検証ログを同じ仕様へ合わせる。DB変更は行わない。
+- DB変更: なし。
+- 大将の心の声: 「どう思う？」は設計判断の確認であって、勝手に実装する合図ではない。今回は判断を明文化してから、UI責務と文書を揃えて閉じる。
+
+### [曹長(コード分隊)] 2026-05-02 14:43 JST
+- 対応: 部品登録・部品詳細の登録済みスペック行、および解析候補行の `スペック詳細` 右側にあった行内 `+` を撤去。未登録スペック詳細の追加は上部のスペック追加欄に `スペック詳細追加` ボタンとして集約した。
+- 挙動: 追加モーダルで保存したスペック詳細は、部品分類が一意に決まる場合だけ `spec_scope=group_local` / `owner_spec_group_id` 付きで作成し、選択中部品分類の候補へ即時反映して登録済みスペック行へ追加する。同名の既存スペック詳細は新規作成せず、候補関係を補完してから行追加する。
+- 文書: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストから旧仕様の「行内+」記述を削除し、上部 `スペック詳細追加` へ統一。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 登録済み行にマスタ追加の入口があると、行を増やすのか正本を増やすのかが一瞬で分からなくなる。追加の入口を上部へ戻すと、候補追加、テンプレート追加、未登録詳細追加の責務が並んで見える。
+
+### [曹長(テスト分隊)] 2026-05-02 14:43 JST
+- 追加テスト: `UiApiSurfaceSmokeTest::test_spec_detail_creation_entrypoint_lives_in_spec_add_toolbar` を追加し、部品登録・部品詳細で `スペック詳細追加` が上部導線にあり、`openInlineSpecTypeModal(spec)`、`spec-type-add-button`、`保存して選択` が残っていないことを固定。
+- ✓ `node --check resources/js/pages/component-create.js && node --check resources/js/pages/component-detail.js && node --check resources/js/utils/specValue.js && node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/component-create.blade.php && php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/help.blade.php && php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `git diff --check`
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。17 tests / 893 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。96 tests / 1366 assertions。
+- ✓ `public/hot` なし。
+- PDCA結果: 旧導線を検出できる契約テストを追加し、実装・文書・全体ビルド・全体テストまで異常0。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: UIの違和感は見た目だけでなく、文字列とイベント名にも残る。今回は「行内追加が残っていない」ことをテストで縛った。
+
+### [大将] 2026-05-02 14:53 JST
+- [ユーザ] 上部に `追加` と `スペック詳細追加` が横並びで2つあると混乱するため、場所と説明を考え直すよう指摘。
+- 判断: 指摘どおり。同じ列に同じ重さの追加ボタンを2つ並べると、登録済みスペック行の追加なのか、スペック詳細マスタの作成なのかが判断しづらい。主操作は `追加` だけにし、候補にない場合のマスタ作成は `スペック候補` 欄の補助導線へ分離する。
+- 進め方: UI文言を `候補外を作成` へ変更し、ボタン位置を `スペック候補` 入力欄の下へ移す。仕様書、README、ヘルプ、チェックリスト、テストも同じ語へ揃える。
+- DB変更: なし。
+- 大将の心の声: ボタンを上に移しただけでは責務分離として半端だった。主操作と例外操作は重さと位置を変えないと、利用者には同じ操作に見える。
+
+### [曹長(コード分隊)] 2026-05-02 14:57 JST
+- 対応: 部品登録・部品詳細のスペック追加欄で、`追加` と `スペック詳細追加` の横並びを解消。`追加` は右側の主ボタンとして残し、未登録スペック詳細作成は `スペック候補` 欄の下に `候補外を作成` の補助リンクとして移動した。
+- 文書: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを `候補外を作成` へ更新。テスト名と期待文言も更新。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 「追加」と「スペック詳細追加」は文字として近すぎた。候補リストに無いものを作る例外操作なので、候補欄の下に小さく置く方が視線と責務が合う。
+
+### [曹長(テスト分隊)] 2026-05-02 14:57 JST
+- ✓ `node --check resources/js/pages/component-create.js && node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/component-create.blade.php && php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/help.blade.php && php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `git diff --check`
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。17 tests / 1374 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。96 tests / 1864 assertions。
+- ✓ `public/hot` なし。
+- PDCA結果: `候補外を作成` の表示と `openInlineSpecTypeModal()` の上部導線、行内 `openInlineSpecTypeModal(spec)` / `spec-type-add-button` 不在を契約テストで確認し、全体ビルド・全体テストまで異常0。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 見た目の混乱は、文言の近さが原因でも起きる。テストでは表示名とイベントの残骸を見て、旧導線が戻らないようにした。
+
+### [大将] 2026-05-02 15:02 JST
+- [ユーザ] `スペック追加` カードの下に1本ラインを引き、`スペックを新規で追加` ボタンが1つある状態がよいのではないかと指摘。現状は既存スペックから選ぶ考えと新規追加する考えの場所が区切られておらず、意図が分からない。
+- 判断: 指摘どおり。`スペック候補` 欄の下に小さく置くだけでは、既存候補選択の補助操作に見えてしまう。既存候補/テンプレートから行追加する領域と、新規スペック詳細マスタを作る領域はカード内で罫線分離する。
+- 進め方: 部品登録・部品詳細のスペック追加カードへ区切り線を入れ、下段に `スペックを新規で追加` ボタンを1つだけ置く。仕様書、README、ヘルプ、チェックリスト、テスト文言も同じ意図へ揃える。
+- DB変更: なし。
+- 大将の心の声: 例外操作を小さくしただけでは、情報設計としてはまだ混ざっていた。線で区切って初めて、既存から選ぶ処理と新規作成が別の考えだと見える。
+
+### [曹長(コード分隊)] 2026-05-02 15:07 JST
+- 対応: 部品登録・部品詳細の `スペック追加` カードで、既存候補/入力テンプレートからの行追加領域の下に罫線を追加し、下段に `スペックを新規で追加` ボタンを1つだけ配置した。`候補外を作成` は画面から撤去。
+- 文書: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを、罫線下段の `スペックを新規で追加` へ統一。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 既存から選ぶ作業と、新規マスタを作る作業は思考の種類が違う。線で分けたことで、同じカード内でも別セクションとして扱える。
+
+### [曹長(テスト分隊)] 2026-05-02 15:07 JST
+- ✓ `node --check resources/js/pages/component-create.js && node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/component-create.blade.php && php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/help.blade.php && php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `git diff --check`
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。17 tests / 1378 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。96 tests / 1868 assertions。
+- ✓ `public/hot` なし。
+- PDCA結果: 罫線下段の `スペックを新規で追加` 表示、`候補外を作成` 不在、行内 `openInlineSpecTypeModal(spec)` / `spec-type-add-button` 不在を契約テストで確認し、全体ビルド・全体テストまで異常0。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 今回は文言だけではなくセクション分離が仕様なので、テストでも罫線クラスとボタン文言を同時に見ている。
+
+### [大将] 2026-05-02 15:10 JST
+- [ユーザ] `スペック詳細を追加` モーダルの単位欄が基底単位ではなく `μF` のような接頭語付き単位の入力候補になっているのは良くない、ここは基底単位のみが入力されるべきと指摘。あわせて、値で選択可能な接頭語の選択肢がなくなっているため戻すよう指示。
+- 判断: 指摘どおり。スペック詳細マスタの単位は物理量の基準単位であり、`μF` / `kΩ` のような接頭語付き表記は値入力側の接頭語候補で扱うべき。追加モーダルでも、基準単位欄と入力候補接頭辞を明確に分ける。
+- 進め方: 単位ラベルとplaceholderを基準単位へ修正し、数値型では接頭辞候補を常時表示する。保存時にも接頭語付き単位を基底単位へ寄せ、該当接頭辞を候補へ補完する。仕様書、README、ヘルプ、チェックリスト、テストも同期する。
+- DB変更: なし。
+- 大将の心の声: 単位欄に `μF` と出した時点で、基底単位と値スケールの責務分離が壊れていた。マスタ作成時こそ、このルールを強く見せる必要がある。
+
+### [曹長(コード分隊)] 2026-05-02 15:17 JST
+- 対応: `スペック詳細を追加` モーダルの単位欄を `基準単位` に変更し、placeholderを `例: F / Ω / A` に修正。`入力候補接頭辞` / `表示接頭辞` は数値型なら常時表示するよう戻した。
+- 対応: フロントの保存処理と `/api/spec-types` 側で、`μF` / `kΩ` / `mA` のような接頭語付き単位が来た場合は `F` / `Ω` / `A` へ正規化し、該当接頭辞を `suggest_prefixes` / `display_prefixes` へ補完するようにした。
+- 文書: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ、スペック詳細新規追加時の基準単位と値入力候補接頭辞の責務分離を反映。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: マスタ作成時に `μF` を単位として見せると、その後の全入力UIで同じ混乱を再生産する。ここで `F` と `u` を分けて保存するのが正しい。
+
+### [曹長(テスト分隊)] 2026-05-02 15:17 JST
+- 追加テスト: `UiApiSurfaceSmokeTest::test_spec_type_create_normalizes_prefixed_unit_to_base_unit` を追加し、`unit=μF` の作成が `base_unit=F`、`units[0].unit=F`、接頭辞候補 `u` へ正規化されることを固定。
+- 追加テスト: `スペック詳細を追加` モーダルの表示契約に `基準単位`、`例: F / Ω / A`、`入力候補接頭辞`、`値入力時の候補接頭辞です。` を追加し、`例: μF` が残っていないことを確認。
+- ✓ `node --check resources/js/utils/specValue.js && node --check resources/js/pages/component-create.js && node --check resources/js/pages/component-detail.js`
+- ✓ `php -l app/Http/Controllers/Api/SpecTypeController.php && php -l resources/views/app/component-create.blade.php && php -l resources/views/app/component-detail.blade.php && php -l resources/views/app/help.blade.php && php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `git diff --check`
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。18 tests / 1400 assertions。
+- ✓ `npm run build`
+- ✓ `composer run test`。98 tests / 1899 assertions。
+- ✓ `public/hot` なし。
+- PDCA結果: モーダル表示、API正規化、全体ビルド、全体テストまで異常0。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: UIだけ直すとAPI直叩きで `μF` が残る。今回はAPI契約にも入れて、基準単位と接頭辞候補の分離が崩れないようにした。
+
+### [大将] 2026-05-02 15:07 JST
+- [ユーザ] 分圧と可変抵抗も、それぞれの素子の誤差設定と結果の範囲を表示するよう指示。
+- 判断: 抵抗/容量ネットワーク探索だけに部品許容差の範囲を出すと、分圧・VR分圧・可変抵抗で実回路のVout/端点/抵抗範囲が見えず、設計判断が片手落ちになる。分圧はR1/R2、VR分圧はR上/VR/R下、可変抵抗は固定抵抗/VRの各許容差を持ち、結果範囲はRSS目安とコーナー範囲を分けて出す。
+- 対応方針: `VR調整なし` はAPI側でR1/R2許容差を受け、負荷込み出力比/出力電圧のRSS目安とコーナー範囲を返す。`可変抵抗` と `VR調整あり` はフロント計算で固定抵抗/VR/R上/R下の許容差を受け、端点範囲を表示する。全素子同方向ではなく、各素子の感度またはコーナー列挙で範囲を出す。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 分圧は比率そのものが素子誤差に敏感なので、ネットワーク探索よりむしろ範囲表示が必要だった。ここは同じ考えで揃える。
+
+### [曹長(コード分隊)] 2026-05-02 15:16 JST
+- 実装: `VR調整なし` の分圧APIに `divider_upper_tolerance_pct` / `divider_lower_tolerance_pct` を追加し、候補ごとに負荷込み出力比/出力電圧のRSS目安範囲、コーナー範囲、最大誤差を返すようにした。
+- 実装: `可変抵抗 + 固定抵抗` に固定抵抗許容差/VR許容差を追加し、採用候補の下限端/上限端についてRSS目安範囲とコーナー範囲を表示するようにした。
+- 実装: `VR調整あり` にR上/VR/R下の個別許容差を追加し、負荷込み下限端/上限端の出力電圧範囲を表示するようにした。
+- UI: 分圧候補カードに `素子誤差範囲` を追加し、可変抵抗/VR分圧の採用候補詳細にも `素子誤差範囲` を追加した。主表示はRSS目安、補助表示はコーナー範囲とした。
+- ドキュメント: README、ヘルプ、詳細仕様、実装進捗チェックリストへ、分圧・VR分圧・可変抵抗の素子別許容差と範囲表示を追記した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 分圧はR1/R2の比で出力が決まるので、片側だけのズレでも結果が動く。個別許容差を入れないと、設計判断として粗すぎた。
+
+### [曹長(テスト分隊)] 2026-05-02 15:16 JST
+- ✓ `php -l bits-keep/app/Services/NetworkSearchService.php`
+- ✓ `php -l bits-keep/app/Http/Controllers/Api/CalcController.php`
+- ✓ `php -l bits-keep/resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l bits-keep/resources/views/app/help.blade.php`
+- ✓ `node --check bits-keep/resources/js/pages/resistance-calc.js`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。21 tests / 137 assertions。
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。18 tests / 1400 assertions。
+- ✓ `node tests/resistance-calc.test.mjs`
+- ✓ `npm run build`
+- ✓ `composer run test`。98 tests / 1899 assertions。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- ✓ `public/hot` が存在しないことを確認。
+- 検証固定値: 5V入力の10kΩ/10kΩ分圧でR1/R2各±1%時、RSS出力範囲は約2.482322V〜2.517678V、コーナー範囲は2.475V〜2.525V。可変抵抗は固定8kΩ/VR2kΩで固定±1%/VR±10%の範囲表示を固定。VR分圧はR上/VR/R下の許容差入力と範囲表示を固定。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: R1/R2、固定/VR、R上/VR/R下をそれぞれ別入力としてテストした。範囲表示が一括公差に戻ると検出できる。

@@ -11,6 +11,7 @@ import {
     parseTarget,
     dividerRatioFromVoltages,
 } from '../resources/js/pages/resistance-calc.js';
+import { api } from '../resources/js/api.js';
 
 function unwrapVueValue(value) {
     if (value && typeof value === 'object' && value.__v_isRef === true) return value.value;
@@ -62,6 +63,11 @@ assert.ok(Math.abs(normalizeCustomValues('4.7u, 100n', 'C')[1] - 100e-9) < 1e-18
 assert.deepEqual(normalizeCustomValues('10k', 'divider'), [10000]);
 
 const appSurface = setupResistanceCalc();
+assert.ok(
+    Object.hasOwn(appSurface.form, 'element_tolerance_pct'),
+    'Network search form must expose adopted-element tolerance separately from target acceptance tolerance.',
+);
+assert.equal(appSurface.form.element_tolerance_pct, 0);
 const topLevelModes = unwrapVueValue(appSurface.modeOptions);
 const topLevelModeValues = topLevelModes.map((mode) => mode.value);
 const topLevelModeLabels = topLevelModes.map((mode) => mode.label);
@@ -126,6 +132,70 @@ assert.equal(response.result.candidates.length, 1);
 assert.deepEqual(response.warnings, ['探索量上限']);
 assert.deepEqual(response.nextActions, ['条件を絞る']);
 
+const toleranceResponse = normalizeNetworkResponse({
+    success: true,
+    data: {
+        result: {
+            candidates: [{
+                expression: '10kΩ + 10kΩ',
+                actual_value: 20000,
+                actual_display: '20kΩ',
+                rss_low_equivalent_value: 19292.893218813,
+                rss_low_equivalent_display: '19.292893kΩ',
+                rss_high_equivalent_value: 20707.106781187,
+                rss_high_equivalent_display: '20.707107kΩ',
+                rss_max_target_deviation_pct: 3.5355,
+                rss_max_target_deviation_display: '3.5355%',
+                low_equivalent_value: 19000,
+                low_equivalent_display: '19kΩ',
+                high_equivalent_value: 21000,
+                high_equivalent_display: '21kΩ',
+                max_target_deviation_pct: 5,
+                max_target_deviation_display: '5%',
+            }],
+        },
+    },
+});
+assert.equal(toleranceResponse.result.candidates[0].rss_low_equivalent_display, '19.292893kΩ');
+assert.equal(toleranceResponse.result.candidates[0].rss_high_equivalent_display, '20.707107kΩ');
+assert.equal(toleranceResponse.result.candidates[0].rss_max_target_deviation_display, '3.5355%');
+assert.equal(toleranceResponse.result.candidates[0].low_equivalent_display, '19kΩ');
+assert.equal(toleranceResponse.result.candidates[0].high_equivalent_display, '21kΩ');
+assert.equal(toleranceResponse.result.candidates[0].max_target_deviation_display, '5%');
+
+let capturedNetworkSearch = null;
+const originalPost = api.post;
+api.post = async (path, payload) => {
+    capturedNetworkSearch = { path, payload };
+    return {
+        success: true,
+        data: {
+            result: {
+                candidates: [],
+                elapsed_ms: 1,
+                truncated: false,
+            },
+            summary: '0 件',
+            warnings: [],
+            next_actions: [],
+        },
+    };
+};
+appSurface.form.part_type = 'R';
+appSurface.form.target_raw = '20k';
+appSurface.form.tolerance_pct = 0.001;
+appSurface.form.element_tolerance_pct = 5;
+appSurface.form.series = 'custom';
+appSurface.form.custom_values = '10k';
+appSurface.form.min_elements = 2;
+appSurface.form.max_elements = 2;
+appSurface.form.circuit_types = ['series'];
+await appSurface.search();
+api.post = originalPost;
+assert.equal(capturedNetworkSearch.path, '/calc/networks/search');
+assert.equal(capturedNetworkSearch.payload.tolerance_pct, 0.001);
+assert.equal(capturedNetworkSearch.payload.element_tolerance_pct, 5);
+
 const invalid = normalizeNetworkResponse({
     success: true,
     data: {
@@ -158,7 +228,7 @@ assert.equal(seriesTrim.bestCandidate.verdict, 'CHECK');
 assert.ok(seriesTrim.bestCandidate.tags.includes('VR範囲側補正'));
 assert.ok(seriesTrim.bestCandidate.tags.includes('固定抵抗再計算'));
 assert.ok(seriesTrim.bestCandidate.tags.includes('要部品選定'));
-assert.ok(seriesTrim.bestCandidate.tags.includes('許容差/電力未評価'));
+assert.ok(seriesTrim.bestCandidate.tags.includes('許容差未設定'));
 assert.ok(seriesTrim.bestCandidate.tags.includes('購入/在庫未確認'));
 
 const centerTrim = calculateVariable({
@@ -225,6 +295,23 @@ assert.equal(customTrim.bestCandidate.fixed, 8000);
 assert.equal(customTrim.bestCandidate.pot, 2000);
 assert.equal(customTrim.bestCandidate.fixedSource, 'custom');
 assert.equal(customTrim.bestCandidate.status, 'check');
+
+const customTrimWithTolerance = calculateVariable({
+    reference_raw: '10k',
+    span_mode: 'percent',
+    span_raw: '20',
+    circuit: 'series',
+    fixed_source: 'custom',
+    fixed_custom_values: '8k',
+    pot_source: 'custom',
+    pot_custom_values: '2k',
+    fixed_tolerance_pct: 1,
+    pot_tolerance_pct: 10,
+});
+assert.equal(customTrimWithTolerance.bestCandidate.toleranceDisplay, '固定 ±1% / VR ±10%');
+assert.equal(customTrimWithTolerance.bestCandidate.rssLowEndpointRangeDisplay, '7.92kΩ 〜 8.08kΩ');
+assert.equal(customTrimWithTolerance.bestCandidate.cornerAdjustableRangeDisplay, '7.92kΩ 〜 10.28kΩ');
+assert.ok(customTrimWithTolerance.bestCandidate.tags.includes('許容差範囲表示'));
 
 const rangeShortage = calculateVariable({
     reference_raw: '10k',
@@ -298,6 +385,17 @@ assert.equal(dividerVariableNoLoad.bestCandidate.topPowerDisplay, '400uW');
 assert.equal(dividerVariableNoLoad.bestCandidate.potPowerDisplay, '400uW');
 assert.equal(dividerVariableNoLoad.bestCandidate.bottomPowerDisplay, '200uW');
 assert.ok(dividerVariableNoLoad.bestCandidate.tags.includes('無負荷分圧'));
+
+const dividerVariableWithTolerance = calculateVariableDivider({
+    ...dividerVariableBase,
+    top_tolerance_pct: 1,
+    pot_tolerance_pct: 10,
+    bottom_tolerance_pct: 1,
+});
+assert.equal(dividerVariableWithTolerance.bestCandidate.toleranceDisplay, 'R上 ±1% / VR ±10% / R下 ±1%');
+assert.ok(dividerVariableWithTolerance.bestCandidate.rssOutputRangeDisplay.includes('V'));
+assert.ok(dividerVariableWithTolerance.bestCandidate.cornerOutputRangeDisplay.includes('V'));
+assert.ok(dividerVariableWithTolerance.bestCandidate.tags.includes('許容差範囲表示'));
 
 const dividerVariableRatioRange = calculateVariableDivider({
     ...dividerVariableBase,

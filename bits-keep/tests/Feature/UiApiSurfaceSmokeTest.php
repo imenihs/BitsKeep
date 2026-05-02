@@ -118,6 +118,7 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->postJson('/api/calc/networks/search', [
             'target' => 1000,
             'tolerance_pct' => 5,
+            'element_tolerance_pct' => 5,
             'part_type' => 'R',
             'series' => 'E12',
             'min_elements' => 1,
@@ -126,7 +127,46 @@ class UiApiSurfaceSmokeTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonStructure(['data' => ['result' => ['candidates']]]);
+            ->assertJsonStructure([
+                'data' => [
+                    'result' => [
+                        'candidates' => [
+                            '*' => [
+                                'low_equivalent_value',
+                                'low_equivalent_display',
+                                'high_equivalent_value',
+                                'high_equivalent_display',
+                                'rss_low_equivalent_value',
+                                'rss_low_equivalent_display',
+                                'rss_high_equivalent_value',
+                                'rss_high_equivalent_display',
+                                'rss_max_target_deviation_pct',
+                                'rss_max_target_deviation_display',
+                                'max_target_deviation_pct',
+                                'max_target_deviation_display',
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+    }
+
+    public function test_resistance_calc_ui_exposes_adopted_element_tolerance_controls_and_range_surface(): void
+    {
+        $this->get('/tools/network')
+            ->assertOk()
+            ->assertSee('element_tolerance_pct', false)
+            ->assertSee('採用素子許容差', false)
+            ->assertSee('独立RSS目安', false)
+            ->assertSee('コーナー', false)
+            ->assertSee('最大偏差', false)
+            ->assertSee('R1許容差', false)
+            ->assertSee('R2許容差', false)
+            ->assertSee('固定抵抗許容差', false)
+            ->assertSee('VR許容差', false)
+            ->assertSee('R上許容差', false)
+            ->assertSee('R下許容差', false)
+            ->assertSee('素子誤差範囲', false);
     }
 
     public function test_spec_type_prefixes_preserve_blank_prefix(): void
@@ -220,6 +260,24 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertSame('A', $specType->units->first()?->unit);
         $this->assertSame(['IC', 'Collector Current'], $specType->aliases->pluck('alias')->all());
         $this->assertTrue($specType->specGroups->contains('id', $group->id));
+    }
+
+    public function test_spec_type_create_normalizes_prefixed_unit_to_base_unit(): void
+    {
+        $response = $this->postJson('/api/spec-types', [
+            'name' => '容量',
+            'name_ja' => '容量',
+            'value_type' => 'numeric',
+            'unit' => 'μF',
+            'spec_scope' => 'common',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.base_unit', 'F')
+            ->assertJsonPath('data.suggest_prefixes', ['u'])
+            ->assertJsonPath('data.display_prefixes', ['u'])
+            ->assertJsonPath('data.units.0.unit', 'F');
     }
 
     public function test_byte_bit_spec_type_prefixes_enforce_decimal_or_iec_group(): void
@@ -321,7 +379,7 @@ class UiApiSurfaceSmokeTest extends TestCase
         $normalResponse
             ->assertCreated()
             ->assertJsonPath('data.spec_kind', 'normal')
-            ->assertJsonPath('data.base_unit', 'uF');
+            ->assertJsonPath('data.base_unit', 'F');
 
         $toleranceSettings = [
             'default_mode' => 'symmetric',
@@ -528,6 +586,29 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertSee('toggleToleranceGradeMenu', false)
             ->assertSee('selectToleranceGradeOption', false)
             ->assertDontSee('mt-2 flex flex-wrap gap-1', false);
+    }
+
+    public function test_spec_detail_creation_entrypoint_lives_below_separator(): void
+    {
+        $fixture = $this->createUiFixture();
+
+        foreach (['/components/create', "/components/{$fixture['component']->id}"] as $uri) {
+            $this->get($uri)
+                ->assertOk()
+                ->assertSee('border-t border-[var(--color-border)] pt-3', false)
+                ->assertSee('スペックを新規で追加', false)
+                ->assertSee('@click="openInlineSpecTypeModal()"', false)
+                ->assertSee('基準単位', false)
+                ->assertSee('例: F / Ω / A', false)
+                ->assertSee('入力候補接頭辞', false)
+                ->assertSee('接頭語は下の入力候補接頭辞で選びます。', false)
+                ->assertDontSee('例: μF', false)
+                ->assertDontSee('候補外を作成', false)
+                ->assertSee('保存して追加', false)
+                ->assertDontSee('openInlineSpecTypeModal(spec)', false)
+                ->assertDontSee('spec-type-add-button', false)
+                ->assertDontSee('保存して選択', false);
+        }
     }
 
     public function test_components_default_order_uses_catalog_context_not_recent_update(): void

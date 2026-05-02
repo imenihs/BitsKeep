@@ -25,7 +25,8 @@ class CalcController extends Controller
      *   target        float   目標値（Ω/F/分圧比）
      *   input_voltage float   分圧の入力電圧。指定時は output_voltage / input_voltage を target として扱う
      *   output_voltage float  分圧の出力電圧。指定時は output_voltage / input_voltage を target として扱う
-     *   tolerance_pct float   許容誤差 % (default: 5.0)
+     *   tolerance_pct float   探索許容誤差 % (default: 5.0)
+     *   element_tolerance_pct float 採用素子許容差 %。候補表示時の最悪範囲見積もりに使用
      *   part_type     string  'R' | 'C' | 'divider' (default: 'R')
      *   series        string  'E6'|'E12'|'E24'|'E48'|'E96'|'custom' (default: 'E24')
      *   custom_values float[] series='custom' の時の値リスト (max: 256)
@@ -38,6 +39,8 @@ class CalcController extends Controller
      *   load_type     string 分圧負荷 'resistance' | 'current'
      *   load_resistance float|null 抵抗負荷。null と load_resistance_infinite=true は無負荷
      *   load_current  float 電流負荷。0 は無負荷
+     *   divider_upper_tolerance_pct float 分圧R1上側の許容差 %
+     *   divider_lower_tolerance_pct float 分圧R2下側の許容差 %
      *
      * Response:
      *   { candidates: [...], elapsed_ms: int, truncated: bool }
@@ -49,6 +52,7 @@ class CalcController extends Controller
             'input_voltage' => ['nullable', 'numeric', 'gt:0'],
             'output_voltage'=> ['nullable', 'numeric', 'gt:0'],
             'tolerance_pct' => ['nullable', 'numeric', 'min:0.001', 'max:50'],
+            'element_tolerance_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'part_type'     => ['nullable', 'in:R,C,divider'],
             'series'        => ['nullable', 'in:E6,E12,E24,E48,E96,custom'],
             'custom_values' => ['nullable', 'array', 'max:'.self::MAX_CUSTOM_VALUES],
@@ -64,6 +68,8 @@ class CalcController extends Controller
             'load_resistance' => ['nullable', 'numeric', 'min:0'],
             'load_resistance_infinite' => ['nullable', 'boolean'],
             'load_current'  => ['nullable', 'numeric', 'min:0'],
+            'divider_upper_tolerance_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'divider_lower_tolerance_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $partType = $validated['part_type'] ?? 'R';

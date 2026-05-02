@@ -50,11 +50,11 @@ const PROFILE_ALIASES = {
 };
 
 export const SPEC_PROFILE_OPTIONS = [
-    { value: 'typ', label: 'typ', controlLabel: 'TYP', help: 'typ代表値を1点入力' },
-    { value: 'range', label: '範囲', controlLabel: 'MIN-MAX', help: 'min-max範囲を入力' },
-    { value: 'max_only', label: 'max', controlLabel: '≤MAX', help: '上限値のみ入力' },
-    { value: 'min_only', label: 'min', controlLabel: '≥MIN', help: '下限値のみ入力' },
-    { value: 'triple', label: 'Min/Typ/Max', controlLabel: 'Min/Typ/Max', help: 'min/typ/maxを入力' },
+    { value: 'typ', label: 'TYP', controlLabel: 'TYP', help: '代表値' },
+    { value: 'range', label: 'MIN..MAX', controlLabel: 'MIN..MAX', help: '範囲値' },
+    { value: 'max_only', label: 'MAX', controlLabel: 'MAX', help: '最大値' },
+    { value: 'min_only', label: 'MIN', controlLabel: 'MIN', help: '最小値' },
+    { value: 'triple', label: 'MIN/TYP/MAX', controlLabel: 'MIN/TYP/MAX', help: '最小/代表/最大値' },
 ];
 
 export const createEmptySpecRow = () => ({
@@ -100,10 +100,10 @@ export const getSpecProfileHelpText = (profile) => (
 export const getSpecProfileBadgeLabel = (profile) => {
     const normalized = normalizeSpecProfile(profile);
     if (normalized === 'typ') return '';
-    if (normalized === 'triple') return 'Min/Typ/Max';
-    if (normalized === 'range') return 'MIN-MAX';
-    if (normalized === 'max_only') return '≤MAX';
-    if (normalized === 'min_only') return '≥MIN';
+    if (normalized === 'triple') return 'MIN/TYP/MAX';
+    if (normalized === 'range') return 'MIN..MAX';
+    if (normalized === 'max_only') return 'MAX';
+    if (normalized === 'min_only') return 'MIN';
 
     return getSpecProfileLabel(normalized);
 };
@@ -325,27 +325,60 @@ export const normalizeSpecDraft = (spec, specType) => {
 export const getSpecUnitSuggestions = (specType) => {
     if (!specType) return [];
 
-    const suggestions = new Set(
+    const baseUnit = normalizeUnitLabel(specType.base_unit ?? '');
+    if (baseUnit) {
+        return [baseUnit];
+    }
+
+    return [...new Set(
         (specType.units ?? [])
             .map((item) => normalizeUnitLabel(item.unit))
             .filter(Boolean),
-    );
+    )];
+};
 
-    const baseUnit = normalizeUnitLabel(specType.base_unit ?? '');
-    const customPrefixes = Array.isArray(specType.suggest_prefixes) && specType.suggest_prefixes.length > 0
-        ? specType.suggest_prefixes
-        : null;
+export const getSpecBaseUnit = (specType) => (
+    normalizeUnitLabel(specType?.base_unit ?? specType?.units?.[0]?.unit ?? '')
+);
 
-    if (baseUnit && canHumanize(baseUnit)) {
-        const prefixes = customPrefixes ?? (isByteBitUnit(baseUnit) ? BYTE_BIT_PREFIX_ORDER : ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f']);
-        for (const prefix of prefixes) {
-            suggestions.add(`${prefix}${baseUnit}`);
-        }
-    } else if (baseUnit) {
-        suggestions.add(baseUnit);
+export const normalizeBaseUnitInput = (unit) => {
+    const normalized = normalizeUnitLabel(unit);
+    if (!normalized) {
+        return { unit: '', prefix: '' };
     }
 
-    return [...suggestions];
+    const baseCandidates = [
+        'ppm/℃', 'bit', 'bps',
+        'Ω', 'F', 'A', 'V', 'H', 's', 'Hz', 'W', 'J', 'C', 'B',
+        'm', 'g', 'K', 'N', 'Pa', 'bar', '%', '℃',
+    ];
+    const prefixCandidates = ['Ti', 'Gi', 'Mi', 'Ki', 'Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', 'm', 'u', 'n', 'p', 'f'];
+
+    for (const baseUnit of baseCandidates) {
+        if (!normalized.endsWith(baseUnit) || normalized === baseUnit) {
+            continue;
+        }
+
+        const prefix = normalized.slice(0, normalized.length - baseUnit.length);
+        if (prefixCandidates.includes(prefix)) {
+            return { unit: baseUnit, prefix };
+        }
+    }
+
+    return { unit: normalized, prefix: '' };
+};
+
+export const normalizeSpecDraftUnitToBase = (spec, specType) => {
+    const baseUnit = getSpecBaseUnit(specType);
+    if (!spec || !baseUnit) return spec;
+
+    const currentUnit = normalizeUnitLabel(spec.unit ?? '') || baseUnit;
+    spec.value_typ = normalizeValueTextForBaseUnit(spec.value_typ, currentUnit, baseUnit, specType);
+    spec.value_min = normalizeValueTextForBaseUnit(spec.value_min, currentUnit, baseUnit, specType);
+    spec.value_max = normalizeValueTextForBaseUnit(spec.value_max, currentUnit, baseUnit, specType);
+    spec.unit = baseUnit;
+
+    return spec;
 };
 
 /**
@@ -603,6 +636,29 @@ const extractInlineUnit = (value) => {
 };
 
 const pregMatch = (pattern, value) => pattern.test(value);
+
+const normalizeValueTextForBaseUnit = (value, unit, baseUnit, specType) => {
+    const extracted = extractInlineUnit(value);
+    const valueText = extracted.value || cleanText(value);
+    if (!valueText) return '';
+
+    const number = parseEngineeringNumber(valueText);
+    if (number === null) return cleanText(value);
+
+    const resolvedUnit = extracted.unit || normalizeUnitLabel(unit);
+    const canonical = number.value * number.factor * resolveFactor(specType, resolvedUnit, baseUnit);
+    if (!canHumanize(baseUnit)) {
+        return formatDisplayNumber(canonical);
+    }
+
+    const displayPrefixes = Array.isArray(specType?.display_prefixes) && specType.display_prefixes.length > 0
+        ? specType.display_prefixes
+        : null;
+    const prefix = choosePrefix(canonical, displayPrefixes, baseUnit);
+    const factor = PREFIX_FACTORS[prefix] ?? 1;
+
+    return `${formatDisplayNumber(canonical / factor)}${prefix}`;
+};
 
 const parseEngineeringNumber = (value) => {
     const normalized = cleanText(value)

@@ -55,6 +55,84 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.circuit_type', 'parallel');
     }
 
+    public function test_resistor_network_candidates_include_adopted_element_tolerance_rss_and_corner_ranges(): void
+    {
+        $seriesResponse = $this->postJson('/api/calc/networks/search', [
+            'target' => 20000,
+            'tolerance_pct' => 0.001,
+            'element_tolerance_pct' => 5,
+            'part_type' => 'R',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'min_elements' => 2,
+            'max_elements' => 2,
+            'circuit_types' => ['series'],
+        ]);
+
+        $seriesResponse
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.actual_value', 20000)
+            ->assertJsonPath('data.result.candidates.0.actual_display', '20kΩ')
+            ->assertJsonPath('data.result.candidates.0.circuit_type', 'series')
+            ->assertJsonPath('data.result.candidates.0.low_equivalent_display', '19kΩ')
+            ->assertJsonPath('data.result.candidates.0.high_equivalent_display', '21kΩ')
+            ->assertJsonPath('data.result.candidates.0.rss_max_target_deviation_display', '3.5355%')
+            ->assertJsonPath('data.result.candidates.0.max_target_deviation_display', '5%');
+        $this->assertEqualsWithDelta(19292.893218813, $seriesResponse->json('data.result.candidates.0.rss_low_equivalent_value'), 1e-6);
+        $this->assertEqualsWithDelta(20707.106781187, $seriesResponse->json('data.result.candidates.0.rss_high_equivalent_value'), 1e-6);
+        $this->assertEqualsWithDelta(3.5355, $seriesResponse->json('data.result.candidates.0.rss_max_target_deviation_pct'), 1e-4);
+        $this->assertEqualsWithDelta(19000, $seriesResponse->json('data.result.candidates.0.low_equivalent_value'), 1e-9);
+        $this->assertEqualsWithDelta(21000, $seriesResponse->json('data.result.candidates.0.high_equivalent_value'), 1e-9);
+        $this->assertEqualsWithDelta(5, $seriesResponse->json('data.result.candidates.0.max_target_deviation_pct'), 1e-9);
+
+        $parallelResponse = $this->postJson('/api/calc/networks/search', [
+            'target' => 5000,
+            'tolerance_pct' => 0.001,
+            'element_tolerance_pct' => 5,
+            'part_type' => 'R',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'min_elements' => 2,
+            'max_elements' => 2,
+            'circuit_types' => ['parallel'],
+        ]);
+
+        $parallelResponse
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.actual_value', 5000)
+            ->assertJsonPath('data.result.candidates.0.actual_display', '5kΩ')
+            ->assertJsonPath('data.result.candidates.0.circuit_type', 'parallel')
+            ->assertJsonPath('data.result.candidates.0.low_equivalent_display', '4.75kΩ')
+            ->assertJsonPath('data.result.candidates.0.high_equivalent_display', '5.25kΩ')
+            ->assertJsonPath('data.result.candidates.0.rss_max_target_deviation_display', '3.5355%')
+            ->assertJsonPath('data.result.candidates.0.max_target_deviation_display', '5%');
+        $this->assertEqualsWithDelta(4823.2233047034, $parallelResponse->json('data.result.candidates.0.rss_low_equivalent_value'), 1e-6);
+        $this->assertEqualsWithDelta(5176.7766952966, $parallelResponse->json('data.result.candidates.0.rss_high_equivalent_value'), 1e-6);
+        $this->assertEqualsWithDelta(3.5355, $parallelResponse->json('data.result.candidates.0.rss_max_target_deviation_pct'), 1e-4);
+        $this->assertEqualsWithDelta(4750, $parallelResponse->json('data.result.candidates.0.low_equivalent_value'), 1e-9);
+        $this->assertEqualsWithDelta(5250, $parallelResponse->json('data.result.candidates.0.high_equivalent_value'), 1e-9);
+        $this->assertEqualsWithDelta(5, $parallelResponse->json('data.result.candidates.0.max_target_deviation_pct'), 1e-9);
+
+        $threeSeriesResponse = $this->postJson('/api/calc/networks/search', [
+            'target' => 30000,
+            'tolerance_pct' => 0.001,
+            'element_tolerance_pct' => 5,
+            'part_type' => 'R',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'min_elements' => 3,
+            'max_elements' => 3,
+            'circuit_types' => ['series'],
+        ]);
+
+        $threeSeriesResponse
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.actual_display', '30kΩ')
+            ->assertJsonPath('data.result.candidates.0.rss_max_target_deviation_display', '2.8868%')
+            ->assertJsonPath('data.result.candidates.0.max_target_deviation_display', '5%');
+        $this->assertEqualsWithDelta(2.8868, $threeSeriesResponse->json('data.result.candidates.0.rss_max_target_deviation_pct'), 1e-4);
+    }
+
     public function test_capacitor_series_and_parallel_use_capacitance_rules(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -84,6 +162,36 @@ class NetworkSearchApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.result.candidates.0.actual_display', '200nF')
             ->assertJsonPath('data.result.candidates.0.topology_label', '容量並列');
+    }
+
+    public function test_capacitor_network_candidates_include_adopted_element_tolerance_rss_and_corner_ranges(): void
+    {
+        $response = $this->postJson('/api/calc/networks/search', [
+            'target' => 5e-8,
+            'tolerance_pct' => 0.001,
+            'element_tolerance_pct' => 10,
+            'part_type' => 'C',
+            'series' => 'custom',
+            'custom_values' => [1e-7],
+            'min_elements' => 2,
+            'max_elements' => 2,
+            'circuit_types' => ['series'],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.actual_display', '50nF')
+            ->assertJsonPath('data.result.candidates.0.circuit_type', 'series')
+            ->assertJsonPath('data.result.candidates.0.low_equivalent_display', '45nF')
+            ->assertJsonPath('data.result.candidates.0.high_equivalent_display', '55nF')
+            ->assertJsonPath('data.result.candidates.0.rss_max_target_deviation_display', '7.0711%')
+            ->assertJsonPath('data.result.candidates.0.max_target_deviation_display', '10%');
+        $this->assertEqualsWithDelta(46.464466094e-9, $response->json('data.result.candidates.0.rss_low_equivalent_value'), 1e-18);
+        $this->assertEqualsWithDelta(53.535533906e-9, $response->json('data.result.candidates.0.rss_high_equivalent_value'), 1e-18);
+        $this->assertEqualsWithDelta(7.0711, $response->json('data.result.candidates.0.rss_max_target_deviation_pct'), 1e-4);
+        $this->assertEqualsWithDelta(45e-9, $response->json('data.result.candidates.0.low_equivalent_value'), 1e-18);
+        $this->assertEqualsWithDelta(55e-9, $response->json('data.result.candidates.0.high_equivalent_value'), 1e-18);
+        $this->assertEqualsWithDelta(10, $response->json('data.result.candidates.0.max_target_deviation_pct'), 1e-9);
     }
 
     public function test_divider_ratio_and_total_resistance_range_are_checked(): void
@@ -136,6 +244,31 @@ class NetworkSearchApiTest extends TestCase
         $this->assertEqualsWithDelta(1.65, $response->json('data.result.candidates.0.actual_output_voltage'), 1e-12);
         $this->assertEqualsWithDelta(0.000165, $response->json('data.result.candidates.0.source_current'), 1e-12);
         $this->assertEqualsWithDelta(0.00027225, $response->json('data.result.candidates.0.upper_power'), 1e-12);
+    }
+
+    public function test_divider_candidates_include_per_resistor_tolerance_output_ranges(): void
+    {
+        $response = $this->postJson('/api/calc/networks/search', [
+            'part_type' => 'divider',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'input_voltage' => 5,
+            'output_voltage' => 2.5,
+            'divider_upper_tolerance_pct' => 1,
+            'divider_lower_tolerance_pct' => 1,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.actual_output_display', '2.5V')
+            ->assertJsonPath('data.result.candidates.0.divider_tolerance_display', 'R1 ±1% / R2 ±1%')
+            ->assertJsonPath('data.result.candidates.0.divider_rss_max_error_pct_display', '0.7071%')
+            ->assertJsonPath('data.result.candidates.0.divider_corner_max_error_pct_display', '1%');
+
+        $this->assertEqualsWithDelta(2.48232233047, $response->json('data.result.candidates.0.divider_rss_low_ratio') * 5, 1e-9);
+        $this->assertEqualsWithDelta(2.51767766953, $response->json('data.result.candidates.0.divider_rss_high_ratio') * 5, 1e-9);
+        $this->assertEqualsWithDelta(2.475, $response->json('data.result.candidates.0.divider_corner_low_ratio') * 5, 1e-12);
+        $this->assertEqualsWithDelta(2.525, $response->json('data.result.candidates.0.divider_corner_high_ratio') * 5, 1e-12);
     }
 
     public function test_divider_resistance_load_makes_10k_pair_one_third_ratio(): void

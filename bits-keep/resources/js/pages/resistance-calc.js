@@ -397,6 +397,106 @@ function formatOhmDelta(value) {
     return `${value >= 0 ? '+' : ''}${formatResistance(Math.abs(value))}`;
 }
 
+function formatPercentNumber(value, digits = 4) {
+    if (!Number.isFinite(value)) return '-';
+    return `${trimNumber(value, digits)}%`;
+}
+
+function normalizeTolerancePct(value) {
+    return Math.max(0, Math.min(100, Number(value) || 0));
+}
+
+function toleranceRangeForValues(items, nominal, evaluate, formatter) {
+    if (!items.some((item) => normalizeTolerancePct(item.tolerancePct) > 0) || !Number.isFinite(nominal)) {
+        return null;
+    }
+
+    const epsilon = 1e-6;
+    const sumSquares = items.reduce((sum, item, index) => {
+        const value = Number(item.value);
+        const tolerance = normalizeTolerancePct(item.tolerancePct) / 100;
+        if (!Number.isFinite(value) || value <= 0 || tolerance <= 0) return sum;
+        const up = items.map((entry) => Number(entry.value));
+        const down = items.map((entry) => Number(entry.value));
+        up[index] = value * (1 + epsilon);
+        down[index] = value * (1 - epsilon);
+        const upActual = evaluate(up);
+        const downActual = evaluate(down);
+        if (!Number.isFinite(upActual) || !Number.isFinite(downActual)) return sum;
+        const derivative = (upActual - downActual) / (2 * value * epsilon);
+        return sum + ((derivative * value * tolerance) ** 2);
+    }, 0);
+    const spread = Math.sqrt(sumSquares);
+    const rssLow = nominal - spread;
+    const rssHigh = nominal + spread;
+
+    const corners = items.reduce((list, item) => {
+        const tolerance = normalizeTolerancePct(item.tolerancePct) / 100;
+        const value = Number(item.value);
+        const options = tolerance > 0 ? [value * (1 - tolerance), value * (1 + tolerance)] : [value];
+        return list.flatMap((corner) => options.map((option) => [...corner, option]));
+    }, [[]]);
+    const cornerValues = corners
+        .map((corner) => evaluate(corner))
+        .filter((value) => Number.isFinite(value));
+    if (cornerValues.length === 0) return null;
+
+    const cornerLow = Math.min(...cornerValues);
+    const cornerHigh = Math.max(...cornerValues);
+
+    return {
+        rssLow,
+        rssHigh,
+        rssSpread: spread,
+        rssLowDisplay: formatter(rssLow),
+        rssHighDisplay: formatter(rssHigh),
+        rssSpreadDisplay: formatter(Math.abs(spread)),
+        rssRangeDisplay: `${formatter(rssLow)} 〜 ${formatter(rssHigh)}`,
+        cornerLow,
+        cornerHigh,
+        cornerLowDisplay: formatter(cornerLow),
+        cornerHighDisplay: formatter(cornerHigh),
+        cornerRangeDisplay: `${formatter(cornerLow)} 〜 ${formatter(cornerHigh)}`,
+    };
+}
+
+function variableCandidateTolerance(circuit, fixed, pot, fixedTolerancePct, potTolerancePct) {
+    const fixedTol = normalizeTolerancePct(fixedTolerancePct);
+    const potTol = normalizeTolerancePct(potTolerancePct);
+    if (fixedTol <= 0 && potTol <= 0) return {};
+
+    const items = [
+        { value: fixed, tolerancePct: fixedTol },
+        { value: pot, tolerancePct: potTol },
+    ];
+    const nominal = endpointRange(circuit, fixed, pot);
+    const lowRange = toleranceRangeForValues(
+        items,
+        nominal.low,
+        ([candidateFixed, candidatePot]) => endpointRange(circuit, candidateFixed, candidatePot).low,
+        formatResistance,
+    );
+    const highRange = toleranceRangeForValues(
+        items,
+        nominal.high,
+        ([candidateFixed, candidatePot]) => endpointRange(circuit, candidateFixed, candidatePot).high,
+        formatResistance,
+    );
+    if (!lowRange || !highRange) return {};
+
+    return {
+        fixedTolerancePct: fixedTol,
+        potTolerancePct: potTol,
+        toleranceDisplay: `固定 ±${formatPercentNumber(fixedTol)} / VR ±${formatPercentNumber(potTol)}`,
+        rssLowEndpointRangeDisplay: lowRange.rssRangeDisplay,
+        rssHighEndpointRangeDisplay: highRange.rssRangeDisplay,
+        rssAdjustableRangeDisplay: `${lowRange.rssLowDisplay} 〜 ${highRange.rssHighDisplay}`,
+        cornerLowEndpointRangeDisplay: lowRange.cornerRangeDisplay,
+        cornerHighEndpointRangeDisplay: highRange.cornerRangeDisplay,
+        cornerAdjustableRangeDisplay: `${lowRange.cornerLowDisplay} 〜 ${highRange.cornerHighDisplay}`,
+    };
+}
+
 function variableRequirement(raw) {
     const reference = parseTarget(raw.reference_raw ?? raw.total_raw, 'R') ?? 0;
     const span = raw.span_mode === 'percent'
@@ -427,7 +527,7 @@ function variableRequirement(raw) {
     };
 }
 
-function makeVariableCandidate({ circuit, fixed, pot, fixedSource, potSource, targetLow, targetHigh, idealFixed, idealPot, tolerancePct }) {
+function makeVariableCandidate({ circuit, fixed, pot, fixedSource, potSource, targetLow, targetHigh, idealFixed, idealPot, tolerancePct, fixedTolerancePct = 0, potTolerancePct = 0 }) {
     const range = endpointRange(circuit, fixed, pot);
     const lowErrorPct = endpointError(range.low, targetLow);
     const highErrorPct = endpointError(range.high, targetHigh);
@@ -487,10 +587,11 @@ function makeVariableCandidate({ circuit, fixed, pot, fixedSource, potSource, ta
             coversTargetRange ? '要部品選定' : '採用不可',
             !coversTargetRange && nearTargetRange ? '不足許容内' : '',
             '公称値候補',
-            '許容差/電力未評価',
+            fixedTolerancePct > 0 || potTolerancePct > 0 ? '許容差範囲表示' : '許容差未設定',
             '型番未選定',
             '購入/在庫未確認',
         ].filter(Boolean),
+        ...variableCandidateTolerance(circuit, fixed, pot, fixedTolerancePct, potTolerancePct),
         expression: circuit === 'parallel'
             ? `${formatResistance(fixed)} || VR ${formatResistance(pot)} => ${formatResistance(range.low)} 〜 ${formatResistance(range.high)}`
             : `${formatResistance(fixed)} + VR ${formatResistance(pot)} => ${formatResistance(range.low)} 〜 ${formatResistance(range.high)}`,
@@ -512,6 +613,8 @@ export function calculateVariable(raw) {
     const requirement = variableRequirement(raw);
     const { reference, span, low, high } = requirement;
     const tolerancePct = Math.max(0, Number(raw.endpoint_tolerance_pct) || 0);
+    const fixedTolerancePct = normalizeTolerancePct(raw.fixed_tolerance_pct);
+    const potTolerancePct = normalizeTolerancePct(raw.pot_tolerance_pct);
     const fixedSource = raw.fixed_source || 'E24';
     const potSource = raw.pot_source || 'vr-common';
 
@@ -545,6 +648,8 @@ export function calculateVariable(raw) {
                 idealFixed: high,
                 idealPot: potIdealForFixed,
                 tolerancePct,
+                fixedTolerancePct,
+                potTolerancePct,
             }));
         })
             .sort((a, b) => a.score - b.score || a.fixed - b.fixed || a.pot - b.pot)
@@ -582,6 +687,8 @@ export function calculateVariable(raw) {
             idealFixed: fixedIdealForPot,
             idealPot: span,
             tolerancePct,
+            fixedTolerancePct,
+            potTolerancePct,
         }));
     })
         .sort((a, b) => a.score - b.score || a.fixed - b.fixed || a.pot - b.pot)
@@ -648,6 +755,58 @@ function fixedDividerValues(source, ideal, customRaw) {
     return nearestValues(fixedSourceValues(source, [ideal], customRaw), ideal, 10);
 }
 
+function variableDividerTolerance({
+    inputVoltage,
+    top,
+    pot,
+    bottom,
+    load,
+    topTolerancePct,
+    potTolerancePct,
+    bottomTolerancePct,
+}) {
+    const topTol = normalizeTolerancePct(topTolerancePct);
+    const potTol = normalizeTolerancePct(potTolerancePct);
+    const bottomTol = normalizeTolerancePct(bottomTolerancePct);
+    if (topTol <= 0 && potTol <= 0 && bottomTol <= 0) return {};
+
+    const items = [
+        { value: top, tolerancePct: topTol },
+        { value: pot, tolerancePct: potTol },
+        { value: bottom, tolerancePct: bottomTol },
+    ];
+    const evaluateLow = ([candidateTop, candidatePot, candidateBottom]) => loadedDividerOutput({
+        inputVoltage,
+        topResistance: candidateTop + candidatePot,
+        bottomResistance: candidateBottom,
+        load,
+    }).voltage;
+    const evaluateHigh = ([candidateTop, candidatePot, candidateBottom]) => loadedDividerOutput({
+        inputVoltage,
+        topResistance: candidateTop,
+        bottomResistance: candidateBottom + candidatePot,
+        load,
+    }).voltage;
+    const nominalLow = evaluateLow([top, pot, bottom]);
+    const nominalHigh = evaluateHigh([top, pot, bottom]);
+    const lowRange = toleranceRangeForValues(items, nominalLow, evaluateLow, formatVoltage);
+    const highRange = toleranceRangeForValues(items, nominalHigh, evaluateHigh, formatVoltage);
+    if (!lowRange || !highRange) return {};
+
+    return {
+        topTolerancePct: topTol,
+        potTolerancePct: potTol,
+        bottomTolerancePct: bottomTol,
+        toleranceDisplay: `R上 ±${formatPercentNumber(topTol)} / VR ±${formatPercentNumber(potTol)} / R下 ±${formatPercentNumber(bottomTol)}`,
+        rssLowEndpointRangeDisplay: lowRange.rssRangeDisplay,
+        rssHighEndpointRangeDisplay: highRange.rssRangeDisplay,
+        rssOutputRangeDisplay: `${lowRange.rssLowDisplay} 〜 ${highRange.rssHighDisplay}`,
+        cornerLowEndpointRangeDisplay: lowRange.cornerRangeDisplay,
+        cornerHighEndpointRangeDisplay: highRange.cornerRangeDisplay,
+        cornerOutputRangeDisplay: `${lowRange.cornerLowDisplay} 〜 ${highRange.cornerHighDisplay}`,
+    };
+}
+
 function makeVariableDividerCandidate({
     inputVoltage,
     outputLow,
@@ -662,6 +821,9 @@ function makeVariableDividerCandidate({
     idealPot,
     load,
     tolerancePct,
+    topTolerancePct = 0,
+    potTolerancePct = 0,
+    bottomTolerancePct = 0,
 }) {
     const total = top + pot + bottom;
     const lowPoint = loadedDividerOutput({
@@ -759,15 +921,28 @@ function makeVariableDividerCandidate({
             !nearlyEqual(pot, idealPot) ? 'VR指定値から乖離' : 'VR指定値固定',
             endpointDeviationPct > 5 && coversTargetRange ? '端点広め' : '',
             load.type === 'current' ? '電流負荷込み' : (load.resistance === Infinity ? '無負荷分圧' : '抵抗負荷込み'),
-            '許容差未評価',
+            topTolerancePct > 0 || potTolerancePct > 0 || bottomTolerancePct > 0 ? '許容差範囲表示' : '許容差未設定',
             '型番未選定',
         ].filter(Boolean),
+        ...variableDividerTolerance({
+            inputVoltage,
+            top,
+            pot,
+            bottom,
+            load,
+            topTolerancePct,
+            potTolerancePct,
+            bottomTolerancePct,
+        }),
     };
 }
 
 export function calculateVariableDivider(raw) {
     const requirement = dividerVariableRequirement(raw);
     const tolerancePct = Math.max(0, Number(raw.endpoint_tolerance_pct) || 0);
+    const topTolerancePct = normalizeTolerancePct(raw.top_tolerance_pct);
+    const potTolerancePct = normalizeTolerancePct(raw.pot_tolerance_pct);
+    const bottomTolerancePct = normalizeTolerancePct(raw.bottom_tolerance_pct);
     const fixedSource = raw.fixed_source || raw.series || 'E24';
     const fixedCustomValues = raw.fixed_custom_values ?? raw.custom_values ?? '';
     const potSource = raw.pot_source || 'vr-common';
@@ -806,6 +981,9 @@ export function calculateVariableDivider(raw) {
             idealPot: requirement.nominalPot,
             load: requirement.load,
             tolerancePct,
+            topTolerancePct,
+            potTolerancePct,
+            bottomTolerancePct,
         })));
     })
         .filter((candidate) => candidate.total >= requirement.totalMin && candidate.total <= requirement.totalMax)
@@ -845,6 +1023,9 @@ export default function setup() {
         input_voltage_raw: '3.3',
         output_voltage_raw: '2.5',
         tolerance_pct: 5,
+        element_tolerance_pct: 0,
+        divider_upper_tolerance_pct: 0,
+        divider_lower_tolerance_pct: 0,
         series: 'E24',
         custom_values: '',
         min_elements: 1,
@@ -931,8 +1112,10 @@ export default function setup() {
     const summaryText = computed(() => summary.value || (elapsedMs.value === null ? '未探索' : `${results.value.length}件`));
     const visibleWarnings = computed(() => {
         const messages = [...warnings.value];
-        if (elapsedMs.value !== null) {
-            messages.push(`${partTypeLabel.value}の公称値探索です。部品公差、温度、電力、DCバイアス、負荷条件は別途確認してください。`);
+        if (elapsedMs.value !== null && activeMode.value === 'network' && Number(form.element_tolerance_pct) > 0) {
+            messages.push('採用素子許容差は独立ばらつきのRSS目安を主表示し、保証確認用に全素子同方向のコーナー範囲も併記します。温度、電圧係数、経年、寄生成分、ロット相関、実測分布は含みません。');
+        } else if (elapsedMs.value !== null) {
+            messages.push(`${partTypeLabel.value}の公称値探索です。温度、電力、DCバイアス、負荷条件は別途確認してください。`);
         }
         if (poolInfo.value?.raw && poolInfo.value?.used && poolInfo.value.used < poolInfo.value.raw) {
             messages.push(`3素子以上または混在探索は近傍 ${poolInfo.value.used} / ${poolInfo.value.raw} 候補から探索しています。`);
@@ -1015,6 +1198,7 @@ export default function setup() {
         form.input_voltage_raw = preset.vin ?? form.input_voltage_raw;
         form.output_voltage_raw = preset.vout ?? form.output_voltage_raw;
         form.tolerance_pct = preset.tolerance;
+        form.element_tolerance_pct = preset.elementTolerance ?? 0;
         form.series = preset.series;
         form.circuit_types = [...preset.circuits];
         form.min_elements = preset.type === 'divider' ? 2 : 1;
@@ -1045,6 +1229,7 @@ export default function setup() {
             const payload = {
                 target: targetValue.value,
                 tolerance_pct: form.tolerance_pct,
+                element_tolerance_pct: form.part_type === 'divider' ? 0 : form.element_tolerance_pct,
                 part_type: form.part_type,
                 series: form.series,
                 min_elements: form.part_type === 'divider' ? 2 : form.min_elements,
@@ -1060,6 +1245,8 @@ export default function setup() {
                 payload.load_current = dividerLoadConfig.value.current;
                 payload.load_resistance = Number.isFinite(dividerLoadConfig.value.resistance) ? dividerLoadConfig.value.resistance : null;
                 payload.load_resistance_infinite = dividerLoadConfig.value.resistance === Infinity;
+                payload.divider_upper_tolerance_pct = form.divider_upper_tolerance_pct;
+                payload.divider_lower_tolerance_pct = form.divider_lower_tolerance_pct;
                 const inputVoltage = parseTarget(form.input_voltage_raw, 'V');
                 if (Number.isFinite(inputVoltage) && inputVoltage > 0) {
                     payload.input_voltage = inputVoltage;
@@ -1153,6 +1340,8 @@ export default function setup() {
         fixed_custom_values: '',
         pot_source: 'vr-common',
         pot_custom_values: '',
+        fixed_tolerance_pct: 0,
+        pot_tolerance_pct: 0,
     });
     const variableResult = computed(() => {
         const result = calculateVariable(variable);
@@ -1184,6 +1373,9 @@ export default function setup() {
         pot_source: 'vr-common',
         pot_custom_values: '',
         endpoint_tolerance_pct: 0,
+        top_tolerance_pct: 0,
+        pot_tolerance_pct: 0,
+        bottom_tolerance_pct: 0,
         load_type: 'resistance',
         load_resistance_raw: '∞',
         load_current_raw: '0',

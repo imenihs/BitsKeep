@@ -10,8 +10,11 @@ import {
     getSpecProfileHelpText,
     getSpecDisplayName,
     getSpecProfileBadgeLabel,
+    getSpecBaseUnit,
     getSpecUnitSuggestions,
+    normalizeBaseUnitInput,
     normalizeSpecDraft,
+    normalizeSpecDraftUnitToBase,
     normalizeSpecProfile,
     renderSymbol,
     SPEC_PROFILE_OPTIONS,
@@ -228,7 +231,7 @@ export default function setup() {
     const inlinePrefixPolicyHelp = computed(() => (
         isInlineByteBitPrefixUnit()
             ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
-            : '単位入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
+            : '値入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
     ));
     const syncInlinePrefixList = (field, changedPrefix = null) => {
         let prefixes = normalizeInlinePrefixes(inlineSpecTypeModal.form[field]).map(normalizeInlinePrefixToken);
@@ -277,15 +280,17 @@ export default function setup() {
         }
     };
     const ensureSpecGroupDetail = async (groupId) => {
-        if (!groupId || groupId === 'all') return;
+        if (!groupId || groupId === 'all') return null;
         const current = categories.value.find((group) => Number(group.id) === Number(groupId));
-        if (current?._detail_loaded) return;
+        if (current?._detail_loaded) return current;
 
         try {
             const res = await api.get(`/spec-groups/${groupId}`);
             mergeSpecGroupDetails([res.data]);
+            return categories.value.find((group) => Number(group.id) === Number(groupId)) ?? res.data ?? null;
         } catch {
             toastError('部品分類の候補詳細を取得できませんでした');
+            return null;
         }
     };
     const mergeComponentSeriesDetail = (series) => {
@@ -355,8 +360,11 @@ export default function setup() {
     };
     const templateItemSpecType = (item) => item?.spec_type ?? item?.specType ?? findSpecTypeById(item?.spec_type_id);
     const templateItemProfile = (item) => normalizeSpecProfile(item?.value_profile ?? item?.default_profile ?? 'typ');
-    const templateItemUnit = (item, specType = null) =>
-        String(item?.unit ?? item?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? '').trim();
+    const templateItemUnit = (item, specType = null) => {
+        const baseUnit = !isToleranceSpecType(specType) ? getSpecBaseUnit(specType) : '';
+
+        return String(baseUnit || item?.unit || item?.default_unit || specType?.base_unit || specType?.units?.[0]?.unit || '').trim();
+    };
     const specTemplateGroup = (template) =>
         specGroupOptions.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
             ?? specGroups.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
@@ -459,11 +467,19 @@ export default function setup() {
         applyToleranceGradeOption(spec, option);
         closeToleranceGradeMenu();
     };
-    const prepareSpecDraftForEdit = (spec) => applyToleranceDefaults(spec);
+    const specBaseUnit = (spec) => isToleranceSpecRow(spec) ? '' : getSpecBaseUnit(specTypeForSpec(spec));
+    const hasSpecBaseUnit = (spec) => !!specBaseUnit(spec);
+    const syncNormalSpecUnitToBase = (spec, specType = specTypeForSpec(spec)) => {
+        if (!spec || !specType || isToleranceSpecType(specType)) return spec;
+
+        return normalizeSpecDraftUnitToBase(spec, specType);
+    };
+    const prepareSpecDraftForEdit = (spec, specType = specTypeForSpec(spec)) =>
+        syncNormalSpecUnitToBase(applyToleranceDefaults(spec, specType), specType);
     const buildSpecRowFromTemplateItem = (item) => {
         const specType = templateItemSpecType(item);
 
-        return applyToleranceDefaults({
+        return prepareSpecDraftForEdit({
             ...createEmptySpecRow(),
             spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
             spec_type_name: specType?.name_ja ?? specType?.name ?? '',
@@ -476,6 +492,7 @@ export default function setup() {
         if (selected) {
             spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
             applyToleranceDefaults(spec, selected);
+            syncNormalSpecUnitToBase(spec, selected);
         } else {
             spec.spec_type_name = '';
         }
@@ -513,7 +530,14 @@ export default function setup() {
             || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
             || rawName;
         const aliases = [rawName].filter((value) => value && normalizeHelperText(value) !== normalizeHelperText(nameJa));
-        const unit = String(spec?.unit ?? '').trim();
+        const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
+        const unit = unitDraft.unit;
+        const suggestedPrefixes = unitDraft.prefix
+            ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix]
+            : (spec?.suggest_prefixes ?? []);
+        const displayPrefixes = unitDraft.prefix
+            ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix]
+            : (spec?.display_prefixes ?? []);
 
         inlineSpecTypeModal.targetSpec = spec;
         inlineSpecTypeModal.form = {
@@ -523,8 +547,8 @@ export default function setup() {
             description: String(spec?.description ?? '').trim(),
             value_type: spec?.value_type ?? 'numeric',
             unit,
-            suggest_prefixes: sanitizeInlinePrefixesForUnit(spec?.suggest_prefixes ?? [], unit),
-            display_prefixes: sanitizeInlinePrefixesForUnit(spec?.display_prefixes ?? [], unit),
+            suggest_prefixes: sanitizeInlinePrefixesForUnit(suggestedPrefixes, unit),
+            display_prefixes: sanitizeInlinePrefixesForUnit(displayPrefixes, unit),
             aliases_text: aliases.join('\n'),
         };
         inlineSpecTypeModal.open = true;
@@ -595,18 +619,30 @@ export default function setup() {
         const name = nameJa || String(spec?.name ?? '').trim();
         if (!name) return null;
 
-        const existing = matchByName(name, specTypes.value, specTypeSearchText);
-        if (existing) return existing;
         const ownerGroup = resolveInlineSpecOwnerGroup();
         if (!ownerGroup) {
             toastError('スペック詳細を追加する部品分類を1つ選んでください');
             return null;
         }
+        const existing = matchByName(name, specTypes.value, specTypeSearchText);
+        if (existing) {
+            const linked = await ensureSpecTypeLinkedToOwnerGroup(existing, ownerGroup);
+            if (!linked) return null;
+            toastSuccess(`既存のスペック詳細を候補に追加しました: ${name}`);
+            return existing;
+        }
 
         try {
-            const unit = String(spec?.unit ?? '').trim();
-            const suggestPrefixes = sanitizeInlinePrefixesForUnit(spec?.suggest_prefixes ?? [], unit);
-            const displayPrefixes = sanitizeInlinePrefixesForUnit(spec?.display_prefixes ?? [], unit);
+            const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
+            const unit = unitDraft.unit;
+            const suggestPrefixes = sanitizeInlinePrefixesForUnit(
+                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix] : (spec?.suggest_prefixes ?? []),
+                unit
+            );
+            const displayPrefixes = sanitizeInlinePrefixesForUnit(
+                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix] : (spec?.display_prefixes ?? []),
+                unit
+            );
             const res = await api.post('/spec-types', {
                 name,
                 name_ja: nameJa || name,
@@ -639,6 +675,33 @@ export default function setup() {
         }
     };
 
+    const buildSpecRowFromSpecType = (specType) => prepareSpecDraftForEdit({
+        ...createEmptySpecRow(),
+        spec_type_id: specType?.id ?? '',
+        spec_type_name: specType?.name_ja ?? specType?.name ?? '',
+        unit: isToleranceSpecType(specType)
+            ? toleranceSettingsForSpecType(specType).default_unit
+            : (specType?.base_unit ?? specType?.units?.[0]?.unit ?? ''),
+    }, specType);
+
+    const addInlineCreatedSpecType = (specType) => {
+        if (!specType?.id) return;
+
+        const ownerGroup = resolveInlineSpecOwnerGroup();
+        if (ownerGroup?.id) {
+            selectedSpecGroupId.value = String(ownerGroup.id);
+        }
+        selectedSpecCandidateId.value = String(specType.id);
+
+        if (hasSpecTypeRow(specType.id)) {
+            toastError('既に同じスペック詳細の行があります');
+            return;
+        }
+
+        form.specs.push(buildSpecRowFromSpecType(specType));
+        selectedSpecCandidateId.value = '';
+    };
+
     const saveInlineSpecType = async () => {
         if (inlineSpecTypeModal.saving) return;
 
@@ -658,6 +721,8 @@ export default function setup() {
                 targetSpec.spec_type_id = created.id;
                 targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
                 targetSpec.matched = true;
+            } else {
+                addInlineCreatedSpecType(created);
             }
             closeInlineSpecTypeModal(true);
         } finally {
@@ -1019,6 +1084,46 @@ export default function setup() {
             specSuggestionTypes.value = sortSpecTypes([...specSuggestionTypes.value, specType]);
         }
     };
+    const specGroupCandidatePayload = (specType, index = 0) => ({
+        spec_type_id: Number(specType.id),
+        sort_order: Number(specType?.pivot?.sort_order ?? specType?.sort_order ?? ((index + 1) * 10)),
+        is_required: Boolean(specType?.pivot?.is_required ?? false),
+        is_recommended: Boolean(specType?.pivot?.is_recommended ?? true),
+        default_profile: specType?.pivot?.default_profile ?? 'typ',
+        default_unit: specType?.pivot?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? null,
+        note: specType?.pivot?.note ?? null,
+    });
+    const ensureSpecTypeLinkedToOwnerGroup = async (specType, ownerGroup) => {
+        if (!specType?.id || !ownerGroup?.id) return false;
+
+        const loadedGroup = await ensureSpecGroupDetail(ownerGroup.id);
+        if (!loadedGroup) return false;
+        const group = specGroupOptions.value.find((item) => Number(item.id) === Number(ownerGroup.id));
+        const currentTypes = groupSpecTypes(group);
+        if (currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
+            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
+            return true;
+        }
+
+        const items = currentTypes.map((item, index) => specGroupCandidatePayload(item, index));
+        const nextSortOrder = Math.max(0, ...items.map((item) => Number(item.sort_order ?? 0))) + 10;
+        items.push({
+            ...specGroupCandidatePayload(specType, items.length),
+            sort_order: nextSortOrder,
+            is_required: false,
+            is_recommended: true,
+        });
+
+        try {
+            const res = await api.put(`/spec-groups/${ownerGroup.id}/spec-types`, { items });
+            mergeSpecGroupDetails([res.data]);
+            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
+            return true;
+        } catch (e) {
+            toastError(e.message || '既存スペック詳細を部品分類の候補に追加できませんでした');
+            return false;
+        }
+    };
     const specTypePickerOptionLabel = (specType) => {
         const label = specTypeOptionLabel(specType);
         return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
@@ -1099,14 +1204,7 @@ export default function setup() {
             return;
         }
 
-        form.specs.push(applyToleranceDefaults({
-            ...createEmptySpecRow(),
-            spec_type_id: specType.id,
-            spec_type_name: specType.name_ja ?? specType.name ?? '',
-            unit: isToleranceSpecType(specType)
-                ? toleranceSettingsForSpecType(specType).default_unit
-                : (specType.base_unit ?? specType.units?.[0]?.unit ?? ''),
-        }, specType));
+        form.specs.push(buildSpecRowFromSpecType(specType));
         selectedSpecCandidateId.value = '';
     };
     const applySpecTemplate = (template) => {
@@ -1193,7 +1291,12 @@ export default function setup() {
         const matchedSpecType = overrides.spec_type_id
             ? findSpecTypeById(overrides.spec_type_id)
             : matchByName(rawNameJa || rawNameEn || rawSymbol || rawName, specTypes.value, specTypeSearchText);
-        const draft = prepareSpecDraftForEdit(buildSpecDraftFromApi(overrides));
+        const specTypeId = matchedSpecType?.id ?? overrides.spec_type_id ?? '';
+        const draft = prepareSpecDraftForEdit(buildSpecDraftFromApi({
+            ...overrides,
+            spec_type_id: specTypeId,
+            unit: overrides.unit ?? getSpecBaseUnit(matchedSpecType),
+        }), matchedSpecType);
 
         return {
             name: rawName,
@@ -1206,7 +1309,7 @@ export default function setup() {
             value_min: draft.value_min,
             value_max: draft.value_max,
             unit: draft.unit,
-            spec_type_id: matchedSpecType?.id ?? overrides.spec_type_id ?? '',
+            spec_type_id: specTypeId,
             matched: overrides.matched ?? !!matchedSpecType,
             apply: overrides.apply ?? (
                 rawName !== ''
@@ -1494,6 +1597,10 @@ export default function setup() {
         const matchedType = findSpecTypeById(spec.spec_type_id);
         spec.matched = !!matchedType;
         spec.spec_type_name = matchedType?.name_ja ?? matchedType?.name ?? '';
+        if (matchedType) {
+            applyToleranceDefaults(spec, matchedType);
+            syncNormalSpecUnitToBase(spec, matchedType);
+        }
     };
 
     const handleHelperPackageGroupChange = (packageCandidate) => {
@@ -2612,8 +2719,9 @@ export default function setup() {
                 existing.value_min = spec.value_min;
                 existing.value_max = spec.value_max;
                 existing.unit = spec.unit;
+                handleSpecTypeSelection(existing);
             } else {
-                form.specs.push({
+                const nextSpec = {
                     ...createEmptySpecRow(),
                     name: spec.name ?? '',
                     name_ja: spec.name_ja ?? '',
@@ -2626,7 +2734,9 @@ export default function setup() {
                     value_min: spec.value_min,
                     value_max: spec.value_max,
                     unit: spec.unit,
-                });
+                };
+                handleSpecTypeSelection(nextSpec);
+                form.specs.push(nextSpec);
             }
             appliedCount++;
             if (!spec.spec_type_id) {
@@ -3052,7 +3162,7 @@ export default function setup() {
         selectedSpecGroupId, selectedSpecGroupLabel, selectedSpecCandidateId, selectedSpecTemplateId, selectedSpecTemplate,
         selectedSpecTemplateItems, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, showRecommendedSpecTypes, showAllSpecTypes, isAllSpecTypesSelected,
         addSelectedSpecCandidate, applySpecTemplate, applySelectedSpecTemplate, specTemplateLabel, templateItemPreviewLabel,
-        removeSpec, getUnitSuggestions, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile,
+        removeSpec, getUnitSuggestions, hasSpecBaseUnit, specPreview, specDisplayName, handleSpecTypeSelection, openInlineSpecTypeModal, closeInlineSpecTypeModal, saveInlineSpecType, changeSpecProfile,
         isToleranceSpecRow, toleranceUnitOptionsFor, toleranceValuePlaceholder,
         toleranceGradeOptionsFor, toleranceGradeOptionLabel,
         isToleranceGradeMenuOpen, toggleToleranceGradeMenu, closeToleranceGradeMenu, selectToleranceGradeOption,

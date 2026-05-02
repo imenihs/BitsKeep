@@ -32,6 +32,7 @@ class NetworkSearchService
         $partType = $params['part_type'] ?? 'R';
         $target = (float) $params['target'];
         $tolPct = (float) ($params['tolerance_pct'] ?? 5.0);
+        $elementTolPct = max(0.0, min(100.0, (float) ($params['element_tolerance_pct'] ?? 0.0)));
         $minElements = max(1, (int) ($params['min_elements'] ?? 1));
         $maxElements = min(4, (int) ($params['max_elements'] ?? 3));
         $maxElements = max($minElements, $maxElements);
@@ -63,7 +64,7 @@ class NetworkSearchService
                 $maxPoolCount = max($maxPoolCount, count($values));
                 $comboSource = $this->comboSource($values, $target, $partType, $count, $circuitTypes);
                 foreach ($comboSource as $combo) {
-                    foreach ($this->evaluateCombo($combo, $target, $partType, $circuitTypes, $tolPct, $evaluationCount, $evaluationLimited) as $candidate) {
+                    foreach ($this->evaluateCombo($combo, $target, $partType, $circuitTypes, $tolPct, $elementTolPct, $evaluationCount, $evaluationLimited) as $candidate) {
                         if (! $this->hasSufficientInventory($candidate['parts'])) {
                             continue;
                         }
@@ -76,7 +77,17 @@ class NetworkSearchService
             }
         }
 
-        usort($candidates, fn ($a, $b) => [$a['error_pct'], $a['elements_count'], $a['parts_total_value']] <=> [$b['error_pct'], $b['elements_count'], $b['parts_total_value']]);
+        usort($candidates, fn ($a, $b) => [
+            $a['rss_max_target_deviation_pct'] ?? $a['max_target_deviation_pct'] ?? $a['error_pct'],
+            $a['error_pct'],
+            $a['elements_count'],
+            $a['parts_total_value'],
+        ] <=> [
+            $b['rss_max_target_deviation_pct'] ?? $b['max_target_deviation_pct'] ?? $b['error_pct'],
+            $b['error_pct'],
+            $b['elements_count'],
+            $b['parts_total_value'],
+        ]);
         $unique = $this->uniqueCandidates($candidates);
 
         return [
@@ -95,7 +106,7 @@ class NetworkSearchService
         ];
     }
 
-    private function evaluateCombo(array $combo, float $target, string $partType, array $allowed, float $tolPct, int &$evaluationCount, bool &$evaluationLimited): array
+    private function evaluateCombo(array $combo, float $target, string $partType, array $allowed, float $tolPct, float $elementTolPct, int &$evaluationCount, bool &$evaluationLimited): array
     {
         $count = count($combo);
         $patterns = [];
@@ -136,7 +147,7 @@ class NetworkSearchService
             if ($errPct > $tolPct) {
                 continue;
             }
-            $results[] = $this->candidatePayload($combo, $actual, $target, $errPct, $partType, $pattern);
+            $results[] = $this->candidatePayload($combo, $actual, $target, $errPct, $partType, $pattern, $elementTolPct);
         }
 
         return $results;
@@ -256,6 +267,7 @@ class NetworkSearchService
                     'load_type' => $loaded['load_type'],
                     'load_display' => $loaded['load_display'],
                     ...$this->dividerElectricalCandidateFields($loaded),
+                    ...$this->dividerTolerancePayload((float) $r1['value'], (float) $r2['value'], $ratio, $params, $actual),
                     'parts_total_value' => $total,
                     'parts' => [
                         $this->partPayload($r1, 'R1上側'),
@@ -600,9 +612,9 @@ class NetworkSearchService
         return $best;
     }
 
-    private function candidatePayload(array $combo, float $actual, float $target, float $errPct, string $partType, array $pattern): array
+    private function candidatePayload(array $combo, float $actual, float $target, float $errPct, string $partType, array $pattern, float $elementTolPct): array
     {
-        return [
+        $payload = [
             'expression' => $pattern['expr']($combo),
             'elements_count' => count($combo),
             'error_pct' => round($errPct, 4),
@@ -617,6 +629,253 @@ class NetworkSearchService
             'parts_total_value' => array_sum(array_map(fn ($item) => (float) $item['value'], $combo)),
             'parts' => array_map(fn ($item, $index) => $this->partPayload($item, 'P'.($index + 1)), $combo, array_keys($combo)),
             'from_inventory' => collect($combo)->contains(fn ($item) => ! empty($item['component_id'])),
+        ];
+
+        if ($elementTolPct > 0) {
+            $payload = [
+                ...$payload,
+                ...$this->elementTolerancePayload($combo, $actual, $target, $partType, $pattern, $elementTolPct),
+            ];
+        }
+
+        return $payload;
+    }
+
+    private function elementTolerancePayload(array $combo, float $actual, float $target, string $partType, array $pattern, float $elementTolPct): array
+    {
+        $factor = $elementTolPct / 100;
+        $lowEquivalent = $pattern['eval']($this->scaledCombo($combo, max(0.0, 1 - $factor)));
+        $highEquivalent = $pattern['eval']($this->scaledCombo($combo, 1 + $factor));
+
+        if (! is_finite($lowEquivalent) || ! is_finite($highEquivalent)) {
+            return [];
+        }
+
+        $low = min($lowEquivalent, $highEquivalent);
+        $high = max($lowEquivalent, $highEquivalent);
+        $lowDeviation = $low - $target;
+        $highDeviation = $high - $target;
+        $lowDeviationPct = $target > 0 ? ($lowDeviation / $target) * 100 : INF;
+        $highDeviationPct = $target > 0 ? ($highDeviation / $target) * 100 : INF;
+        $maxDeviation = max(abs($lowDeviation), abs($highDeviation));
+        $maxDeviationPct = $target > 0 ? ($maxDeviation / $target) * 100 : INF;
+
+        return [
+            'element_tolerance_pct' => round($elementTolPct, 4),
+            'element_tolerance_display' => $this->formatPercent($elementTolPct),
+            ...$this->rssTolerancePayload($combo, $actual, $target, $partType, $pattern, $elementTolPct),
+            'low_equivalent_value' => $low,
+            'low_equivalent_display' => $this->formatValue($low, $partType),
+            'high_equivalent_value' => $high,
+            'high_equivalent_display' => $this->formatValue($high, $partType),
+            'tolerance_range_display' => $this->formatValue($low, $partType).' 〜 '.$this->formatValue($high, $partType),
+            'corner_range_display' => $this->formatValue($low, $partType).' 〜 '.$this->formatValue($high, $partType),
+            'low_target_deviation_value' => $lowDeviation,
+            'low_target_deviation_display' => $this->formatSignedValue($lowDeviation, $partType),
+            'low_target_deviation_pct' => round($lowDeviationPct, 4),
+            'low_target_deviation_pct_display' => $this->formatSignedPercent($lowDeviationPct),
+            'high_target_deviation_value' => $highDeviation,
+            'high_target_deviation_display' => $this->formatSignedValue($highDeviation, $partType),
+            'high_target_deviation_pct' => round($highDeviationPct, 4),
+            'high_target_deviation_pct_display' => $this->formatSignedPercent($highDeviationPct),
+            'max_target_deviation_value' => $maxDeviation,
+            'max_target_deviation_display_value' => $this->formatValue($maxDeviation, $partType),
+            'max_target_deviation_pct' => round($maxDeviationPct, 4),
+            'max_target_deviation_display' => $this->formatPercent($maxDeviationPct),
+        ];
+    }
+
+    private function rssTolerancePayload(array $combo, float $actual, float $target, string $partType, array $pattern, float $elementTolPct): array
+    {
+        if ($actual <= 0 || ! is_finite($actual)) {
+            return [];
+        }
+
+        $sumSquares = 0.0;
+        foreach (array_keys($combo) as $index) {
+            $sensitivity = $this->normalizedSensitivity($combo, (int) $index, $actual, $pattern);
+            if (! is_finite($sensitivity)) {
+                return [];
+            }
+            $sumSquares += $sensitivity ** 2;
+        }
+
+        $spread = $actual * ($elementTolPct / 100) * sqrt($sumSquares);
+        $low = max(0.0, $actual - $spread);
+        $high = $actual + $spread;
+        $lowDeviation = $low - $target;
+        $highDeviation = $high - $target;
+        $maxDeviation = max(abs($lowDeviation), abs($highDeviation));
+        $spreadPct = $target > 0 ? ($spread / $target) * 100 : INF;
+        $maxDeviationPct = $target > 0 ? ($maxDeviation / $target) * 100 : INF;
+
+        return [
+            'rss_equivalent_spread_value' => $spread,
+            'rss_equivalent_spread_display' => $this->formatValue($spread, $partType),
+            'rss_equivalent_spread_pct' => round($spreadPct, 4),
+            'rss_equivalent_spread_pct_display' => $this->formatPercent($spreadPct),
+            'rss_low_equivalent_value' => $low,
+            'rss_low_equivalent_display' => $this->formatValue($low, $partType),
+            'rss_high_equivalent_value' => $high,
+            'rss_high_equivalent_display' => $this->formatValue($high, $partType),
+            'rss_range_display' => $this->formatValue($low, $partType).' 〜 '.$this->formatValue($high, $partType),
+            'rss_low_target_deviation_value' => $lowDeviation,
+            'rss_low_target_deviation_display' => $this->formatSignedValue($lowDeviation, $partType),
+            'rss_high_target_deviation_value' => $highDeviation,
+            'rss_high_target_deviation_display' => $this->formatSignedValue($highDeviation, $partType),
+            'rss_max_target_deviation_value' => $maxDeviation,
+            'rss_max_target_deviation_display_value' => $this->formatValue($maxDeviation, $partType),
+            'rss_max_target_deviation_pct' => round($maxDeviationPct, 4),
+            'rss_max_target_deviation_display' => $this->formatPercent($maxDeviationPct),
+        ];
+    }
+
+    private function normalizedSensitivity(array $combo, int $index, float $actual, array $pattern): float
+    {
+        $value = (float) ($combo[$index]['value'] ?? 0);
+        if ($value <= 0 || $actual <= 0) {
+            return NAN;
+        }
+
+        $epsilon = 1e-6;
+        $up = $combo;
+        $down = $combo;
+        $up[$index]['value'] = $value * (1 + $epsilon);
+        $down[$index]['value'] = $value * (1 - $epsilon);
+
+        $upActual = $pattern['eval']($up);
+        $downActual = $pattern['eval']($down);
+        if (! is_finite($upActual) || ! is_finite($downActual)) {
+            return NAN;
+        }
+
+        $derivative = ($upActual - $downActual) / (2 * $value * $epsilon);
+
+        return ($derivative * $value) / $actual;
+    }
+
+    private function scaledCombo(array $combo, float $factor): array
+    {
+        return array_map(fn ($item) => [
+            ...$item,
+            'value' => (float) $item['value'] * $factor,
+        ], $combo);
+    }
+
+    private function dividerTolerancePayload(float $upper, float $lower, float $targetRatio, array $params, float $actualRatio): array
+    {
+        $upperTol = max(0.0, min(100.0, (float) ($params['divider_upper_tolerance_pct'] ?? 0.0)));
+        $lowerTol = max(0.0, min(100.0, (float) ($params['divider_lower_tolerance_pct'] ?? 0.0)));
+        if ($upperTol <= 0 && $lowerTol <= 0) {
+            return [];
+        }
+
+        $values = [$upper, $lower];
+        $tolerances = [$upperTol, $lowerTol];
+        $evaluateRatio = fn (array $items) => $this->dividerLoadedResult((float) $items[0], (float) $items[1], $params)['ratio'];
+        $rss = $this->numericToleranceRange($values, $tolerances, $actualRatio, $evaluateRatio);
+        $corner = $this->cornerToleranceRange($values, $tolerances, $evaluateRatio);
+        if ($rss === null || $corner === null) {
+            return [];
+        }
+
+        $rssMaxErrorRatio = max(abs($rss['low'] - $targetRatio), abs($rss['high'] - $targetRatio));
+        $cornerMaxErrorRatio = max(abs($corner['low'] - $targetRatio), abs($corner['high'] - $targetRatio));
+
+        return [
+            'divider_upper_tolerance_pct' => round($upperTol, 4),
+            'divider_lower_tolerance_pct' => round($lowerTol, 4),
+            'divider_tolerance_display' => 'R1 ±'.$this->formatPercent($upperTol).' / R2 ±'.$this->formatPercent($lowerTol),
+            'divider_rss_low_ratio' => $rss['low'],
+            'divider_rss_high_ratio' => $rss['high'],
+            'divider_rss_ratio_range_display' => $this->formatRatio($rss['low']).' 〜 '.$this->formatRatio($rss['high']),
+            'divider_rss_range_display' => $this->formatDividerOutput($rss['low'], $params).' 〜 '.$this->formatDividerOutput($rss['high'], $params),
+            'divider_rss_spread_ratio' => $rss['spread'],
+            'divider_rss_spread_display' => $this->formatDividerOutputDelta($rss['spread'], $params),
+            'divider_rss_max_error_ratio' => $rssMaxErrorRatio,
+            'divider_rss_max_error_display' => $this->formatDividerOutputDelta($rssMaxErrorRatio, $params),
+            'divider_rss_max_error_pct' => round($targetRatio > 0 ? ($rssMaxErrorRatio / $targetRatio) * 100 : INF, 4),
+            'divider_rss_max_error_pct_display' => $this->formatPercent($targetRatio > 0 ? ($rssMaxErrorRatio / $targetRatio) * 100 : INF),
+            'divider_corner_low_ratio' => $corner['low'],
+            'divider_corner_high_ratio' => $corner['high'],
+            'divider_corner_ratio_range_display' => $this->formatRatio($corner['low']).' 〜 '.$this->formatRatio($corner['high']),
+            'divider_corner_range_display' => $this->formatDividerOutput($corner['low'], $params).' 〜 '.$this->formatDividerOutput($corner['high'], $params),
+            'divider_corner_max_error_ratio' => $cornerMaxErrorRatio,
+            'divider_corner_max_error_display' => $this->formatDividerOutputDelta($cornerMaxErrorRatio, $params),
+            'divider_corner_max_error_pct' => round($targetRatio > 0 ? ($cornerMaxErrorRatio / $targetRatio) * 100 : INF, 4),
+            'divider_corner_max_error_pct_display' => $this->formatPercent($targetRatio > 0 ? ($cornerMaxErrorRatio / $targetRatio) * 100 : INF),
+        ];
+    }
+
+    private function numericToleranceRange(array $values, array $tolerances, float $actual, callable $evaluate): ?array
+    {
+        if (! is_finite($actual)) {
+            return null;
+        }
+
+        $epsilon = 1e-6;
+        $sumSquares = 0.0;
+        foreach ($values as $index => $value) {
+            $value = (float) $value;
+            $tol = max(0.0, (float) ($tolerances[$index] ?? 0.0)) / 100;
+            if ($value <= 0 || $tol <= 0) {
+                continue;
+            }
+
+            $up = $values;
+            $down = $values;
+            $up[$index] = $value * (1 + $epsilon);
+            $down[$index] = $value * (1 - $epsilon);
+            $upActual = $evaluate($up);
+            $downActual = $evaluate($down);
+            if (! is_finite($upActual) || ! is_finite($downActual)) {
+                return null;
+            }
+
+            $derivative = ($upActual - $downActual) / (2 * $value * $epsilon);
+            $sumSquares += ($derivative * $value * $tol) ** 2;
+        }
+
+        $spread = sqrt($sumSquares);
+
+        return [
+            'low' => $actual - $spread,
+            'high' => $actual + $spread,
+            'spread' => $spread,
+        ];
+    }
+
+    private function cornerToleranceRange(array $values, array $tolerances, callable $evaluate): ?array
+    {
+        $corners = [[]];
+        foreach ($values as $index => $value) {
+            $tol = max(0.0, (float) ($tolerances[$index] ?? 0.0)) / 100;
+            $options = $tol > 0
+                ? [(float) $value * (1 - $tol), (float) $value * (1 + $tol)]
+                : [(float) $value];
+            $next = [];
+            foreach ($corners as $corner) {
+                foreach ($options as $option) {
+                    $next[] = [...$corner, $option];
+                }
+            }
+            $corners = $next;
+        }
+
+        $results = [];
+        foreach ($corners as $corner) {
+            $value = $evaluate($corner);
+            if (is_finite($value)) {
+                $results[] = $value;
+            }
+        }
+        if ($results === []) {
+            return null;
+        }
+
+        return [
+            'low' => min($results),
+            'high' => max($results),
         ];
     }
 
@@ -889,6 +1148,24 @@ class NetworkSearchService
         return $this->formatRatio($ratio);
     }
 
+    private function formatDividerOutput(float $ratio, array $params): string
+    {
+        if (isset($params['input_voltage']) && (float) $params['input_voltage'] > 0) {
+            return $this->formatVoltage($ratio * (float) $params['input_voltage']);
+        }
+
+        return $this->formatRatio($ratio);
+    }
+
+    private function formatDividerOutputDelta(float $ratioDelta, array $params): string
+    {
+        if (isset($params['input_voltage']) && (float) $params['input_voltage'] > 0) {
+            return $this->formatVoltage(abs($ratioDelta) * (float) $params['input_voltage']);
+        }
+
+        return $this->formatRatio(abs($ratioDelta));
+    }
+
     private function formatVoltage(float $value): string
     {
         if (! is_finite($value)) {
@@ -903,6 +1180,15 @@ class NetworkSearchService
         }
 
         return $this->trimNumber($value).'V';
+    }
+
+    private function formatSignedValue(float $value, string $partType): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+
+        return ($value >= 0 ? '+' : '-').$this->formatValue(abs($value), $partType);
     }
 
     private function formatSignedVoltage(float $value): string
@@ -961,6 +1247,15 @@ class NetworkSearchService
     private function formatPercent(float $value): string
     {
         return $this->trimNumber($value, 4).'%';
+    }
+
+    private function formatSignedPercent(float $value): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+
+        return ($value >= 0 ? '+' : '-').$this->formatPercent(abs($value));
     }
 
     private function trimNumber(float $value, int $decimals = 6): string

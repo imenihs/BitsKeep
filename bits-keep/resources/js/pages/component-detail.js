@@ -12,8 +12,11 @@ import {
     getSpecProfileControlLabel,
     getSpecProfileHelpText,
     getSpecProfileBadgeLabel,
+    getSpecBaseUnit,
     getSpecUnitSuggestions,
+    normalizeBaseUnitInput,
     normalizeSpecDraft,
+    normalizeSpecDraftUnitToBase,
     normalizeSpecProfile,
     SPEC_PROFILE_OPTIONS,
 } from '../utils/specValue.js';
@@ -125,7 +128,7 @@ export default function setup() {
     const inlinePrefixPolicyHelp = computed(() => (
         isInlineByteBitPrefixUnit()
             ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
-            : '単位入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
+            : '値入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
     ));
     const syncInlinePrefixList = (field, changedPrefix = null) => {
         let prefixes = normalizeInlinePrefixes(inlineSpecTypeModal.form[field]).map(normalizeInlinePrefixToken);
@@ -280,6 +283,7 @@ export default function setup() {
         if (section !== 'attributes') {
             void ensureMastersLoaded().then(() => {
                 if (editModal.value.open && editModal.value.section === 'specs') {
+                    editModal.value.form.specs.forEach((spec) => handleSpecTypeSelection(spec));
                     syncSpecPickerSelections();
                 }
             });
@@ -654,7 +658,15 @@ export default function setup() {
         applyToleranceGradeOption(spec, option);
         closeToleranceGradeMenu();
     };
-    const prepareSpecDraftForEdit = (spec) => applyToleranceDefaults(spec);
+    const specBaseUnit = (spec) => isToleranceSpecRow(spec) ? '' : getSpecBaseUnit(specTypeForSpec(spec));
+    const hasSpecBaseUnit = (spec) => !!specBaseUnit(spec);
+    const syncNormalSpecUnitToBase = (spec, specType = specTypeForSpec(spec)) => {
+        if (!spec || !specType || isToleranceSpecType(specType)) return spec;
+
+        return normalizeSpecDraftUnitToBase(spec, specType);
+    };
+    const prepareSpecDraftForEdit = (spec, specType = specTypeForSpec(spec)) =>
+        syncNormalSpecUnitToBase(applyToleranceDefaults(spec, specType), specType);
 
     const specTypeOptionLabel = (specType) => {
         const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
@@ -697,6 +709,7 @@ export default function setup() {
         if (selected) {
             spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
             applyToleranceDefaults(spec, selected);
+            syncNormalSpecUnitToBase(spec, selected);
         } else {
             spec.spec_type_name = '';
         }
@@ -975,8 +988,11 @@ export default function setup() {
     };
     const templateItemSpecType = (item) => item?.spec_type ?? item?.specType ?? getSpecTypeById(item?.spec_type_id);
     const templateItemProfile = (item) => normalizeSpecProfile(item?.value_profile ?? item?.default_profile ?? 'typ');
-    const templateItemUnit = (item, specType = null) =>
-        String(item?.unit ?? item?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? '').trim();
+    const templateItemUnit = (item, specType = null) => {
+        const baseUnit = !isToleranceSpecType(specType) ? getSpecBaseUnit(specType) : '';
+
+        return String(baseUnit || item?.unit || item?.default_unit || specType?.base_unit || specType?.units?.[0]?.unit || '').trim();
+    };
     const specTemplatePreviewItems = computed(() =>
         (selectedSpecTemplate.value?.items ?? []).map((item) => {
             const specType = templateItemSpecType(item);
@@ -988,7 +1004,7 @@ export default function setup() {
     );
     const hasSpecTypeRow = (specTypeId, rows = editModal.value.form?.specs ?? []) =>
         rows.some((spec) => Number(spec.spec_type_id) === Number(specTypeId));
-    const buildSpecRowFromSpecType = (specType) => ({
+    const buildSpecRowFromSpecType = (specType) => prepareSpecDraftForEdit({
         ...createEmptySpecRow(),
         spec_type_id: specType?.id ?? '',
         spec_type_name: specType?.name_ja ?? specType?.name ?? '',
@@ -996,11 +1012,11 @@ export default function setup() {
         unit: String(isToleranceSpecType(specType)
             ? toleranceSettingsForSpecType(specType).default_unit
             : (specType?.base_unit ?? specType?.units?.[0]?.unit ?? '')).trim(),
-    });
+    }, specType);
     const buildSpecRowFromTemplateItem = (item) => {
         const specType = templateItemSpecType(item);
 
-        return applyToleranceDefaults({
+        return prepareSpecDraftForEdit({
             ...createEmptySpecRow(),
             spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
             spec_type_name: specType?.name_ja ?? specType?.name ?? '',
@@ -1029,6 +1045,23 @@ export default function setup() {
             toastError('追加するスペック候補を選択してください');
             return;
         }
+
+        if (hasSpecTypeRow(specType.id)) {
+            toastError('既に同じスペック詳細の行があります');
+            return;
+        }
+
+        editModal.value.form.specs.push(buildSpecRowFromSpecType(specType));
+        selectedSpecTypeId.value = '';
+    };
+    const addInlineCreatedSpecType = (specType) => {
+        if (!specType?.id) return;
+
+        const ownerGroup = resolveInlineSpecOwnerGroup();
+        if (ownerGroup?.id) {
+            selectedSpecGroupId.value = String(ownerGroup.id);
+        }
+        selectedSpecTypeId.value = String(specType.id);
 
         if (hasSpecTypeRow(specType.id)) {
             toastError('既に同じスペック詳細の行があります');
@@ -1085,7 +1118,14 @@ export default function setup() {
             || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
             || rawName;
         const aliases = [rawName].filter((value) => value && normalizeName(value) !== normalizeName(nameJa));
-        const unit = String(spec?.unit ?? '').trim();
+        const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
+        const unit = unitDraft.unit;
+        const suggestedPrefixes = unitDraft.prefix
+            ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix]
+            : (spec?.suggest_prefixes ?? []);
+        const displayPrefixes = unitDraft.prefix
+            ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix]
+            : (spec?.display_prefixes ?? []);
 
         inlineSpecTypeModal.targetSpec = spec;
         inlineSpecTypeModal.form = {
@@ -1095,8 +1135,8 @@ export default function setup() {
             description: String(spec?.description ?? '').trim(),
             value_type: spec?.value_type ?? 'numeric',
             unit,
-            suggest_prefixes: sanitizeInlinePrefixesForUnit(spec?.suggest_prefixes ?? [], unit),
-            display_prefixes: sanitizeInlinePrefixesForUnit(spec?.display_prefixes ?? [], unit),
+            suggest_prefixes: sanitizeInlinePrefixesForUnit(suggestedPrefixes, unit),
+            display_prefixes: sanitizeInlinePrefixesForUnit(displayPrefixes, unit),
             aliases_text: aliases.join('\n'),
         };
         inlineSpecTypeModal.open = true;
@@ -1135,9 +1175,16 @@ export default function setup() {
         }
 
         try {
-            const unit = String(spec?.unit ?? '').trim();
-            const suggestPrefixes = sanitizeInlinePrefixesForUnit(spec?.suggest_prefixes ?? [], unit);
-            const displayPrefixes = sanitizeInlinePrefixesForUnit(spec?.display_prefixes ?? [], unit);
+            const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
+            const unit = unitDraft.unit;
+            const suggestPrefixes = sanitizeInlinePrefixesForUnit(
+                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix] : (spec?.suggest_prefixes ?? []),
+                unit
+            );
+            const displayPrefixes = sanitizeInlinePrefixesForUnit(
+                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix] : (spec?.display_prefixes ?? []),
+                unit
+            );
             const res = await api.post('/spec-types', {
                 name,
                 name_ja: nameJa || name,
@@ -1187,6 +1234,8 @@ export default function setup() {
             if (targetSpec) {
                 targetSpec.spec_type_id = created.id;
                 targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
+            } else {
+                addInlineCreatedSpecType(created);
             }
             closeInlineSpecTypeModal(true);
         } finally {
@@ -1248,7 +1297,7 @@ export default function setup() {
         outgoingTransactions, incomingTransactions,
         formatTransactionTimestamp,
         canSaveEditModal, editMasterDataLoading,
-        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName, specProfileBadge, specProfileControlLabel, specProfileHelpText,
+        specProfileOptions, createEmptySpecRow, getUnitSuggestions, hasSpecBaseUnit, specPreview, specDisplayName, specProfileBadge, specProfileControlLabel, specProfileHelpText,
         canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
         inlinePrefixOptionsFor, inlinePrefixPolicyHelp, syncInlinePrefixList,
         selectedSpecGroupId, selectedSpecGroupLabel, selectedSpecTypeId, selectedSpecTemplateId,

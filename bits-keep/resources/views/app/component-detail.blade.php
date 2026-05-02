@@ -613,8 +613,10 @@
                 <option v-for="st in filteredSpecTypesForPicker()" :key="`detail-spec-candidate-${st.id}`" :value="String(st.id)">@{{ specTypePickerOptionLabel(st) }}</option>
               </select>
             </div>
-            <button type="button" @click="addSelectedSpecType" :disabled="!selectedSpecTypeId"
-              class="btn btn-primary h-10 px-4 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed lg:mt-5">追加</button>
+            <div class="lg:mt-5">
+              <button type="button" @click="addSelectedSpecType" :disabled="!selectedSpecTypeId"
+                class="btn btn-primary h-10 px-4 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed">追加</button>
+            </div>
             <div class="hidden lg:block"></div>
             <div class="space-y-2">
               <label class="block text-xs font-semibold mb-1">入力テンプレート</label>
@@ -635,6 +637,11 @@
             <button type="button" @click="applySelectedSpecTemplate" :disabled="!selectedSpecTemplateId"
               class="btn btn-primary h-10 px-4 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed lg:mt-5">一式追加</button>
           </div>
+          <div v-if="canCreateSpecType" class="mt-4 border-t border-[var(--color-border)] pt-3">
+            <button type="button" @click="openInlineSpecTypeModal()" class="btn h-10 rounded border border-[var(--color-border)] px-3 py-2 text-sm">
+              スペックを新規で追加
+            </button>
+          </div>
         </div>
         <div class="pt-1 text-sm font-semibold opacity-80">登録済みスペック</div>
         <div v-for="(spec, index) in editModal.form.specs" :key="index" class="spec-card bg-[var(--color-card-even)]">
@@ -646,7 +653,6 @@
                   <option value="">スペック詳細を選択</option>
                   <option v-for="st in filteredSpecTypesForPicker(spec)" :key="`detail-type-${index}-${st.id}`" :value="st.id">@{{ specTypePickerOptionLabel(st) }}</option>
                 </select>
-                <button v-if="canCreateSpecType" type="button" @click="openInlineSpecTypeModal(spec)" class="spec-type-add-button" title="選択中の部品分類にスペック詳細を追加" aria-label="選択中の部品分類にスペック詳細を追加">＋</button>
               </div>
               <p v-if="spec.name" class="spec-card-help">データシート表記: @{{ spec.name }}</p>
             </div>
@@ -658,12 +664,12 @@
               <div v-else class="spec-card-profile-select-wrap">
                 <select :value="spec.value_profile" @change="changeSpecProfile(spec, $event.target.value)"
                   class="input-text spec-card-control spec-card-profile-select w-full"
-                  :title="specProfileHelpText(spec.value_profile)">
+                  :title="specProfileHelpText(spec.value_profile)"
+                  :aria-label="`値種別: ${specProfileControlLabel(spec.value_profile)}`">
                   <option v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" :value="option.value">
                     @{{ specProfileControlLabel(option.value) }}
                   </option>
                 </select>
-                <p class="spec-card-profile-note">@{{ specProfileHelpText(spec.value_profile) }}</p>
               </div>
             </div>
             <div class="spec-card-field">
@@ -697,40 +703,40 @@
                 </div>
               </template>
               <label v-else-if="spec.value_profile === 'typ'" class="spec-card-subfield">
-                <span class="spec-card-subfield-label">typ</span>
+                <span class="spec-card-subfield-label">TYP</span>
                 <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="例: 1 / 1e-6" />
               </label>
               <label v-else-if="spec.value_profile === 'max_only'" class="spec-card-subfield">
-                <span class="spec-card-subfield-label">max</span>
-                <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
+                <span class="spec-card-subfield-label">MAX</span>
+                <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="MAX" />
               </label>
               <label v-else-if="spec.value_profile === 'min_only'" class="spec-card-subfield">
-                <span class="spec-card-subfield-label">min</span>
-                <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
+                <span class="spec-card-subfield-label">MIN</span>
+                <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="MIN" />
               </label>
               <div v-else-if="spec.value_profile === 'range'" class="spec-card-values--range">
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">min</span>
-                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
+                  <span class="spec-card-subfield-label">MIN</span>
+                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="MIN" />
                 </label>
                 <span class="text-xs opacity-50 pb-3">〜</span>
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">max</span>
-                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
+                  <span class="spec-card-subfield-label">MAX</span>
+                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="MAX" />
                 </label>
               </div>
               <div v-else class="spec-card-values--triple">
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">min</span>
-                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="min" />
+                  <span class="spec-card-subfield-label">MIN</span>
+                  <input v-model="spec.value_min" type="text" class="input-text spec-card-control w-full" placeholder="MIN" />
                 </label>
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">typ</span>
-                  <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="typ" />
+                  <span class="spec-card-subfield-label">TYP</span>
+                  <input v-model="spec.value_typ" type="text" class="input-text spec-card-control w-full" placeholder="TYP" />
                 </label>
                 <label class="spec-card-subfield">
-                  <span class="spec-card-subfield-label">max</span>
-                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="max" />
+                  <span class="spec-card-subfield-label">MAX</span>
+                  <input v-model="spec.value_max" type="text" class="input-text spec-card-control w-full" placeholder="MAX" />
                 </label>
               </div>
             </div>
@@ -740,8 +746,11 @@
                 <option v-for="unitOption in toleranceUnitOptionsFor(spec)" :key="`detail-tolerance-unit-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
               </select>
               <template v-else>
-                <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full" placeholder="例: uA / kΩ / ns" :list="`spec-unit-detail-${index}`" />
-                <datalist :id="`spec-unit-detail-${index}`">
+                <input v-model="spec.unit" type="text" class="input-text spec-card-control w-full"
+                  :readonly="hasSpecBaseUnit(spec)"
+                  :placeholder="hasSpecBaseUnit(spec) ? '' : '単位'"
+                  :list="hasSpecBaseUnit(spec) ? null : `spec-unit-detail-${index}`" />
+                <datalist v-if="!hasSpecBaseUnit(spec)" :id="`spec-unit-detail-${index}`">
                   <option v-for="unitOption in getUnitSuggestions(spec.spec_type_id)" :key="`detail-${index}-${unitOption}`" :value="unitOption">@{{ unitOption }}</option>
                 </datalist>
               </template>
@@ -866,11 +875,11 @@
           </select>
         </div>
         <div v-if="inlineSpecTypeModal.form.value_type === 'numeric'">
-          <label class="block text-xs font-semibold mb-1">単位</label>
-          <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: μF" />
-          <p class="text-xs opacity-50 mt-1">不要なら空欄のまま保存します。</p>
+          <label class="block text-xs font-semibold mb-1">基準単位</label>
+          <input v-model="inlineSpecTypeModal.form.unit" type="text" class="input-text w-full" placeholder="例: F / Ω / A" />
+          <p class="text-xs opacity-50 mt-1">接頭語は下の入力候補接頭辞で選びます。不要なら空欄のまま保存します。</p>
         </div>
-        <template v-if="inlineSpecTypeModal.form.value_type === 'numeric' && inlineSpecTypeModal.form.unit">
+        <template v-if="inlineSpecTypeModal.form.value_type === 'numeric'">
           <div>
             <label class="block text-xs font-semibold mb-1">入力候補接頭辞</label>
             <p class="text-xs opacity-50 mb-2">@{{ inlinePrefixPolicyHelp }}</p>
@@ -900,7 +909,7 @@
       <div class="flex justify-end gap-3 mt-5">
         <button type="button" @click="closeInlineSpecTypeModal()" class="btn text-sm px-4 py-3 rounded border border-[var(--color-border)]">キャンセル</button>
         <button type="button" @click="saveInlineSpecType" :disabled="inlineSpecTypeModal.saving" class="btn btn-primary text-sm px-5 py-3 rounded disabled:opacity-40">
-          @{{ inlineSpecTypeModal.saving ? '保存中...' : '保存して選択' }}
+          @{{ inlineSpecTypeModal.saving ? '保存中...' : '保存して追加' }}
         </button>
       </div>
     </div>

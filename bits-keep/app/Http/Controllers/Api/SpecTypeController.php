@@ -22,6 +22,10 @@ class SpecTypeController extends Controller
 
     private const BYTE_BIT_ALLOWED_PREFIXES = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
 
+    private const UNIT_PREFIXES = ['Ti', 'Gi', 'Mi', 'Ki', 'Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', 'm', 'u', 'n', 'p', 'f'];
+
+    private const BASE_UNIT_SUFFIXES = ['ppm/℃', 'bit', 'bps', 'Ω', 'F', 'A', 'V', 'H', 's', 'Hz', 'W', 'J', 'C', 'B', 'm', 'g', 'K', 'N', 'Pa', 'bar', '%', '℃'];
+
     public function index(Request $request)
     {
         if ($request->boolean('summary')) {
@@ -68,15 +72,20 @@ class SpecTypeController extends Controller
     {
         return DB::transaction(function () use ($request) {
             $payload = $request->safe()->except(['unit', 'aliases']);
+            $unitDraft = $this->normalizeBaseUnitInput($request->filled('unit') ? $request->string('unit')->toString() : '');
             if ($request->filled('unit') && empty($payload['base_unit'])) {
-                $payload['base_unit'] = $request->string('unit')->toString();
+                $payload['base_unit'] = $unitDraft['unit'];
+            }
+            if ($unitDraft['prefix'] !== '') {
+                $this->appendPrefixToPayload($payload, 'suggest_prefixes', $unitDraft['prefix']);
+                $this->appendPrefixToPayload($payload, 'display_prefixes', $unitDraft['prefix']);
             }
             $payload = $this->normalizePayload($payload);
             $specType = SpecType::create($payload);
 
-            if ($request->filled('unit')) {
+            if ($request->filled('unit') && $unitDraft['unit'] !== '') {
                 $specType->units()->create([
-                    'unit' => $request->string('unit')->toString(),
+                    'unit' => $unitDraft['unit'],
                     'factor' => 1,
                     'sort_order' => 0,
                 ]);
@@ -97,6 +106,7 @@ class SpecTypeController extends Controller
     {
         return DB::transaction(function () use ($request, $specType) {
             $payload = $request->safe()->except(['unit', 'aliases']);
+            $unitDraft = $this->normalizeBaseUnitInput($request->filled('unit') ? $request->string('unit')->toString() : '');
             if (! $request->has('spec_scope')) {
                 $payload['spec_scope'] = $specType->spec_scope;
             }
@@ -110,21 +120,25 @@ class SpecTypeController extends Controller
                 $payload['tolerance_settings'] = $specType->tolerance_settings;
             }
             if ($request->has('unit')) {
-                $payload['base_unit'] = $request->filled('unit') ? $request->string('unit')->toString() : null;
+                $payload['base_unit'] = $request->filled('unit') ? $unitDraft['unit'] : null;
             } elseif (
                 ! array_key_exists('base_unit', $payload)
                 && (array_key_exists('suggest_prefixes', $payload) || array_key_exists('display_prefixes', $payload))
             ) {
                 $payload['base_unit'] = $specType->base_unit;
             }
+            if ($unitDraft['prefix'] !== '') {
+                $this->appendPrefixToPayload($payload, 'suggest_prefixes', $unitDraft['prefix']);
+                $this->appendPrefixToPayload($payload, 'display_prefixes', $unitDraft['prefix']);
+            }
             $payload = $this->normalizePayload($payload);
             $specType->update($payload);
 
             if ($request->has('unit')) {
                 $specType->units()->delete();
-                if ($request->filled('unit')) {
+                if ($request->filled('unit') && $unitDraft['unit'] !== '') {
                     $specType->units()->create([
-                        'unit' => $request->string('unit')->toString(),
+                        'unit' => $unitDraft['unit'],
                         'factor' => 1,
                         'sort_order' => 0,
                     ]);
@@ -198,6 +212,15 @@ class SpecTypeController extends Controller
             $payload['tolerance_settings'] = $this->normalizeToleranceSettings($payload['tolerance_settings'] ?? null);
         }
 
+        if (array_key_exists('base_unit', $payload) && $payload['base_unit'] !== null && $payload['base_unit'] !== '') {
+            $unitDraft = $this->normalizeBaseUnitInput((string) $payload['base_unit']);
+            $payload['base_unit'] = $unitDraft['unit'];
+            if ($unitDraft['prefix'] !== '') {
+                $this->appendPrefixToPayload($payload, 'suggest_prefixes', $unitDraft['prefix']);
+                $this->appendPrefixToPayload($payload, 'display_prefixes', $unitDraft['prefix']);
+            }
+        }
+
         foreach (['suggest_prefixes', 'display_prefixes'] as $key) {
             if (array_key_exists($key, $payload)) {
                 $payload[$key] = $this->normalizePrefixList($payload[$key], (string) ($payload['base_unit'] ?? ''), $key);
@@ -205,6 +228,45 @@ class SpecTypeController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * @return array{unit: string, prefix: string}
+     */
+    private function normalizeBaseUnitInput(string $unit): array
+    {
+        $normalized = $this->normalizeUnitLabel($unit);
+        if ($normalized === '') {
+            return ['unit' => '', 'prefix' => ''];
+        }
+
+        foreach (self::BASE_UNIT_SUFFIXES as $baseUnit) {
+            if (! str_ends_with($normalized, $baseUnit) || $normalized === $baseUnit) {
+                continue;
+            }
+
+            $prefix = substr($normalized, 0, -strlen($baseUnit));
+            if (in_array($prefix, self::UNIT_PREFIXES, true)) {
+                return ['unit' => $baseUnit, 'prefix' => $prefix];
+            }
+        }
+
+        return ['unit' => $normalized, 'prefix' => ''];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function appendPrefixToPayload(array &$payload, string $key, string $prefix): void
+    {
+        $current = array_key_exists($key, $payload) && is_array($payload[$key])
+            ? $payload[$key]
+            : [];
+        $current[] = $prefix;
+        $payload[$key] = array_values(array_unique(array_map(
+            fn ($item) => $this->normalizePrefix($item),
+            $current
+        )));
     }
 
     /**
