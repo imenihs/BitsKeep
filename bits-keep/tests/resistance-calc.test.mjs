@@ -5,6 +5,7 @@ import {
     default as setupResistanceCalc,
     formatResistance,
     formatCurrent,
+    formatPower,
     normalizeNetworkResponse,
     normalizeCustomValues,
     parseTarget,
@@ -54,6 +55,7 @@ assert.equal(parseTarget('50%', 'divider'), 0.5);
 assert.equal(formatResistance(4700), '4.7kΩ');
 assert.equal(formatCurrent(0), '0A');
 assert.equal(formatCurrent(0.001), '1mA');
+assert.equal(formatPower(0.005), '5mW');
 assert.deepEqual(normalizeCustomValues('10k, 4.7k', 'R'), [10000, 4700]);
 assert.ok(Math.abs(normalizeCustomValues('4.7u, 100n', 'C')[0] - 4.7e-6) < 1e-18);
 assert.ok(Math.abs(normalizeCustomValues('4.7u, 100n', 'C')[1] - 100e-9) < 1e-18);
@@ -287,6 +289,14 @@ assert.equal(dividerVariableNoLoad.bestCandidate.verdict, 'CHECK');
 assert.equal(dividerVariableNoLoad.bestCandidate.pot, 10000);
 assert.equal(dividerVariableNoLoad.bestCandidate.low, 1);
 assert.equal(dividerVariableNoLoad.bestCandidate.high, 3);
+assert.ok(Math.abs(dividerVariableNoLoad.bestCandidate.sourceCurrent - 0.0002) < 1e-12);
+assert.ok(Math.abs(dividerVariableNoLoad.bestCandidate.topPower - 0.0004) < 1e-12);
+assert.ok(Math.abs(dividerVariableNoLoad.bestCandidate.potPower - 0.0004) < 1e-12);
+assert.ok(Math.abs(dividerVariableNoLoad.bestCandidate.bottomPower - 0.0002) < 1e-12);
+assert.equal(dividerVariableNoLoad.bestCandidate.sourceCurrentDisplay, '200uA');
+assert.equal(dividerVariableNoLoad.bestCandidate.topPowerDisplay, '400uW');
+assert.equal(dividerVariableNoLoad.bestCandidate.potPowerDisplay, '400uW');
+assert.equal(dividerVariableNoLoad.bestCandidate.bottomPowerDisplay, '200uW');
 assert.ok(dividerVariableNoLoad.bestCandidate.tags.includes('無負荷分圧'));
 
 const dividerVariableRatioRange = calculateVariableDivider({

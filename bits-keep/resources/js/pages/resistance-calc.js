@@ -158,6 +158,16 @@ export function formatCurrent(value) {
     return `${trimNumber(value)}A`;
 }
 
+export function formatPower(value) {
+    if (!Number.isFinite(value)) return '-';
+    const abs = Math.abs(value);
+    if (abs === 0) return '0W';
+    if (abs < 1e-6) return `${trimNumber(value * 1e9)}nW`;
+    if (abs < 1e-3) return `${trimNumber(value * 1e6)}uW`;
+    if (abs < 1) return `${trimNumber(value * 1000)}mW`;
+    return `${trimNumber(value)}W`;
+}
+
 function formatTargetValue(value, partType) {
     if (value === null) return '-';
     if (partType === 'divider') return `${trimNumber(value * 100)}%`;
@@ -260,6 +270,16 @@ function loadedDividerOutput({ inputVoltage, topResistance, bottomResistance, lo
         sourceCurrent: total > 0 ? inputVoltage / total : NaN,
         outputCurrent: load.resistance > 0 && Number.isFinite(load.resistance) ? voltage / load.resistance : 0,
     };
+}
+
+function branchCurrent(voltage, resistance) {
+    if (!Number.isFinite(voltage) || !Number.isFinite(resistance) || resistance <= 0) return NaN;
+    return voltage / resistance;
+}
+
+function resistorPower(current, resistance) {
+    if (!Number.isFinite(current) || !Number.isFinite(resistance) || resistance <= 0) return NaN;
+    return current * current * resistance;
 }
 
 export function dividerRatioFromVoltages(inputRaw, outputRaw) {
@@ -660,6 +680,20 @@ function makeVariableDividerCandidate({
     const high = highPoint.voltage;
     const sourceCurrent = Math.max(lowPoint.sourceCurrent, highPoint.sourceCurrent);
     const outputCurrent = Math.max(lowPoint.outputCurrent, highPoint.outputCurrent);
+    const lowBottomCurrent = branchCurrent(low, bottom);
+    const highBottomBranchCurrent = branchCurrent(high, bottom + pot);
+    const lowTopPower = resistorPower(lowPoint.sourceCurrent, top);
+    const lowPotPower = resistorPower(lowPoint.sourceCurrent, pot);
+    const lowBottomPower = resistorPower(lowBottomCurrent, bottom);
+    const highTopPower = resistorPower(highPoint.sourceCurrent, top);
+    const highPotPower = resistorPower(highBottomBranchCurrent, pot);
+    const highBottomPower = resistorPower(highBottomBranchCurrent, bottom);
+    const topPower = Math.max(lowTopPower, highTopPower);
+    const potPower = Math.max(lowPotPower, highPotPower);
+    const bottomPower = Math.max(lowBottomPower, highBottomPower);
+    const lowResistorPower = lowTopPower + lowPotPower + lowBottomPower;
+    const highResistorPower = highTopPower + highPotPower + highBottomPower;
+    const resistorPowerTotal = Math.max(lowResistorPower, highResistorPower);
     const targetSpan = Math.max(outputHigh - outputLow, Number.EPSILON);
     const lowMargin = outputLow - low;
     const highMargin = high - outputHigh;
@@ -685,6 +719,10 @@ function makeVariableDividerCandidate({
         outputHigh,
         sourceCurrent,
         outputCurrent,
+        topPower,
+        potPower,
+        bottomPower,
+        resistorPowerTotal,
         topDisplay: formatResistance(top),
         potDisplay: formatResistance(pot),
         bottomDisplay: formatResistance(bottom),
@@ -695,6 +733,10 @@ function makeVariableDividerCandidate({
         targetHighDisplay: formatVoltage(outputHigh),
         sourceCurrentDisplay: formatCurrent(sourceCurrent),
         outputCurrentDisplay: formatCurrent(outputCurrent),
+        topPowerDisplay: formatPower(topPower),
+        potPowerDisplay: formatPower(potPower),
+        bottomPowerDisplay: formatPower(bottomPower),
+        resistorPowerDisplay: formatPower(resistorPowerTotal),
         loadDisplay: load.display,
         lowMarginDisplay: `${lowMargin >= 0 ? '+' : ''}${formatVoltage(Math.abs(lowMargin))}`,
         highMarginDisplay: `${highMargin >= 0 ? '+' : ''}${formatVoltage(Math.abs(highMargin))}`,
@@ -1018,11 +1060,12 @@ export default function setup() {
                 payload.load_current = dividerLoadConfig.value.current;
                 payload.load_resistance = Number.isFinite(dividerLoadConfig.value.resistance) ? dividerLoadConfig.value.resistance : null;
                 payload.load_resistance_infinite = dividerLoadConfig.value.resistance === Infinity;
+                const inputVoltage = parseTarget(form.input_voltage_raw, 'V');
+                if (Number.isFinite(inputVoltage) && inputVoltage > 0) {
+                    payload.input_voltage = inputVoltage;
+                }
                 if (form.divider_target_mode === 'voltage') {
-                    payload.input_voltage = dividerVoltageTarget.value.input;
                     payload.output_voltage = dividerVoltageTarget.value.output;
-                } else if (dividerLoadConfig.value.type === 'current' && dividerLoadConfig.value.current > 0) {
-                    payload.input_voltage = parseTarget(form.input_voltage_raw, 'V');
                 }
             }
             if (form.series === 'custom') {
@@ -1180,6 +1223,12 @@ export default function setup() {
             selectedBottomDisplay: result.bestCandidate?.bottomDisplay ?? '-',
             selectedLowDisplay: result.bestCandidate?.lowDisplay ?? '-',
             selectedHighDisplay: result.bestCandidate?.highDisplay ?? '-',
+            selectedSourceCurrentDisplay: result.bestCandidate?.sourceCurrentDisplay ?? '-',
+            selectedOutputCurrentDisplay: result.bestCandidate?.outputCurrentDisplay ?? '-',
+            selectedTopPowerDisplay: result.bestCandidate?.topPowerDisplay ?? '-',
+            selectedPotPowerDisplay: result.bestCandidate?.potPowerDisplay ?? '-',
+            selectedBottomPowerDisplay: result.bestCandidate?.bottomPowerDisplay ?? '-',
+            selectedResistorPowerDisplay: result.bestCandidate?.resistorPowerDisplay ?? '-',
         };
     });
 

@@ -489,6 +489,13 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertStringContainsString('output_low_ratio_raw', $script);
         $this->assertStringContainsString('total_res_min_raw', $script);
         $this->assertStringContainsString("output_mode: form.divider_target_mode", $script);
+        $this->assertStringContainsString('sourceCurrentDisplay', $script);
+        $this->assertStringContainsString('candidate.source_current_display', $blade);
+        $this->assertStringContainsString('topPowerDisplay', $script);
+        $this->assertStringContainsString('回路電流', $blade);
+        $this->assertStringContainsString('R1 @{{ candidate.upper_power_display }}', $blade);
+        $this->assertStringContainsString('R上最大電力', $blade);
+        $this->assertStringContainsString('VR最大電力', $blade);
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'dividerTargetModeOptions'));
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'form.series'));
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'form.total_res_min_raw'));

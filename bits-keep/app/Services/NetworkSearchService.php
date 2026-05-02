@@ -255,6 +255,7 @@ class NetworkSearchService
                     'total_display' => $this->formatValue($total, 'R'),
                     'load_type' => $loaded['load_type'],
                     'load_display' => $loaded['load_display'],
+                    ...$this->dividerElectricalCandidateFields($loaded),
                     'parts_total_value' => $total,
                     'parts' => [
                         $this->partPayload($r1, 'R1上側'),
@@ -692,7 +693,7 @@ class NetworkSearchService
             $loadCurrent = max(0.0, (float) ($params['load_current'] ?? 0));
             $total = $upper + $lower;
             $noLoadRatio = $total > 0 ? $lower / $total : NAN;
-            if ($loadCurrent <= 0 || $inputVoltage === null || $inputVoltage <= 0) {
+            if ($inputVoltage === null || $inputVoltage <= 0) {
                 return [
                     'ratio' => $noLoadRatio,
                     'output_voltage' => $inputVoltage !== null ? $noLoadRatio * $inputVoltage : null,
@@ -701,14 +702,19 @@ class NetworkSearchService
                 ];
             }
 
-            $theveninResistance = $this->parallelPair($upper, $lower);
-            $outputVoltage = ($inputVoltage * $noLoadRatio) - ($loadCurrent * $theveninResistance);
+            $outputVoltage = $inputVoltage * $noLoadRatio;
+            if ($loadCurrent > 0) {
+                $theveninResistance = $this->parallelPair($upper, $lower);
+                $outputVoltage -= $loadCurrent * $theveninResistance;
+            }
+            $ratio = $outputVoltage / $inputVoltage;
 
             return [
-                'ratio' => $outputVoltage / $inputVoltage,
+                'ratio' => $ratio,
                 'output_voltage' => $outputVoltage,
                 'load_type' => 'current',
                 'load_display' => $this->formatCurrent($loadCurrent),
+                ...$this->dividerElectricalMetrics($inputVoltage, $upper, $lower, $outputVoltage, $loadCurrent),
             ];
         }
 
@@ -722,7 +728,64 @@ class NetworkSearchService
             'output_voltage' => $inputVoltage !== null ? $ratio * $inputVoltage : null,
             'load_type' => 'resistance',
             'load_display' => $loadResistance === INF ? '∞Ω' : $this->formatValue($loadResistance, 'R'),
+            ...($inputVoltage !== null && $inputVoltage > 0
+                ? $this->dividerElectricalMetrics($inputVoltage, $upper, $lower, $ratio * $inputVoltage, $loadResistance === INF ? 0.0 : (($ratio * $inputVoltage) / $loadResistance))
+                : []),
         ];
+    }
+
+    private function dividerElectricalMetrics(float $inputVoltage, float $upper, float $lower, float $outputVoltage, float $loadCurrent): array
+    {
+        $sourceCurrent = $upper > 0 ? ($inputVoltage - $outputVoltage) / $upper : NAN;
+        $lowerCurrent = $lower > 0 ? $outputVoltage / $lower : NAN;
+        $upperPower = $upper > 0 ? (($inputVoltage - $outputVoltage) ** 2) / $upper : NAN;
+        $lowerPower = $lower > 0 ? ($outputVoltage ** 2) / $lower : NAN;
+        $loadPower = $outputVoltage * max(0.0, $loadCurrent);
+        $resistorPower = $upperPower + $lowerPower;
+        $totalPower = $resistorPower + $loadPower;
+
+        return [
+            'source_current' => $sourceCurrent,
+            'source_current_display' => $this->formatCurrent($sourceCurrent),
+            'lower_current' => $lowerCurrent,
+            'lower_current_display' => $this->formatCurrent($lowerCurrent),
+            'output_current' => max(0.0, $loadCurrent),
+            'output_current_display' => $this->formatCurrent(max(0.0, $loadCurrent)),
+            'upper_power' => $upperPower,
+            'upper_power_display' => $this->formatPower($upperPower),
+            'lower_power' => $lowerPower,
+            'lower_power_display' => $this->formatPower($lowerPower),
+            'resistor_power' => $resistorPower,
+            'resistor_power_display' => $this->formatPower($resistorPower),
+            'load_power' => $loadPower,
+            'load_power_display' => $this->formatPower($loadPower),
+            'total_power' => $totalPower,
+            'total_power_display' => $this->formatPower($totalPower),
+        ];
+    }
+
+    private function dividerElectricalCandidateFields(array $loaded): array
+    {
+        $keys = [
+            'source_current',
+            'source_current_display',
+            'lower_current',
+            'lower_current_display',
+            'output_current',
+            'output_current_display',
+            'upper_power',
+            'upper_power_display',
+            'lower_power',
+            'lower_power_display',
+            'resistor_power',
+            'resistor_power_display',
+            'load_power',
+            'load_power_display',
+            'total_power',
+            'total_power_display',
+        ];
+
+        return array_intersect_key($loaded, array_flip($keys));
     }
 
     private function loadResistance(array $params): float
@@ -871,6 +934,28 @@ class NetworkSearchService
         }
 
         return $this->trimNumber($value).'A';
+    }
+
+    private function formatPower(float $value): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+        $abs = abs($value);
+        if ($abs == 0.0) {
+            return '0W';
+        }
+        if ($abs < 1e-6) {
+            return $this->trimNumber($value * 1e9).'nW';
+        }
+        if ($abs < 1e-3) {
+            return $this->trimNumber($value * 1e6).'μW';
+        }
+        if ($abs < 1) {
+            return $this->trimNumber($value * 1000).'mW';
+        }
+
+        return $this->trimNumber($value).'W';
     }
 
     private function formatPercent(float $value): string

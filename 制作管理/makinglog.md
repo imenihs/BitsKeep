@@ -7193,3 +7193,41 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - ✓ `git diff --check --` 今回対象ファイル。
 - DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
 - 曹長(テスト分隊)の心の声: UI文言だけでなく、VR調整ありの計算入力に比率範囲と総抵抗制約を追加して固定した。これでサブモード間の差分はVR調整有無へ寄った。
+
+### [大将] 2026-05-02 14:01 JST
+- [ユーザ] 分圧では抵抗電力と回路電流を知りたいと指示。
+- 判断: 分圧設計では、候補値の比率だけでなく、分圧列に流れる電流、負荷電流、各抵抗の消費電力、総消費電力を確認できる必要がある。VR調整ありではワイパ端点で電流と電力が変わるため、端点別と最大値を表示する。
+- 対応方針: `VR調整なし` のAPI候補に回路電流、負荷電流、R1/R2電力、総電力を追加する。`VR調整あり` のフロント計算にもR上/VR/R下の最大電力、最大回路電流、端点電流を追加し、UIとテストとドキュメントへ反映する。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 分圧は抵抗値が決まって終わりではない。消費電流と電力が見えないと、低消費設計や定格確認に進めない。
+
+### [曹長(コード分隊)] 2026-05-02 14:07 JST
+- 実装: `VR調整なし` の分圧API候補に、回路電流、R2枝電流、負荷電流、R1/R2消費電力、抵抗合計電力、負荷電力、総消費電力を追加した。比率指定でもVinを入力でき、Vinがある場合は電流/電力を表示する。
+- 実装: `VR調整あり` のフロント計算に、最大回路電流、負荷電流、R上/VR/R下の最大消費電力、抵抗合計最大電力を追加した。端点で変わる値は最大値を定格確認用に表示する。
+- UI: 候補カードへ `電流/電力` 欄を追加し、VR調整ありの採用候補には最大回路電流と各抵抗最大電力を表示する。
+- ドキュメント: README、ヘルプ、詳細仕様、進捗チェックリストへ回路電流と抵抗電力の扱いを追記した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 回路電流と電力は分圧の実用可否に直結する。比率だけ合っても、消費電流や抵抗定格が見えない候補は現場では採用判断できない。
+
+### [曹長(テスト分隊)] 2026-05-02 14:07 JST
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。18 tests / 82 assertions。
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。15 tests / 393 assertions。
+- ✓ `composer run test`。92 tests / 837 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 3.3V/10kΩ+10kΩで165μAと272.25μWを固定し、VR調整ありでは10kΩ指定時の端点最大電力を固定した。表示単位まで見る回帰にした。
+
+### [大将] 2026-05-02 14:04 JST
+- [ユーザ] 値種別UIについて、大文字小文字が混在し、指示文言をそのまま詰め込んだだけのUIになっていると指摘。どんなルールだったか確認。
+- 判断: 指摘通り。狭いUIでは操作ラベルへ説明を詰めず、表記体系を揃えた短いコードと補助説明を分離するべきだった。ネイティブselectの候補表示へ丸投げしたのも不適切。
+- 対応方針: 値種別の主ラベルを uppercase の同一体系へ統一し、`select` をやめて固定幅コードと説明を持つカスタム選択UIへ置き換える。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 「言われた単語を入れる」ではなく、操作面と説明面を分けるのがUI設計だった。ここは作り直す。

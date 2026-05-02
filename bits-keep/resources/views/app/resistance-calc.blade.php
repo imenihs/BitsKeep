@@ -75,6 +75,11 @@
               :class="form.target_raw && !targetValid ? 'border-red-400' : ''" />
           </label>
 
+          <label v-if="activeMode === 'divider' && form.divider_target_mode === 'ratio'" class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+            <input v-model="form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="search" />
+          </label>
+
           <div v-if="activeMode === 'divider' && form.divider_target_mode === 'voltage'" class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
@@ -105,17 +110,13 @@
                 <button @click="setLoadResistanceInfinite(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
               </div>
             </label>
-            <div v-if="form.load_type === 'current'" class="grid grid-cols-2 gap-3">
+            <div v-if="form.load_type === 'current'" class="grid gap-3">
               <label class="block">
                 <span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span>
                 <div class="flex gap-2">
                   <input v-model="form.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" @keyup.enter="search" />
                   <button @click="setLoadCurrentZero(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
                 </div>
-              </label>
-              <label v-if="form.divider_target_mode === 'ratio'" class="block">
-                <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
-                <input v-model="form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="search" />
               </label>
             </div>
             <div class="text-xs opacity-60">負荷: @{{ dividerLoadConfig.display }}</div>
@@ -317,7 +318,7 @@
               </div>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <div class="grid gap-3 sm:grid-cols-4 xl:grid-cols-1">
               <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                 <div class="text-xs opacity-50">合成値</div>
                 <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.actual_display }}</div>
@@ -337,6 +338,15 @@
                 <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.total_display || candidate.error_abs_display }}</div>
                 <div v-if="candidate.load_display" class="mt-1 font-mono text-xs opacity-65">
                   負荷 @{{ candidate.load_display }}
+                </div>
+              </div>
+              <div v-if="candidate.circuit_type === 'divider' && candidate.source_current_display" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                <div class="text-xs opacity-50">電流/電力</div>
+                <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.source_current_display }}</div>
+                <div class="mt-1 grid gap-1 font-mono text-xs opacity-70">
+                  <span>R1 @{{ candidate.upper_power_display }}</span>
+                  <span>R2 @{{ candidate.lower_power_display }}</span>
+                  <span>合計 @{{ candidate.resistor_power_display }}</span>
                 </div>
               </div>
             </div>
@@ -705,6 +715,28 @@
             <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedHighDisplay }}</div>
           </div>
         </div>
+        <div v-if="dividerVariableResult.bestCandidate" class="mt-3 grid gap-3 md:grid-cols-5">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">最大回路電流</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.selectedSourceCurrentDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">R上最大電力</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.selectedTopPowerDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">VR最大電力</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.selectedPotPowerDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">R下最大電力</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.selectedBottomPowerDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">抵抗合計最大</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.selectedResistorPowerDisplay }}</div>
+          </div>
+        </div>
         <div v-if="dividerVariableResult.bestCandidate" class="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
           <div class="font-mono text-sm">@{{ dividerVariableResult.bestCandidate.expression }}</div>
           <div class="mt-3 grid gap-2 text-xs sm:grid-cols-4">
@@ -717,7 +749,7 @@
               <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.highMarginDisplay }}</span>
             </div>
             <div class="rounded border border-[var(--color-border)] px-3 py-2">
-              <span class="opacity-50">出力電流</span>
+              <span class="opacity-50">負荷電流</span>
               <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.outputCurrentDisplay }}</span>
             </div>
             <div class="rounded border border-[var(--color-border)] px-3 py-2">

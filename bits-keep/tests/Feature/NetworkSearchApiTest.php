@@ -126,10 +126,16 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.target_display', '1.65V / 3.3V = 50%')
             ->assertJsonPath('data.result.candidates.0.actual_display', '50%')
             ->assertJsonPath('data.result.candidates.0.actual_output_display', '1.65V')
-            ->assertJsonPath('data.result.candidates.0.load_display', '∞Ω');
+            ->assertJsonPath('data.result.candidates.0.load_display', '∞Ω')
+            ->assertJsonPath('data.result.candidates.0.source_current_display', '165μA')
+            ->assertJsonPath('data.result.candidates.0.upper_power_display', '272.25μW')
+            ->assertJsonPath('data.result.candidates.0.lower_power_display', '272.25μW')
+            ->assertJsonPath('data.result.candidates.0.resistor_power_display', '544.5μW');
 
         $this->assertEqualsWithDelta(0.5, $response->json('data.result.candidates.0.actual_value'), 1e-12);
         $this->assertEqualsWithDelta(1.65, $response->json('data.result.candidates.0.actual_output_voltage'), 1e-12);
+        $this->assertEqualsWithDelta(0.000165, $response->json('data.result.candidates.0.source_current'), 1e-12);
+        $this->assertEqualsWithDelta(0.00027225, $response->json('data.result.candidates.0.upper_power'), 1e-12);
     }
 
     public function test_divider_resistance_load_makes_10k_pair_one_third_ratio(): void
