@@ -1125,7 +1125,7 @@
   <div v-if="activeToolId === 'divider'">
     <h2 class="font-bold text-lg mb-4">NTC/PTC温度変換</h2>
     <div class="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3 text-sm leading-6 opacity-80">
-      通常分圧とVR分圧は <a href="{{ route('tools.network') }}" class="text-[var(--color-primary)] underline">受動部品ネットワーク/分圧設計</a> に統合しています。この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。
+      通常分圧とVR分圧は設計解析ツール内の「受動部品ネットワーク/分圧」タブに統合しています。この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">

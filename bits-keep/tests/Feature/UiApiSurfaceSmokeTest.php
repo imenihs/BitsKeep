@@ -510,9 +510,11 @@ class UiApiSurfaceSmokeTest extends TestCase
         $response = $this->get('/tools/design')
             ->assertOk()
             ->assertSee('data-page="design-tools"', false)
-            ->assertSee('受動部品ネットワーク/分圧設計', false)
-            ->assertSee('通常分圧、VR分圧、抵抗/容量ネットワーク探索、可変抵抗 + 固定抵抗', false)
-            ->assertSee('href="'.route('tools.network').'"', false)
+            ->assertSee('受動部品ネットワーク/分圧', false)
+            ->assertSee('サブモードを選んで同じ画面で計算', false)
+            ->assertSee('R/C探索条件', false)
+            ->assertDontSee('正本ツール', false)
+            ->assertDontSee('href="'.route('tools.network').'"', false)
             ->assertSee('NTC/PTC温度変換', false)
             ->assertSee('この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。', false)
             ->assertDontSee('センサ分圧', false);
@@ -523,7 +525,10 @@ class UiApiSurfaceSmokeTest extends TestCase
         $surface = $html.$blade.$script;
 
         $this->assertStringContainsString("label: '受動部品ネットワーク/分圧'", $script);
+        $this->assertStringContainsString("import setupPassiveNetworkTool from './resistance-calc.js';", $script);
         $this->assertStringContainsString("if (activeToolId.value === 'passive-network')", $script);
+        $this->assertStringNotContainsString("url: '/tools/network'", $script);
+        $this->assertStringNotContainsString("network/divider/VR -> candidates -> margin", $script);
         $this->assertStringContainsString("{ id: 'logic-ic',   label: 'ロジックIC参照'", $script);
         $this->assertStringContainsString("if (activeToolId.value === 'logic-ic')", $script);
         $this->assertStringContainsString("model: 'logic-ic'", $script);

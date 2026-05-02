@@ -49,8 +49,12 @@ for (const toolId of requiredTools) {
     const diagram = state.activeDiagram.value;
     const report = state.analysisReport.value;
 
-    assert.ok(diagram, `${toolId} should expose a circuit/context diagram`);
-    assert.ok(Array.isArray(diagram.parts) && diagram.parts.length > 0, `${toolId} diagram should expose labeled parts`);
+    if (toolId === 'passive-network') {
+        assert.equal(diagram, null, 'passive network should not show an unrelated flow diagram between independent submodes');
+    } else {
+        assert.ok(diagram, `${toolId} should expose a circuit/context diagram`);
+        assert.ok(Array.isArray(diagram.parts) && diagram.parts.length > 0, `${toolId} diagram should expose labeled parts`);
+    }
     assert.ok(report, `${toolId} should produce an analysis report`);
     assert.ok(verdicts.has(report.verdict), `${toolId} verdict should be normalized`);
     assert.notEqual(report.summary, 'このツールの判定モデルが未定義です。', `${toolId} should not fall back to the undefined model report`);
@@ -226,9 +230,13 @@ assert.equal(state.analysisReport.value.verdict, 'CHECK', 'NTC/PTC tool should s
 
 state.activeToolId.value = 'passive-network';
 assert.equal(state.analysisReport.value.verdict, 'CHECK');
+assert.ok(state.passiveNetwork, 'passive network surface should be embedded in design tools');
+assert.ok(state.passiveNetwork.modeOptions.some((mode) => mode.value === 'network'));
+assert.ok(state.passiveNetwork.modeOptions.some((mode) => mode.value === 'divider'));
+assert.ok(state.passiveNetwork.modeOptions.some((mode) => mode.value === 'variable'));
 assert.ok(
-    state.analysisReport.value.candidateLinks.some((link) => link.url === '/tools/network'),
-    'passive network hub card should link to the authoritative network/divider tool'
+    !state.analysisReport.value.candidateLinks.some((link) => link.url === '/tools/network'),
+    'passive network tab should not send the user to another page'
 );
 
 state.activeToolId.value = 'connector';

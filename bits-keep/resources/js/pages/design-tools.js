@@ -267,25 +267,7 @@ export default function setup() {
 
     const activeDiagram = computed(() => {
         if (activeToolId.value === 'passive-network') {
-            return {
-                type: 'flow',
-                title: '受動部品ネットワーク/分圧設計',
-                subtitle: '通常分圧、VR分圧、抵抗/容量ネットワーク探索、可変抵抗設計を専用作業面へ接続します。',
-                formula: 'network/divider/VR -> candidates -> margin',
-                parts: [
-                    { key: 'network', label: 'R/C探索', desc: '直列・並列・混在候補' },
-                    { key: 'divider', label: '通常分圧', desc: 'Vin/Vout、負荷、許容差' },
-                    { key: 'vr', label: 'VR分圧', desc: '調整範囲と端点電力' },
-                    { key: 'variable', label: '可変抵抗', desc: '固定抵抗 + VR候補' },
-                ],
-                blocks: [
-                    { key: 'network', label: 'R/C探索', sub: '直列・並列・混在' },
-                    { key: 'divider', label: '通常分圧', sub: '負荷込み候補' },
-                    { key: 'vr', label: 'VR分圧', sub: '調整範囲' },
-                    { key: 'variable', label: '可変抵抗', sub: '固定抵抗 + VR' },
-                ],
-                assumptions: ['詳細な候補表、比較トレイ、探索APIは /tools/network の専用作業面を正本にします。'],
-            };
+            return null;
         }
 
         if (activeToolId.value === 'adc') {
@@ -2920,10 +2902,10 @@ export default function setup() {
             const activeDetail = passiveNetwork.activeMode === 'divider'
                 ? (passiveNetwork.form.divider_mode === 'variable' ? 'VR分圧' : '通常分圧')
                 : modeLabel;
-            return designReport({
+            return report({
                 verdict: 'CHECK',
                 tone: 'neutral',
-                summary: '通常分圧、VR分圧、抵抗/容量ネットワーク、可変抵抗設計は専用作業面を正本として使います。',
+                summary: '受動部品ネットワーク/分圧設計を同じ設計解析タブ内で操作します。各機能は従属フローではなく、独立したサブモードです。',
                 metrics: [
                     { label: '現在のサブモード', value: activeDetail },
                     { label: '候補数', value: `${candidateCount}件` },
@@ -2933,8 +2915,7 @@ export default function setup() {
                 ],
                 dominantFactors: ['探索候補', '負荷条件', '素子許容差'],
                 warnings: passiveNetwork.warnings,
-                nextActions: passiveNetwork.nextActions.length ? passiveNetwork.nextActions : ['受動部品ネットワーク/分圧設計を開き、分圧タブまたはネットワーク探索タブで候補を選定する'],
-                candidateLinks: [{ label: '受動部品ネットワーク/分圧設計を開く', url: '/tools/network' }],
+                nextActions: passiveNetwork.nextActions.length ? passiveNetwork.nextActions : ['このタブ内で条件を入力し、探索または候補比較を実行する'],
             });
         }
 
