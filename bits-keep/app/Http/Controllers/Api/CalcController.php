@@ -23,6 +23,8 @@ class CalcController extends Controller
      *
      * Request:
      *   target        float   目標値（Ω/F/分圧比）
+     *   input_voltage float   分圧の入力電圧。指定時は output_voltage / input_voltage を target として扱う
+     *   output_voltage float  分圧の出力電圧。指定時は output_voltage / input_voltage を target として扱う
      *   tolerance_pct float   許容誤差 % (default: 5.0)
      *   part_type     string  'R' | 'C' | 'divider' (default: 'R')
      *   series        string  'E6'|'E12'|'E24'|'E48'|'E96'|'custom' (default: 'E24')
@@ -33,6 +35,9 @@ class CalcController extends Controller
      *   circuit_types string[] 探索回路種別 (default: ['series','parallel'])
      *   total_res_min float  分圧総抵抗下限
      *   total_res_max float  分圧総抵抗上限
+     *   load_type     string 分圧負荷 'resistance' | 'current'
+     *   load_resistance float|null 抵抗負荷。null と load_resistance_infinite=true は無負荷
+     *   load_current  float 電流負荷。0 は無負荷
      *
      * Response:
      *   { candidates: [...], elapsed_ms: int, truncated: bool }
@@ -40,7 +45,9 @@ class CalcController extends Controller
     public function networkSearch(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'target'        => ['required', 'numeric', 'gt:0'],
+            'target'        => ['nullable', 'numeric', 'gt:0'],
+            'input_voltage' => ['nullable', 'numeric', 'gt:0'],
+            'output_voltage'=> ['nullable', 'numeric', 'gt:0'],
             'tolerance_pct' => ['nullable', 'numeric', 'min:0.001', 'max:50'],
             'part_type'     => ['nullable', 'in:R,C,divider'],
             'series'        => ['nullable', 'in:E6,E12,E24,E48,E96,custom'],
@@ -53,9 +60,39 @@ class CalcController extends Controller
             'circuit_types.*' => ['in:series,parallel,mixed,divider'],
             'total_res_min' => ['nullable', 'numeric', 'min:0'],
             'total_res_max' => ['nullable', 'numeric', 'min:0'],
+            'load_type'     => ['nullable', 'in:resistance,current'],
+            'load_resistance' => ['nullable', 'numeric', 'min:0'],
+            'load_resistance_infinite' => ['nullable', 'boolean'],
+            'load_current'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $partType = $validated['part_type'] ?? 'R';
+        if ($partType === 'divider' && isset($validated['input_voltage'], $validated['output_voltage'])) {
+            if ((float) $validated['output_voltage'] >= (float) $validated['input_voltage']) {
+                return DesignAnalysisResponse::invalid(
+                    '出力電圧は入力電圧より低い値で指定してください',
+                    ['例: 入力 3.3V、出力 2.5V のように指定してください']
+                );
+            }
+            $validated['target'] = (float) $validated['output_voltage'] / (float) $validated['input_voltage'];
+        }
+        if (! isset($validated['target'])) {
+            return DesignAnalysisResponse::invalid(
+                '目標値が入力されていません',
+                ['抵抗/容量は目標値、分圧は比率または入力電圧と出力電圧を入力してください']
+            );
+        }
+        if (
+            $partType === 'divider'
+            && ($validated['load_type'] ?? 'resistance') === 'current'
+            && (float) ($validated['load_current'] ?? 0) > 0
+            && ! isset($validated['input_voltage'])
+        ) {
+            return DesignAnalysisResponse::invalid(
+                '電流負荷の計算には入力電圧が必要です',
+                ['比率指定のまま電流負荷を使う場合も、入力電圧を入力してください']
+            );
+        }
         if (($validated['series'] ?? null) === 'custom' && empty($validated['custom_values'])) {
             return DesignAnalysisResponse::invalid(
                 '任意値が入力されていません',

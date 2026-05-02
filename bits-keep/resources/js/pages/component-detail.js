@@ -9,6 +9,8 @@ import {
     buildSpecPayload,
     createEmptySpecRow,
     getSpecDisplayName,
+    getSpecProfileControlLabel,
+    getSpecProfileHelpText,
     getSpecProfileBadgeLabel,
     getSpecUnitSuggestions,
     normalizeSpecDraft,
@@ -45,6 +47,9 @@ export default function setup() {
     const specSuggestionLoading = ref(false);
     const suppliers = ref([]);
     const locations = ref([]);
+    const mastersLoaded = ref(false);
+    const mastersLoading = ref(false);
+    let masterLoadPromise = null;
     const detailCategoryQuery = ref('');
     const showAllTransactions = ref(false);
     const basicImageFile = ref(null);
@@ -162,7 +167,7 @@ export default function setup() {
         try {
             const res = await api.get(`/components/${componentId}`);
             part.value = res.data;
-            await fetchSimilar();
+            void fetchSimilar();
         } catch {
             part.value = null;
             loadError.value = '部品情報の取得に失敗しました。URLを確認するか、部品一覧から開き直してください。';
@@ -173,26 +178,44 @@ export default function setup() {
     };
 
     const fetchMasters = async () => {
-        try {
-            const [categoryRes, packageGroupRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
-                api.get('/spec-groups'),
-                api.get('/package-groups'),
-                api.get('/packages'),
-                api.get('/spec-types'),
-                api.get('/suppliers'),
-                api.get('/locations'),
-            ]);
-            categories.value = categoryRes.data ?? [];
-            packageGroups.value = packageGroupRes.data ?? [];
-            packages.value = packageRes.data ?? [];
-            specTypes.value = specTypeRes.data ?? [];
-            suppliers.value = supplierRes.data ?? [];
-            locations.value = locationRes.data ?? [];
-            void fetchSpecGroupCatalog();
-        } catch {
-            toastError('編集用の候補取得に失敗しました');
-        }
+        if (mastersLoaded.value) return Promise.resolve();
+        if (masterLoadPromise) return masterLoadPromise;
+
+        mastersLoading.value = true;
+        masterLoadPromise = (async () => {
+            try {
+                const [categoryRes, packageGroupRes, packageRes, specTypeRes, supplierRes, locationRes] = await Promise.all([
+                    api.get('/spec-groups'),
+                    api.get('/package-groups'),
+                    api.get('/packages'),
+                    api.get('/spec-types'),
+                    api.get('/suppliers'),
+                    api.get('/locations'),
+                ]);
+                mergeSpecGroupDetails(categoryRes.data ?? []);
+                packageGroups.value = packageGroupRes.data ?? [];
+                packages.value = packageRes.data ?? [];
+                specTypes.value = specTypeRes.data ?? [];
+                suppliers.value = supplierRes.data ?? [];
+                locations.value = locationRes.data ?? [];
+                mastersLoaded.value = true;
+            } catch {
+                toastError('編集用の候補取得に失敗しました');
+            } finally {
+                mastersLoading.value = false;
+                masterLoadPromise = null;
+            }
+        })();
+
+        return masterLoadPromise;
     };
+    const ensureMastersLoaded = () => fetchMasters();
+    const editMasterDataLoading = computed(() =>
+        editModal.value.open
+        && editModal.value.section !== 'attributes'
+        && mastersLoading.value
+        && !mastersLoaded.value
+    );
     const defaultSpecGroupIdForPart = () => {
         const category = (part.value?.categories ?? [])
             .find((item) => Number(item?.id) > 0);
@@ -203,6 +226,8 @@ export default function setup() {
     // セクション別編集モーダルを開く
     const openEdit = (section) => {
         const p = part.value;
+        if (!p) return;
+
         basicImageFile.value = null;
         basicDatasheetFiles.value = [];
         basicDatasheetLabels.value = [];
@@ -252,13 +277,21 @@ export default function setup() {
             },
         };
         editModal.value = { open: true, section, ...forms[section] };
+        if (section !== 'attributes') {
+            void ensureMastersLoaded().then(() => {
+                if (editModal.value.open && editModal.value.section === 'specs') {
+                    syncSpecPickerSelections();
+                }
+            });
+        }
         if (section === 'specs') {
             specTypeSearchQuery.value = '';
             selectedSpecGroupId.value = defaultSpecGroupIdForPart();
             selectedSpecTypeId.value = '';
             selectedSpecTemplateId.value = '';
             void ensureSpecGroupDetail(selectedSpecGroupId.value);
-            fetchSpecSuggestionsForCurrentPart();
+            void fetchSpecGroupCatalog();
+            void fetchSpecSuggestionsForCurrentPart();
         }
         editModalSnapshot.value = JSON.stringify(editModal.value.form);
     };
@@ -359,6 +392,11 @@ export default function setup() {
     };
 
     // 入庫
+    const openStockIn = async () => {
+        await ensureMastersLoaded();
+        stockInModal.value.form.location_id = part.value?.primary_location_id || '';
+        stockInModal.value.open = true;
+    };
     const submitStockIn = async () => {
         try {
             await api.post(`/components/${componentId}/stock-in`, stockInModal.value.form);
@@ -428,8 +466,11 @@ export default function setup() {
 
     onMounted(async () => {
         window.addEventListener('click', closeToleranceGradeMenu);
-        await loadFavorites();
-        await Promise.all([fetchPart(), fetchMasters()]);
+        void loadFavorites();
+        await fetchPart();
+        window.setTimeout(() => {
+            void ensureMastersLoaded();
+        }, 250);
     });
 
     onBeforeUnmount(() => {
@@ -493,6 +534,10 @@ export default function setup() {
         if (!q) return categories.value;
         return categories.value.filter((item) => item.name.toLowerCase().includes(q));
     });
+    const detailCategoryName = (categoryId) =>
+        categories.value.find((item) => Number(item.id) === Number(categoryId))?.name
+        ?? (part.value?.categories ?? []).find((item) => Number(item.id) === Number(categoryId))?.name
+        ?? '部品分類';
 
     const toggleDetailCategory = (categoryId) => {
         const ids = editModal.value.form?.category_ids ?? [];
@@ -1192,6 +1237,8 @@ export default function setup() {
     const specPreview = (spec) => normalizeSpecDraft(spec, getSpecTypeById(spec.spec_type_id));
     const specDisplayName = (spec) => getSpecDisplayName(spec, getSpecTypeById(spec?.spec_type_id));
     const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
+    const specProfileControlLabel = (profile) => getSpecProfileControlLabel(profile);
+    const specProfileHelpText = (profile) => getSpecProfileHelpText(profile);
 
     return {
         toasts, part, loading, loadError, componentId,
@@ -1200,8 +1247,8 @@ export default function setup() {
         preferredSupplier, stockSummary, allTransactions, displayedTransactions, hasMoreTransactions, showAllTransactions,
         outgoingTransactions, incomingTransactions,
         formatTransactionTimestamp,
-        canSaveEditModal,
-        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName, specProfileBadge,
+        canSaveEditModal, editMasterDataLoading,
+        specProfileOptions, createEmptySpecRow, getUnitSuggestions, specPreview, specDisplayName, specProfileBadge, specProfileControlLabel, specProfileHelpText,
         canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
         inlinePrefixOptionsFor, inlinePrefixPolicyHelp, syncInlinePrefixList,
         selectedSpecGroupId, selectedSpecGroupLabel, selectedSpecTypeId, selectedSpecTemplateId,
@@ -1214,11 +1261,11 @@ export default function setup() {
         toleranceGradeOptionsFor, toleranceGradeOptionLabel,
         isToleranceGradeMenuOpen, toggleToleranceGradeMenu, closeToleranceGradeMenu, selectToleranceGradeOption,
         packageFilterQuery, filteredDetailPackages, handlePackageGroupChange,
-        detailCategoryQuery, filteredDetailCategories, toggleDetailCategory,
+        detailCategoryQuery, filteredDetailCategories, detailCategoryName, toggleDetailCategory,
         basicImageFile, basicDatasheetFiles, basicDatasheetLabels, onBasicDatasheetsChange,
         editModal, openEdit, closeEditModal, saveSection,
         stockOutModal, openStockOut, submitStockOut,
-        stockInModal, submitStockIn,
+        stockInModal, openStockIn, submitStockIn,
         handleToggleFavorite, isFavorite,
         copyLink, deletePart,
         similarParts, similarLoading, similarError, fetchSimilar, fetchPart,

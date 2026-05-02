@@ -155,17 +155,19 @@
           <p v-if="spec.name" class="spec-card-help">データシート表記: @{{ spec.name }}</p>
         </div>
         <div class="spec-card-field">
-          <label class="spec-card-label">値の種類</label>
+          <label class="spec-card-label">値種別</label>
           <div v-if="isToleranceSpecRow(spec)" class="inline-flex h-8 items-center rounded border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 text-xs font-semibold">
             許容差
           </div>
-          <div v-else class="spec-card-profile">
-            <button v-for="option in specProfileOptions" :key="`create-profile-${i}-${option.value}`" type="button"
-              @click="changeSpecProfile(spec, option.value)"
-              class="spec-card-profile-button"
-              :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
-              @{{ option.label }}
-            </button>
+          <div v-else class="spec-card-profile-select-wrap">
+            <select :value="spec.value_profile" @change="changeSpecProfile(spec, $event.target.value)"
+              class="input-text spec-card-control spec-card-profile-select w-full"
+              :title="specProfileHelpText(spec.value_profile)">
+              <option v-for="option in specProfileOptions" :key="`create-profile-${i}-${option.value}`" :value="option.value">
+                @{{ specProfileControlLabel(option.value) }}
+              </option>
+            </select>
+            <p class="spec-card-profile-note">@{{ specProfileHelpText(spec.value_profile) }}</p>
           </div>
         </div>
         <div class="spec-card-field">
@@ -1010,14 +1012,16 @@
                   </div>
                 </div>
                 <div class="spec-card-field">
-                  <label class="spec-card-label">値の種類</label>
-                  <div class="spec-card-profile">
-                    <button v-for="option in specProfileOptions" :key="`helper-profile-${index}-${option.value}`" type="button"
-                      @click="changeSpecProfile(spec, option.value)"
-                      class="spec-card-profile-button"
-                      :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-even)]'">
-                      @{{ option.label }}
-                    </button>
+                  <label class="spec-card-label">値種別</label>
+                  <div class="spec-card-profile-select-wrap">
+                    <select :value="spec.value_profile" @change="changeSpecProfile(spec, $event.target.value)"
+                      class="input-text spec-card-control spec-card-profile-select w-full"
+                      :title="specProfileHelpText(spec.value_profile)">
+                      <option v-for="option in specProfileOptions" :key="`helper-profile-${index}-${option.value}`" :value="option.value">
+                        @{{ specProfileControlLabel(option.value) }}
+                      </option>
+                    </select>
+                    <p class="spec-card-profile-note">@{{ specProfileHelpText(spec.value_profile) }}</p>
                   </div>
                 </div>
                 <div class="spec-card-field">

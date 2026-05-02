@@ -110,6 +110,63 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.summary', '分圧比は 0 より大きく 1 より小さい値で指定してください');
     }
 
+    public function test_divider_uses_input_and_output_voltage_with_infinite_load(): void
+    {
+        $response = $this->postJson('/api/calc/networks/search', [
+            'part_type' => 'divider',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'input_voltage' => 3.3,
+            'output_voltage' => 1.65,
+            'load_resistance_infinite' => true,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.result.target_display', '1.65V / 3.3V = 50%')
+            ->assertJsonPath('data.result.candidates.0.actual_display', '50%')
+            ->assertJsonPath('data.result.candidates.0.actual_output_display', '1.65V')
+            ->assertJsonPath('data.result.candidates.0.load_display', '∞Ω');
+
+        $this->assertEqualsWithDelta(0.5, $response->json('data.result.candidates.0.actual_value'), 1e-12);
+        $this->assertEqualsWithDelta(1.65, $response->json('data.result.candidates.0.actual_output_voltage'), 1e-12);
+    }
+
+    public function test_divider_resistance_load_makes_10k_pair_one_third_ratio(): void
+    {
+        $response = $this->postJson('/api/calc/networks/search', [
+            'target' => 1 / 3,
+            'tolerance_pct' => 0.01,
+            'part_type' => 'divider',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'load_type' => 'resistance',
+            'load_resistance' => 10000,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.result.candidates.0.load_display', '10kΩ')
+            ->assertJsonPath('data.result.candidates.0.total_display', '20kΩ');
+
+        $this->assertEqualsWithDelta(1 / 3, $response->json('data.result.candidates.0.actual_value'), 1e-12);
+    }
+
+    public function test_divider_current_load_without_input_voltage_returns_invalid_response(): void
+    {
+        $this->postJson('/api/calc/networks/search', [
+            'target' => 0.5,
+            'part_type' => 'divider',
+            'series' => 'custom',
+            'custom_values' => [10000],
+            'load_type' => 'current',
+            'load_current' => 0.001,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.result', null)
+            ->assertJsonPath('data.summary', '電流負荷の計算には入力電圧が必要です');
+    }
+
     public function test_e_series_pair_search_does_not_drop_parallel_exact_match(): void
     {
         $this->postJson('/api/calc/networks/search', [

@@ -2,6 +2,7 @@
  * 抵抗/容量ネットワーク探索ツール（SCR-011）
  * - 抵抗/容量/分圧の候補探索
  * - 可変抵抗 + 固定抵抗の標準値候補選定
+ * - VR付き分圧の出力電圧範囲候補選定
  */
 import { ref, reactive, computed } from 'vue';
 import { api } from '../api.js';
@@ -9,11 +10,28 @@ import { api } from '../api.js';
 const PART_TYPE_OPTIONS = [
     { value: 'R', label: '抵抗' },
     { value: 'C', label: '容量' },
-    { value: 'divider', label: '分圧' },
 ];
+const PART_TYPE_LABELS = {
+    R: '抵抗',
+    C: '容量',
+    divider: '分圧',
+};
 const MODE_OPTIONS = [
     { value: 'network', label: 'ネットワーク探索' },
+    { value: 'divider', label: '分圧' },
     { value: 'variable', label: '可変抵抗' },
+];
+const DIVIDER_MODE_OPTIONS = [
+    { value: 'fixed', label: '分圧' },
+    { value: 'variable', label: 'VR分圧' },
+];
+const DIVIDER_TARGET_MODE_OPTIONS = [
+    { value: 'ratio', label: '比率' },
+    { value: 'voltage', label: 'Vin/Vout' },
+];
+const LOAD_TYPE_OPTIONS = [
+    { value: 'resistance', label: '抵抗負荷' },
+    { value: 'current', label: '電流負荷' },
 ];
 const SERIES_OPTIONS = ['E6', 'E12', 'E24', 'E48', 'E96', 'custom'];
 const VARIABLE_FIXED_SOURCE_OPTIONS = ['E12', 'E24', 'E48', 'E96', 'custom'];
@@ -59,6 +77,13 @@ export function parseTarget(raw, partType) {
     if (partType === 'divider') {
         if (unit === '%') return value / 100;
         return value;
+    }
+
+    if (partType === 'V') {
+        if (unit === '' || /^V$/u.test(unit)) return value;
+        if (/^(m|mV)$/u.test(unit)) return value * 1e-3;
+        if (/^(u|uV)$/u.test(unit)) return value * 1e-6;
+        if (/^(k|kV)$/u.test(unit)) return value * 1e3;
     }
 
     if (partType === 'R') {
@@ -115,10 +140,141 @@ export function formatCapacitance(value) {
     return `${trimNumber(value * 1e3)}mF`;
 }
 
+export function formatVoltage(value) {
+    if (!Number.isFinite(value)) return '-';
+    const abs = Math.abs(value);
+    if (abs > 0 && abs < 1) return `${trimNumber(value * 1000)}mV`;
+    if (abs >= 1000) return `${trimNumber(value / 1000)}kV`;
+    return `${trimNumber(value)}V`;
+}
+
+export function formatCurrent(value) {
+    if (!Number.isFinite(value)) return '-';
+    const abs = Math.abs(value);
+    if (abs === 0) return '0A';
+    if (abs < 1e-6) return `${trimNumber(value * 1e9)}nA`;
+    if (abs < 1e-3) return `${trimNumber(value * 1e6)}uA`;
+    if (abs < 1) return `${trimNumber(value * 1000)}mA`;
+    return `${trimNumber(value)}A`;
+}
+
 function formatTargetValue(value, partType) {
     if (value === null) return '-';
     if (partType === 'divider') return `${trimNumber(value * 100)}%`;
+    if (partType === 'V') return formatVoltage(value);
     return partType === 'C' ? formatCapacitance(value) : formatResistance(value);
+}
+
+function parseCurrent(raw) {
+    const source = normalizeRaw(raw);
+    if (!source) return null;
+
+    const match = source.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)\s*([A-Za-z]*)$/u);
+    if (!match) {
+        const numeric = Number(source);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2] ?? '';
+    if (!Number.isFinite(value)) return null;
+    if (unit === '' || /^A$/u.test(unit)) return value;
+    if (/^(m|mA)$/u.test(unit)) return value * 1e-3;
+    if (/^(u|uA)$/u.test(unit)) return value * 1e-6;
+    if (/^(n|nA)$/u.test(unit)) return value * 1e-9;
+
+    return value;
+}
+
+function parseLoadResistance(raw) {
+    const source = normalizeRaw(raw);
+    if (!source || /^(∞|inf|infinity|open|none|無限大|無限)$/iu.test(source)) {
+        return Infinity;
+    }
+
+    return parseTarget(source, 'R');
+}
+
+function parallelPair(a, b) {
+    if (a <= 0 || b <= 0) return 0;
+    if (!Number.isFinite(a)) return b;
+    if (!Number.isFinite(b)) return a;
+
+    return 1 / ((1 / a) + (1 / b));
+}
+
+function dividerLoad(raw) {
+    const type = raw.load_type || 'resistance';
+    if (type === 'current') {
+        const parsedCurrent = parseCurrent(raw.load_current_raw ?? '0');
+        const current = parsedCurrent ?? 0;
+
+        return {
+            type,
+            current: Math.max(0, current),
+            resistance: Infinity,
+            valid: parsedCurrent !== null && current >= 0,
+            display: formatCurrent(Math.max(0, current)),
+        };
+    }
+
+    const resistance = parseLoadResistance(raw.load_resistance_raw ?? '∞');
+
+    return {
+        type: 'resistance',
+        current: 0,
+        resistance,
+        valid: resistance !== null && resistance >= 0,
+        display: resistance === Infinity ? '∞Ω' : formatResistance(resistance),
+    };
+}
+
+function loadedDividerOutput({ inputVoltage, topResistance, bottomResistance, load }) {
+    if (!Number.isFinite(inputVoltage) || inputVoltage <= 0 || topResistance < 0 || bottomResistance < 0) {
+        return { voltage: NaN, ratio: NaN, sourceCurrent: NaN, outputCurrent: NaN };
+    }
+
+    if (load.type === 'current') {
+        const total = topResistance + bottomResistance;
+        if (total <= 0) return { voltage: NaN, ratio: NaN, sourceCurrent: NaN, outputCurrent: load.current };
+        const noLoadVoltage = inputVoltage * (bottomResistance / total);
+        const theveninResistance = parallelPair(topResistance, bottomResistance);
+        const voltage = noLoadVoltage - (load.current * theveninResistance);
+        return {
+            voltage,
+            ratio: voltage / inputVoltage,
+            sourceCurrent: topResistance > 0 ? (inputVoltage - voltage) / topResistance : NaN,
+            outputCurrent: load.current,
+        };
+    }
+
+    const loadedBottom = load.resistance === Infinity
+        ? bottomResistance
+        : parallelPair(bottomResistance, load.resistance);
+    const total = topResistance + loadedBottom;
+    const voltage = total > 0 ? inputVoltage * (loadedBottom / total) : NaN;
+
+    return {
+        voltage,
+        ratio: voltage / inputVoltage,
+        sourceCurrent: total > 0 ? inputVoltage / total : NaN,
+        outputCurrent: load.resistance > 0 && Number.isFinite(load.resistance) ? voltage / load.resistance : 0,
+    };
+}
+
+export function dividerRatioFromVoltages(inputRaw, outputRaw) {
+    const input = parseTarget(inputRaw, 'V');
+    const output = parseTarget(outputRaw, 'V');
+    const ratio = input && output !== null ? output / input : null;
+
+    return {
+        input,
+        output,
+        ratio,
+        valid: Number.isFinite(input) && input > 0
+            && Number.isFinite(output) && output > 0
+            && Number.isFinite(ratio) && ratio > 0 && ratio < 1,
+    };
 }
 
 function seriesBases(series) {
@@ -423,11 +579,212 @@ export function calculateVariable(raw) {
     };
 }
 
+function dividerVariableRequirement(raw) {
+    const inputVoltage = parseTarget(raw.input_voltage_raw, 'V') ?? 0;
+    const outputLow = parseTarget(raw.output_low_raw, 'V') ?? 0;
+    const outputHigh = parseTarget(raw.output_high_raw, 'V') ?? 0;
+    const nominalPot = parseTarget(raw.nominal_pot_raw, 'R') ?? 0;
+    const load = dividerLoad(raw);
+    const lowRatio = inputVoltage > 0 ? outputLow / inputVoltage : 0;
+    const highRatio = inputVoltage > 0 ? outputHigh / inputVoltage : 0;
+    const spanRatio = highRatio - lowRatio;
+
+    return {
+        inputVoltage,
+        outputLow,
+        outputHigh,
+        nominalPot,
+        lowRatio,
+        highRatio,
+        spanRatio,
+        load,
+        valid: inputVoltage > 0
+            && outputLow >= 0
+            && outputHigh > outputLow
+            && outputHigh <= inputVoltage
+            && nominalPot > 0
+            && load.valid
+            && spanRatio > 0,
+    };
+}
+
+function fixedDividerValues(source, ideal, customRaw) {
+    if (!Number.isFinite(ideal) || ideal <= 0) return [0];
+    return nearestValues(fixedSourceValues(source, [ideal], customRaw), ideal, 10);
+}
+
+function makeVariableDividerCandidate({
+    inputVoltage,
+    outputLow,
+    outputHigh,
+    top,
+    pot,
+    bottom,
+    fixedSource,
+    potSource,
+    idealTop,
+    idealBottom,
+    idealPot,
+    load,
+    tolerancePct,
+}) {
+    const total = top + pot + bottom;
+    const lowPoint = loadedDividerOutput({
+        inputVoltage,
+        topResistance: top + pot,
+        bottomResistance: bottom,
+        load,
+    });
+    const highPoint = loadedDividerOutput({
+        inputVoltage,
+        topResistance: top,
+        bottomResistance: bottom + pot,
+        load,
+    });
+    const low = lowPoint.voltage;
+    const high = highPoint.voltage;
+    const sourceCurrent = Math.max(lowPoint.sourceCurrent, highPoint.sourceCurrent);
+    const outputCurrent = Math.max(lowPoint.outputCurrent, highPoint.outputCurrent);
+    const targetSpan = Math.max(outputHigh - outputLow, Number.EPSILON);
+    const lowMargin = outputLow - low;
+    const highMargin = high - outputHigh;
+    const lowShortfall = Math.max(0, -lowMargin);
+    const highShortfall = Math.max(0, -highMargin);
+    const shortfall = lowShortfall + highShortfall;
+    const endpointDeviation = Math.abs(low - outputLow) + Math.abs(high - outputHigh);
+    const shortfallPct = (shortfall / targetSpan) * 100;
+    const endpointDeviationPct = (endpointDeviation / targetSpan) * 100;
+    const allowedShortfall = Math.max(targetSpan * (tolerancePct / 100), 1e-9);
+    const coversTargetRange = shortfall <= 1e-9;
+    const nearTargetRange = shortfall <= allowedShortfall;
+
+    return {
+        top,
+        pot,
+        bottom,
+        total,
+        low,
+        high,
+        inputVoltage,
+        outputLow,
+        outputHigh,
+        sourceCurrent,
+        outputCurrent,
+        topDisplay: formatResistance(top),
+        potDisplay: formatResistance(pot),
+        bottomDisplay: formatResistance(bottom),
+        totalDisplay: formatResistance(total),
+        lowDisplay: formatVoltage(low),
+        highDisplay: formatVoltage(high),
+        targetLowDisplay: formatVoltage(outputLow),
+        targetHighDisplay: formatVoltage(outputHigh),
+        sourceCurrentDisplay: formatCurrent(sourceCurrent),
+        outputCurrentDisplay: formatCurrent(outputCurrent),
+        loadDisplay: load.display,
+        lowMarginDisplay: `${lowMargin >= 0 ? '+' : ''}${formatVoltage(Math.abs(lowMargin))}`,
+        highMarginDisplay: `${highMargin >= 0 ? '+' : ''}${formatVoltage(Math.abs(highMargin))}`,
+        rangeMarginDisplay: coversTargetRange ? `${trimNumber(endpointDeviationPct, 3)}%` : `不足 ${trimNumber(shortfallPct, 3)}%`,
+        shortfallPct,
+        endpointDeviationPct,
+        score: (coversTargetRange ? 0 : 100000) + shortfallPct * 100 + endpointDeviationPct,
+        coversTargetRange,
+        nearTargetRange,
+        status: coversTargetRange ? 'check' : 'warn',
+        verdict: coversTargetRange ? 'CHECK' : 'WARN',
+        fixedSource,
+        potSource,
+        expression: `${formatVoltage(inputVoltage)} -> ${formatResistance(top)} + VR ${formatResistance(pot)} + ${formatResistance(bottom)} => ${formatVoltage(low)} 〜 ${formatVoltage(high)} / 負荷 ${load.display}`,
+        tags: [
+            sourceLabel(fixedSource, 'fixed'),
+            sourceLabel(potSource, 'pot'),
+            coversTargetRange ? '要求電圧範囲包含' : '要求電圧範囲不足',
+            !nearlyEqual(top, idealTop) || !nearlyEqual(bottom, idealBottom) ? '固定抵抗再計算' : '固定抵抗理想近傍',
+            !nearlyEqual(pot, idealPot) ? 'VR指定値から乖離' : 'VR指定値固定',
+            endpointDeviationPct > 5 && coversTargetRange ? '端点広め' : '',
+            load.type === 'current' ? '電流負荷込み' : (load.resistance === Infinity ? '無負荷分圧' : '抵抗負荷込み'),
+            '許容差未評価',
+            '型番未選定',
+        ].filter(Boolean),
+    };
+}
+
+export function calculateVariableDivider(raw) {
+    const requirement = dividerVariableRequirement(raw);
+    const tolerancePct = Math.max(0, Number(raw.endpoint_tolerance_pct) || 0);
+    const fixedSource = raw.fixed_source || 'E24';
+    const potSource = raw.pot_source || 'vr-common';
+
+    if (!requirement.valid) {
+        return {
+            valid: false,
+            requirement,
+            ideal: { top: 0, pot: 0, bottom: 0, total: 0, low: 0, high: 0 },
+            candidates: [],
+            bestCandidate: null,
+            warnings: ['入力電圧と出力電圧範囲を確認してください'],
+            expression: 'Vin -> R上 + VR + R下 -> GND',
+        };
+    }
+
+    const potValues = [requirement.nominalPot];
+    const candidates = potValues.flatMap((potValue) => {
+        const idealTotalForPot = potValue / requirement.spanRatio;
+        const idealTopForPot = (1 - requirement.highRatio) * idealTotalForPot;
+        const idealBottomForPot = requirement.lowRatio * idealTotalForPot;
+        const topValues = fixedDividerValues(fixedSource, idealTopForPot, raw.fixed_custom_values);
+        const bottomValues = fixedDividerValues(fixedSource, idealBottomForPot, raw.fixed_custom_values);
+
+        return topValues.flatMap((topValue) => bottomValues.map((bottomValue) => makeVariableDividerCandidate({
+            inputVoltage: requirement.inputVoltage,
+            outputLow: requirement.outputLow,
+            outputHigh: requirement.outputHigh,
+            top: topValue,
+            pot: potValue,
+            bottom: bottomValue,
+            fixedSource,
+            potSource,
+            idealTop: idealTopForPot,
+            idealBottom: idealBottomForPot,
+            idealPot: requirement.nominalPot,
+            load: requirement.load,
+            tolerancePct,
+        })));
+    })
+        .sort((a, b) => a.score - b.score || a.total - b.total || a.top - b.top || a.bottom - b.bottom)
+        .slice(0, 8);
+
+    const bestCandidate = candidates.find((candidate) => candidate.status === 'check') ?? candidates[0] ?? null;
+    const idealTotal = requirement.nominalPot / requirement.spanRatio;
+    const idealTop = (1 - requirement.highRatio) * idealTotal;
+    const idealBottom = requirement.lowRatio * idealTotal;
+
+    return {
+        valid: true,
+        requirement,
+        ideal: {
+            top: idealTop,
+            pot: requirement.nominalPot,
+            bottom: idealBottom,
+            total: idealTotal,
+            low: requirement.outputLow,
+            high: requirement.outputHigh,
+        },
+        candidates,
+        bestCandidate,
+        warnings: candidates.length ? [] : ['候補値ソースに採用候補がありません'],
+        expression: `${formatVoltage(requirement.inputVoltage)} -> ${formatResistance(idealTop)} + VR ${formatResistance(requirement.nominalPot)} + ${formatResistance(idealBottom)} => ${formatVoltage(requirement.outputLow)} 〜 ${formatVoltage(requirement.outputHigh)} / 負荷 ${requirement.load.display}`,
+    };
+}
+
 export default function setup() {
     const activeMode = ref('network');
     const form = reactive({
         part_type: 'R',
+        divider_mode: 'fixed',
+        divider_target_mode: 'ratio',
         target_raw: '1k',
+        input_voltage_raw: '3.3',
+        output_voltage_raw: '2.5',
         tolerance_pct: 5,
         series: 'E24',
         custom_values: '',
@@ -437,6 +794,9 @@ export default function setup() {
         circuit_types: ['series', 'parallel'],
         total_res_min_raw: '',
         total_res_max_raw: '',
+        load_type: 'resistance',
+        load_resistance_raw: '∞',
+        load_current_raw: '0',
     });
 
     const results = ref([]);
@@ -453,28 +813,51 @@ export default function setup() {
     const presets = [
         { label: '1kΩ', meta: '抵抗 E24', type: 'R', target: '1k', tolerance: 5, series: 'E24', circuits: ['series', 'parallel'] },
         { label: '100nF', meta: '容量 E12', type: 'C', target: '100n', tolerance: 10, series: 'E12', circuits: ['parallel', 'series'] },
-        { label: '1/2', meta: '分圧 1k-100k', type: 'divider', target: '50%', tolerance: 1, series: 'E24', circuits: ['divider'], min: '1k', max: '100k' },
-        { label: '2.5V/3.3V', meta: '分圧', type: 'divider', target: '75.7576%', tolerance: 1, series: 'E96', circuits: ['divider'], min: '5k', max: '200k' },
+        { label: '1/2', meta: '分圧 1k-100k', type: 'divider', targetMode: 'ratio', target: '50%', tolerance: 1, series: 'E24', circuits: ['divider'], min: '1k', max: '100k' },
+        { label: '2.5V/3.3V', meta: '分圧', type: 'divider', targetMode: 'voltage', vin: '3.3', vout: '2.5', tolerance: 1, series: 'E96', circuits: ['divider'], min: '5k', max: '200k' },
     ];
 
-    const targetValue = computed(() => parseTarget(form.target_raw, form.part_type));
+    const dividerVoltageTarget = computed(() => dividerRatioFromVoltages(form.input_voltage_raw, form.output_voltage_raw));
+    const isDividerVariableMode = computed(() => activeMode.value === 'divider' && form.divider_mode === 'variable');
+    const targetValue = computed(() => {
+        if (form.part_type === 'divider' && form.divider_target_mode === 'voltage') {
+            return dividerVoltageTarget.value.valid ? dividerVoltageTarget.value.ratio : null;
+        }
+
+        return parseTarget(form.target_raw, form.part_type);
+    });
     const targetValid = computed(() => {
         const value = targetValue.value;
         if (value === null) return false;
         if (form.part_type === 'divider') return value > 0 && value < 1;
         return value > 0;
     });
+    const dividerLoadConfig = computed(() => dividerLoad(form));
+    const loadValid = computed(() => {
+        if (form.part_type !== 'divider') return true;
+        if (!dividerLoadConfig.value.valid) return false;
+        if (dividerLoadConfig.value.type === 'current' && dividerLoadConfig.value.current > 0) {
+            const inputVoltage = parseTarget(form.input_voltage_raw, 'V');
+            return Number.isFinite(inputVoltage) && inputVoltage > 0;
+        }
+
+        return true;
+    });
     const elementRangeValid = computed(() => form.part_type === 'divider' || Number(form.min_elements) <= Number(form.max_elements));
     const circuitTypesValid = computed(() => form.part_type === 'divider' || form.circuit_types.length > 0);
-    const formValid = computed(() => targetValid.value && elementRangeValid.value && circuitTypesValid.value);
-    const partTypeLabel = computed(() => PART_TYPE_OPTIONS.find((item) => item.value === form.part_type)?.label ?? form.part_type);
+    const formValid = computed(() => targetValid.value && loadValid.value && elementRangeValid.value && circuitTypesValid.value);
+    const partTypeLabel = computed(() => PART_TYPE_LABELS[form.part_type] ?? form.part_type);
     const targetHint = computed(() => ({
         R: '4.7k / 4700 / 4.7kΩ',
         C: '100n / 0.1u / 100nF',
-        divider: '0.5 / 50%',
+        divider: form.divider_target_mode === 'voltage' ? 'Vin と Vout から比率を計算' : '0.5 / 50%',
     }[form.part_type] ?? ''));
     const validationMessage = computed(() => {
-        if (!targetValid.value) return form.part_type === 'divider' ? '分圧比は 0% 超 100% 未満です' : '目標値を確認してください';
+        if (!targetValid.value) {
+            if (form.part_type === 'divider' && form.divider_target_mode === 'voltage') return '入力電圧と出力電圧を確認してください';
+            return form.part_type === 'divider' ? '分圧比は 0% 超 100% 未満です' : '目標値を確認してください';
+        }
+        if (!loadValid.value) return '負荷条件を確認してください';
         if (!elementRangeValid.value) return '素子数範囲を確認してください';
         if (!circuitTypesValid.value) return '回路種別を選択してください';
         return '';
@@ -527,7 +910,11 @@ export default function setup() {
             form.circuit_types = ['divider'];
             form.min_elements = 2;
             form.max_elements = 2;
-            if (oldType !== 'divider') form.target_raw = '50%';
+            if (oldType !== 'divider') {
+                form.divider_mode = 'fixed';
+                form.divider_target_mode = 'ratio';
+                form.target_raw = '50%';
+            }
             return;
         }
         if (form.circuit_types.includes('divider')) form.circuit_types = ['series', 'parallel'];
@@ -535,9 +922,36 @@ export default function setup() {
         if (type === 'R' && oldType !== 'R') form.target_raw = '1k';
     };
 
+    const setDividerMode = (mode) => {
+        if (form.part_type !== 'divider') {
+            setPartType('divider');
+        } else {
+            resetSearchState();
+        }
+        activeMode.value = 'divider';
+        form.divider_mode = mode;
+    };
+
+    const setActiveMode = (mode) => {
+        activeMode.value = mode;
+        resetSearchState();
+        if (mode === 'divider') {
+            if (form.part_type !== 'divider') setPartType('divider');
+            return;
+        }
+        if (mode === 'network' && form.part_type === 'divider') {
+            setPartType('R');
+        }
+    };
+
     const applyPreset = (preset) => {
+        activeMode.value = preset.type === 'divider' ? 'divider' : 'network';
         form.part_type = preset.type;
-        form.target_raw = preset.target;
+        form.divider_mode = 'fixed';
+        form.divider_target_mode = preset.targetMode ?? 'ratio';
+        form.target_raw = preset.target ?? form.target_raw;
+        form.input_voltage_raw = preset.vin ?? form.input_voltage_raw;
+        form.output_voltage_raw = preset.vout ?? form.output_voltage_raw;
         form.tolerance_pct = preset.tolerance;
         form.series = preset.series;
         form.circuit_types = [...preset.circuits];
@@ -580,6 +994,16 @@ export default function setup() {
             if (form.part_type === 'divider') {
                 payload.total_res_min = parseTarget(form.total_res_min_raw, 'R') ?? 0;
                 payload.total_res_max = parseTarget(form.total_res_max_raw, 'R') ?? null;
+                payload.load_type = dividerLoadConfig.value.type;
+                payload.load_current = dividerLoadConfig.value.current;
+                payload.load_resistance = Number.isFinite(dividerLoadConfig.value.resistance) ? dividerLoadConfig.value.resistance : null;
+                payload.load_resistance_infinite = dividerLoadConfig.value.resistance === Infinity;
+                if (form.divider_target_mode === 'voltage') {
+                    payload.input_voltage = dividerVoltageTarget.value.input;
+                    payload.output_voltage = dividerVoltageTarget.value.output;
+                } else if (dividerLoadConfig.value.type === 'current' && dividerLoadConfig.value.current > 0) {
+                    payload.input_voltage = parseTarget(form.input_voltage_raw, 'V');
+                }
             }
             if (form.series === 'custom') {
                 payload.custom_values = normalizeCustomValues(form.custom_values, form.part_type);
@@ -645,6 +1069,16 @@ export default function setup() {
         compareIds.value = [...compareIds.value.slice(-2), candidate.id];
     };
     const clearCompare = () => { compareIds.value = []; };
+    const setLoadResistanceInfinite = (target) => {
+        target.load_type = 'resistance';
+        target.load_resistance_raw = '∞';
+        if (target === form) resetSearchState();
+    };
+    const setLoadCurrentZero = (target) => {
+        target.load_type = 'current';
+        target.load_current_raw = '0';
+        if (target === form) resetSearchState();
+    };
 
     const variable = reactive({
         reference_raw: '10k',
@@ -676,10 +1110,53 @@ export default function setup() {
             selectedHighDisplay: result.bestCandidate?.highDisplay ?? '-',
         };
     });
+    const dividerVariable = reactive({
+        input_voltage_raw: '5',
+        output_low_raw: '1',
+        output_high_raw: '3',
+        nominal_pot_raw: '10k',
+        fixed_source: 'E24',
+        fixed_custom_values: '',
+        pot_source: 'vr-common',
+        pot_custom_values: '',
+        endpoint_tolerance_pct: 0,
+        load_type: 'resistance',
+        load_resistance_raw: '∞',
+        load_current_raw: '0',
+    });
+    const dividerVariableResult = computed(() => {
+        const result = calculateVariableDivider(dividerVariable);
+        const ideal = result.ideal ?? { top: 0, pot: 0, bottom: 0, total: 0, low: 0, high: 0 };
+        const requirement = result.requirement ?? {};
+
+        return {
+            ...result,
+            inputVoltageDisplay: formatVoltage(requirement.inputVoltage ?? 0),
+            outputLowDisplay: formatVoltage(requirement.outputLow ?? 0),
+            outputHighDisplay: formatVoltage(requirement.outputHigh ?? 0),
+            nominalPotDisplay: formatResistance(requirement.nominalPot ?? 0),
+            loadDisplay: requirement.load?.display ?? '-',
+            ratioLowDisplay: Number.isFinite(requirement.lowRatio) ? `${trimNumber(requirement.lowRatio * 100, 4)}%` : '-',
+            ratioHighDisplay: Number.isFinite(requirement.highRatio) ? `${trimNumber(requirement.highRatio * 100, 4)}%` : '-',
+            idealTopDisplay: formatResistance(ideal.top),
+            idealPotDisplay: formatResistance(ideal.pot),
+            idealBottomDisplay: formatResistance(ideal.bottom),
+            idealTotalDisplay: formatResistance(ideal.total),
+            selectedTopDisplay: result.bestCandidate?.topDisplay ?? '-',
+            selectedPotDisplay: result.bestCandidate?.potDisplay ?? '-',
+            selectedBottomDisplay: result.bestCandidate?.bottomDisplay ?? '-',
+            selectedLowDisplay: result.bestCandidate?.lowDisplay ?? '-',
+            selectedHighDisplay: result.bestCandidate?.highDisplay ?? '-',
+        };
+    });
 
     return {
         activeMode,
         modeOptions: MODE_OPTIONS,
+        networkPartTypeOptions: PART_TYPE_OPTIONS,
+        dividerModeOptions: DIVIDER_MODE_OPTIONS,
+        dividerTargetModeOptions: DIVIDER_TARGET_MODE_OPTIONS,
+        loadTypeOptions: LOAD_TYPE_OPTIONS,
         partTypeOptions: PART_TYPE_OPTIONS,
         seriesOptions: SERIES_OPTIONS,
         variableFixedSourceOptions: VARIABLE_FIXED_SOURCE_OPTIONS,
@@ -706,10 +1183,17 @@ export default function setup() {
         validationMessage,
         partTypeLabel,
         targetHint,
+        isDividerVariableMode,
+        dividerVoltageTarget,
+        dividerLoadConfig,
         comparedCandidates,
         variable,
         variableResult,
+        dividerVariable,
+        dividerVariableResult,
         setPartType,
+        setDividerMode,
+        setActiveMode,
         applyPreset,
         toggleCircuitType,
         search,
@@ -720,5 +1204,7 @@ export default function setup() {
         isCompared,
         toggleCompare,
         clearCompare,
+        setLoadResistanceInfinite,
+        setLoadCurrentZero,
     };
 }

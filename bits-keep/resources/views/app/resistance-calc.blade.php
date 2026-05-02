@@ -22,11 +22,12 @@
         <span class="rounded border border-[var(--color-border)] px-2 py-1">並列</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">直並列混在</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">分圧</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">VR分圧</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">在庫値</span>
       </div>
     </div>
     <div class="flex rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-1">
-      <button v-for="mode in modeOptions" :key="mode.value" @click="activeMode = mode.value"
+      <button v-for="mode in modeOptions" :key="mode.value" @click="setActiveMode(mode.value)"
         class="rounded-md px-3 py-2 text-sm font-semibold"
         :class="activeMode === mode.value ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'">
         @{{ mode.label }}
@@ -34,7 +35,7 @@
     </div>
   </header>
 
-  <section v-if="activeMode === 'network'" class="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+  <section v-if="activeMode === 'network' || (activeMode === 'divider' && form.divider_mode === 'fixed')" class="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
     <aside class="space-y-4">
       <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
         <div class="mb-3 flex items-center justify-between gap-3">
@@ -42,7 +43,7 @@
           <span class="text-xs opacity-60">@{{ partTypeLabel }}</span>
         </div>
 
-        <div class="mb-4 grid grid-cols-3 gap-2">
+        <div v-if="activeMode === 'network'" class="mb-4 grid grid-cols-2 gap-2">
           <button v-for="type in partTypeOptions" :key="type.value" @click="setPartType(type.value)"
             class="rounded border px-3 py-2 text-sm font-semibold"
             :class="form.part_type === type.value ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] bg-[var(--color-bg)]'">
@@ -51,12 +52,74 @@
         </div>
 
         <div class="grid gap-3">
-          <label class="block">
-            <span class="mb-1 block text-xs font-semibold opacity-60">目標値</span>
+          <div v-if="activeMode === 'divider'" class="grid grid-cols-2 gap-2">
+            <button v-for="mode in dividerModeOptions" :key="mode.value" @click="setDividerMode(mode.value)"
+              class="rounded border px-3 py-2 text-sm font-semibold"
+              :class="form.divider_mode === mode.value ? 'border-[var(--color-primary)] bg-[var(--color-card-even)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+              @{{ mode.label }}
+            </button>
+          </div>
+
+          <div v-if="activeMode === 'divider'" class="grid grid-cols-2 gap-2">
+            <button v-for="mode in dividerTargetModeOptions" :key="mode.value" @click="form.divider_target_mode = mode.value"
+              class="rounded border px-3 py-2 text-sm"
+              :class="form.divider_target_mode === mode.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+              @{{ mode.label }}
+            </button>
+          </div>
+
+          <label v-if="activeMode !== 'divider' || form.divider_target_mode === 'ratio'" class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">@{{ activeMode === 'divider' ? '目標比率' : '目標値' }}</span>
             <input v-model="form.target_raw" type="text" :placeholder="targetHint" @keyup.enter="search"
               class="input-text w-full font-mono"
               :class="form.target_raw && !targetValid ? 'border-red-400' : ''" />
           </label>
+
+          <div v-if="activeMode === 'divider' && form.divider_target_mode === 'voltage'" class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+              <input v-model="form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="search" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">出力電圧</span>
+              <input v-model="form.output_voltage_raw" class="input-text w-full font-mono" placeholder="2.5" @keyup.enter="search" />
+            </label>
+            <div class="col-span-2 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs">
+              <span class="opacity-55">換算比率</span>
+              <span class="ml-2 font-mono font-semibold">@{{ dividerVoltageTarget.valid ? `${(dividerVoltageTarget.ratio * 100).toPrecision(5)}%` : '-' }}</span>
+            </div>
+          </div>
+
+          <div v-if="activeMode === 'divider'" class="grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="grid grid-cols-2 gap-2">
+              <button v-for="loadType in loadTypeOptions" :key="`divider-load-${loadType.value}`" @click="form.load_type = loadType.value"
+                class="rounded border px-3 py-2 text-sm"
+                :class="form.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                @{{ loadType.label }}
+              </button>
+            </div>
+            <label v-if="form.load_type === 'resistance'" class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">負荷抵抗</span>
+              <div class="flex gap-2">
+                <input v-model="form.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" @keyup.enter="search" />
+                <button @click="setLoadResistanceInfinite(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
+              </div>
+            </label>
+            <div v-if="form.load_type === 'current'" class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span>
+                <div class="flex gap-2">
+                  <input v-model="form.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" @keyup.enter="search" />
+                  <button @click="setLoadCurrentZero(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
+                </div>
+              </label>
+              <label v-if="form.divider_target_mode === 'ratio'" class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+                <input v-model="form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="search" />
+              </label>
+            </div>
+            <div class="text-xs opacity-60">負荷: @{{ dividerLoadConfig.display }}</div>
+          </div>
 
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
@@ -77,7 +140,7 @@
             class="input-text w-full resize-none font-mono text-sm"
             placeholder="100, 220, 470, 1k, 2.2k"></textarea>
 
-          <div v-if="form.part_type !== 'divider'" class="grid grid-cols-3 gap-2">
+          <div v-if="activeMode === 'network'" class="grid grid-cols-3 gap-2">
             <button v-for="type in circuitOptions" :key="type.value" @click="toggleCircuitType(type.value)"
               class="rounded border px-2 py-2 text-sm"
               :class="form.circuit_types.includes(type.value) ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-[var(--color-card-even)]' : 'border-[var(--color-border)] bg-[var(--color-bg)]'">
@@ -85,7 +148,7 @@
             </button>
           </div>
 
-          <div v-if="form.part_type !== 'divider'" class="grid grid-cols-2 gap-3">
+          <div v-if="activeMode === 'network'" class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="mb-1 block text-xs font-semibold opacity-60">最小素子数</span>
               <select v-model.number="form.min_elements" class="input-text w-full">
@@ -100,7 +163,7 @@
             </label>
           </div>
 
-          <div v-if="form.part_type === 'divider'" class="grid grid-cols-2 gap-3">
+          <div v-if="activeMode === 'divider'" class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 min</span>
               <input v-model="form.total_res_min_raw" class="input-text w-full font-mono" placeholder="1k" />
@@ -258,14 +321,23 @@
               <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                 <div class="text-xs opacity-50">合成値</div>
                 <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.actual_display }}</div>
+                <div v-if="candidate.actual_output_display" class="mt-1 font-mono text-xs opacity-65">
+                  @{{ candidate.actual_output_display }} / @{{ candidate.input_voltage_display }}
+                </div>
               </div>
               <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                 <div class="text-xs opacity-50">誤差</div>
                 <div class="mt-1 font-mono text-lg font-bold" :class="errorClass(candidate.error_pct)">@{{ candidate.error_display }}</div>
+                <div v-if="candidate.output_error_display" class="mt-1 font-mono text-xs opacity-65">
+                  @{{ candidate.output_error_display }}
+                </div>
               </div>
               <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
                 <div class="text-xs opacity-50">@{{ candidate.circuit_type === 'divider' ? '総抵抗' : '差分' }}</div>
                 <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.total_display || candidate.error_abs_display }}</div>
+                <div v-if="candidate.load_display" class="mt-1 font-mono text-xs opacity-65">
+                  負荷 @{{ candidate.load_display }}
+                </div>
               </div>
             </div>
           </article>
@@ -459,6 +531,226 @@
         </div>
         <div class="mt-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-sm">
           @{{ variableResult.expression }}
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <section v-if="activeMode === 'divider' && form.divider_mode === 'variable'" class="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+    <aside class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="text-sm font-bold">分圧条件</h2>
+        <span class="text-xs opacity-60">VR分圧</span>
+      </div>
+      <div class="grid gap-3">
+        <div class="grid grid-cols-2 gap-2">
+          <button v-for="mode in dividerModeOptions" :key="`vr-mode-${mode.value}`" @click="setDividerMode(mode.value)"
+            class="rounded border px-3 py-2 text-sm font-semibold"
+            :class="form.divider_mode === mode.value ? 'border-[var(--color-primary)] bg-[var(--color-card-even)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+            @{{ mode.label }}
+          </button>
+        </div>
+
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+          <input v-model="dividerVariable.input_voltage_raw" class="input-text w-full font-mono" placeholder="5" />
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">出力下限</span>
+            <input v-model="dividerVariable.output_low_raw" class="input-text w-full font-mono" placeholder="1" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">出力上限</span>
+            <input v-model="dividerVariable.output_high_raw" class="input-text w-full font-mono" placeholder="3" />
+          </label>
+        </div>
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold opacity-60">基準VR値</span>
+          <input v-model="dividerVariable.nominal_pot_raw" class="input-text w-full font-mono" placeholder="10k" />
+        </label>
+
+        <div class="grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <div class="grid grid-cols-2 gap-2">
+            <button v-for="loadType in loadTypeOptions" :key="`vr-load-${loadType.value}`" @click="dividerVariable.load_type = loadType.value"
+              class="rounded border px-3 py-2 text-sm"
+              :class="dividerVariable.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+              @{{ loadType.label }}
+            </button>
+          </div>
+          <label v-if="dividerVariable.load_type === 'resistance'" class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">負荷抵抗</span>
+            <div class="flex gap-2">
+              <input v-model="dividerVariable.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" />
+              <button @click="setLoadResistanceInfinite(dividerVariable)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
+            </div>
+          </label>
+          <label v-if="dividerVariable.load_type === 'current'" class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span>
+            <div class="flex gap-2">
+              <input v-model="dividerVariable.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" />
+              <button @click="setLoadCurrentZero(dividerVariable)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
+            </div>
+          </label>
+          <div class="text-xs opacity-60">負荷: @{{ dividerVariableResult.loadDisplay }}</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">固定抵抗ソース</span>
+            <select v-model="dividerVariable.fixed_source" class="input-text w-full">
+              <option v-for="source in variableFixedSourceOptions" :key="`divider-fixed-${source}`" :value="source">@{{ source }}</option>
+            </select>
+          </label>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+            <div class="text-xs font-semibold opacity-60">採用VR</div>
+            <div class="mt-1 font-mono text-sm font-bold">@{{ dividerVariableResult.nominalPotDisplay }}</div>
+          </div>
+        </div>
+        <textarea v-if="dividerVariable.fixed_source === 'custom'" v-model="dividerVariable.fixed_custom_values"
+          rows="3"
+          class="input-text w-full resize-none font-mono text-sm"
+          placeholder="5k, 10k, 15k"></textarea>
+      </div>
+    </aside>
+
+    <main class="space-y-4">
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <h2 class="mb-3 text-sm font-bold">要求電圧</h2>
+        <div class="grid gap-3 md:grid-cols-5">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">入力</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.inputVoltageDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">出力下限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.outputLowDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">出力上限</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.outputHighDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">比率範囲</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.ratioLowDisplay }}〜@{{ dividerVariableResult.ratioHighDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">負荷</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.loadDisplay }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">採用候補</h2>
+          <span v-if="dividerVariableResult.bestCandidate"
+            class="rounded border px-2 py-1 text-xs font-semibold"
+            :class="variableStatusClass(dividerVariableResult.bestCandidate.status)">
+            @{{ dividerVariableResult.bestCandidate.verdict }}
+          </span>
+        </div>
+        <div class="grid gap-3 md:grid-cols-5">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">R上</div>
+            <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedTopDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">VR</div>
+            <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedPotDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">R下</div>
+            <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedBottomDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">候補下限</div>
+            <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedLowDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">候補上限</div>
+            <div class="mt-1 font-mono text-xl font-bold">@{{ dividerVariableResult.selectedHighDisplay }}</div>
+          </div>
+        </div>
+        <div v-if="dividerVariableResult.bestCandidate" class="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <div class="font-mono text-sm">@{{ dividerVariableResult.bestCandidate.expression }}</div>
+          <div class="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+            <div class="rounded border border-[var(--color-border)] px-3 py-2">
+              <span class="opacity-50">下限余裕</span>
+              <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.lowMarginDisplay }}</span>
+            </div>
+            <div class="rounded border border-[var(--color-border)] px-3 py-2">
+              <span class="opacity-50">上限余裕</span>
+              <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.highMarginDisplay }}</span>
+            </div>
+            <div class="rounded border border-[var(--color-border)] px-3 py-2">
+              <span class="opacity-50">出力電流</span>
+              <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.outputCurrentDisplay }}</span>
+            </div>
+            <div class="rounded border border-[var(--color-border)] px-3 py-2">
+              <span class="opacity-50">範囲判定</span>
+              <span class="ml-2 font-mono">@{{ dividerVariableResult.bestCandidate.rangeMarginDisplay }}</span>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span v-for="tag in dividerVariableResult.bestCandidate.tags" :key="`best-divider-${tag}`"
+              class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+              @{{ tag }}
+            </span>
+          </div>
+        </div>
+        <div v-if="!dividerVariableResult.valid" class="mt-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          入力電圧、出力電圧範囲、VR値、負荷条件を確認してください
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+        <h2 class="mb-3 text-sm font-bold">候補一覧</h2>
+        <div v-if="dividerVariableResult.candidates.length" class="grid gap-3">
+          <article v-for="candidate in dividerVariableResult.candidates" :key="`${candidate.top}-${candidate.pot}-${candidate.bottom}-${candidate.low}`"
+            class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded border px-2 py-1 text-xs font-semibold" :class="variableStatusClass(candidate.status)">
+                @{{ candidate.verdict }}
+              </span>
+              <span class="font-mono text-sm font-bold">@{{ candidate.topDisplay }} + VR @{{ candidate.potDisplay }} + @{{ candidate.bottomDisplay }}</span>
+              <span class="ml-auto font-mono text-xs">@{{ candidate.lowDisplay }} 〜 @{{ candidate.highDisplay }}</span>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span v-for="tag in candidate.tags" :key="`${candidate.top}-${candidate.pot}-${candidate.bottom}-${tag}`"
+                class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+                @{{ tag }}
+              </span>
+            </div>
+          </article>
+        </div>
+        <div v-else class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4 text-sm opacity-60">
+          候補なし
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <h2 class="mb-3 text-sm font-bold">理想値</h2>
+        <div class="grid gap-3 md:grid-cols-4">
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想R上</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.idealTopDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想VR</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.idealPotDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想R下</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.idealBottomDisplay }}</div>
+          </div>
+          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+            <div class="text-xs opacity-50">理想総抵抗</div>
+            <div class="mt-1 font-mono text-lg font-bold">@{{ dividerVariableResult.idealTotalDisplay }}</div>
+          </div>
+        </div>
+        <div class="mt-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-sm">
+          @{{ dividerVariableResult.expression }}
         </div>
       </section>
     </main>

@@ -88,12 +88,18 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.0.component_id', $component->id)
             ->assertJsonPath('data.0.supplier_id', $fixture['supplier']->id);
 
-        $this->getJson('/api/components?per_page=10')
+        $componentListResponse = $this->getJson('/api/components?per_page=10')
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.data.0.part_number', $component->part_number)
             ->assertJsonPath('data.data.0.package_name', $fixture['package']->name)
             ->assertJsonPath('data.data.0.needs_reorder', true);
+        $componentListRow = $componentListResponse->json('data.data.0');
+        $this->assertSame(1, $componentListRow['component_suppliers_count']);
+        $this->assertSame(1, $componentListRow['inventory_blocks_count']);
+        $this->assertSame($fixture['supplier']->name, $componentListRow['cheapest_supplier_name']);
+        $this->assertArrayNotHasKey('component_suppliers', $componentListRow);
+        $this->assertArrayNotHasKey('inventory_blocks', $componentListRow);
 
         $this->getJson("/api/components/{$component->id}")
             ->assertOk()
@@ -457,6 +463,39 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->get('/functions')
             ->assertOk()
             ->assertSee('直列・並列・混在・分圧・在庫値・可変抵抗', false);
+    }
+
+    public function test_network_tool_exposes_divider_as_top_level_tab_with_submodes_and_no_load_buttons(): void
+    {
+        $response = $this->get('/tools/network')
+            ->assertOk()
+            ->assertSee('data-page="resistance-calc"', false);
+
+        $html = $response->getContent();
+        $blade = file_get_contents(resource_path('views/app/resistance-calc.blade.php'));
+        $script = file_get_contents(resource_path('js/pages/resistance-calc.js'));
+
+        $this->assertMatchesRegularExpression("/value:\\s*'network'\\s*,\\s*label:\\s*'ネットワーク探索'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'divider'\\s*,\\s*label:\\s*'分圧'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'可変抵抗'/u", $script);
+        $this->assertStringContainsString("activeMode === 'divider'", $blade);
+        $this->assertStringNotContainsString('分圧VR', $html.$blade.$script);
+        $this->assertStringNotContainsString('divider-variable', $html.$blade.$script);
+        $this->assertStringNotContainsString("activeMode === 'divider-variable'", $blade);
+        $this->assertStringNotContainsString("activeMode === 'network' && isDividerVariableMode", $blade);
+
+        $this->assertMatchesRegularExpression("/value:\\s*'fixed'\\s*,\\s*label:\\s*'分圧'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'VR分圧'/u", $script);
+
+        preg_match_all('/<button\b[\s\S]*?<\/button>/u', $blade, $buttonMatches);
+        $buttons = $buttonMatches[0];
+        $infiniteResistanceButtons = array_filter($buttons, static fn (string $button): bool => str_contains($button, '∞'));
+        $zeroCurrentButtons = array_filter($buttons, static fn (string $button): bool => str_contains($button, '0A'));
+
+        $this->assertGreaterThanOrEqual(2, count($infiniteResistanceButtons), '分圧 and VR分圧 must each expose a load-resistance infinity button.');
+        $this->assertGreaterThanOrEqual(2, count($zeroCurrentButtons), '分圧 and VR分圧 must each expose a load-current zero button.');
+        $this->assertGreaterThanOrEqual(2, substr_count($blade, 'setLoadResistanceInfinite('));
+        $this->assertGreaterThanOrEqual(2, substr_count($blade, 'setLoadCurrentZero('));
     }
 
     public function test_tolerance_spec_value_candidates_use_combobox_surface(): void

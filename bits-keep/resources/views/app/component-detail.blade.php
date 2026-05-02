@@ -48,7 +48,7 @@
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           パッケージ違いで複製
         </a>
-        <button @click="stockInModal.form.location_id = part.primary_location_id || ''; stockInModal.open = true"
+        <button @click="openStockIn"
           class="flex items-center gap-1 px-4 py-2 rounded border border-[var(--color-border)] text-sm hover:border-[var(--color-primary)] transition-colors">
           入庫
         </button>
@@ -460,6 +460,9 @@
         <h3 class="text-lg font-bold">@{{ editModal.title }}</h3>
         <button type="button" @click="closeEditModal" aria-label="閉じる" title="閉じる" class="text-xl opacity-50 hover:opacity-100">✕</button>
       </div>
+      <div v-if="editMasterDataLoading" class="mb-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-card-even)] px-3 py-2 text-xs opacity-75">
+        選択候補を読み込んでいます。入力欄は先に編集できます。
+      </div>
 
       <div v-if="editModal.section === 'basic'" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -502,7 +505,7 @@
               <div v-if="editModal.form.category_ids.length" class="mt-2 flex flex-wrap gap-2">
                 <span v-for="id in editModal.form.category_ids" :key="`detail-cat-${id}`"
                   class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-[var(--color-card-even)] border border-[var(--color-border)]">
-                  @{{ categories.find((item) => item.id === id)?.name }}
+                  @{{ detailCategoryName(id) }}
                   <button type="button" @click="toggleDetailCategory(id)">✕</button>
                 </span>
               </div>
@@ -648,17 +651,19 @@
               <p v-if="spec.name" class="spec-card-help">データシート表記: @{{ spec.name }}</p>
             </div>
             <div class="spec-card-field">
-              <label class="spec-card-label">値の種類</label>
+              <label class="spec-card-label">値種別</label>
               <div v-if="isToleranceSpecRow(spec)" class="inline-flex h-8 items-center rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 text-xs font-semibold">
                 許容差
               </div>
-              <div v-else class="spec-card-profile">
-                <button v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" type="button"
-                  @click="changeSpecProfile(spec, option.value)"
-                  class="spec-card-profile-button"
-                  :class="spec.value_profile === option.value ? 'bg-[var(--color-primary)] text-white' : 'opacity-70 hover:bg-[var(--color-card-odd)]'">
-                  @{{ option.label }}
-                </button>
+              <div v-else class="spec-card-profile-select-wrap">
+                <select :value="spec.value_profile" @change="changeSpecProfile(spec, $event.target.value)"
+                  class="input-text spec-card-control spec-card-profile-select w-full"
+                  :title="specProfileHelpText(spec.value_profile)">
+                  <option v-for="option in specProfileOptions" :key="`detail-profile-${index}-${option.value}`" :value="option.value">
+                    @{{ specProfileControlLabel(option.value) }}
+                  </option>
+                </select>
+                <p class="spec-card-profile-note">@{{ specProfileHelpText(spec.value_profile) }}</p>
               </div>
             </div>
             <div class="spec-card-field">

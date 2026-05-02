@@ -6,6 +6,8 @@ import {
     buildSpecDraftFromApi,
     buildSpecPayload,
     createEmptySpecRow,
+    getSpecProfileControlLabel,
+    getSpecProfileHelpText,
     getSpecDisplayName,
     getSpecProfileBadgeLabel,
     getSpecUnitSuggestions,
@@ -324,6 +326,8 @@ export default function setup() {
     const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(specTypes.value.find(st => st.id == specTypeId));
     const specDisplayName = (spec) => getSpecDisplayName(spec, findSpecTypeById(spec?.spec_type_id));
     const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
+    const specProfileControlLabel = (profile) => getSpecProfileControlLabel(profile);
+    const specProfileHelpText = (profile) => getSpecProfileHelpText(profile);
     const specTypeOptionLabel = (specType) => {
         const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
         const symbol = String(specType?.symbol ?? '').trim();
@@ -3043,7 +3047,7 @@ export default function setup() {
         manufacturerSuggestionsOpen,
         categoryQuery, filteredCategories, canCreateCategory,
         packageQuery, filteredPackages, canCreatePackage,
-        specProfileOptions, specProfileBadge, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
+        specProfileOptions, specProfileBadge, specProfileControlLabel, specProfileHelpText, canCreateSpecType, inlineSpecTypeModal, specTypeOptionLabel, specTypePickerOptionLabel,
         inlinePrefixOptionsFor, inlinePrefixPolicyHelp, syncInlinePrefixList,
         selectedSpecGroupId, selectedSpecGroupLabel, selectedSpecCandidateId, selectedSpecTemplateId, selectedSpecTemplate,
         selectedSpecTemplateItems, scopedSpecTypes, filteredSpecTypesForPicker, specTypeSearchQuery, showRecommendedSpecTypes, showAllSpecTypes, isAllSpecTypesSelected,

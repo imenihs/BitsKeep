@@ -50,11 +50,11 @@ const PROFILE_ALIASES = {
 };
 
 export const SPEC_PROFILE_OPTIONS = [
-    { value: 'typ', label: 'typ' },
-    { value: 'range', label: '範囲' },
-    { value: 'max_only', label: 'max' },
-    { value: 'min_only', label: 'min' },
-    { value: 'triple', label: 'min/typ/max' },
+    { value: 'typ', label: 'typ', controlLabel: 'TYP', help: 'typ代表値を1点入力' },
+    { value: 'range', label: '範囲', controlLabel: 'MIN-MAX', help: 'min-max範囲を入力' },
+    { value: 'max_only', label: 'max', controlLabel: '≤MAX', help: '上限値のみ入力' },
+    { value: 'min_only', label: 'min', controlLabel: '≥MIN', help: '下限値のみ入力' },
+    { value: 'triple', label: 'Min/Typ/Max', controlLabel: 'Min/Typ/Max', help: 'min/typ/maxを入力' },
 ];
 
 export const createEmptySpecRow = () => ({
@@ -89,10 +89,21 @@ export const getSpecProfileLabel = (profile) => (
     SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.label ?? 'typ'
 );
 
+export const getSpecProfileControlLabel = (profile) => (
+    SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.controlLabel ?? 'TYP'
+);
+
+export const getSpecProfileHelpText = (profile) => (
+    SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.help ?? 'typ代表値を1点入力'
+);
+
 export const getSpecProfileBadgeLabel = (profile) => {
     const normalized = normalizeSpecProfile(profile);
     if (normalized === 'typ') return '';
-    if (normalized === 'triple') return 'min/typ/max';
+    if (normalized === 'triple') return 'Min/Typ/Max';
+    if (normalized === 'range') return 'MIN-MAX';
+    if (normalized === 'max_only') return '≤MAX';
+    if (normalized === 'min_only') return '≥MIN';
 
     return getSpecProfileLabel(normalized);
 };

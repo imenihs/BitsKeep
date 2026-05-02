@@ -46,7 +46,13 @@ export default function setup() {
     const alertCount = ref(0);
     const listError = ref('');
     const masterError = ref('');
-    const specProfileOptions = [{ value: '', label: '全件' }, ...SPEC_PROFILE_OPTIONS];
+    const specProfileOptions = [
+        { value: '', label: '全件' },
+        ...SPEC_PROFILE_OPTIONS.map((option) => ({
+            ...option,
+            label: option.controlLabel ?? option.label,
+        })),
+    ];
 
     // ── 比較リスト ────────────────────────────────────────────
     const compareList = ref([]);
@@ -268,9 +274,11 @@ export default function setup() {
     });
 
     onMounted(async () => {
-        await loadFavorites();
-        await fetchMasters();
-        await fetchParts();
+        await Promise.all([
+            loadFavorites(),
+            fetchMasters(),
+            fetchParts(),
+        ]);
     });
 
     return {

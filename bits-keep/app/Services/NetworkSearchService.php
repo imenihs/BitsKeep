@@ -81,8 +81,10 @@ class NetworkSearchService
 
         return [
             'target_value' => $target,
-            'target_display' => $partType === 'divider' ? $this->formatRatio($target) : $this->formatValue($target, $partType),
+            'target_display' => $partType === 'divider' ? $this->dividerTargetDisplay($target, $params) : $this->formatValue($target, $partType),
             'part_type' => $partType,
+            'input_voltage' => $params['input_voltage'] ?? null,
+            'output_voltage' => $params['output_voltage'] ?? null,
             'candidate_pool_count' => $maxPoolCount,
             'raw_pool_count' => count($rawValues),
             'return_limit' => self::RETURN_LIMIT,
@@ -228,7 +230,11 @@ class NetworkSearchService
                 }
                 $evaluationCount++;
 
-                $actual = $r2['value'] / $total;
+                $loaded = $this->dividerLoadedResult((float) $r1['value'], (float) $r2['value'], $params);
+                $actual = $loaded['ratio'];
+                if ($actual <= 0 || ! is_finite($actual)) {
+                    continue;
+                }
                 $errPct = abs($actual - $ratio) / $ratio * 100;
                 if ($errPct > $tolPct) {
                     continue;
@@ -244,9 +250,11 @@ class NetworkSearchService
                     'topology_label' => '分圧回路',
                     'actual_value' => $actual,
                     'actual_display' => $this->formatRatio($actual),
-                    'target_display' => $this->formatRatio($ratio),
+                    'target_display' => $this->dividerTargetDisplay($ratio, $params),
                     'total_value' => $total,
                     'total_display' => $this->formatValue($total, 'R'),
+                    'load_type' => $loaded['load_type'],
+                    'load_display' => $loaded['load_display'],
                     'parts_total_value' => $total,
                     'parts' => [
                         $this->partPayload($r1, 'R1上側'),
@@ -254,6 +262,22 @@ class NetworkSearchService
                     ],
                     'from_inventory' => ! empty($r1['component_id']) || ! empty($r2['component_id']),
                 ];
+                if (isset($params['input_voltage'])) {
+                    $inputVoltage = (float) $params['input_voltage'];
+                    $targetVoltage = $ratio * $inputVoltage;
+                    $actualVoltage = $loaded['output_voltage'] ?? ($actual * $inputVoltage);
+                    $candidate = [
+                        ...$candidate,
+                        'input_voltage' => $inputVoltage,
+                        'input_voltage_display' => $this->formatVoltage($inputVoltage),
+                        'target_output_voltage' => $targetVoltage,
+                        'target_output_display' => $this->formatVoltage($targetVoltage),
+                        'actual_output_voltage' => $actualVoltage,
+                        'actual_output_display' => $this->formatVoltage($actualVoltage),
+                        'output_error_value' => $actualVoltage - $targetVoltage,
+                        'output_error_display' => $this->formatSignedVoltage($actualVoltage - $targetVoltage),
+                    ];
+                }
                 if (! $this->hasSufficientInventory($candidate['parts'])) {
                     continue;
                 }
@@ -659,6 +683,72 @@ class NetworkSearchService
         return $this->reciprocalEquivalent($values);
     }
 
+    private function dividerLoadedResult(float $upper, float $lower, array $params): array
+    {
+        $loadType = $params['load_type'] ?? 'resistance';
+        $inputVoltage = isset($params['input_voltage']) ? (float) $params['input_voltage'] : null;
+
+        if ($loadType === 'current') {
+            $loadCurrent = max(0.0, (float) ($params['load_current'] ?? 0));
+            $total = $upper + $lower;
+            $noLoadRatio = $total > 0 ? $lower / $total : NAN;
+            if ($loadCurrent <= 0 || $inputVoltage === null || $inputVoltage <= 0) {
+                return [
+                    'ratio' => $noLoadRatio,
+                    'output_voltage' => $inputVoltage !== null ? $noLoadRatio * $inputVoltage : null,
+                    'load_type' => 'current',
+                    'load_display' => $this->formatCurrent($loadCurrent),
+                ];
+            }
+
+            $theveninResistance = $this->parallelPair($upper, $lower);
+            $outputVoltage = ($inputVoltage * $noLoadRatio) - ($loadCurrent * $theveninResistance);
+
+            return [
+                'ratio' => $outputVoltage / $inputVoltage,
+                'output_voltage' => $outputVoltage,
+                'load_type' => 'current',
+                'load_display' => $this->formatCurrent($loadCurrent),
+            ];
+        }
+
+        $loadResistance = $this->loadResistance($params);
+        $loadedLower = $loadResistance === INF ? $lower : $this->parallelPair($lower, $loadResistance);
+        $total = $upper + $loadedLower;
+        $ratio = $total > 0 ? $loadedLower / $total : NAN;
+
+        return [
+            'ratio' => $ratio,
+            'output_voltage' => $inputVoltage !== null ? $ratio * $inputVoltage : null,
+            'load_type' => 'resistance',
+            'load_display' => $loadResistance === INF ? '∞Ω' : $this->formatValue($loadResistance, 'R'),
+        ];
+    }
+
+    private function loadResistance(array $params): float
+    {
+        if (! empty($params['load_resistance_infinite']) || ! array_key_exists('load_resistance', $params) || $params['load_resistance'] === null) {
+            return INF;
+        }
+
+        return max(0.0, (float) $params['load_resistance']);
+    }
+
+    private function parallelPair(float $a, float $b): float
+    {
+        if ($a <= 0 || $b <= 0) {
+            return 0.0;
+        }
+        if ($a === INF) {
+            return $b;
+        }
+        if ($b === INF) {
+            return $a;
+        }
+
+        return 1 / ((1 / $a) + (1 / $b));
+    }
+
     private function sumEquivalent(array $values): float
     {
         return array_sum(array_map(fn ($item) => (float) $item['value'], $values));
@@ -721,6 +811,66 @@ class NetworkSearchService
     private function formatRatio(float $ratio): string
     {
         return $this->trimNumber($ratio * 100, 4).'%';
+    }
+
+    private function dividerTargetDisplay(float $ratio, array $params): string
+    {
+        if (isset($params['input_voltage'], $params['output_voltage'])) {
+            return $this->formatVoltage((float) $params['output_voltage'])
+                .' / '
+                .$this->formatVoltage((float) $params['input_voltage'])
+                .' = '
+                .$this->formatRatio($ratio);
+        }
+
+        return $this->formatRatio($ratio);
+    }
+
+    private function formatVoltage(float $value): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+        $abs = abs($value);
+        if ($abs > 0 && $abs < 1) {
+            return $this->trimNumber($value * 1000).'mV';
+        }
+        if ($abs >= 1000) {
+            return $this->trimNumber($value / 1000).'kV';
+        }
+
+        return $this->trimNumber($value).'V';
+    }
+
+    private function formatSignedVoltage(float $value): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+
+        return ($value >= 0 ? '+' : '-').$this->formatVoltage(abs($value));
+    }
+
+    private function formatCurrent(float $value): string
+    {
+        if (! is_finite($value)) {
+            return '-';
+        }
+        $abs = abs($value);
+        if ($abs == 0.0) {
+            return '0A';
+        }
+        if ($abs < 1e-6) {
+            return $this->trimNumber($value * 1e9).'nA';
+        }
+        if ($abs < 1e-3) {
+            return $this->trimNumber($value * 1e6).'μA';
+        }
+        if ($abs < 1) {
+            return $this->trimNumber($value * 1000).'mA';
+        }
+
+        return $this->trimNumber($value).'A';
     }
 
     private function formatPercent(float $value): string

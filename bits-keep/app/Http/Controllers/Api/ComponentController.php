@@ -28,8 +28,26 @@ class ComponentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Component::with(['categories', 'package.packageGroup', 'packages.packageGroup', 'componentSeries', 'componentSeriesValue', 'inventoryBlocks', 'componentSuppliers.supplier', 'datasheets'])
-            ->withCount('inventoryBlocks');
+        $query = Component::query()
+            ->select('components.*')
+            ->with(['categories', 'package.packageGroup'])
+            ->withCount(['inventoryBlocks', 'componentSuppliers', 'datasheets'])
+            ->addSelect([
+                'cheapest_unit_price' => DB::table('component_suppliers')
+                    ->select('component_suppliers.unit_price')
+                    ->whereColumn('component_suppliers.component_id', 'components.id')
+                    ->whereNotNull('component_suppliers.unit_price')
+                    ->orderBy('component_suppliers.unit_price')
+                    ->limit(1),
+                'cheapest_supplier_name' => DB::table('component_suppliers')
+                    ->join('suppliers', 'suppliers.id', '=', 'component_suppliers.supplier_id')
+                    ->select('suppliers.name')
+                    ->whereColumn('component_suppliers.component_id', 'components.id')
+                    ->whereNull('suppliers.deleted_at')
+                    ->whereNotNull('component_suppliers.unit_price')
+                    ->orderBy('component_suppliers.unit_price')
+                    ->limit(1),
+            ]);
 
         // フリーワード検索（部品名・型番・メーカー・説明）
         if ($q = $request->input('q')) {
@@ -274,6 +292,7 @@ class ComponentController extends Controller
      */
     public function show(Component $component)
     {
+        $component->loadCount('transactions');
         $component->load([
             'categories', 'package.packageGroup', 'packages.packageGroup',
             'componentSeries',
@@ -284,7 +303,7 @@ class ComponentController extends Controller
             'inventoryBlocks.location',
             'primaryLocation',
             'datasheets',
-            'transactions' => fn ($q) => $q->latest(),
+            'transactions' => fn ($q) => $q->latest()->limit(20),
             'projects',
             'altiumLink',
         ]);
@@ -760,11 +779,14 @@ class ComponentController extends Controller
         }
         $component->needs_reorder = $component->quantity_new < $component->threshold_new
             || $component->quantity_used < $component->threshold_used;
-        $cheapest = $component->componentSuppliers
-            ? $component->componentSuppliers->filter(fn ($item) => $item->unit_price !== null)->sortBy('unit_price')->first()
-            : null;
-        $component->cheapest_unit_price = $cheapest?->unit_price;
-        $component->cheapest_supplier_name = $cheapest?->supplier?->name;
+        if ($component->relationLoaded('componentSuppliers')) {
+            $cheapest = $component->componentSuppliers
+                ->filter(fn ($item) => $item->unit_price !== null)
+                ->sortBy('unit_price')
+                ->first();
+            $component->cheapest_unit_price = $cheapest?->unit_price;
+            $component->cheapest_supplier_name = $cheapest?->supplier?->name;
+        }
 
         return $component;
     }

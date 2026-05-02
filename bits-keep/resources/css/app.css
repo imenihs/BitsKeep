@@ -744,29 +744,26 @@ img.thumbnail {
     opacity: 0.58;
 }
 
-.spec-card-profile {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+.spec-card-profile-select-wrap {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
     gap: 0.25rem;
-    padding: 0.25rem;
-    min-height: 3rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.875rem;
-    background: var(--color-bg);
-    align-items: stretch;
 }
 
-.spec-card-profile-button {
-    min-height: calc(3rem - 0.5rem);
-    border-radius: 0.625rem;
-    padding: 0.35rem 0.4rem;
+.spec-card-profile-select {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.spec-card-profile-note {
+    min-height: 1rem;
     font-size: 0.6875rem;
-    line-height: 1.2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    line-height: 1.25;
+    opacity: 0.58;
+    overflow-wrap: anywhere;
 }
 
 .spec-card-control {
@@ -872,7 +869,12 @@ img.thumbnail {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 0.5rem;
-    align-items: end;
+    align-items: stretch;
+}
+
+.spec-card-values--range > span {
+    align-self: center;
+    padding-bottom: 0 !important;
 }
 
 .spec-card-values--triple {
@@ -882,15 +884,27 @@ img.thumbnail {
 
 .spec-card-subfield {
     min-width: 0;
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
 }
 
 .spec-card-subfield-label {
+    position: absolute;
+    z-index: 1;
+    top: 0.42rem;
+    left: 0.75rem;
     font-size: 0.625rem;
-    line-height: 1.2;
-    opacity: 0.55;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.56;
+    pointer-events: none;
+}
+
+.spec-card-subfield .spec-card-control {
+    padding-top: 1.15rem;
+    padding-bottom: 0.35rem;
 }
 
 .spec-card-actions {
@@ -939,10 +953,10 @@ img.thumbnail {
     }
 }
 
-@media (min-width: 768px) and (max-width: 1279px) {
+@media (min-width: 768px) {
     .spec-card-grid--editor {
         grid-template-columns: repeat(8, minmax(0, 1fr));
-        align-items: end;
+        align-items: start;
     }
 
     .spec-card-grid--editor > :nth-child(1) {
@@ -971,7 +985,7 @@ img.thumbnail {
 
     .spec-card-grid--helper {
         grid-template-columns: repeat(8, minmax(0, 1fr));
-        align-items: end;
+        align-items: start;
     }
 
     .spec-card-grid--helper > :nth-child(1) {
@@ -995,20 +1009,6 @@ img.thumbnail {
     }
 }
 
-@media (min-width: 1024px) {
-    .spec-card-grid--editor {
-        grid-template-columns:
-            minmax(0, 1.05fr)
-            minmax(0, 1.1fr)
-            minmax(0, 1.35fr)
-            minmax(0, 0.75fr)
-            minmax(0, 1.25fr)
-            auto;
-        align-items: end;
-    }
-
-}
-
 @media (min-width: 1280px) {
     .spec-card-grid--helper {
         grid-template-columns:
@@ -1017,6 +1017,6 @@ img.thumbnail {
             minmax(13rem, 1.2fr)
             minmax(7.5rem, 0.7fr)
             minmax(12rem, 1.05fr);
-        align-items: end;
+        align-items: start;
     }
 }

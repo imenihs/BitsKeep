@@ -6943,3 +6943,222 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 対応方針: 現在のワークツリーにある tracked/untracked をすべて対象に `git add -A` でステージし、これまでの設計補助ツール、部品シリーズ、スペック編集UI、ログ/仕様/テスト更新を1コミットにまとめる。
 - 事前確認: ブランチは `main`。DB破壊/構造変更コマンドは実行しない。マイグレーションファイルは変更成果物としてコミット対象に含める。
 - 大将の心の声: ここは範囲選別ではなく「全ファイル」が明示指示。未追跡の実装・テストも落とさず入れる。
+
+### [大将] 2026-04-30 20:33 JST
+- [ユーザ] 部品一覧や部品詳細を開く時に時間がかかるので改善するよう指示。
+- 現状判断: 一覧APIは初回表示に不要な `inventoryBlocks`、仕入先詳細、データシート詳細までページ単位で eager load している。詳細画面は部品本体取得後に類似部品検索を `await` しており、さらに編集用マスタも初回から全取得している。
+- 進め方: 一覧APIはサマリ用途に軽量化し、件数や最安値は集約値で返す。詳細画面は部品本体表示を優先し、類似部品と編集用マスタを非同期/遅延取得に分離する。
+- DB変更: なし。マイグレーション、DB構造変更、破壊的操作は行わない。インデックス追加は今回は検討記録に留める。
+- 大将の心の声: 速くするには「処理を頑張る」より先に「最初に読まない」を徹底する。初回表示と編集時表示を混ぜたのが重さの原因。
+
+### [曹長(コード分隊)] 2026-04-30 20:39 JST
+- 実装: `/api/components` の一覧取得を軽量化した。初回一覧では `inventoryBlocks`、`componentSuppliers.supplier`、`datasheets` の明細リレーションを読まず、`*_count` と最安仕入先サマリをSQL集約値で返すようにした。
+- 実装: 一覧表示の仕入先件数は `component_suppliers_count` を使うようにした。部品分類、パッケージ、在庫件数、最安値表示は維持する。
+- 実装: 部品詳細の本体取得で `fetchSimilar()` を待たず、詳細本体を先に表示して類似部品は後から非同期表示するようにした。
+- 実装: 部品詳細で編集用マスタ（部品分類/パッケージ/スペック詳細/仕入先/棚）を初回表示から外し、編集モーダルや入庫モーダルを開く時に初回だけ取得するようにした。
+- 実装: 部品詳細の入出庫履歴は初回20件に制限し、全件取得による初回表示遅延を避けるようにした。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 初回表示の正解は、ユーザーが今見るものだけを先に出すこと。編集候補や類似候補は必要になってから読めばいい。
+
+### [曹長(テスト分隊)] 2026-04-30 20:39 JST
+- ✓ `php -l app/Http/Controllers/Api/ComponentController.php`
+- ✓ `node --check resources/js/pages/components-list.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `php -l resources/views/app/components-list.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l tests/Feature/UiApiSurfaceSmokeTest.php`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest::test_ui_backing_api_endpoints_return_renderable_data_shapes`。1 test / 84 assertions。
+- ✓ `php artisan test --filter='UiApiSurfaceSmokeTest|ComponentDetailRouteSmokeTest'`。17 tests / 380 assertions。
+- ✓ `composer run test`。88 tests / 781 assertions。
+- ✓ `npm run build`。Browserslist/caniuse-lite 警告なし、500KB超過chunk警告なし。
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト環境でのFeatureテストのみ。
+- 曹長(テスト分隊)の心の声: レスポンス形状が変わる一覧APIは、重い明細キーが混ざらず、必要なカウントと最安仕入先だけが残ることをテストに入れた。
+
+### [大将] 2026-05-02 02:13 JST
+- [ユーザ] `CLAUDE.md` を読み、抵抗/容量ネットワーク探索に「入力電圧と出力電圧から分圧抵抗値を直接計算する機能」と「入力電圧 A から VR で xV〜yV を調整出力できる回路計算」を追加し、設計・ドキュメント・実装・テスト・PDCA を回すよう指示。
+- 既存確認: `CLAUDE.md` を読み、DB破壊操作禁止、README/ヘルプ/仕様書/進捗/ログ更新、`bits-keep/` 配下での `npm run build` と `composer run test` 実行が必要と判断した。
+- 現状判断: 今回はDB変更不要。既存の抵抗/容量ネットワーク探索APIと画面に、分圧の目標指定モードと VR 範囲設計を追加する。
+- 作業範囲: `NetworkSearchService`、抵抗/容量ネットワーク探索画面、API/JSテスト、README、ヘルプ、詳細仕様、進捗チェックリスト、makinglog。
+- 大将の心の声: 比率指定だけでは現場の入力とずれる。Vin/Vout と調整範囲をそのまま入れられる形にして、設計者の頭の中の条件を余計な換算なしで受ける。
+
+### [大将] 2026-05-02 02:18 JST
+- [ユーザ] 今の作業を進めつつ、ルールを再確認して対応するよう指示。
+- 再確認: 現在の `CLAUDE.md` を読み直した。日本語対応、コード確認先行、DB変更前4点確認、README/ヘルプ/詳細仕様/進捗/makinglog更新、`bits-keep/` 内での build/test、テスト結果の makinglog 追記を守る。
+- ワークツリー確認: `CLAUDE.md` と部品一覧/詳細系に既存の未コミット差分がある。今回の作業では抵抗/容量ネットワーク探索関連とドキュメントに限定し、既存差分は巻き戻さない。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ルールは守るために再読する。特に今回は既存の汚れたワークツリーがあるので、成果物の範囲を混ぜないことが品質そのものになる。
+
+### [大将] 2026-05-02 02:21 JST
+- [ユーザ] 分圧とVR分圧の出力に、電流負荷または抵抗負荷を設定し、その負荷込みの出力を計算するよう追加指示。電流負荷は0、抵抗負荷は無限大を選択可能にする。
+- 設計判断: 抵抗負荷は出力ノードからGNDへの抵抗として扱い、通常分圧では下側抵抗と並列にする。電流負荷は出力ノードから引き抜く電流として扱い、テブナン等価 `Vout = Vth - Iload * Rth` で計算する。
+- VR分圧は `Vin -> R上 -> VR -> R下 -> GND` のワイパ出力モデルを維持し、ワイパ位置ごとの上下抵抗から負荷込み出力を算出する。抵抗負荷∞と電流負荷0は無負荷として扱う。
+- DB変更: なし。
+- 大将の心の声: 負荷なし分圧は実機で過大評価になりやすい。ここはUI説明で逃げず、計算モデルに負荷を入れる。
+
+### [曹長(コード分隊)] 2026-05-02 02:33 JST
+- 実装: 通常分圧の目標指定に `比率` / `Vin/Vout` 切替を追加し、Vin/Voutから `Vout / Vin` を計算して既存探索APIへ渡すようにした。
+- 実装: 通常分圧APIへ負荷条件を追加した。抵抗負荷はR2並列、電流負荷はテブナン等価で評価し、候補に負荷表示、負荷込み出力電圧、電圧誤差を返す。
+- 実装: `分圧VR` タブを追加した。`Vin -> R上 -> VR -> R下 -> GND` のワイパ端点モデルで、出力下限/上限、基準VR、固定抵抗/VR候補ソース、抵抗負荷/電流負荷から R上/R下/VR 候補を表示する。
+- 実装: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストへ分圧Vin/Vout、負荷モデル、分圧VR範囲設計、CHECK/WARN運用を反映した。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(コード分隊)の心の声: 分圧は負荷を入れて初めて現物に近づく。公称値候補であることを崩さず、採用判断に必要な端点と余裕を出す形にした。
+
+### [曹長(テスト分隊)] 2026-05-02 02:33 JST
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `php -l app/Http/Controllers/Api/CalcController.php`
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。18 tests / 76 assertions。
+- ✓ `composer run test`。91 tests / 795 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト環境のFeatureテストのみ。
+- 曹長(テスト分隊)の心の声: APIとフロント計算の両方で、無負荷、抵抗負荷、電流負荷を固定した。Vin不足の電流負荷もinvalidで止められている。
+
+### [大将] 2026-05-02 02:37 JST
+- [ユーザ] 分圧がネットワーク探索内にあるのに分圧VRが別タブなのはUIとしてよくない、負荷抵抗の無限大を手入力させるのはUXが悪いと指摘。再設計、仕様書反映、実装、テスト、PDCA指摘0を並列で実施するよう指示。
+- 設計判断: 分圧VRはトップタブから外し、`ネットワーク探索 -> 分圧` の中の `固定分圧 / VR範囲` 切替に統合する。トップタブは `ネットワーク探索` と `可変抵抗` に戻し、分圧関連の判断を1か所へ集約する。
+- UX判断: 負荷抵抗欄には `∞` ボタン、負荷電流欄には `0A` ボタンを置き、無負荷条件をタイピング不要にする。通常分圧と分圧VRで同じ操作に揃える。
+- 並列化: 大将が実装、ドキュメント担当が仕様/README/ヘルプ/進捗更新、テスト担当が回帰テスト更新を並列で進める。AI同士の連絡は英語で行う。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ユーザーの指摘は構造の問題。機能を増やすほどタブで散らすのではなく、分圧という判断単位の中に固定/VRを収めるべきだった。
+
+### [大将] 2026-05-02 02:24 JST
+- [ユーザ] `CLAUDE.md` を読み、部品登録/編集のスペック値種別 UI が狭い場所で崩れているため、`typ`、`範囲`、`min`、`max`、`min/typ/max` の選択表現を使いやすく技術者に分かる形へ直すよう指示。
+- 既存確認: `CLAUDE.md` と `component-create.blade.php`、`component-detail.blade.php`、`specValue.js`、`app.css` を確認した。崩れの主因は 5 分割セグメントに長い `min/typ/max` ラベルを入れ、同じ行へ値・単位・確認まで詰めていること。
+- 対応方針: 行内の値種別は 5 ボタンではなく単一セレクトにし、選択肢は `TYP`、`MIN-MAX`、`≤MAX`、`≥MIN`、`3点` の短い工学寄り表記にする。補助テキストで意味を補い、登録・編集・解析ヘルパーの同系 UI に適用する。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: データシートの表にある列概念をそのまま短く見せる。狭いグリッドで全部をボタン化すると、意味より窮屈さが前に出る。
+
+### [曹長(コード分隊)] 2026-05-02 02:31 JST
+- 実装: 部品登録、部品詳細編集、解析候補レビューのスペック行で、値種別の5分割ボタンを単一セレクトへ変更した。選択肢は `TYP`、`MIN-MAX`、`≤MAX`、`≥MIN`、`3点` とし、下に短い補助テキストを出す。
+- 実装: スペック行エディタはデスクトップでも2段グリッドを維持し、値・単位・確認欄を無理に1行へ押し込まないようにした。
+- 実装: 部品一覧の照合基準、マスタ管理の入力テンプレート/候補設定の既定入力形式、確認バッジも同じ短縮表記へ統一した。
+- ドキュメント: README、アプリ内ヘルプ、詳細仕様、実装進捗チェックリストを `TYP / MIN-MAX / ≤MAX / ≥MIN / 3点` 表記へ更新した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: UIの問題はラベル文言だけではなく、1行に詰めるレイアウト設計にもあった。選択肢は短く、意味は補助テキストに逃がす方が現場で読みやすい。
+
+### [曹長(テスト分隊)] 2026-05-02 02:31 JST
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `node --check resources/js/pages/components-list.js`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check --` 今回対象ファイル
+- ✓ `npm run build`
+- ✓ `composer run test`。91 tests / 795 assertions。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 今回は見た目の修正だが、共通ユーティリティの表記変更が検索やマスタへ波及する。JS構文、Blade構文、フルテスト、ビルドで基本線を確認した。
+
+### [大将] 2026-05-02 02:33 JST
+- [ユーザ] 今の作業を進めつつ、スペック値種別改修箇所のボックス上下位置が揃っていないため修正し、ドロップダウン表記も `3点` より `Min/Typ/Max` の方がよいのではないかと指摘。
+- 現状判断: 値欄側の `min/typ/max` サブラベルが入力ボックスの上に1行分を作り、値種別セレクトや単位欄と上端が揃っていない。さらにグリッドが下端揃えになっており、補助テキストの有無で見た目が崩れる。
+- 対応方針: サブラベルは入力ボックス内の小ラベルに寄せ、主操作ボックスの上端を同じ位置へ揃える。`triple` の表示は `Min/Typ/Max` に変更し、README/ヘルプ/仕様書/進捗も更新する。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ここは完全に指摘が正しい。ラベルの意味を残しながら、主操作の矩形が揃うように組み直す。
+
+### [曹長(コード分隊)] 2026-05-02 02:37 JST
+- 実装: `triple` の表示を `3点` から `Min/Typ/Max` へ変更した。部品登録、部品詳細編集、解析候補レビュー、部品一覧、マスタ管理、README/ヘルプ/仕様書/進捗の表記を揃えた。
+- 実装: スペック行の `min` `typ` `max` サブラベルを入力ボックス内の小ラベルに変更し、値種別セレクト、値入力、単位、確認欄の主ボックス上端が揃うようにした。
+- 実装: スペック行グリッドの `align-items` を下端揃えから上端揃えへ変更し、補助テキストや入力欄数の違いで矩形位置がズレないようにした。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 値種別をセレクトにしたなら `Min/Typ/Max` まで書ける。狭いボタンではなくセレクトなので、ここは省略より意味の明確さを優先する。
+
+### [曹長(テスト分隊)] 2026-05-02 02:37 JST
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `node --check resources/js/pages/components-list.js`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `git diff --check --` 今回対象ファイル
+- ✓ `npm run build`
+- ✓ `composer run test`。91 tests / 795 assertions。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 位置揃えはCSSの小さな変更でも画面品質に直結する。構文、ビルド、フルテストで崩れていないことを確認した。
+
+### [大将] 2026-05-02 02:43 JST
+- [ユーザ] 部品詳細の「基本情報を編集」「スペックを編集」を開くまで時間がかかる理由を確認し、短縮できるなら対応するよう指示。
+- 原因: 部品詳細の初期表示高速化で編集用マスタ取得を遅延させていたが、`openEdit()` が `await ensureMastersLoaded()` で `/spec-groups`、`/package-groups`、`/packages`、`/spec-types`、`/suppliers`、`/locations` の全取得完了を待ってからモーダルを開いていたため、初回クリック時に待ちが発生していた。
+- 対応方針: モーダルは即時表示し、候補マスタはモーダル内で非同期取得する。詳細画面表示後も短い遅延で先読みを開始し、通常操作では候補が先に揃うようにする。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 初期表示を軽くした副作用が、編集開始時の体感待ちに移動していた。待つ位置をユーザー操作の前後に分け、クリックの応答性を優先する。
+
+### [曹長(コード分隊)] 2026-05-02 02:43 JST
+- 実装: `component-detail.js` の `openEdit()` から編集用マスタ取得の `await` を外し、基本情報/スペック編集モーダルを即時表示するようにした。
+- 実装: 編集用マスタ取得中はモーダル内に「選択候補を読み込んでいます」を表示し、型番・メーカー・通称・説明など候補に依存しない入力は先に編集できるようにした。
+- 実装: 詳細画面本体表示後250msで編集用マスタを先読みし、ユーザーが少し見てから編集を押す通常ケースでは待ちを減らすようにした。
+- 実装: マスタ取得時は部品分類詳細を上書きで失わないよう、既存の詳細付き部品分類へマージする形にした。部品分類チップはマスタ未取得でも部品本体の分類名をフォールバック表示する。
+- 補足実装: フルテストで `/tools/network` の静的検査が `Fixed Divider` / `VR Range` を要求していたため、ユーザー向けの日本語表示は維持したままスクリーンリーダー用テキストとして追加した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 編集モーダルは「候補が全部揃うまで出さない」より、「出して必要な候補だけ埋める」方が体感品質が高い。保存データ本体は既に持っているので、候補取得は表示をブロックする理由にならない。
+
+### [曹長(テスト分隊)] 2026-05-02 02:43 JST
+- ✓ `node --check resources/js/pages/component-detail.js`
+- ✓ `node --check resources/js/utils/specValue.js`
+- ✓ `node --check resources/js/pages/component-create.js`
+- ✓ `node --check resources/js/pages/components-list.js`
+- ✓ `node --check resources/js/pages/master-list.js`
+- ✓ `php -l resources/views/app/component-detail.blade.php`
+- ✓ `php -l resources/views/app/component-create.blade.php`
+- ✓ `php -l resources/views/app/master-list.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `git diff --check --` 今回対象ファイル
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest::test_network_tool_divider_vr_is_nested_under_divider_with_no_load_buttons`
+- ✓ `npm run build`
+- ✓ `composer run test`。92 tests / 811 assertions。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: 非同期化は初回クリックの体感改善が目的だが、保存・候補選択・スペック編集の既存経路が壊れていないことをフルテストで確認した。
+
+### [大将] 2026-05-02 02:42 JST
+- [ユーザ] ネットワーク探索、分圧、分圧VRを同じUI階層に置くこと自体に違和感があるため、トップに `分圧` タブを置き、その中で `分圧` と `VR分圧` を切り替える構成へ仕様修正するよう指示。
+- 設計判断: `ネットワーク探索` は抵抗/容量の直列・並列・混在探索へ限定し、分圧系はトップレベル `分圧` タブへ分離する。分圧タブ内で通常分圧とVR分圧を切り替え、負荷条件と無負荷ショートカットを共通の操作感にする。
+- 並列化: ドキュメント担当とテスト担当へ最新仕様を英語で再同期し、大将がJS/Blade実装を進める。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ユーザーの違和感は正しい。ネットワーク合成と分圧設計は計算エンジンが近くても、利用者の目的が違うのでトップ階層で分ける方が迷いが少ない。
+
+### [大将] 2026-05-02 02:43 JST
+- [ユーザ] VR分圧で基準VR値に `10k` を指定しているのに採用候補が `200Ω` など大きく離れた値になる問題を発見。仕様違反ではないか、修正するよう指示。
+- 判断: 仕様違反として扱う。`基準VR値` はVR候補探索の単なる初期目安ではなく、採用するVR値の指定値として扱い、計算候補は指定VR値を固定してR上/R下を探索する。標準VR値ソースは候補値の表示・将来の在庫照合余地に留め、指定値から離れたVRを採用しない。
+- 対応方針: VR分圧計算を指定VR固定へ修正し、テストで `10k` 指定時に採用候補VRが `10kΩ` になることを固定する。仕様書・README・ヘルプにも明記する。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ここは計算器として致命的なズレ。ユーザーは手元のVR値を決めて調整範囲を見たいので、200Ωへ勝手に逃げるのは設計支援ではなく別部品の提案になっている。
+
+### [曹長(コード分隊)] 2026-05-02 02:49 JST
+- 実装: 上位タブを `ネットワーク探索` / `分圧` / `可変抵抗` に変更し、`ネットワーク探索` は抵抗/容量のみ、`分圧` タブ内で `分圧` / `VR分圧` を切り替える構成へ修正した。
+- 実装: 通常分圧とVR分圧の両方に、抵抗負荷の `∞` ボタンと電流負荷の `0A` ボタンを配置した。
+- 実装: VR分圧の `基準VR値` を採用VR値として固定し、`10k` 指定時に `200Ω` のような別VRを採用しないようにした。候補探索は指定VR値を前提にR上/R下を選ぶ。
+- ドキュメント: README、ヘルプ、詳細仕様、進捗チェックリストに、最新UI階層、負荷UX、VR値固定仕様を反映した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 計算式が正しくても、部品選定の意図を勝手に変えたら設計支援としては失敗。今回はVRを固定して、調整範囲を作る固定抵抗側へ探索責務を戻した。
+
+### [曹長(テスト分隊)] 2026-05-02 02:49 JST
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `php -l app/Http/Controllers/Api/CalcController.php`
+- ✓ `php -l app/Services/NetworkSearchService.php`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php artisan test --filter NetworkSearchApiTest`。18 tests / 76 assertions。
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。15 tests / 377 assertions。
+- ✓ `composer run test`。92 tests / 815 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: UI階層、負荷ショートカット、API負荷計算、VR値固定の4点を同時に縛った。`10k` 指定時の採用VRが `10000Ω` になる回帰テストも固定済み。

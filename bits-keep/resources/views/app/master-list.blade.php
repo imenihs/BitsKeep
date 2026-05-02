@@ -1068,11 +1068,11 @@
               <label class="block">
                 <span class="block text-xs opacity-60 mb-1">入力形式</span>
                 <select v-model="item.default_profile" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-2 text-sm">
-                  <option value="typ">標準値</option>
-                  <option value="range">範囲</option>
-                  <option value="max_only">最大</option>
-                  <option value="min_only">最小</option>
-                  <option value="triple">最小/標準/最大</option>
+                  <option value="typ">TYP（代表値）</option>
+                  <option value="range">MIN-MAX（範囲）</option>
+                  <option value="max_only">≤MAX（最大のみ）</option>
+                  <option value="min_only">≥MIN（最小のみ）</option>
+                  <option value="triple">Min/Typ/Max</option>
                 </select>
               </label>
               <label class="block">
@@ -1128,11 +1128,11 @@
             <span class="block text-sm font-medium mb-1">既定の入力形式</span>
             <select v-model="candidateSettingModal.form.default_profile" class="w-full bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-2 text-sm">
               <option value="">未指定</option>
-              <option value="typ">標準値</option>
-              <option value="range">範囲</option>
-              <option value="max_only">最大</option>
-              <option value="min_only">最小</option>
-              <option value="triple">最小/標準/最大</option>
+              <option value="typ">TYP（代表値）</option>
+              <option value="range">MIN-MAX（範囲）</option>
+              <option value="max_only">≤MAX（最大のみ）</option>
+              <option value="min_only">≥MIN（最小のみ）</option>
+              <option value="triple">Min/Typ/Max</option>
             </select>
           </label>
           <label class="block">

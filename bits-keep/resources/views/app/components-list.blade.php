@@ -271,7 +271,7 @@
                 <span>更新: @{{ new Date(part.updated_at).toLocaleDateString('ja-JP') }}</span>
               </div>
               <div class="mt-1 text-xs opacity-60">
-                部品分類@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers?.length ?? 0 }}件 / 棚別在庫@{{ part.inventory_blocks_count ?? 0 }}件
+                部品分類@{{ part.categories?.length ?? 0 }}件 / 仕入先@{{ part.component_suppliers_count ?? part.component_suppliers?.length ?? 0 }}件 / 棚別在庫@{{ part.inventory_blocks_count ?? 0 }}件
               </div>
             </div>
           </a>
