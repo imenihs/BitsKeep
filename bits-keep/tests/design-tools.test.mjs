@@ -10,6 +10,9 @@ global.navigator = {};
 const { default: setupDesignTools } = await import('../resources/js/pages/design-tools.js');
 
 const state = setupDesignTools();
+const assertClose = (actual, expected, tolerance = Math.abs(expected) * 1e-9 + 1e-12) => {
+    assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} should be close to ${expected}`);
+};
 const requiredTools = [
     'adc',
     'cap-life',
@@ -100,5 +103,38 @@ assert.ok(
     state.analysisReport.value.metrics.some((metric) => metric.label === '第一候補' && metric.value.includes('74HC10')),
     'logic IC reference should use input count when filtering candidates'
 );
+
+assertClose(state.parseNumber('1fF'), 1e-15);
+assertClose(state.parseNumber('100nF'), 100e-9);
+assertClose(state.parseNumber('2.2MΩ'), 2.2e6);
+assertClose(state.parseNumber('3.3μV'), 3.3e-6);
+assertClose(state.parseNumber('1T'), 1e12);
+assertClose(state.parseNumber('1P'), 1e15);
+assertClose(state.parseNumber('512KiB'), 512 * 1024);
+assertClose(state.parseNumber('1Mi'), 1048576);
+
+state.activeToolId.value = 'divider';
+state.divider.mode = 'voltage';
+state.setNumericInput(state.divider, 'r1', { target: { value: '10kΩ' } });
+state.setNumericInput(state.divider, 'r2', { target: { value: '4.7k' } });
+assertClose(state.divider.r1, 10000);
+assertClose(state.divider.r2, 4700);
+assertClose(Number(state.dividerResult.value.vout), 1.5986, 0.0001);
+
+state.activeToolId.value = 'bode';
+state.setNumericInput(state.quickForms.bode, 'r', { target: { value: '10kΩ' } });
+state.setNumericInput(state.quickForms.bode, 'c', { target: { value: '100nF' } });
+assertClose(state.quickForms.bode.r, 10000);
+assertClose(state.quickForms.bode.c, 100e-9);
+assertClose(Number(state.quickTool.value.rows.find((row) => row[0] === 'fc')?.[1].split(' ')[0]), 159.155, 0.01);
+
+state.setNumericInput(state.power.loads[0], 'mA', { target: { value: '50mA' } }, 1e-3);
+assertClose(state.power.loads[0].mA, 50);
+state.setNumericInput(state.iface, 'i2cBusCapPf', { target: { value: '200pF' } }, 1e-12);
+assertClose(state.iface.i2cBusCapPf, 200);
+state.setNumericInput(state.quickForms.tvs, 'pulseMs', { target: { value: '100us' } }, 1e-3);
+assertClose(state.quickForms.tvs.pulseMs, 0.1);
+state.setNumericInput(state.iface, 'i2cBusCapPf', { target: { value: '100p' } }, 1e-12);
+assertClose(state.iface.i2cBusCapPf, 100);
 
 console.log('design tools assertions passed');

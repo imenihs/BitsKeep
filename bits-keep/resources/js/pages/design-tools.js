@@ -47,8 +47,62 @@ export default function setup() {
         { label: '見送り基準', value: '単発公式だけの電卓は採用せず、条件不足なら判定不能にする' },
     ];
 
+    const ENGINEERING_PREFIX_FACTORS = {
+        Y: 1e24,
+        Z: 1e21,
+        E: 1e18,
+        P: 1e15,
+        T: 1e12,
+        G: 1e9,
+        M: 1e6,
+        meg: 1e6,
+        k: 1e3,
+        K: 1e3,
+        '': 1,
+        m: 1e-3,
+        u: 1e-6,
+        n: 1e-9,
+        p: 1e-12,
+        f: 1e-15,
+        Ti: 1099511627776,
+        Gi: 1073741824,
+        Mi: 1048576,
+        Ki: 1024,
+    };
+    const normalizeUnitText = (value) => String(value ?? '')
+        .replace(/[μµ]/g, 'u')
+        .replace(/[Ωω]/g, 'ohm')
+        .replace(/[−－]/g, '-')
+        .trim();
+    const normalizePrefixToken = (prefix = '') => {
+        const normalized = String(prefix || '').trim();
+        if (/^meg$/iu.test(normalized)) return 'meg';
+        if (normalized === 'µ' || normalized === 'μ') return 'u';
+        return normalized;
+    };
+    const engineeringMultiplier = (prefix) => ENGINEERING_PREFIX_FACTORS[normalizePrefixToken(prefix)] ?? 1;
+    const parseEngineeringNumberDetail = (value) => {
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? { value, hasUnit: false } : null;
+        }
+        const raw = normalizeUnitText(value).replace(/,/g, '').replace(/\s+/g, '');
+        if (!raw) return null;
+        const match = raw.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)(Ti|Gi|Mi|Ki|MEG|Meg|meg|Y|Z|E|P|T|G|M|k|K|m|u|n|p|f)?([A-Za-z%°℃/_^.-].*)?$/u);
+        if (!match) return null;
+        const number = Number(match[1]);
+        if (!Number.isFinite(number)) return null;
+        return {
+            value: number * engineeringMultiplier(match[2] || ''),
+            hasPrefix: String(match[2] || '').trim() !== '',
+            hasUnit: String(match[3] || '').trim() !== '',
+        };
+    };
+    const parseEngineeringNumber = (value, fallback = 0) => {
+        const parsed = parseEngineeringNumberDetail(value);
+        return parsed ? parsed.value : fallback;
+    };
     const toFinite = (value, fallback = 0) => {
-        const number = Number(value);
+        const number = parseEngineeringNumber(value, Number.NaN);
         return Number.isFinite(number) ? number : fallback;
     };
     const formatNumber = (value, digits = 3, unit = '') => {
@@ -56,42 +110,30 @@ export default function setup() {
         if (!Number.isFinite(number)) return `--${unit ? ` ${unit}` : ''}`;
         return `${number.toFixed(digits)}${unit ? ` ${unit}` : ''}`;
     };
-    const engineeringMultiplier = (prefix) => ({
-        p: 1e-12,
-        n: 1e-9,
-        u: 1e-6,
-        m: 1e-3,
-        k: 1e3,
-        K: 1e3,
-        M: 1e6,
-        G: 1e9,
-    }[prefix] ?? 1);
-    const normalizeUnitText = (value) => String(value ?? '')
-        .replace(/[μµ]/g, 'u')
-        .replace(/[Ωω]/g, 'ohm')
-        .replace(/[−－]/g, '-')
-        .trim();
-    const parseEngineeringNumber = (value, fallback = 0) => {
-        if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
-        const raw = normalizeUnitText(value).replace(/,/g, '');
-        if (!raw) return fallback;
-        const match = raw.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?\s*([pnumkKMG]?)/);
-        if (!match) return fallback;
-        const number = Number(match[0].replace(/[pnumkKMG]\s*$/u, '').trim());
-        if (!Number.isFinite(number)) return fallback;
-        return number * engineeringMultiplier(match[1]);
-    };
     const unitMultiplier = (spec) => {
         const unit = normalizeUnitText(spec?.unit || spec?.normalized_unit || '')
             .replace(/\s+/g, '')
             .replace(/^meg(?=ohm|v|a|w|f|hz|s|j)/iu, 'M')
             .replace(/^micro(?=ohm|v|a|w|f|hz|s|j)/iu, 'u');
         if (!unit || unit.includes('%')) return 1;
-        const match = unit.match(/^([pnumkKMG]?)(?:ohm|v|a|w|f|hz|s|j)/iu);
+        const match = unit.match(/^(Ti|Gi|Mi|Ki|Y|Z|E|P|T|G|M|meg|k|K|m|u|n|p|f)?(?:ohm|V|v|A|a|W|w|F|f|Hz|hz|S|s|J|j|B|bit|bps)/u);
         if (!match) return 1;
         return engineeringMultiplier(match[1]);
     };
     const parseNumber = (value, fallback = 0) => parseEngineeringNumber(value, fallback);
+    const setNumericInput = (target, key, value, storedUnitFactor = 1) => {
+        const raw = typeof value === 'object' && value?.target ? value.target.value : value;
+        if (raw === null || raw === undefined || String(raw).trim() === '') {
+            target[key] = '';
+            return;
+        }
+        const parsed = parseEngineeringNumberDetail(raw);
+        if (parsed) {
+            const scale = Number(storedUnitFactor) || 1;
+            const shouldConvertToStoredUnit = scale !== 1 && (parsed.hasUnit || parsed.hasPrefix);
+            target[key] = shouldConvertToStoredUnit ? parsed.value / scale : parsed.value;
+        }
+    };
     const report = ({
         verdict,
         tone,
@@ -122,7 +164,7 @@ export default function setup() {
     const hasRating = (value) => {
         if (value === null || value === undefined) return false;
         if (typeof value === 'string' && value.trim() === '') return false;
-        return Number.isFinite(Number(value));
+        return Number.isFinite(parseEngineeringNumber(value, Number.NaN));
     };
     const ratingMissing = (ratings) => ratings.filter((rating) => !hasRating(rating.value)).map((rating) => rating.label);
     const diagramFocus = ref(null);
@@ -724,7 +766,7 @@ export default function setup() {
                     { key: 'surgeV', label: 'Vsurge サージ電圧(V)', type: 'number', diagramKey: 'surgeV' },
                     { key: 'lineImpedance', label: 'Zline 線路インピーダンス(Ω)', type: 'number', diagramKey: 'lineImpedance' },
                     { key: 'clampV', label: 'Vclamp TVSクランプ電圧(V)', type: 'number', diagramKey: 'clampV' },
-                    { key: 'pulseMs', label: 'パルス幅(ms)', type: 'number', diagramKey: 'pulseMs' },
+                    { key: 'pulseMs', label: 'パルス幅(ms)', type: 'number', diagramKey: 'pulseMs', storedUnitFactor: 1e-3 },
                     { key: 'waveformFactor', label: '波形係数', type: 'number', diagramKey: 'pulseMs' },
                     { key: 'peakPowerRating', label: 'TVSピークパルス電力定格(W)', type: 'number', diagramKey: 'clampV' },
                     { key: 'energyRating', label: 'TVSパルスエネルギー定格(J)', type: 'number', diagramKey: 'pulseMs' },
@@ -961,7 +1003,7 @@ export default function setup() {
                     { key: 'viewSide', label: '図面視点', type: 'select', options: [['mating-face', 'mating face'], ['solder-side', 'solder side']], diagramKey: 'viewSide' },
                     { key: 'pin1Mark', label: 'Pin1表示', type: 'select', options: [['silk-dot', 'シルク点'], ['triangle', '三角'], ['square-pad', '角ランド'], ['key-notch', 'キー/ノッチ']], diagramKey: 'pin1Mark' },
                     { key: 'pins', label: 'ピン数', type: 'number', diagramKey: 'pins' },
-                    { key: 'pitchMm', label: 'ピッチ(mm)', type: 'number', diagramKey: 'pins' },
+                    { key: 'pitchMm', label: 'ピッチ(mm)', type: 'number', diagramKey: 'pins', storedUnitFactor: 1e-3 },
                     { key: 'currentPerPin', label: '1pin電流(A)', type: 'number', diagramKey: 'currentPerPin' },
                     { key: 'currentRatingPerPin', label: '1pin定格電流(A)', type: 'number', diagramKey: 'currentPerPin' },
                     { key: 'deratingPct', label: '電流derating(%)', type: 'number', diagramKey: 'currentPerPin' },
@@ -1433,7 +1475,7 @@ export default function setup() {
         };
     });
 
-    const field = (target, key, label, group = '基本条件', type = 'number', diagramKey = key) => ({ target, key, label, group, type, diagramKey });
+    const field = (target, key, label, group = '基本条件', type = 'number', diagramKey = key, storedUnitFactor = 1) => ({ target, key, label, group, type, diagramKey, storedUnitFactor });
     const advancedInputGroups = computed(() => {
         const groups = {
             adc: [
@@ -1468,7 +1510,7 @@ export default function setup() {
             shunt: [
                 field(shunt, 'powerRating', 'Rs電力定格 (W)', '部品定格', 'number', 'Rs'),
                 field(shunt, 'tcrPpm', 'Rs TCR (ppm/degC)', '最悪条件', 'number', 'Rs'),
-                field(shunt, 'ampOffsetUv', 'アンプオフセット (uV)', '最悪条件', 'number', 'gain'),
+                field(shunt, 'ampOffsetUv', 'アンプオフセット (uV)', '最悪条件', 'number', 'gain', 1e-6),
                 field(shunt, 'adcBits', 'ADC bits', '出力・保存', 'number', 'Vout'),
                 field(shunt, 'adcVref', 'ADC Vref (V)', '出力・保存', 'number', 'Vout'),
             ],
@@ -1483,8 +1525,8 @@ export default function setup() {
                 field(comp, 'VOH', '出力High電圧 (V)', '基本条件', 'number', 'out'),
                 field(comp, 'VOL', '出力Low電圧 (V)', '基本条件', 'number', 'out'),
                 field(comp, 'tolerancePct', '抵抗/基準公差 (%)', '部品定格', 'number', 'R1'),
-                field(comp, 'inputOffsetMv', '入力オフセット (mV)', '最悪条件', 'number', 'Vref'),
-                field(comp, 'noiseMv', 'ノイズ振幅 (mV)', '最悪条件', 'number', 'out'),
+                field(comp, 'inputOffsetMv', '入力オフセット (mV)', '最悪条件', 'number', 'Vref', 1e-3),
+                field(comp, 'noiseMv', 'ノイズ振幅 (mV)', '最悪条件', 'number', 'out', 1e-3),
                 field(comp, 'candidateResistors', '抵抗候補 (ohm)', '部品定格', 'text', 'R2'),
             ],
             thermal: [
@@ -1499,10 +1541,10 @@ export default function setup() {
                 field(iface, 'tempMax', '温度 max (degC)', '最悪条件', 'number', 'VIH'),
                 field(iface, 'uartNominalBaud', 'UART nominal baud', '出力・保存', 'number', 'VOH'),
                 field(iface, 'uartActualBaud', 'UART actual baud', '出力・保存', 'number', 'VIH'),
-                field(iface, 'i2cBusCapPf', 'I2Cバス容量 (pF)', '最悪条件', 'number', 'VOL'),
-                field(iface, 'i2cRiseNsLimit', 'I2C立上り上限 (ns)', '部品定格', 'number', 'VIL'),
+                field(iface, 'i2cBusCapPf', 'I2Cバス容量 (pF)', '最悪条件', 'number', 'VOL', 1e-12),
+                field(iface, 'i2cRiseNsLimit', 'I2C立上り上限 (ns)', '部品定格', 'number', 'VIL', 1e-9),
                 field(iface, 'pullupOhm', 'プルアップ (ohm)', '部品定格', 'number', 'VOL'),
-                field(iface, 'i2cSinkMaLimit', 'I2C Lowシンク定格 (mA)', '部品定格', 'number', 'VOL'),
+                field(iface, 'i2cSinkMaLimit', 'I2C Lowシンク定格 (mA)', '部品定格', 'number', 'VOL', 1e-3),
             ],
         }[activeToolId.value] ?? [];
 
@@ -2338,5 +2380,6 @@ export default function setup() {
         componentImport, loadComponentContext, loadedComponentName, loadedComponentStock,
         savedAnalysis, loadSavedAnalysis,
         activeDiagram, diagramFocus, focusDiagram, clearDiagramFocus, isDiagramFocused, diagramItemClass,
+        parseNumber, setNumericInput,
     };
 }

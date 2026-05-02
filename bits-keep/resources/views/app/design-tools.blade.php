@@ -56,9 +56,9 @@
             <input v-else-if="item.type === 'text'" v-model="item.target[item.key]"
               @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
               type="text" class="input-text w-full font-mono text-xs" />
-            <input v-else v-model.number="item.target[item.key]"
-              @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
-              type="number" step="any" class="input-text w-full font-mono text-xs" />
+            <input v-else :value="item.target[item.key]" @change="setNumericInput(item.target, item.key, $event, item.storageUnitFactor)"
+              @focus="focusDiagram(item.diagramKey || item.key)" @blur="setNumericInput(item.target, item.key, $event, item.storageUnitFactor); clearDiagramFocus()"
+              type="text" inputmode="decimal" autocomplete="off" class="input-text w-full font-mono text-xs" />
           </label>
         </div>
       </div>
@@ -568,26 +568,26 @@
       <div class="space-y-3">
         <div class="flex items-center gap-3">
           <label class="w-28 text-sm">分解能 (bits)</label>
-          <input v-model.number="adc.bits" type="number" min="6" max="24"
-            @focus="focusDiagram('adc')" @blur="clearDiagramFocus"
+          <input :value="adc.bits" @change="setNumericInput(adc, 'bits', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('adc')" @blur="setNumericInput(adc, 'bits', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-center gap-3">
           <label class="w-28 text-sm">Vref (V)</label>
-          <input v-model.number="adc.vref" type="number" step="0.01"
-            @focus="focusDiagram('vref')" @blur="clearDiagramFocus"
+          <input :value="adc.vref" @change="setNumericInput(adc, 'vref', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('vref')" @blur="setNumericInput(adc, 'vref', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-center gap-3">
           <label class="w-28 text-sm">入力電圧 Vin (V)</label>
-          <input v-model.number="adc.vin" type="number" step="0.01"
-            @focus="focusDiagram('vin')" @blur="clearDiagramFocus"
+          <input :value="adc.vin" @change="setNumericInput(adc, 'vin', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('vin')" @blur="setNumericInput(adc, 'vin', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-center gap-3">
           <label class="w-28 text-sm">オフセット (V)</label>
-          <input v-model.number="adc.offset" type="number" step="0.01"
-            @focus="focusDiagram('offset')" @blur="clearDiagramFocus"
+          <input :value="adc.offset" @change="setNumericInput(adc, 'offset', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('offset')" @blur="setNumericInput(adc, 'offset', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
       </div>
@@ -617,8 +617,8 @@
         <div v-for="[key, label, step, diagramKey] in [['L0','定格寿命 L₀ (h)',100,'L0'],['T0','定格温度 T₀ (°C)',5,'L0'],['T','動作温度 T (°C)',1,'T'],['Vr','定格電圧 Vr (V)',1,'V'],['V','動作電圧 V (V)',1,'V']]" :key="key"
           class="flex items-center gap-3">
           <label class="w-32 text-sm">@{{ label }}</label>
-          <input v-model.number="cap[key]" type="number" :step="step"
-            @focus="focusDiagram(diagramKey)" @blur="clearDiagramFocus"
+          <input :value="cap[key]" @change="setNumericInput(cap, key, $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram(diagramKey)" @blur="setNumericInput(cap, key, $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
       </div>
@@ -661,34 +661,34 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div v-if="divider.mode === 'voltage'" class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-24 text-sm">Vin (V)</label>
-          <input v-model.number="divider.vin" type="number" step="0.1"
-            @focus="focusDiagram('vin')" @blur="clearDiagramFocus"
+          <input :value="divider.vin" @change="setNumericInput(divider, 'vin', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('vin')" @blur="setNumericInput(divider, 'vin', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-32 text-sm">R1 上側抵抗 (Ω)</label>
-          <input v-model.number="divider.r1" type="number"
-            @focus="focusDiagram('r1')" @blur="clearDiagramFocus"
+          <input :value="divider.r1" @change="setNumericInput(divider, 'r1', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('r1')" @blur="setNumericInput(divider, 'r1', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-32 text-sm">R2 下側抵抗 (Ω)</label>
-          <input v-model.number="divider.r2" type="number"
-            @focus="focusDiagram('r2')" @blur="clearDiagramFocus"
+          <input :value="divider.r2" @change="setNumericInput(divider, 'r2', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('r2')" @blur="setNumericInput(divider, 'r2', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
       </div>
       <div v-else class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-28 text-sm">R₀ @ T₀ (Ω)</label>
-          <input v-model.number="divider.R0" type="number"
-            @focus="focusDiagram('R0')" @blur="clearDiagramFocus"
+          <input :value="divider.R0" @change="setNumericInput(divider, 'R0', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('R0')" @blur="setNumericInput(divider, 'R0', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">T₀ (°C)</label>
-          <input v-model.number="divider.T0" type="number"
-            @focus="focusDiagram('T0')" @blur="clearDiagramFocus"
+          <input :value="divider.T0" @change="setNumericInput(divider, 'T0', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('T0')" @blur="setNumericInput(divider, 'T0', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">B定数</label>
-          <input v-model.number="divider.B" type="number"
-            @focus="focusDiagram('B')" @blur="clearDiagramFocus"
+          <input :value="divider.B" @change="setNumericInput(divider, 'B', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('B')" @blur="setNumericInput(divider, 'B', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-32 text-sm">Rntc 測定抵抗 (Ω)</label>
-          <input v-model.number="divider.Rmeas" type="number"
-            @focus="focusDiagram('Rmeas')" @blur="clearDiagramFocus"
+          <input :value="divider.Rmeas" @change="setNumericInput(divider, 'Rmeas', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('Rmeas')" @blur="setNumericInput(divider, 'Rmeas', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
       </div>
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 space-y-2">
@@ -724,20 +724,20 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-36 text-sm">Rs シャント抵抗 (Ω)</label>
-          <input v-model.number="shunt.Rs" type="number" step="0.001"
-            @focus="focusDiagram('Rs')" @blur="clearDiagramFocus"
+          <input :value="shunt.Rs" @change="setNumericInput(shunt, 'Rs', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('Rs')" @blur="setNumericInput(shunt, 'Rs', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">アンプゲイン</label>
-          <input v-model.number="shunt.gain" type="number" step="1"
-            @focus="focusDiagram('gain')" @blur="clearDiagramFocus"
+          <input :value="shunt.gain" @change="setNumericInput(shunt, 'gain', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('gain')" @blur="setNumericInput(shunt, 'gain', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div v-if="shunt.mode === 'from_vout'" class="flex items-center gap-3"><label class="w-28 text-sm">Vout (V)</label>
-          <input v-model.number="shunt.Vout" type="number" step="0.001"
-            @focus="focusDiagram('Vout')" @blur="clearDiagramFocus"
+          <input :value="shunt.Vout" @change="setNumericInput(shunt, 'Vout', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('Vout')" @blur="setNumericInput(shunt, 'Vout', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div v-else class="flex items-center gap-3"><label class="w-28 text-sm">電流 I (A)</label>
-          <input v-model.number="shunt.I" type="number" step="0.1"
-            @focus="focusDiagram('I')" @blur="clearDiagramFocus"
+          <input :value="shunt.I" @change="setNumericInput(shunt, 'I', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('I')" @blur="setNumericInput(shunt, 'I', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
       </div>
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 space-y-2">
@@ -768,8 +768,8 @@
       <div>
         <div class="flex items-center gap-3 mb-4">
           <label class="w-32 text-sm font-medium">供給電力 (W)</label>
-          <input v-model.number="power.supply_w" type="number" step="0.1"
-            @focus="focusDiagram('supply')" @blur="clearDiagramFocus"
+          <input :value="power.supply_w" @change="setNumericInput(power, 'supply_w', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('supply')" @blur="setNumericInput(power, 'supply_w', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="space-y-2 mb-3">
@@ -777,12 +777,12 @@
             <input v-model="l.label" type="text" placeholder="名称"
               @focus="focusDiagram('loads')" @blur="clearDiagramFocus"
               class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm" />
-            <input v-model.number="l.mA" type="number" step="1" placeholder="mA"
-              @focus="focusDiagram('loads')" @blur="clearDiagramFocus"
+            <input :value="l.mA" @change="setNumericInput(l, 'mA', $event, 1e-3)" type="text" inputmode="decimal" autocomplete="off" placeholder="mA"
+              @focus="focusDiagram('loads')" @blur="setNumericInput(l, 'mA', $event, 1e-3); clearDiagramFocus()"
               class="w-20 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm font-mono" />
             <span class="text-xs opacity-50">mA @</span>
-            <input v-model.number="l.V" type="number" step="0.1"
-              @focus="focusDiagram('loads')" @blur="clearDiagramFocus"
+            <input :value="l.V" @change="setNumericInput(l, 'V', $event)" type="text" inputmode="decimal" autocomplete="off"
+              @focus="focusDiagram('loads')" @blur="setNumericInput(l, 'V', $event); clearDiagramFocus()"
               class="w-16 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm font-mono" />
             <span class="text-xs opacity-50">V</span>
             <button @click="removeLoad(i)" class="text-red-400 hover:text-red-600 text-sm">✕</button>
@@ -828,8 +828,8 @@
         <div v-for="[key, label, step, diagramKey] in [['Vcc','Vcc 電源電圧 (V)',0.1,'Vcc'],['Vref','Vref 基準電圧 (V)',0.01,'Vref'],['VOH','出力High電圧 (V)',0.01,'out'],['VOL','出力Low電圧 (V)',0.01,'out'],['R1','R1 入力直列抵抗 (Ω)',1000,'R1'],['R2','R2 基準側抵抗 (Ω)',1000,'R2'],['R3','R3 基準帰還抵抗 (Ω, 0=なし)',1000,'R3']]" :key="key"
           class="flex items-center gap-3">
           <label class="w-36 text-sm">@{{ label }}</label>
-          <input v-model.number="comp[key]" type="number" :step="step"
-            @focus="focusDiagram(diagramKey)" @blur="clearDiagramFocus"
+          <input :value="comp[key]" @change="setNumericInput(comp, key, $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram(diagramKey)" @blur="setNumericInput(comp, key, $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
       </div>
@@ -860,20 +860,20 @@
       <div>
         <div class="flex items-center gap-3 mb-3">
           <label class="w-32 text-sm font-medium">消費電力 (W)</label>
-          <input v-model.number="thermal.P" type="number" step="0.1"
-            @focus="focusDiagram('P')" @blur="clearDiagramFocus"
+          <input :value="thermal.P" @change="setNumericInput(thermal, 'P', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('P')" @blur="setNumericInput(thermal, 'P', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-center gap-3 mb-4">
           <label class="w-32 text-sm font-medium">雰囲気温度 (°C)</label>
-          <input v-model.number="thermal.Tambient" type="number" step="1"
-            @focus="focusDiagram('Tambient')" @blur="clearDiagramFocus"
+          <input :value="thermal.Tambient" @change="setNumericInput(thermal, 'Tambient', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('Tambient')" @blur="setNumericInput(thermal, 'Tambient', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-center gap-3 mb-4">
           <label class="w-32 text-sm font-medium">Tj閾値 (°C)</label>
-          <input v-model.number="thermal.TjLimit" type="number" step="1"
-            @focus="focusDiagram('Tj')" @blur="clearDiagramFocus"
+          <input :value="thermal.TjLimit" @change="setNumericInput(thermal, 'TjLimit', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('Tj')" @blur="setNumericInput(thermal, 'TjLimit', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="space-y-2 mb-3">
@@ -881,8 +881,8 @@
             <input v-model="n.label" type="text"
               @focus="focusDiagram('nodes')" @blur="clearDiagramFocus"
               class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm" />
-            <input v-model.number="n.Rth" type="number" step="0.1" placeholder="θ(°C/W)"
-              @focus="focusDiagram('nodes')" @blur="clearDiagramFocus"
+            <input :value="n.Rth" @change="setNumericInput(n, 'Rth', $event)" type="text" inputmode="decimal" autocomplete="off" placeholder="θ(°C/W)"
+              @focus="focusDiagram('nodes')" @blur="setNumericInput(n, 'Rth', $event); clearDiagramFocus()"
               class="w-24 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-2 py-1.5 text-sm font-mono" />
             <span class="text-xs opacity-50">°C/W</span>
             <button @click="removeNode(i)" class="text-red-400 hover:text-red-600">✕</button>
@@ -928,21 +928,21 @@
       <div class="space-y-3">
         <p class="text-xs font-medium opacity-60">出力側（ドライバ）</p>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">VOH (V)</label>
-          <input v-model.number="iface.VOH" type="number" step="0.01"
-            @focus="focusDiagram('VOH')" @blur="clearDiagramFocus"
+          <input :value="iface.VOH" @change="setNumericInput(iface, 'VOH', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('VOH')" @blur="setNumericInput(iface, 'VOH', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">VOL (V)</label>
-          <input v-model.number="iface.VOL" type="number" step="0.01"
-            @focus="focusDiagram('VOL')" @blur="clearDiagramFocus"
+          <input :value="iface.VOL" @change="setNumericInput(iface, 'VOL', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('VOL')" @blur="setNumericInput(iface, 'VOL', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <p class="text-xs font-medium opacity-60 pt-2">入力側（レシーバ）</p>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">VIH (V)</label>
-          <input v-model.number="iface.VIH" type="number" step="0.01"
-            @focus="focusDiagram('VIH')" @blur="clearDiagramFocus"
+          <input :value="iface.VIH" @change="setNumericInput(iface, 'VIH', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('VIH')" @blur="setNumericInput(iface, 'VIH', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
         <div class="flex items-center gap-3"><label class="w-28 text-sm">VIL (V)</label>
-          <input v-model.number="iface.VIL" type="number" step="0.01"
-            @focus="focusDiagram('VIL')" @blur="clearDiagramFocus"
+          <input :value="iface.VIL" @change="setNumericInput(iface, 'VIL', $event)" type="text" inputmode="decimal" autocomplete="off"
+            @focus="focusDiagram('VIL')" @blur="setNumericInput(iface, 'VIL', $event); clearDiagramFocus()"
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
       </div>
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 space-y-3">
@@ -1010,9 +1010,9 @@
             <input v-else-if="field.type === 'text'" v-model="quickForms[quickTool.model][field.key]"
               @focus="focusDiagram(field.diagramKey || field.key)" @blur="clearDiagramFocus"
               type="text" class="input-text w-full font-mono" />
-            <input v-else v-model.number="quickForms[quickTool.model][field.key]"
-              @focus="focusDiagram(field.diagramKey || field.key)" @blur="clearDiagramFocus"
-              type="number" step="any" class="input-text w-full font-mono" />
+            <input v-else :value="quickForms[quickTool.model][field.key]" @change="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storageUnitFactor)"
+              @focus="focusDiagram(field.diagramKey || field.key)" @blur="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storageUnitFactor); clearDiagramFocus()"
+              type="text" inputmode="decimal" autocomplete="off" class="input-text w-full font-mono" />
           </label>
         </div>
       </div>
