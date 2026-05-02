@@ -5,23 +5,33 @@
  * 収録ツール:
  * 1. ADCコード/スケーリング
  * 2. 電解コンデンサ寿命推定
- * 3. 抵抗分圧/温度変換（NTC/PTC対応）
- * 4. 電流検出解析（シャント抵抗）
- * 5. 電源余裕解析（供給電力 vs 消費電力）
- * 6. 比較器しきい値/ヒステリシス
- * 7. 熱設計（熱抵抗チェーン）
- * 8. インタフェース余裕解析（VOH/VOL/VIH/VIL）
- * 9. 誤差/歩留まり、保護回路、接続/起動診断などの簡易設計補助
+ * 3. 受動部品ネットワーク/分圧設計への導線
+ * 4. NTC/PTC温度変換
+ * 5. 電流検出解析（シャント抵抗）
+ * 6. 電源余裕解析（供給電力 vs 消費電力）
+ * 7. 比較器しきい値/ヒステリシス
+ * 8. 熱設計（熱抵抗チェーン）
+ * 9. インタフェース余裕解析（VOH/VOL/VIH/VIL）
+ * 10. 誤差/歩留まり、保護回路、接続/起動診断などの簡易設計補助
  */
 import { ref, reactive, computed } from 'vue';
+import setupPassiveNetworkTool from './resistance-calc.js';
 
 export default function setup() {
     const activeToolId = ref(document.getElementById('app')?.dataset?.tool ?? 'adc');
+    const unwrapSetupRefs = (surface) => new Proxy(surface, {
+        get(target, key) {
+            const value = target[key];
+            return value && typeof value === 'object' && value.__v_isRef === true ? value.value : value;
+        },
+    });
+    const passiveNetwork = unwrapSetupRefs(setupPassiveNetworkTool());
 
     const tools = [
+        { id: 'passive-network', label: '受動部品ネットワーク/分圧', desc: '抵抗/容量ネットワーク、通常分圧、VR分圧、可変抵抗設計をこのタブ内で探索します。' },
         { id: 'adc',        label: 'ADCスケーリング', desc: '入力電圧をADCデジタルコードに変換し、スケーリング係数・LSBサイズ・フルスケール誤差を計算します。' },
         { id: 'cap-life',   label: 'コンデンサ寿命',  desc: 'アレニウス則に基づき、動作温度・リプル電流から電解コンデンサの推定寿命を算出します。' },
-        { id: 'divider',    label: '分圧・温度変換',  desc: '抵抗分圧回路の出力電圧を計算し、NTC/PTCサーミスタの温度変換も行います。' },
+        { id: 'divider',    label: 'NTC/PTC温度変換', desc: 'サーミスタの温度変換、温度スイープ、ADCコード表、プルアップ候補を確認します。通常分圧とVR分圧は受動部品ネットワーク/分圧を使います。' },
         { id: 'shunt',      label: '電流検出',        desc: 'シャント抵抗の両端電圧と消費電力から電流値を求め、検出回路の設計値を評価します。' },
         { id: 'power',      label: '電源余裕',        desc: '供給電力と各負荷の消費電力を比較し、電源の余裕度（マージン）を確認します。' },
         { id: 'comparator', label: '比較器',          desc: '比較器のしきい値電圧とヒステリシス幅を計算します。ポジティブ/ネガティブフィードバック対応。' },
@@ -35,7 +45,7 @@ export default function setup() {
         { id: 'polyfuse',   label: 'ポリスイッチ',     desc: '保持電流・抵抗・負荷電流から発熱と保持余裕を確認します。' },
         { id: 'protection', label: '保護協調',         desc: 'OVP/TVS/ヒューズ/PTC/eFuse/逆接保護を同じ故障順序で確認します。' },
         { id: 'logic-ic',   label: 'ロジックIC参照',   desc: '74xx/40xx系の機能、入力数、電源範囲、出力形式から置換候補と注意点を確認します。' },
-        { id: 'connector',  label: 'コネクタ参照',     desc: 'ピン数、電流、用途からコネクタ選定時の確認観点を整理します。' },
+        { id: 'connector',  label: 'コネクタ設計/ピン配置', desc: '写真/図つきカタログ、ピン割付、ピン別電圧/電流、derating、ケーブル/BOM注記を確認します。' },
         { id: 'cable',      label: 'ケーブル判定',     desc: '両端ピン列を比較し、ストレート/クロス/カスタム配線を判定します。' },
         { id: 'jumper',     label: '0Ω/Jumper整理',   desc: '0Ω、未実装、ジャンパ設定の目的と量産状態を一覧化します。' },
         { id: 'startup',    label: '起動診断',         desc: '電源レール、依存関係、リセット解除順をテンプレートで確認します。' },
@@ -43,7 +53,7 @@ export default function setup() {
     const activeTool = computed(() => tools.find(t => t.id === activeToolId.value));
     const hubBands = [
         { label: '共通条件', value: 'pass/fail、margin、支配要因、次アクションまで返す' },
-        { label: '初期優先帯', value: '誤差/電源/ADC/IF/電流検出を設計判断として扱う' },
+        { label: '受動部品', value: 'R/C探索、分圧、VR分圧、可変抵抗を同じ解析タブで扱う' },
         { label: '見送り基準', value: '単発公式だけの電卓は採用せず、条件不足なら判定不能にする' },
     ];
 
@@ -192,14 +202,92 @@ export default function setup() {
         fuse: { ratedCurrent: 2, loadCurrent: 1.2, ambient: 50, deratingPct: 25, currentRating: '' },
         polyfuse: { holdCurrent: 0.75, tripCurrent: 1.5, loadCurrent: 0.5, resistance: 0.4, ambient: 40, holdCurrentRating: '', powerRating: '' },
         protection: { faultV: 24, faultCurrent: 3, tvsPowerRating: 600, fuseI2t: 10, ptcHold: 0.75, efuseLimit: 2, reverseDrop: 0.4, loadCurrent: 0.6 },
-        'logic-ic': { family: '74HC', function: 'nand', inputs: 2, packagePins: 14, supplyV: 3.3, outputType: 'push-pull' },
-        connector: { pins: 10, currentPerPin: 1, environment: 'board-to-wire', connectorType: 'pin-header', viewSide: 'mating-face', pin1Mark: 'silk-dot', pitchMm: 2.54, currentRatingPerPin: '', tempRiseLimit: '', deratingPct: 50 },
+        'logic-ic': {
+            family: '74HC',
+            function: 'nand',
+            inputs: 2,
+            packagePins: 14,
+            supplyV: 3.3,
+            outputType: 'push-pull',
+            driverFamily: '74LS',
+            driverVcc: 5,
+            receiverFamily: '74HCT',
+            receiverVcc: 5,
+        },
+        connector: {
+            selectedTemplateId: 'usb-c-receptacle',
+            pins: 24,
+            currentPerPin: 1,
+            environment: 'external',
+            connectorType: 'USB',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            pitchMm: 0.5,
+            currentRatingPerPin: 1.25,
+            voltageRatingV: 20,
+            tempRiseLimit: '',
+            deratingPct: 80,
+            matingPart: 'USB Type-C plug',
+            photoUrl: '',
+            diagramUrl: '',
+            datasheetUrl: '',
+            bomNote: 'USB-C receptacle, mating face pinoutを図面へ添付',
+            silkNote: 'Pin1/CC1/CC2/Shieldをシルクまたは組立図で明示',
+            pinAssignments: [
+                'A1,GND,ground,0,0.8,black,24,シェル近傍GND',
+                'A4,VBUS,power,5,0.8,red,24,VBUS電源',
+                'A5,CC1,signal,5,0.001,white,30,CC pull設定',
+                'A6,D+,diff,3.3,0.02,green,30,USB2 pair',
+                'A7,D-,diff,3.3,0.02,white,30,USB2 pair',
+                'B4,VBUS,power,5,0.8,red,24,VBUS電源',
+                'B5,CC2,signal,5,0.001,white,30,CC pull設定',
+                'B6,D+,diff,3.3,0.02,green,30,USB2 pair',
+                'B7,D-,diff,3.3,0.02,white,30,USB2 pair',
+                'B12,GND,ground,0,0.8,black,24,シェル近傍GND',
+            ].join('\n'),
+            userTemplateName: '',
+            userTemplateStandard: '',
+            userTemplatePins: 2,
+            userTemplateRows: 1,
+            userTemplatePitchMm: 2.54,
+            userTemplateGender: '',
+            userTemplateVoltageRatingV: 50,
+            userTemplateCurrentRatingPerPin: 1,
+            userTemplateNumbering: 'Pin1から昇順',
+            userTemplatePhotoUrl: '',
+            userTemplateDiagramUrl: '',
+            userTemplateDatasheetUrl: '',
+            userTemplateMatingPart: '',
+            userTemplateNotes: '',
+        },
         cable: { endA: '1,2,3,4', endB: '1,2,3,4' },
         jumper: { entries: 'JP1,0Ω,debug,未実装,未実装,BOM DNP\nR105,0Ω,variant,実装,実装,BOM mount\nJP_BOOT,ジャンパ,boot,切替,未実装,BOM option' },
         startup: { template: 'pmic-mcu', rails: 'VIN,,10\n3V3,VIN,5\n1V8,3V3,3\nRESET,3V3,20', pgSignals: 'PG_3V3,3V3,5\nRESET_MCU,3V3,20', partialPowerPaths: 'I2C_SDA->MCU_VDD\nUSB_D+->3V3', resetHoldMs: 20 },
     });
 
     const activeDiagram = computed(() => {
+        if (activeToolId.value === 'passive-network') {
+            return {
+                type: 'flow',
+                title: '受動部品ネットワーク/分圧設計',
+                subtitle: '通常分圧、VR分圧、抵抗/容量ネットワーク探索、可変抵抗設計を専用作業面へ接続します。',
+                formula: 'network/divider/VR -> candidates -> margin',
+                parts: [
+                    { key: 'network', label: 'R/C探索', desc: '直列・並列・混在候補' },
+                    { key: 'divider', label: '通常分圧', desc: 'Vin/Vout、負荷、許容差' },
+                    { key: 'vr', label: 'VR分圧', desc: '調整範囲と端点電力' },
+                    { key: 'variable', label: '可変抵抗', desc: '固定抵抗 + VR候補' },
+                ],
+                blocks: [
+                    { key: 'network', label: 'R/C探索', sub: '直列・並列・混在' },
+                    { key: 'divider', label: '通常分圧', sub: '負荷込み候補' },
+                    { key: 'vr', label: 'VR分圧', sub: '調整範囲' },
+                    { key: 'variable', label: '可変抵抗', sub: '固定抵抗 + VR' },
+                ],
+                assumptions: ['詳細な候補表、比較トレイ、探索APIは /tools/network の専用作業面を正本にします。'],
+            };
+        }
+
         if (activeToolId.value === 'adc') {
             return {
                 type: 'flow',
@@ -246,36 +334,20 @@ export default function setup() {
         }
 
         if (activeToolId.value === 'divider') {
-            if (divider.mode === 'ntc') {
-                return {
-                    type: 'divider-ntc',
-                    title: 'NTC抵抗値から温度へ変換',
-                    subtitle: '測定済みのNTC抵抗値をB定数式へ入れ、温度を逆算します。',
-                    formula: '1/T = 1/T0 + ln(Rntc / R0) / B',
-                    keys: { input: 'Rmeas', upper: 'R0', lower: 'Rmeas', output: 'temp' },
-                    parts: [
-                        { key: 'R0', label: 'R0', desc: `基準抵抗 ${divider.R0} ohm` },
-                        { key: 'T0', label: 'T0', desc: `基準温度 ${divider.T0} degC` },
-                        { key: 'B', label: 'B', desc: `B定数 ${divider.B}` },
-                        { key: 'Rmeas', label: 'Rntc', desc: `測定抵抗 ${divider.Rmeas} ohm` },
-                        { key: 'temp', label: '温度', desc: `${dividerResult.value.temp_c} degC` },
-                    ],
-                    assumptions: ['自己発熱、固定抵抗公差、ADC量子化誤差は未評価です。'],
-                };
-            }
             return {
-                type: 'divider',
-                title: '抵抗分圧の位置関係',
-                subtitle: 'Vin側がR1、GND側がR2です。中央ノードVoutを後段へ渡します。',
-                formula: 'Vout = Vin * R2 / (R1 + R2)',
-                keys: { input: 'vin', upper: 'r1', lower: 'r2', output: 'vout' },
+                type: 'divider-ntc',
+                title: 'NTC/PTC抵抗値から温度へ変換',
+                subtitle: '測定済みのサーミスタ抵抗値をB定数式へ入れ、温度とADCコード表を確認します。',
+                formula: '1/T = 1/T0 + ln(Rntc / R0) / B',
+                keys: { input: 'Rmeas', upper: 'R0', lower: 'Rmeas', output: 'temp' },
                 parts: [
-                    { key: 'vin', label: 'Vin', desc: `入力 ${divider.vin} V` },
-                    { key: 'r1', label: 'R1 上側抵抗', desc: `${divider.r1} ohm` },
-                    { key: 'r2', label: 'R2 下側抵抗', desc: `${divider.r2} ohm` },
-                    { key: 'vout', label: 'Vout', desc: `${dividerResult.value.vout} V` },
+                    { key: 'R0', label: 'R0', desc: `基準抵抗 ${divider.R0} ohm` },
+                    { key: 'T0', label: 'T0', desc: `基準温度 ${divider.T0} degC` },
+                    { key: 'B', label: 'B', desc: `B定数 ${divider.B}` },
+                    { key: 'Rmeas', label: 'Rntc', desc: `測定抵抗 ${divider.Rmeas} ohm` },
+                    { key: 'temp', label: '温度', desc: `${dividerResult.value.temp_c} degC` },
                 ],
-                assumptions: ['後段入力インピーダンスは十分高い前提です。'],
+                assumptions: ['通常分圧、負荷込み分圧、VR分圧は受動部品ネットワーク/分圧設計へ統合済みです。', '自己発熱、固定抵抗公差、ADC量子化誤差は温度判定の未評価条件です。'],
             };
         }
 
@@ -490,42 +562,47 @@ export default function setup() {
         }
 
         if (activeToolId.value === 'logic-ic') {
+            const level = logicLevelCompatibility(quick);
             return {
                 type: 'flow',
-                title: 'ロジックICの機能と入出力条件',
-                subtitle: '機能、ファミリ、電源電圧、出力形式を候補ICとデータシート確認項目へつなげます。',
-                formula: 'family + function + Vcc + output -> candidate IC',
+                title: 'ロジックICの機能候補と系列間レベル',
+                subtitle: '機能、ファミリ、電源電圧、出力形式に加えて、送信側VOH/VOLと受信側VIH/VILの成立性を見ます。',
+                formula: 'candidate IC + driver VOH/VOL >= receiver VIH/VIL',
                 parts: [
                     { key: 'family', label: 'family', desc: quick.family },
                     { key: 'function', label: 'function', desc: quick.function },
                     { key: 'supplyV', label: 'Vcc', desc: `${quick.supplyV} V` },
-                    { key: 'outputType', label: 'output', desc: quick.outputType },
+                    { key: 'driverFamily', label: 'driver', desc: `${quick.driverFamily} ${quick.driverVcc} V` },
+                    { key: 'receiverFamily', label: 'receiver', desc: `${quick.receiverFamily} ${quick.receiverVcc} V` },
+                    { key: 'level', label: 'level', desc: `${level.verdict} H=${level.highMargin === null ? '--' : level.highMargin.toFixed(3)} V` },
                 ],
                 blocks: [
                     { key: 'family', label: quick.family, sub: `${quick.supplyV} V` },
                     { key: 'function', label: quick.function, sub: `${quick.inputs}入力` },
-                    { key: 'packagePins', label: 'package', sub: `${quick.packagePins} pins` },
-                    { key: 'outputType', label: 'output', sub: quick.outputType },
+                    { key: 'driverFamily', label: '送信側', sub: `${quick.driverFamily} ${quick.driverVcc} V` },
+                    { key: 'receiverFamily', label: '受信側', sub: `${quick.receiverFamily} ${quick.receiverVcc} V` },
                 ],
-                assumptions: ['同一型番でもファミリごとにVIH/VIL、ドライブ電流、速度、入力耐圧が異なります。'],
+                assumptions: ['同一型番でもファミリごとにVIH/VIL、ドライブ電流、速度、入力耐圧が異なります。', 'この判定は代表しきい値の概算で、温度、負荷電流、メーカー差はデータシート確認が必要です。'],
             };
         }
 
         if (activeToolId.value === 'connector') {
+            const template = connectorActiveTemplate.value;
+            const summary = connectorSummary.value;
             return {
                 type: 'connector',
-                title: 'コネクタの視点と電流配分',
-                subtitle: 'ピン1、嵌合面/はんだ面、1pin電流、温度上昇条件を同時に確認します。',
-                formula: 'Iusable = Irating/pin * derating, Itotal = pins * currentPerPin',
+                title: 'コネクタ設計/ピン配置',
+                subtitle: '標準テンプレート、写真/図、ピン割付、電圧電流margin、BOM/シルク注記を同時に確認します。',
+                formula: 'pin margin = Irating/pin * derating - Ipin',
                 parts: [
-                    { key: 'connectorType', label: 'type', desc: quick.connectorType },
+                    { key: 'connectorType', label: 'template', desc: template?.label ?? quick.connectorType },
                     { key: 'viewSide', label: 'view', desc: quick.viewSide },
-                    { key: 'environment', label: '用途', desc: quick.environment },
-                    { key: 'pins', label: 'pins', desc: `${quick.pins}` },
-                    { key: 'currentPerPin', label: 'I/pin', desc: `${quick.currentPerPin} A` },
+                    { key: 'pinAssignments', label: 'pin map', desc: `${summary.assigned.length}/${connectorPinMap.value.length} assigned` },
+                    { key: 'currentPerPin', label: 'I margin', desc: `${summary.maxPinCurrent.toFixed(3)} A max/pin` },
+                    { key: 'datasheetUrl', label: 'evidence', desc: quick.datasheetUrl || template?.datasheetUrl || '未登録' },
                     { key: 'pin1Mark', label: 'pin1', desc: quick.pin1Mark },
                 ],
-                assumptions: ['mating face/solder sideの視点、隣接ピン同時通電、温度上昇条件は図面注記に残します。'],
+                assumptions: ['mating face/solder side/cable sideの視点、Pin1根拠、定格根拠URL、写真/図が不足する場合はPASSにしません。'],
             };
         }
 
@@ -590,6 +667,891 @@ export default function setup() {
         const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-abs * abs);
         return sign * y;
     };
+
+    const connectorTemplateCatalog = [
+        {
+            id: 'usb-c-receptacle',
+            label: 'USB Type-C Receptacle',
+            family: 'USB',
+            standard: 'USB Type-C',
+            pins: 24,
+            rows: 2,
+            pitchMm: 0.5,
+            gender: 'receptacle',
+            voltageRatingV: 20,
+            currentRatingPerPin: 1.25,
+            numbering: 'A1-A12 / B1-B12, mating face基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: 'USB Type-C plug',
+            photoUrl: '',
+            diagramUrl: '',
+            datasheetUrl: '',
+            notes: 'CC/SBU、シールド、差動ペア極性を確認する',
+            pinsMap: [
+                ['A1', 'GND', 'ground'], ['A2', 'TX1+', 'diff'], ['A3', 'TX1-', 'diff'], ['A4', 'VBUS', 'power'], ['A5', 'CC1', 'signal'], ['A6', 'D+', 'diff'],
+                ['A7', 'D-', 'diff'], ['A8', 'SBU1', 'signal'], ['A9', 'VBUS', 'power'], ['A10', 'RX2-', 'diff'], ['A11', 'RX2+', 'diff'], ['A12', 'GND', 'ground'],
+                ['B1', 'GND', 'ground'], ['B2', 'TX2+', 'diff'], ['B3', 'TX2-', 'diff'], ['B4', 'VBUS', 'power'], ['B5', 'CC2', 'signal'], ['B6', 'D+', 'diff'],
+                ['B7', 'D-', 'diff'], ['B8', 'SBU2', 'signal'], ['B9', 'VBUS', 'power'], ['B10', 'RX1-', 'diff'], ['B11', 'RX1+', 'diff'], ['B12', 'GND', 'ground'],
+            ],
+        },
+        {
+            id: 'usb2-type-a',
+            label: 'USB 2.0 Type-A',
+            family: 'USB',
+            standard: 'USB 2.0',
+            pins: 4,
+            rows: 1,
+            pitchMm: 2.5,
+            gender: 'receptacle',
+            voltageRatingV: 5,
+            currentRatingPerPin: 1,
+            numbering: '1-4, mating face基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: 'USB Type-A plug',
+            pinsMap: [['1', 'VBUS', 'power'], ['2', 'D-', 'diff'], ['3', 'D+', 'diff'], ['4', 'GND', 'ground']],
+        },
+        {
+            id: 'dsub-de9',
+            label: 'D-sub DE-9',
+            family: 'D-sub',
+            standard: 'DE-9',
+            pins: 9,
+            rows: 2,
+            pitchMm: 2.77,
+            gender: 'plug/socket',
+            voltageRatingV: 125,
+            currentRatingPerPin: 3,
+            numbering: '上段1-5/下段6-9, mating face基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'shell-mark',
+            matingPart: 'DE-9 mate',
+            pinsMap: Array.from({ length: 9 }, (_, index) => [`${index + 1}`, '', 'signal']),
+        },
+        {
+            id: 'dsub-db25',
+            label: 'D-sub DB-25',
+            family: 'D-sub',
+            standard: 'DB-25',
+            pins: 25,
+            rows: 2,
+            pitchMm: 2.77,
+            gender: 'plug/socket',
+            voltageRatingV: 125,
+            currentRatingPerPin: 3,
+            numbering: '上段1-13/下段14-25, mating face基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'shell-mark',
+            matingPart: 'DB-25 mate',
+            pinsMap: Array.from({ length: 25 }, (_, index) => [`${index + 1}`, '', 'signal']),
+        },
+        {
+            id: 'idc-2x5',
+            label: 'IDC 2x5',
+            family: 'IDC',
+            standard: '2.54mm ribbon',
+            pins: 10,
+            rows: 2,
+            pitchMm: 2.54,
+            gender: 'header/socket',
+            voltageRatingV: 50,
+            currentRatingPerPin: 1,
+            numbering: '奇数列/偶数列, key notch基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'triangle',
+            matingPart: 'IDC 10P socket',
+            pinsMap: Array.from({ length: 10 }, (_, index) => [`${index + 1}`, '', index % 2 === 0 ? 'signal' : 'ground']),
+        },
+        {
+            id: 'pin-header-2x5',
+            label: '2.54mm Pin Header 2x5',
+            family: 'pin-header',
+            standard: '2.54mm',
+            pins: 10,
+            rows: 2,
+            pitchMm: 2.54,
+            gender: 'header',
+            voltageRatingV: 50,
+            currentRatingPerPin: 1,
+            numbering: 'シルクPin1基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'square-pad',
+            matingPart: '2.54mm socket',
+            pinsMap: Array.from({ length: 10 }, (_, index) => [`${index + 1}`, '', 'signal']),
+        },
+        {
+            id: 'jst-xh-4',
+            label: 'JST XH 4P',
+            family: 'JST',
+            standard: 'XH',
+            pins: 4,
+            rows: 1,
+            pitchMm: 2.5,
+            gender: 'board header',
+            voltageRatingV: 250,
+            currentRatingPerPin: 3,
+            numbering: 'lock側/嵌合面のPin1を図示',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: 'JST XH housing',
+            pinsMap: [['1', 'V+', 'power'], ['2', 'SIG1', 'signal'], ['3', 'SIG2', 'signal'], ['4', 'GND', 'ground']],
+        },
+        {
+            id: 'jst-ph-2',
+            label: 'JST PH 2P',
+            family: 'JST',
+            standard: 'PH',
+            pins: 2,
+            rows: 1,
+            pitchMm: 2,
+            gender: 'board header',
+            voltageRatingV: 100,
+            currentRatingPerPin: 2,
+            numbering: 'lock側/嵌合面のPin1を図示',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: 'JST PH housing',
+            pinsMap: [['1', 'V+', 'power'], ['2', 'GND', 'ground']],
+        },
+        {
+            id: 'molex-microfit-2x3',
+            label: 'Molex Micro-Fit 2x3',
+            family: 'Molex',
+            standard: 'Micro-Fit',
+            pins: 6,
+            rows: 2,
+            pitchMm: 3,
+            gender: 'plug/receptacle',
+            voltageRatingV: 600,
+            currentRatingPerPin: 5,
+            numbering: 'latch/key基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: 'Micro-Fit mate',
+            pinsMap: [['1', 'V+', 'power'], ['2', 'V+', 'power'], ['3', 'SIG', 'signal'], ['4', 'GND', 'ground'], ['5', 'GND', 'ground'], ['6', 'SHIELD', 'shield']],
+        },
+        {
+            id: 'rj45-8p8c',
+            label: 'RJ45 8P8C',
+            family: 'RJ45',
+            standard: '8P8C',
+            pins: 8,
+            rows: 1,
+            pitchMm: 1.02,
+            gender: 'jack/plug',
+            voltageRatingV: 57,
+            currentRatingPerPin: 1,
+            numbering: 'clip away, contact side基準',
+            viewSide: 'mating-face',
+            pin1Mark: 'key-notch',
+            matingPart: '8P8C plug',
+            pinsMap: [['1', 'BI_DA+', 'diff'], ['2', 'BI_DA-', 'diff'], ['3', 'BI_DB+', 'diff'], ['4', 'BI_DC+', 'diff'], ['5', 'BI_DC-', 'diff'], ['6', 'BI_DB-', 'diff'], ['7', 'BI_DD+', 'diff'], ['8', 'BI_DD-', 'diff']],
+        },
+    ];
+    const safeLocalStorage = () => {
+        try {
+            return typeof window !== 'undefined' ? window.localStorage : null;
+        } catch {
+            return null;
+        }
+    };
+    const loadConnectorUserTemplates = () => {
+        const storage = safeLocalStorage();
+        if (!storage) return [];
+        try {
+            const parsed = JSON.parse(storage.getItem('bitskeep.connectorTemplates') || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    };
+    const connectorUserTemplates = ref(loadConnectorUserTemplates());
+    const saveConnectorUserTemplates = () => {
+        const storage = safeLocalStorage();
+        if (!storage) return;
+        storage.setItem('bitskeep.connectorTemplates', JSON.stringify(connectorUserTemplates.value));
+    };
+    const normalizeConnectorTemplate = (template) => ({
+        id: template.id,
+        label: template.label,
+        family: template.family || template.standard || 'custom',
+        standard: template.standard || template.family || 'custom',
+        pins: Math.max(1, Math.round(toFinite(template.pins, 1))),
+        rows: Math.max(1, Math.round(toFinite(template.rows, 1))),
+        pitchMm: toFinite(template.pitchMm, 2.54),
+        gender: template.gender || '',
+        voltageRatingV: toFinite(template.voltageRatingV, 0),
+        currentRatingPerPin: toFinite(template.currentRatingPerPin, 0),
+        numbering: template.numbering || 'Pin1から昇順',
+        viewSide: template.viewSide || 'mating-face',
+        pin1Mark: template.pin1Mark || 'silk-dot',
+        matingPart: template.matingPart || '',
+        photoUrl: template.photoUrl || '',
+        diagramUrl: template.diagramUrl || '',
+        datasheetUrl: template.datasheetUrl || '',
+        notes: template.notes || '',
+        pinsMap: Array.isArray(template.pinsMap) ? template.pinsMap : [],
+        userDefined: Boolean(template.userDefined),
+    });
+    const connectorCatalog = computed(() => [
+        ...connectorTemplateCatalog.map(normalizeConnectorTemplate),
+        ...connectorUserTemplates.value.map(normalizeConnectorTemplate),
+    ]);
+    const connectorActiveTemplate = computed(() => (
+        connectorCatalog.value.find((item) => item.id === quickForms.connector.selectedTemplateId)
+        ?? connectorCatalog.value[0]
+    ));
+    const connectorTemplateOptions = computed(() => connectorCatalog.value.map((template) => [template.id, `${template.label} (${template.pins}P)`]));
+    const applyConnectorTemplate = (template = connectorActiveTemplate.value, replaceAssignments = true) => {
+        if (!template) return;
+        quickForms.connector.selectedTemplateId = template.id;
+        quickForms.connector.pins = template.pins;
+        quickForms.connector.connectorType = template.family;
+        quickForms.connector.pitchMm = template.pitchMm;
+        quickForms.connector.currentRatingPerPin = template.currentRatingPerPin || quickForms.connector.currentRatingPerPin;
+        quickForms.connector.voltageRatingV = template.voltageRatingV || quickForms.connector.voltageRatingV;
+        quickForms.connector.viewSide = template.viewSide;
+        quickForms.connector.pin1Mark = template.pin1Mark;
+        quickForms.connector.matingPart = template.matingPart || quickForms.connector.matingPart;
+        quickForms.connector.photoUrl = template.photoUrl || quickForms.connector.photoUrl;
+        quickForms.connector.diagramUrl = template.diagramUrl || quickForms.connector.diagramUrl;
+        quickForms.connector.datasheetUrl = template.datasheetUrl || quickForms.connector.datasheetUrl;
+        if (replaceAssignments || !quickForms.connector.pinAssignments.trim()) {
+            quickForms.connector.pinAssignments = template.pinsMap.map((pin) => `${pin[0]},${pin[1] || ''},${pin[2] || 'signal'},0,0,,,`).join('\n');
+        }
+    };
+    const saveConnectorTemplate = () => {
+        const name = String(quickForms.connector.userTemplateName || '').trim();
+        if (!name) return;
+        const id = `user-${Date.now().toString(36)}-${name.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/g, '') || 'connector'}`;
+        const pins = Math.max(1, Math.round(toFinite(quickForms.connector.userTemplatePins, 1)));
+        const template = normalizeConnectorTemplate({
+            id,
+            label: name,
+            family: 'user',
+            standard: quickForms.connector.userTemplateStandard || 'user',
+            pins,
+            rows: Math.max(1, Math.round(toFinite(quickForms.connector.userTemplateRows, 1))),
+            pitchMm: toFinite(quickForms.connector.userTemplatePitchMm, 2.54),
+            gender: quickForms.connector.userTemplateGender,
+            voltageRatingV: toFinite(quickForms.connector.userTemplateVoltageRatingV, 0),
+            currentRatingPerPin: toFinite(quickForms.connector.userTemplateCurrentRatingPerPin, 0),
+            numbering: quickForms.connector.userTemplateNumbering,
+            viewSide: quickForms.connector.viewSide,
+            pin1Mark: quickForms.connector.pin1Mark,
+            matingPart: quickForms.connector.userTemplateMatingPart,
+            photoUrl: quickForms.connector.userTemplatePhotoUrl,
+            diagramUrl: quickForms.connector.userTemplateDiagramUrl,
+            datasheetUrl: quickForms.connector.userTemplateDatasheetUrl,
+            notes: quickForms.connector.userTemplateNotes,
+            pinsMap: Array.from({ length: pins }, (_, index) => [`${index + 1}`, '', 'signal']),
+            userDefined: true,
+        });
+        connectorUserTemplates.value = [...connectorUserTemplates.value, template];
+        saveConnectorUserTemplates();
+        applyConnectorTemplate(template);
+        quickForms.connector.userTemplateName = '';
+    };
+    const connectorTemplatePins = computed(() => {
+        const template = connectorActiveTemplate.value;
+        const explicit = template?.pinsMap?.length ? template.pinsMap : [];
+        if (explicit.length) {
+            return explicit.map((pin, index) => ({
+                pin: String(pin[0] || index + 1),
+                defaultSignal: pin[1] || '',
+                defaultType: pin[2] || 'signal',
+            }));
+        }
+        return Array.from({ length: Math.max(1, toFinite(template?.pins, quickForms.connector.pins)) }, (_, index) => ({
+            pin: String(index + 1),
+            defaultSignal: '',
+            defaultType: 'signal',
+        }));
+    });
+    const parseConnectorAssignments = () => String(quickForms.connector.pinAssignments || '')
+        .split('\n')
+        .map((row) => row.trim())
+        .filter(Boolean)
+        .map((row) => {
+            const [pin, signal, type, voltage, current, color, awg, note] = row.split(',').map((value) => String(value || '').trim());
+            return {
+                pin,
+                signal,
+                type: type || 'signal',
+                voltage: toFinite(voltage, 0),
+                current: Math.abs(toFinite(current, 0)),
+                color,
+                awg,
+                note,
+                raw: row,
+            };
+        });
+    const connectorAssignments = computed(parseConnectorAssignments);
+    const awgCurrentLimit = (awg) => {
+        const normalized = String(awg || '').replace(/AWG/iu, '').trim();
+        const table = { 30: 0.3, 28: 0.5, 26: 0.8, 24: 1.5, 22: 3, 20: 5, 18: 7, 16: 10 };
+        const value = Math.round(toFinite(normalized, 0));
+        return table[value] ?? null;
+    };
+    const connectorPinMap = computed(() => {
+        const assignmentByPin = new Map(connectorAssignments.value.map((assignment) => [assignment.pin, assignment]));
+        return connectorTemplatePins.value.map((pin) => {
+            const assignment = assignmentByPin.get(pin.pin);
+            const merged = {
+                ...pin,
+                ...(assignment || {}),
+                signal: assignment?.signal || pin.defaultSignal || '',
+                type: assignment?.type || pin.defaultType || 'signal',
+                voltage: assignment?.voltage ?? 0,
+                current: assignment?.current ?? 0,
+            };
+            const currentRating = toFinite(quickForms.connector.currentRatingPerPin, connectorActiveTemplate.value?.currentRatingPerPin ?? 0);
+            const usableCurrent = currentRating * Math.max(0, Math.min(100, toFinite(quickForms.connector.deratingPct, 80))) / 100;
+            const voltageRating = toFinite(quickForms.connector.voltageRatingV, connectorActiveTemplate.value?.voltageRatingV ?? 0);
+            const awgLimit = awgCurrentLimit(merged.awg);
+            return {
+                ...merged,
+                usableCurrent,
+                currentMargin: usableCurrent - Math.abs(merged.current),
+                voltageMargin: voltageRating - Math.abs(merged.voltage),
+                awgLimit,
+                awgMargin: awgLimit === null ? null : awgLimit - Math.abs(merged.current),
+                assigned: Boolean(assignment || pin.defaultSignal),
+            };
+        });
+    });
+    const connectorSummary = computed(() => {
+        const pins = connectorPinMap.value;
+        const assigned = pins.filter((pin) => pin.assigned && pin.type !== 'nc');
+        const powerPins = assigned.filter((pin) => pin.type === 'power');
+        const groundPins = assigned.filter((pin) => pin.type === 'ground');
+        const diffPins = assigned.filter((pin) => pin.type === 'diff');
+        const overCurrent = assigned.filter((pin) => pin.usableCurrent > 0 && pin.currentMargin < 0);
+        const overVoltage = assigned.filter((pin) => toFinite(quickForms.connector.voltageRatingV, connectorActiveTemplate.value?.voltageRatingV ?? 0) > 0 && pin.voltageMargin < 0);
+        const overAwg = assigned.filter((pin) => pin.awgMargin !== null && pin.awgMargin < 0);
+        const unassigned = pins.filter((pin) => !pin.assigned);
+        const noCurrentRating = !hasRating(quickForms.connector.currentRatingPerPin);
+        const noVoltageRating = !hasRating(quickForms.connector.voltageRatingV);
+        const noEvidence = !quickForms.connector.datasheetUrl && !quickForms.connector.diagramUrl && !connectorActiveTemplate.value?.datasheetUrl && !connectorActiveTemplate.value?.diagramUrl;
+        const noAsset = !quickForms.connector.photoUrl && !quickForms.connector.diagramUrl && !connectorActiveTemplate.value?.photoUrl && !connectorActiveTemplate.value?.diagramUrl;
+        const missingConditions = [
+            ...(noCurrentRating ? ['1pin定格電流'] : []),
+            ...(noVoltageRating ? ['定格電圧'] : []),
+            ...(noEvidence ? ['定格根拠URL/図'] : []),
+            ...(noAsset ? ['写真またはピン配置図'] : []),
+            ...(unassigned.length ? [`未割付ピン ${unassigned.length}本`] : []),
+            ...(groundPins.length === 0 ? ['GND/シールド基準'] : []),
+            ...(quickForms.connector.viewSide ? [] : ['図面視点']),
+        ];
+        const warnings = [
+            ...overCurrent.map((pin) => `${pin.pin} ${pin.signal || '-'} はderating後電流定格を超過`),
+            ...overVoltage.map((pin) => `${pin.pin} ${pin.signal || '-'} は定格電圧を超過`),
+            ...overAwg.map((pin) => `${pin.pin} ${pin.signal || '-'} はAWG ${pin.awg} の電流目安を超過`),
+            ...(powerPins.length > 1 ? ['電源ピン並列使用は接触抵抗差、GND先行、ホットプラグ順序を確認してください。'] : []),
+            ...(diffPins.length % 2 !== 0 ? ['差動ペア指定が奇数です。極性とペア割付を確認してください。'] : []),
+            ...(connectorActiveTemplate.value?.family === 'USB' ? ['USBはCC/SBU/シールド、ESD、VBUS突入、GND接続順を確認してください。'] : []),
+            ...(connectorActiveTemplate.value?.family === 'D-sub' ? ['D-subはシェル接続、固定ねじ、mating/solder side反転を図面で確認してください。'] : []),
+            ...(connectorActiveTemplate.value?.family === 'RJ45' ? ['RJ45はペア割付、PoE電流、シールド有無を確認してください。'] : []),
+        ];
+        const totalCurrent = assigned.reduce((sum, pin) => sum + Math.abs(pin.current), 0);
+        const maxPinCurrent = assigned.reduce((max, pin) => Math.max(max, Math.abs(pin.current)), 0);
+        const status = overCurrent.length || overVoltage.length || overAwg.length ? 'bad' : (missingConditions.length || warnings.length ? 'check' : 'ok');
+        return {
+            assigned,
+            unassigned,
+            powerPins,
+            groundPins,
+            diffPins,
+            overCurrent,
+            overVoltage,
+            overAwg,
+            totalCurrent,
+            maxPinCurrent,
+            missingConditions,
+            warnings,
+            status,
+        };
+    });
+
+    const LOGIC_74_STANDARD_FAMILIES = ['74LS', '74F', '74ALS', '74AS', '74HC', '74HCT', '74VHC', '74VHCT', '74LC', '74LVC', '74AC', '74ACT'];
+    const LOGIC_TTL_FAMILIES = ['74LS', '74F', '74ALS', '74AS'];
+    const LOGIC_CMOS_FAMILIES = ['74HC', '74HCU', '74HCT', '74VHC', '74VHCT', '74LC', '74LVC', '74AC', '74ACT'];
+    const LOGIC_ALL_FAMILY_OPTIONS = [
+        ['any', '指定なし'],
+        ['74LS', '74LS'],
+        ['74F', '74F'],
+        ['74ALS', '74ALS'],
+        ['74AS', '74AS'],
+        ['74HC', '74HC'],
+        ['74HCU', '74HCU'],
+        ['74HCT', '74HCT'],
+        ['74VHC', '74VHC'],
+        ['74VHCT', '74VHCT'],
+        ['74LC', '74LC'],
+        ['74LVC', '74LVC'],
+        ['74AC', '74AC'],
+        ['74ACT', '74ACT'],
+        ['4000', '4000'],
+        ['4000B', '4000B'],
+        ['4500', '4500'],
+        ['5000', '5000'],
+    ];
+    const LOGIC_CONNECTION_FAMILY_OPTIONS = LOGIC_ALL_FAMILY_OPTIONS.filter(([value]) => value !== 'any');
+    const LOGIC_OUTPUT_OPTIONS = [
+        ['any', '指定なし'],
+        ['push-pull', 'Push-pull'],
+        ['3state', '3-state'],
+        ['open-collector', 'Open collector/drain'],
+        ['analog-switch', 'Analog switch'],
+        ['mixed', 'Mixed'],
+    ];
+    const LOGIC_SERIES_SPECS = {
+        '74LS': { label: '74LS TTL', vMin: 4.75, vMax: 5.25, input: 'ttl', output: 'ttl', inputMaxFixed: 5.5, note: 'TTL入力。HC CMOS入力を直接High保証できない場合があります。' },
+        '74F': { label: '74F TTL', vMin: 4.75, vMax: 5.25, input: 'ttl', output: 'ttl-fast', inputMaxFixed: 5.5, note: '高速TTL。出力High保証値はTTL水準です。' },
+        '74ALS': { label: '74ALS TTL', vMin: 4.5, vMax: 5.5, input: 'ttl', output: 'ttl', inputMaxFixed: 5.5, note: 'ALS TTL。' },
+        '74AS': { label: '74AS TTL', vMin: 4.5, vMax: 5.5, input: 'ttl', output: 'ttl-fast', inputMaxFixed: 5.5, note: 'AS TTL。' },
+        '74HC': { label: '74HC CMOS', vMin: 2, vMax: 6, input: 'cmos', output: 'cmos', note: 'CMOS入力。5V HCへTTL出力を直結するとHigh余裕が不足しがちです。' },
+        '74HCU': { label: '74HCU CMOS unbuffered', vMin: 2, vMax: 6, input: 'cmos', output: 'cmos', note: '主にアンバッファインバータ。発振/リニア用途はデータシート条件必須です。' },
+        '74HCT': { label: '74HCT TTL input CMOS', vMin: 4.5, vMax: 5.5, input: 'ttl', output: 'cmos', inputMaxFixed: 5.5, note: 'TTL入力互換。TTL->CMOS変換で使いやすい系統です。' },
+        '74VHC': { label: '74VHC CMOS', vMin: 2, vMax: 5.5, input: 'cmos', output: 'cmos', inputMaxFixed: 5.5, note: '低電圧CMOS。多くは5V tolerant入力ですが型番条件を確認します。' },
+        '74VHCT': { label: '74VHCT TTL input CMOS', vMin: 4.5, vMax: 5.5, input: 'ttl', output: 'cmos', inputMaxFixed: 5.5, note: 'TTL入力互換VHC。' },
+        '74LC': { label: '74LC/LVC class', vMin: 1.65, vMax: 5.5, input: 'cmos', output: 'cmos', inputMaxFixed: 5.5, note: '74LC表記はLVC/LCX系の近似扱い。必ず型番データシートで確認します。' },
+        '74LVC': { label: '74LVC CMOS', vMin: 1.65, vMax: 5.5, input: 'cmos', output: 'cmos', inputMaxFixed: 5.5, note: '低電圧CMOS。5V tolerantの有無は型番差があります。' },
+        '74AC': { label: '74AC CMOS', vMin: 2, vMax: 6, input: 'cmos', output: 'cmos', note: '高速CMOS入力。' },
+        '74ACT': { label: '74ACT TTL input CMOS', vMin: 4.5, vMax: 5.5, input: 'ttl', output: 'cmos', inputMaxFixed: 5.5, note: 'TTL入力互換AC。' },
+        '4000': { label: '4000 CMOS', vMin: 3, vMax: 15, input: 'cmos', output: 'cmos', note: 'CD4000系。メーカーでVcc範囲と出力電流が大きく異なります。' },
+        '4000B': { label: '4000B CMOS', vMin: 3, vMax: 18, input: 'cmos', output: 'cmos', note: 'Buffered 4000B系。' },
+        '4500': { label: '4500 CMOS', vMin: 3, vMax: 18, input: 'cmos', output: 'cmos', note: 'CD4500系。表示/カウンタ/特殊機能が多い系統です。' },
+        '5000': { label: '5000 CMOS', vMin: 3, vMax: 18, input: 'cmos', output: 'cmos', note: '5000/14500系相当の拡張CMOSとして扱います。' },
+    };
+    const formatLogicVoltage = (value) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? `${number.toFixed(2)} V` : 'CHECK';
+    };
+    const logicThresholds = (family, vcc) => {
+        const spec = LOGIC_SERIES_SPECS[family];
+        const voltage = toFinite(vcc, Number.NaN);
+        if (!spec || !Number.isFinite(voltage)) return null;
+        const ttlInput = spec.input === 'ttl';
+        const ttlOutput = spec.output === 'ttl' || spec.output === 'ttl-fast';
+        return {
+            family,
+            label: spec.label,
+            vcc: voltage,
+            vMin: spec.vMin,
+            vMax: spec.vMax,
+            vccOk: voltage >= spec.vMin && voltage <= spec.vMax,
+            vihMin: ttlInput ? 2.0 : voltage * 0.7,
+            vilMax: ttlInput ? 0.8 : voltage * 0.3,
+            vohMin: ttlOutput ? (spec.output === 'ttl-fast' ? 2.5 : 2.4) : voltage * 0.9,
+            volMax: ttlOutput ? (spec.output === 'ttl-fast' ? 0.5 : 0.4) : voltage * 0.1,
+            outputHighMax: voltage,
+            inputMax: spec.inputMaxFixed ?? (voltage + 0.5),
+            note: spec.note,
+        };
+    };
+    const logicFamilyMatches = (itemFamily, selectedFamily) => {
+        const family = String(selectedFamily || 'any').trim();
+        if (!family || family === 'any') return true;
+        if (family === '4000' || family === '4000B') return itemFamily === '4000' || itemFamily === '4000B';
+        return itemFamily === family;
+    };
+    const normalizeLogicFunction = (value) => {
+        const raw = String(value || 'any').trim().toLowerCase();
+        const aliases = {
+            inv: 'inverter',
+            inverter: 'inverter',
+            schmitt: 'schmitt-inverter',
+            'schmitt-trigger': 'schmitt-inverter',
+            'bus transceiver': 'bus-transceiver',
+            'shift register': 'shift-register',
+            'analog switch': 'analog-switch',
+            'digital comparator': 'comparator',
+            'digital-comparator': 'comparator',
+        };
+        return aliases[raw] ?? raw;
+    };
+    const logicFunctionMatches = (itemFunction, selectedFunction) => {
+        const requested = normalizeLogicFunction(selectedFunction);
+        if (requested === 'any') return true;
+        if (requested === 'inverter') return itemFunction === 'inverter' || itemFunction === 'unbuffered-inverter';
+        return itemFunction === requested;
+    };
+    const withLogicPartSpec = (item) => {
+        const spec = LOGIC_SERIES_SPECS[item.family] ?? LOGIC_SERIES_SPECS[item.family === '4000B' ? '4000' : item.family];
+        return {
+            ...item,
+            output: item.output ?? 'push-pull',
+            vMin: item.vMin ?? spec?.vMin ?? -Infinity,
+            vMax: item.vMax ?? spec?.vMax ?? Infinity,
+        };
+    };
+    const uniqueLogicParts = (items) => {
+        const seen = new Set();
+        return items.filter((item) => {
+            if (seen.has(item.part)) return false;
+            seen.add(item.part);
+            return true;
+        });
+    };
+    const logicLevelCompatibility = (form) => {
+        const driver = logicThresholds(form.driverFamily, form.driverVcc);
+        const receiver = logicThresholds(form.receiverFamily, form.receiverVcc);
+        if (!driver || !receiver) {
+            return {
+                status: 'check',
+                verdict: 'CHECK',
+                highMargin: null,
+                lowMargin: null,
+                inputOvervoltageMargin: null,
+                warnings: ['送信側または受信側のロジックシリーズ条件が未定義です。'],
+                missingConditions: ['シリーズ電気特性'],
+                summary: 'シリーズ間接続条件を判定できません。',
+            };
+        }
+        const highMargin = driver.vohMin - receiver.vihMin;
+        const lowMargin = receiver.vilMax - driver.volMax;
+        const inputOvervoltageMargin = receiver.inputMax - driver.outputHighMax;
+        const warnings = [
+            ...(!driver.vccOk ? [`送信側 ${driver.family} のVcc ${driver.vcc}V は推奨範囲 ${driver.vMin}-${driver.vMax}V 外です。`] : []),
+            ...(!receiver.vccOk ? [`受信側 ${receiver.family} のVcc ${receiver.vcc}V は推奨範囲 ${receiver.vMin}-${receiver.vMax}V 外です。`] : []),
+            ...(highMargin < 0 ? [`High余裕不足: VOH(min) ${driver.vohMin.toFixed(2)}V < VIH(min) ${receiver.vihMin.toFixed(2)}V`] : []),
+            ...(lowMargin < 0 ? [`Low余裕不足: VOL(max) ${driver.volMax.toFixed(2)}V > VIL(max) ${receiver.vilMax.toFixed(2)}V`] : []),
+            ...(inputOvervoltageMargin < 0 ? [`受信側入力耐圧超過の可能性: 出力High最大 ${driver.outputHighMax.toFixed(2)}V > 入力上限目安 ${receiver.inputMax.toFixed(2)}V`] : []),
+            ...(highMargin >= 0 && highMargin < 0.2 ? ['High余裕が0.2V未満です。電源min/max、負荷、温度で再確認してください。'] : []),
+            ...(lowMargin >= 0 && lowMargin < 0.2 ? ['Low余裕が0.2V未満です。電源min/max、負荷、温度で再確認してください。'] : []),
+        ];
+        const missingConditions = ['VOH/VOL測定時のIOH/IOL負荷', '温度範囲', '電源min/max', '立上り/立下り時間', '入力5V tolerantまたは入力クランプ電流', '未使用入力処理'];
+        const hardFail = highMargin < 0 || lowMargin < 0 || inputOvervoltageMargin < 0;
+        const softWarn = !driver.vccOk || !receiver.vccOk || highMargin < 0.2 || lowMargin < 0.2;
+        const status = hardFail ? 'bad' : (softWarn ? 'warn' : 'ok');
+        return {
+            status,
+            verdict: hardFail ? 'FAIL' : (softWarn ? 'WARN' : 'OK'),
+            driver,
+            receiver,
+            highMargin,
+            lowMargin,
+            inputOvervoltageMargin,
+            warnings,
+            missingConditions,
+            summary: hardFail
+                ? `${driver.family} ${driver.vcc}V -> ${receiver.family} ${receiver.vcc}V はレベル条件を満たしません。`
+                : `${driver.family} ${driver.vcc}V -> ${receiver.family} ${receiver.vcc}V は概算しきい値上は成立します。`,
+        };
+    };
+    const logic74Variants = (variants, series = LOGIC_74_STANDARD_FAMILIES) => variants.flatMap((variant) => (
+        (variant.series ?? series).map((family) => ({
+            part: `${family}${variant.code}`,
+            family,
+            function: variant.function,
+            inputs: variant.inputs ?? 1,
+            gates: variant.gates ?? 1,
+            pins: variant.pins ?? 14,
+            output: variant.output ?? 'push-pull',
+            note: variant.note,
+        }))
+    ));
+    const logicCmosParts = (parts) => parts.map((part) => ({
+        family: part.family ?? '4000',
+        inputs: part.inputs ?? 1,
+        gates: part.gates ?? 1,
+        pins: part.pins ?? 14,
+        output: part.output ?? 'push-pull',
+        ...part,
+    }));
+    const LOGIC_FUNCTION_DEFS = [
+        {
+            key: 'nand',
+            label: 'NAND',
+            variants: [
+                { code: '00', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input NAND' },
+                { code: '10', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input NAND' },
+                { code: '20', inputs: 4, gates: 2, pins: 14, note: 'Dual 4-input NAND' },
+                { code: '30', inputs: 8, gates: 1, pins: 14, note: '8-input NAND' },
+            ],
+            cmos: [
+                { part: 'CD4011B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input NAND' },
+                { part: 'CD4012B', family: '4000', inputs: 4, gates: 2, pins: 14, note: 'Dual 4-input NAND' },
+                { part: 'CD4023B', family: '4000', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input NAND' },
+                { part: 'CD4093B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Schmitt NAND' },
+            ],
+        },
+        {
+            key: 'nor',
+            label: 'NOR',
+            variants: [
+                { code: '02', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input NOR' },
+                { code: '27', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input NOR' },
+            ],
+            cmos: [
+                { part: 'CD4001B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input NOR' },
+                { part: 'CD4002B', family: '4000', inputs: 4, gates: 2, pins: 14, note: 'Dual 4-input NOR' },
+                { part: 'CD4025B', family: '4000', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input NOR' },
+            ],
+        },
+        {
+            key: 'inverter',
+            label: 'INV',
+            variants: [
+                { code: '04', inputs: 1, gates: 6, pins: 14, note: 'Hex inverter' },
+                { code: '04', inputs: 1, gates: 6, pins: 14, series: ['74HCU'], note: 'Hex unbuffered inverter' },
+                { code: '05', inputs: 1, gates: 6, pins: 14, output: 'open-collector', note: 'Hex inverter open collector/drain' },
+            ],
+            cmos: [
+                { part: 'CD4049B', family: '4000', inputs: 1, gates: 6, pins: 16, note: 'Hex inverting buffer' },
+                { part: 'CD4069UB', family: '4000', inputs: 1, gates: 6, pins: 14, note: 'Unbuffered inverter' },
+            ],
+        },
+        {
+            key: 'unbuffered-inverter',
+            label: 'アンバッファインバータ',
+            variants: [{ code: '04', inputs: 1, gates: 6, pins: 14, note: 'Unbuffered inverter', series: ['74HCU'] }],
+            cmos: [{ part: 'CD4069UB', family: '4000', inputs: 1, gates: 6, pins: 14, note: 'Unbuffered inverter' }],
+        },
+        {
+            key: 'schmitt-inverter',
+            label: 'Schmitt',
+            variants: [{ code: '14', inputs: 1, gates: 6, pins: 14, note: 'Hex Schmitt inverter' }],
+            cmos: [{ part: 'CD40106B', family: '4000', inputs: 1, gates: 6, pins: 14, note: 'Hex Schmitt trigger' }, { part: 'CD4584B', family: '4500', inputs: 1, gates: 6, pins: 14, note: 'Hex Schmitt inverter' }],
+        },
+        {
+            key: 'and',
+            label: 'AND',
+            variants: [
+                { code: '08', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input AND' },
+                { code: '11', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input AND' },
+                { code: '21', inputs: 4, gates: 2, pins: 14, note: 'Dual 4-input AND' },
+            ],
+            cmos: [
+                { part: 'CD4081B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input AND' },
+                { part: 'CD4073B', family: '4000', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input AND' },
+            ],
+        },
+        {
+            key: 'or',
+            label: 'OR',
+            variants: [{ code: '32', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input OR' }],
+            cmos: [
+                { part: 'CD4071B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad 2-input OR' },
+                { part: 'CD4072B', family: '4000', inputs: 4, gates: 2, pins: 14, note: 'Dual 4-input OR' },
+                { part: 'CD4075B', family: '4000', inputs: 3, gates: 3, pins: 14, note: 'Triple 3-input OR' },
+            ],
+        },
+        {
+            key: 'xor',
+            label: 'XOR',
+            variants: [{ code: '86', inputs: 2, gates: 4, pins: 14, note: 'Quad XOR' }],
+            cmos: [{ part: 'CD4070B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad XOR' }, { part: 'CD4030B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad XOR' }],
+        },
+        {
+            key: 'xnor',
+            label: 'XNOR',
+            variants: [{ code: '266', inputs: 2, gates: 4, pins: 14, output: 'open-collector', note: 'Quad XNOR open collector/drain' }],
+            cmos: [{ part: 'CD4077B', family: '4000', inputs: 2, gates: 4, pins: 14, note: 'Quad XNOR' }],
+        },
+        {
+            key: 'buffer',
+            label: 'バッファ/ドライバ',
+            variants: [
+                { code: '07', inputs: 1, gates: 6, pins: 14, output: 'open-collector', note: 'Hex buffer open collector/drain' },
+                { code: '34', inputs: 1, gates: 6, pins: 14, note: 'Hex buffer' },
+                { code: '125', inputs: 1, gates: 4, pins: 14, output: '3state', note: 'Quad 3-state buffer, active-low OE' },
+                { code: '126', inputs: 1, gates: 4, pins: 14, output: '3state', note: 'Quad 3-state buffer, active-high OE' },
+                { code: '240', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal inverting buffer/line driver' },
+                { code: '244', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal buffer/line driver' },
+                { code: '541', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal buffer, flow-through pinout' },
+            ],
+            cmos: [{ part: 'CD4050B', family: '4000', inputs: 1, gates: 6, pins: 16, note: 'Hex non-inverting buffer' }],
+        },
+        {
+            key: 'bus-transceiver',
+            label: 'バストランシーバ',
+            variants: [
+                { code: '245', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal bus transceiver' },
+                { code: '640', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal inverting bus transceiver' },
+                { code: '646', inputs: 1, gates: 8, pins: 24, output: '3state', note: 'Registered bus transceiver' },
+            ],
+            cmos: [],
+        },
+        {
+            key: 'd-ff',
+            label: 'D-FF',
+            variants: [
+                { code: '74', inputs: 1, gates: 2, pins: 14, note: 'Dual D flip-flop' },
+                { code: '174', inputs: 1, gates: 6, pins: 16, note: 'Hex D flip-flop' },
+                { code: '175', inputs: 1, gates: 4, pins: 16, note: 'Quad D flip-flop' },
+                { code: '273', inputs: 1, gates: 8, pins: 20, note: 'Octal D flip-flop with clear' },
+                { code: '374', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal D flip-flop 3-state' },
+                { code: '574', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal D flip-flop flow-through' },
+            ],
+            cmos: [{ part: 'CD4013B', family: '4000', inputs: 1, gates: 2, pins: 14, note: 'Dual D flip-flop' }],
+        },
+        {
+            key: 'jk-ff',
+            label: 'JK-FF',
+            variants: [
+                { code: '73', inputs: 2, gates: 2, pins: 14, note: 'Dual JK flip-flop' },
+                { code: '76', inputs: 2, gates: 2, pins: 16, note: 'Dual JK flip-flop preset/clear' },
+                { code: '112', inputs: 2, gates: 2, pins: 16, note: 'Dual negative-edge JK flip-flop' },
+            ],
+            cmos: [{ part: 'CD4027B', family: '4000', inputs: 2, gates: 2, pins: 16, note: 'Dual JK flip-flop' }],
+        },
+        {
+            key: 'latch',
+            label: 'ラッチ',
+            variants: [
+                { code: '75', inputs: 1, gates: 4, pins: 16, note: '4-bit bistable latch' },
+                { code: '373', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal transparent latch' },
+                { code: '573', inputs: 1, gates: 8, pins: 20, output: '3state', note: 'Octal transparent latch flow-through' },
+            ],
+            cmos: [{ part: 'CD4042B', family: '4000', inputs: 1, gates: 4, pins: 16, note: 'Quad clocked D latch' }, { part: 'CD4508B', family: '4500', inputs: 1, gates: 8, pins: 24, note: 'Dual 4-bit latch' }],
+        },
+        {
+            key: 'counter',
+            label: 'カウンタ',
+            variants: [
+                { code: '90', inputs: 1, gates: 1, pins: 14, note: 'Decade counter' },
+                { code: '93', inputs: 1, gates: 1, pins: 14, note: '4-bit binary counter' },
+                { code: '160', inputs: 1, gates: 1, pins: 16, note: 'Sync decade counter' },
+                { code: '161', inputs: 1, gates: 1, pins: 16, note: 'Sync binary counter' },
+                { code: '163', inputs: 1, gates: 1, pins: 16, note: 'Sync binary counter clear' },
+                { code: '190', inputs: 1, gates: 1, pins: 16, note: 'Up/down decade counter' },
+                { code: '191', inputs: 1, gates: 1, pins: 16, note: 'Up/down binary counter' },
+                { code: '390', inputs: 1, gates: 2, pins: 16, note: 'Dual decade ripple counter' },
+                { code: '393', inputs: 1, gates: 2, pins: 14, note: 'Dual 4-bit ripple counter' },
+            ],
+            cmos: [
+                { part: 'CD4017B', family: '4000', inputs: 1, gates: 1, pins: 16, note: 'Decade counter/divider' },
+                { part: 'CD4020B', family: '4000', inputs: 1, gates: 1, pins: 16, note: '14-stage ripple counter' },
+                { part: 'CD4024B', family: '4000', inputs: 1, gates: 1, pins: 14, note: '7-stage ripple counter' },
+                { part: 'CD4040B', family: '4000', inputs: 1, gates: 1, pins: 16, note: '12-stage ripple counter' },
+                { part: 'CD4518B', family: '4500', inputs: 1, gates: 2, pins: 16, note: 'Dual BCD counter' },
+                { part: 'CD4520B', family: '4500', inputs: 1, gates: 2, pins: 16, note: 'Dual binary counter' },
+                { part: 'MC14520B', family: '5000', inputs: 1, gates: 2, pins: 16, note: 'Dual binary counter' },
+            ],
+        },
+        {
+            key: 'shift-register',
+            label: 'シフトレジスタ',
+            variants: [
+                { code: '164', inputs: 1, gates: 1, pins: 14, note: '8-bit SIPO shift register' },
+                { code: '165', inputs: 1, gates: 1, pins: 16, note: '8-bit PISO shift register' },
+                { code: '194', inputs: 1, gates: 1, pins: 16, note: '4-bit bidirectional universal shift register' },
+                { code: '595', inputs: 1, gates: 1, pins: 16, output: '3state', note: '8-bit SIPO register with output latch' },
+                { code: '597', inputs: 1, gates: 1, pins: 16, note: '8-bit PISO shift register' },
+            ],
+            cmos: [
+                { part: 'CD4015B', family: '4000', inputs: 1, gates: 2, pins: 16, note: 'Dual 4-stage shift register' },
+                { part: 'CD4021B', family: '4000', inputs: 1, gates: 1, pins: 16, note: '8-stage static shift register' },
+                { part: 'CD4094B', family: '4000', inputs: 1, gates: 1, pins: 16, output: '3state', note: '8-stage shift-and-store bus register' },
+            ],
+        },
+        {
+            key: 'decoder',
+            label: 'デコーダ/デマルチ',
+            variants: [
+                { code: '42', inputs: 4, gates: 1, pins: 16, note: 'BCD to decimal decoder' },
+                { code: '138', inputs: 3, gates: 1, pins: 16, note: '3-to-8 decoder/demux' },
+                { code: '139', inputs: 2, gates: 2, pins: 16, note: 'Dual 2-to-4 decoder/demux' },
+                { code: '154', inputs: 4, gates: 1, pins: 24, note: '4-to-16 decoder/demux' },
+            ],
+            cmos: [
+                { part: 'CD4028B', family: '4000', inputs: 4, gates: 1, pins: 16, note: 'BCD to decimal decoder' },
+                { part: 'CD4511B', family: '4500', inputs: 4, gates: 1, pins: 16, note: 'BCD to 7-seg latch/decoder/driver' },
+                { part: 'CD4543B', family: '4500', inputs: 4, gates: 1, pins: 16, note: 'BCD to 7-seg latch/decoder/driver' },
+                { part: 'MC14511B', family: '5000', inputs: 4, gates: 1, pins: 16, note: 'BCD to 7-seg decoder' },
+            ],
+        },
+        {
+            key: 'encoder',
+            label: 'エンコーダ',
+            variants: [
+                { code: '147', inputs: 10, gates: 1, pins: 16, note: '10-to-4 priority encoder' },
+                { code: '148', inputs: 8, gates: 1, pins: 16, note: '8-to-3 priority encoder' },
+            ],
+            cmos: [{ part: 'CD4532B', family: '4500', inputs: 8, gates: 1, pins: 16, note: '8-bit priority encoder' }],
+        },
+        {
+            key: 'mux',
+            label: 'MUX/セレクタ',
+            variants: [
+                { code: '151', inputs: 8, gates: 1, pins: 16, note: '8-to-1 data selector' },
+                { code: '153', inputs: 4, gates: 2, pins: 16, note: 'Dual 4-to-1 data selector' },
+                { code: '157', inputs: 2, gates: 4, pins: 16, note: 'Quad 2-to-1 data selector' },
+                { code: '158', inputs: 2, gates: 4, pins: 16, note: 'Quad 2-to-1 inverting selector' },
+                { code: '251', inputs: 8, gates: 1, pins: 16, output: '3state', note: '8-to-1 selector 3-state' },
+                { code: '257', inputs: 2, gates: 4, pins: 16, output: '3state', note: 'Quad 2-to-1 selector 3-state' },
+            ],
+            cmos: [
+                { part: 'CD4051B', family: '4000', inputs: 3, gates: 1, pins: 16, output: 'analog-switch', note: '8ch analog mux/demux' },
+                { part: 'CD4052B', family: '4000', inputs: 2, gates: 2, pins: 16, output: 'analog-switch', note: 'Dual 4ch analog mux/demux' },
+                { part: 'CD4053B', family: '4000', inputs: 1, gates: 3, pins: 16, output: 'analog-switch', note: 'Triple 2ch analog mux/demux' },
+            ],
+        },
+        {
+            key: 'analog-switch',
+            label: 'アナログSW',
+            variants: [],
+            cmos: [
+                { part: 'CD4016B', family: '4000', inputs: 1, gates: 4, pins: 14, output: 'analog-switch', note: 'Quad bilateral switch' },
+                { part: 'CD4066B', family: '4000', inputs: 1, gates: 4, pins: 14, output: 'analog-switch', note: 'Quad bilateral switch' },
+                { part: 'CD4051B', family: '4000', inputs: 3, gates: 1, pins: 16, output: 'analog-switch', note: '8ch analog mux/demux' },
+                { part: 'CD4052B', family: '4000', inputs: 2, gates: 2, pins: 16, output: 'analog-switch', note: 'Dual 4ch analog mux/demux' },
+                { part: 'CD4053B', family: '4000', inputs: 1, gates: 3, pins: 16, output: 'analog-switch', note: 'Triple 2ch analog mux/demux' },
+                { part: 'MC14551B', family: '5000', inputs: 2, gates: 2, pins: 16, output: 'analog-switch', note: 'Dual 4ch analog mux' },
+            ],
+        },
+        {
+            key: 'adder',
+            label: '加算器',
+            variants: [{ code: '83', inputs: 4, gates: 1, pins: 16, note: '4-bit binary full adder' }, { code: '283', inputs: 4, gates: 1, pins: 16, note: '4-bit binary full adder' }],
+            cmos: [{ part: 'CD4008B', family: '4000', inputs: 4, gates: 1, pins: 16, note: '4-bit full adder' }],
+        },
+        {
+            key: 'comparator',
+            label: 'デジタル比較器',
+            variants: [{ code: '85', inputs: 4, gates: 1, pins: 16, note: '4-bit magnitude comparator' }, { code: '688', inputs: 8, gates: 1, pins: 20, output: 'open-collector', note: '8-bit identity comparator' }],
+            cmos: [{ part: 'CD4063B', family: '4000', inputs: 4, gates: 1, pins: 16, note: '4-bit magnitude comparator' }],
+        },
+        {
+            key: 'parity',
+            label: 'パリティ',
+            variants: [{ code: '280', inputs: 9, gates: 1, pins: 14, note: '9-bit parity generator/checker' }],
+            cmos: [],
+        },
+        {
+            key: 'monostable',
+            label: 'モノステーブル',
+            variants: [
+                { code: '121', inputs: 1, gates: 1, pins: 14, note: 'Monostable multivibrator' },
+                { code: '123', inputs: 1, gates: 2, pins: 16, note: 'Dual retriggerable monostable' },
+                { code: '221', inputs: 1, gates: 2, pins: 16, note: 'Dual monostable' },
+            ],
+            cmos: [{ part: 'CD4528B', family: '4500', inputs: 1, gates: 2, pins: 16, note: 'Dual monostable' }, { part: 'CD4538B', family: '4500', inputs: 1, gates: 2, pins: 16, note: 'Precision dual monostable' }],
+        },
+        {
+            key: 'pll',
+            label: 'PLL/VCO',
+            variants: [],
+            cmos: [{ part: 'CD4046B', family: '4000', inputs: 1, gates: 1, pins: 16, output: 'mixed', note: 'PLL with VCO' }],
+        },
+    ];
+    const LOGIC_FUNCTION_OPTIONS = [
+        ['any', '指定なし'],
+        ...LOGIC_FUNCTION_DEFS.map((item) => [item.key, item.label]),
+    ];
+    const logicCatalog = LOGIC_FUNCTION_DEFS.flatMap((definition) => [
+        ...logic74Variants(
+            definition.variants.map((variant) => ({ ...variant, function: definition.key, note: variant.note || definition.label })),
+            undefined
+        ).filter((item) => {
+            const variant = definition.variants.find((candidate) => candidate.code === item.part.replace(item.family, ''));
+            return !variant?.series || variant.series.includes(item.family);
+        }),
+        ...logicCmosParts(definition.cmos.map((item) => ({ ...item, function: definition.key, note: item.note || definition.label }))),
+    ]);
 
     const quickTool = computed(() => {
         const f = quickForms[activeToolId.value];
@@ -925,106 +1887,149 @@ export default function setup() {
         }
 
         if (activeToolId.value === 'logic-ic') {
-            const catalog = [
-                { part: '74HC00', family: '74HC', function: 'nand', inputs: 2, gates: 4, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: '汎用NAND' },
-                { part: '74HC10', family: '74HC', function: 'nand', inputs: 3, gates: 3, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: '3入力NAND' },
-                { part: '74HCT00', family: '74HCT', function: 'nand', inputs: 2, gates: 4, pins: 14, vMin: 4.5, vMax: 5.5, output: 'push-pull', note: 'TTL入力互換' },
-                { part: 'CD4011B', family: '4000B', function: 'nand', inputs: 2, gates: 4, pins: 14, vMin: 3, vMax: 15, output: 'push-pull', note: '広電源範囲' },
-                { part: '74HC04', family: '74HC', function: 'inverter', inputs: 1, gates: 6, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: '汎用インバータ' },
-                { part: '74HC14', family: '74HC', function: 'schmitt-inverter', inputs: 1, gates: 6, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: 'シュミット入力' },
-                { part: '74HC74', family: '74HC', function: 'd-ff', inputs: 1, gates: 2, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: 'D-FF' },
-                { part: '74HC86', family: '74HC', function: 'xor', inputs: 2, gates: 4, pins: 14, vMin: 2, vMax: 6, output: 'push-pull', note: 'XOR' },
-                { part: '74HC125', family: '74HC', function: 'buffer', inputs: 1, gates: 4, pins: 14, vMin: 2, vMax: 6, output: '3state', note: '3-state buffer' },
-                { part: '74HC138', family: '74HC', function: 'decoder', inputs: 3, gates: 1, pins: 16, vMin: 2, vMax: 6, output: 'push-pull', note: '3-to-8 decoder' },
-                { part: '74HC595', family: '74HC', function: 'shift-register', inputs: 1, gates: 1, pins: 16, vMin: 2, vMax: 6, output: '3state', note: '8bit serial-in parallel-out' },
-                { part: 'CD4051B', family: '4000B', function: 'mux', inputs: 3, gates: 1, pins: 16, vMin: 3, vMax: 15, output: 'analog-switch', note: '8ch analog mux' },
-                { part: 'CD4066B', family: '4000B', function: 'analog-switch', inputs: 1, gates: 4, pins: 14, vMin: 3, vMax: 15, output: 'analog-switch', note: 'quad bilateral switch' },
-            ];
-            const matches = catalog.filter((item) => {
-                const familyMatch = f.family === 'any' || item.family === f.family;
-                const functionMatch = f.function === 'any' || item.function === f.function;
+            const requestedPins = Math.max(0, Math.round(toFinite(f.packagePins, 0)));
+            const requestedInputs = Math.max(0, Math.round(toFinite(f.inputs, 0)));
+            const supplyV = toFinite(f.supplyV, Number.NaN);
+            const familyRank = new Map(LOGIC_CONNECTION_FAMILY_OPTIONS.map(([family], index) => [family, index]));
+            const matches = uniqueLogicParts(logicCatalog.map(withLogicPartSpec).filter((item) => {
+                const familyMatch = logicFamilyMatches(item.family, f.family);
+                const functionMatch = logicFunctionMatches(item.function, f.function);
                 const outputMatch = f.outputType === 'any' || item.output === f.outputType;
-                const pinMatch = !toFinite(f.packagePins) || item.pins === toFinite(f.packagePins);
-                const inputMatch = !toFinite(f.inputs) || item.inputs === toFinite(f.inputs);
+                const pinMatch = !requestedPins || item.pins === requestedPins;
+                const inputMatch = !requestedInputs || item.inputs === requestedInputs;
                 return familyMatch && functionMatch && outputMatch && pinMatch && inputMatch;
-            });
-            const supplyMatches = matches.filter((item) => toFinite(f.supplyV) >= item.vMin && toFinite(f.supplyV) <= item.vMax);
+            })).sort((a, b) => (familyRank.get(a.family) ?? 999) - (familyRank.get(b.family) ?? 999) || a.part.localeCompare(b.part));
+            const supplyMatches = Number.isFinite(supplyV)
+                ? matches.filter((item) => supplyV >= item.vMin && supplyV <= item.vMax)
+                : [];
             const best = supplyMatches[0] ?? matches[0] ?? null;
-            const tone = !matches.length ? 'warn' : (supplyMatches.length ? 'check' : 'bad');
+            const level = logicLevelCompatibility(f);
+            const candidateTone = !matches.length ? 'warn' : (Number.isFinite(supplyV) && !supplyMatches.length ? 'bad' : 'check');
+            const tone = level.status === 'bad' || candidateTone === 'bad'
+                ? 'bad'
+                : (level.status === 'warn' || candidateTone === 'warn' ? 'warn' : 'check');
+            const candidateRows = (supplyMatches.length ? supplyMatches : matches).slice(0, 8).map((item) => item.part).join(', ');
+            const levelPair = level.driver && level.receiver
+                ? `${level.driver.family} ${level.driver.vcc}V -> ${level.receiver.family} ${level.receiver.vcc}V`
+                : '条件未定義';
             return {
                 title: 'ロジックICリファレンス',
                 model: 'logic-ic',
                 fields: [
-                    { key: 'family', label: 'ファミリ', type: 'select', options: [['any', '指定なし'], ['74HC', '74HC'], ['74HCT', '74HCT'], ['4000B', '4000B']], diagramKey: 'family' },
-                    { key: 'function', label: '機能', type: 'select', options: [['any', '指定なし'], ['nand', 'NAND'], ['inverter', 'インバータ'], ['schmitt-inverter', 'シュミットINV'], ['d-ff', 'D-FF'], ['xor', 'XOR'], ['buffer', 'バッファ'], ['decoder', 'デコーダ'], ['shift-register', 'シフトレジスタ'], ['mux', 'MUX'], ['analog-switch', 'アナログSW']], diagramKey: 'function' },
+                    { key: 'family', label: '候補ファミリ', type: 'select', options: LOGIC_ALL_FAMILY_OPTIONS, diagramKey: 'family' },
+                    { key: 'function', label: '機能', type: 'select', options: LOGIC_FUNCTION_OPTIONS, diagramKey: 'function' },
                     { key: 'inputs', label: '入力数の目安', type: 'number', diagramKey: 'function' },
                     { key: 'packagePins', label: 'ピン数(0=不問)', type: 'number', diagramKey: 'packagePins' },
                     { key: 'supplyV', label: '使用Vcc(V)', type: 'number', diagramKey: 'supplyV' },
-                    { key: 'outputType', label: '出力形式', type: 'select', options: [['any', '指定なし'], ['push-pull', 'Push-pull'], ['3state', '3-state'], ['analog-switch', 'Analog switch']], diagramKey: 'outputType' },
+                    { key: 'outputType', label: '出力形式', type: 'select', options: LOGIC_OUTPUT_OPTIONS, diagramKey: 'outputType' },
+                    { key: 'driverFamily', label: '送信側シリーズ', type: 'select', options: LOGIC_CONNECTION_FAMILY_OPTIONS, diagramKey: 'family' },
+                    { key: 'driverVcc', label: '送信側Vcc(V)', type: 'number', diagramKey: 'supplyV' },
+                    { key: 'receiverFamily', label: '受信側シリーズ', type: 'select', options: LOGIC_CONNECTION_FAMILY_OPTIONS, diagramKey: 'family' },
+                    { key: 'receiverVcc', label: '受信側Vcc(V)', type: 'number', diagramKey: 'supplyV' },
                 ],
                 rows: [
                     ['候補数', `${matches.length}`],
-                    ['Vcc範囲内', `${supplyMatches.length}`],
+                    ['Vcc範囲内', Number.isFinite(supplyV) ? `${supplyMatches.length}` : 'CHECK'],
                     ['第一候補', best ? `${best.part} / ${best.note}` : '該当なし'],
-                    ['候補一覧', (supplyMatches.length ? supplyMatches : matches).slice(0, 6).map((item) => item.part).join(', ') || '該当なし'],
+                    ['候補一覧', candidateRows || '該当なし'],
                     ['確認条件', best ? `${best.vMin}-${best.vMax} V / ${best.pins}pin / ${best.output}` : '条件を広げて再検索'],
+                    ['レベル判定', `${level.verdict} / ${levelPair}`],
+                    ['VOH(min)送信', formatLogicVoltage(level.driver?.vohMin)],
+                    ['VOL(max)送信', formatLogicVoltage(level.driver?.volMax)],
+                    ['VIH(min)受信', formatLogicVoltage(level.receiver?.vihMin)],
+                    ['VIL(max)受信', formatLogicVoltage(level.receiver?.vilMax)],
+                    ['H/L余裕', `${formatLogicVoltage(level.highMargin)} / ${formatLogicVoltage(level.lowMargin)}`],
+                    ['入力耐圧余裕', formatLogicVoltage(level.inputOvervoltageMargin)],
+                    ['入力耐圧目安', level.receiver ? `${formatLogicVoltage(level.receiver.inputMax)} / 送信High最大 ${formatLogicVoltage(level.driver?.outputHighMax)}` : 'CHECK'],
                 ],
                 tone,
-                dominantFactors: ['ファミリ', '機能', 'Vcc範囲'],
+                dominantFactors: ['候補ファミリ', '機能', 'VOH/VIH', 'VOL/VIL', '入力耐圧'],
                 warnings: [
                     ...(!matches.length ? ['機能・ファミリ・ピン数の条件に合う候補がありません。'] : []),
-                    ...(matches.length && !supplyMatches.length ? ['候補ICの電源範囲外です。ファミリまたはVccを見直してください。'] : []),
-                    'VIH/VIL、VOH/VOL、出力電流、伝搬遅延、入力5V tolerantはデータシートで確認してください。',
+                    ...(matches.length && Number.isFinite(supplyV) && !supplyMatches.length ? ['候補ICの電源範囲外です。ファミリまたはVccを見直してください。'] : []),
+                    ...level.warnings,
+                    ...(String(f.family).includes('HCU') || String(f.driverFamily).includes('HCU') || String(f.receiverFamily).includes('HCU')
+                        ? ['74HCUはアンバッファ用途です。発振/リニア動作、未使用入力、低速エッジでの消費電流を確認してください。']
+                        : []),
+                    '未使用入力はデータシート推奨に従いVCC/GND等へ固定してください。浮き入力は貫通電流、発振、誤動作の原因になります。',
+                    'VOH/VOL/VIH/VILはファミリ標準値の概算です。候補型番のデータシート条件へ置き換えてください。',
                 ],
-                missingConditions: ['温度範囲', '負荷電流', '速度条件', '入力しきい値条件'],
-                nextActions: ['候補型番のデータシートでVcc、入力しきい値、出力電流、パッケージピン配置を確認する'],
+                missingConditions: [
+                    ...new Set([
+                        ...level.missingConditions,
+                        ...(Number.isFinite(supplyV) ? [] : ['使用Vcc']),
+                        ...(!matches.length ? ['候補ファミリ/機能/ピン条件'] : []),
+                        ...(matches.length && Number.isFinite(supplyV) && !supplyMatches.length ? ['候補ICのVcc範囲'] : []),
+                        '伝搬遅延/最大周波数',
+                        'パッケージピン配置',
+                        '未使用入力の固定方法',
+                    ]),
+                ],
+                margin: level.highMargin === null || level.lowMargin === null || level.inputOvervoltageMargin === null
+                    ? null
+                    : Math.min(level.highMargin, level.lowMargin, level.inputOvervoltageMargin),
+                summary: tone === 'bad'
+                    ? '候補検索条件または系列間ロジックレベルに成立しない条件があります。'
+                    : '候補ICと系列間ロジックレベルを概算しました。データシート条件を入れるまではCHECK扱いです。',
+                nextActions: tone === 'bad'
+                    ? ['HCT/ACT/VHCTなどTTL入力互換系列、レベルシフタ、同一電源ドメイン化を検討し、未使用入力の固定方法も確認する']
+                    : ['候補型番のデータシートでVcc、VOH/VOL、VIH/VIL、入力耐圧、出力電流、ピン配置、未使用入力処理を確認する'],
             };
         }
 
         if (activeToolId.value === 'connector') {
-            const pins = Math.max(toFinite(f.pins), 1);
-            const totalCurrent = pins * toFinite(f.currentPerPin);
-            const missingRatings = ratingMissing([
-                { label: '1pin定格電流', value: f.currentRatingPerPin },
-                { label: '温度上昇上限', value: f.tempRiseLimit },
-            ]);
-            const usablePerPin = hasRating(f.currentRatingPerPin)
-                ? toFinite(f.currentRatingPerPin) * Math.max(0, Math.min(100, toFinite(f.deratingPct, 50))) / 100
+            const template = connectorActiveTemplate.value;
+            const summary = connectorSummary.value;
+            const pins = connectorPinMap.value.length;
+            const currentRating = toFinite(f.currentRatingPerPin, template?.currentRatingPerPin ?? 0);
+            const voltageRating = toFinite(f.voltageRatingV, template?.voltageRatingV ?? 0);
+            const usablePerPin = currentRating > 0
+                ? currentRating * Math.max(0, Math.min(100, toFinite(f.deratingPct, 80))) / 100
                 : null;
-            const perPinMargin = usablePerPin === null ? null : usablePerPin - toFinite(f.currentPerPin);
             const viewNote = f.viewSide === 'mating-face' ? 'mating face基準でピン番号を書く' : 'solder side基準で左右反転を明記する';
-            const tone = missingRatings.length ? 'check' : (perPinMargin < 0 ? 'bad' : (perPinMargin / Math.max(usablePerPin, 1e-12) < 0.2 ? 'warn' : 'check'));
+            const tone = summary.status === 'bad' ? 'bad' : (summary.status === 'ok' ? 'ok' : 'check');
             return {
-                title: 'コネクタ視点補助リファレンス',
+                title: 'コネクタ設計/ピン配置',
                 model: 'connector',
                 fields: [
-                    { key: 'connectorType', label: 'コネクタ種別', type: 'select', options: [['pin-header', 'ピンヘッダ'], ['jst', 'JST系'], ['idc', 'IDC'], ['dsub', 'D-sub'], ['rj45', 'RJ45'], ['usb', 'USB']], diagramKey: 'connectorType' },
+                    { key: 'selectedTemplateId', label: '標準/ユーザーコネクタ', type: 'select', options: connectorTemplateOptions.value, diagramKey: 'connectorType' },
                     { key: 'environment', label: '用途', type: 'select', options: [['board-to-wire', '基板-電線'], ['board-to-board', '基板-基板'], ['external', '外部I/F']], diagramKey: 'environment' },
-                    { key: 'viewSide', label: '図面視点', type: 'select', options: [['mating-face', 'mating face'], ['solder-side', 'solder side']], diagramKey: 'viewSide' },
-                    { key: 'pin1Mark', label: 'Pin1表示', type: 'select', options: [['silk-dot', 'シルク点'], ['triangle', '三角'], ['square-pad', '角ランド'], ['key-notch', 'キー/ノッチ']], diagramKey: 'pin1Mark' },
-                    { key: 'pins', label: 'ピン数', type: 'number', diagramKey: 'pins' },
-                    { key: 'pitchMm', label: 'ピッチ(mm)', type: 'number', diagramKey: 'pins', storedUnitFactor: 1e-3 },
-                    { key: 'currentPerPin', label: '1pin電流(A)', type: 'number', diagramKey: 'currentPerPin' },
+                    { key: 'viewSide', label: '図面視点', type: 'select', options: [['mating-face', 'mating face'], ['solder-side', 'solder side'], ['cable-side', 'cable side']], diagramKey: 'viewSide' },
+                    { key: 'pin1Mark', label: 'Pin1表示', type: 'select', options: [['silk-dot', 'シルク点'], ['triangle', '三角'], ['square-pad', '角ランド'], ['key-notch', 'キー/ノッチ'], ['shell-mark', 'シェル刻印']], diagramKey: 'pin1Mark' },
                     { key: 'currentRatingPerPin', label: '1pin定格電流(A)', type: 'number', diagramKey: 'currentPerPin' },
+                    { key: 'voltageRatingV', label: '定格電圧(V)', type: 'number', diagramKey: 'currentPerPin' },
                     { key: 'deratingPct', label: '電流derating(%)', type: 'number', diagramKey: 'currentPerPin' },
                     { key: 'tempRiseLimit', label: '温度上昇上限(degC)', type: 'number', diagramKey: 'currentPerPin' },
+                    { key: 'photoUrl', label: '写真URL', type: 'text', diagramKey: 'datasheetUrl' },
+                    { key: 'diagramUrl', label: 'ピン配置図URL', type: 'text', diagramKey: 'datasheetUrl' },
+                    { key: 'datasheetUrl', label: 'データシートURL', type: 'text', diagramKey: 'datasheetUrl' },
+                    { key: 'matingPart', label: '相手側部品', type: 'text', diagramKey: 'connectorType' },
+                    { key: 'bomNote', label: 'BOM注記', type: 'text', diagramKey: 'pinAssignments' },
+                    { key: 'silkNote', label: 'シルク/組立注記', type: 'text', diagramKey: 'pinAssignments' },
+                    { key: 'pinAssignments', label: 'ピン割付 pin,signal,type,voltage,current,color,awg,note', type: 'textarea', diagramKey: 'pinAssignments' },
                 ],
                 rows: [
-                    ['総電流目安', `${totalCurrent.toFixed(2)} A`],
+                    ['テンプレート', `${template?.label ?? '未選択'} / ${template?.standard ?? '-'}`],
+                    ['写真/図', `${f.photoUrl || template?.photoUrl ? '写真あり' : '写真なし'} / ${f.diagramUrl || template?.diagramUrl ? '図あり' : '図なし'}`],
+                    ['ピン割付', `${summary.assigned.length} / ${pins}`],
+                    ['総電流', `${summary.totalCurrent.toFixed(3)} A`],
+                    ['最大pin電流', `${summary.maxPinCurrent.toFixed(3)} A`],
                     ['derating後1pin', usablePerPin === null ? 'CHECK' : `${usablePerPin.toFixed(3)} A`],
-                    ['1pin余裕', perPinMargin === null ? 'CHECK' : `${perPinMargin.toFixed(3)} A`],
+                    ['電流超過', `${summary.overCurrent.length}`],
+                    ['電圧超過', `${summary.overVoltage.length} / rating ${voltageRating || 'CHECK'} V`],
+                    ['AWG超過', `${summary.overAwg.length}`],
+                    ['電源/GND/差動', `${summary.powerPins.length}/${summary.groundPins.length}/${summary.diffPins.length}`],
                     ['図面注記', `${viewNote} / Pin1=${f.pin1Mark}`],
-                    ['量産確認', `${f.connectorType}, ${pins}pin, ${toFinite(f.pitchMm).toFixed(2)}mm, ${f.environment}`],
-                    ['確認観点', f.environment === 'external' ? '抜き差し回数/ラッチ/ESD' : '誤挿入防止/極性/実装高さ'],
+                    ['BOM/シルク', `${f.bomNote || 'BOM注記なし'} / ${f.silkNote || 'シルク注記なし'}`],
                 ],
                 tone,
-                missingConditions: missingRatings,
+                missingConditions: summary.missingConditions,
                 warnings: [
-                    ...(missingRatings.length ? ['定格電流または温度上昇上限が未入力のためPASSにはしません。'] : []),
-                    ...(perPinMargin !== null && perPinMargin < 0 ? ['derating後の1pin電流定格を超えています。'] : []),
-                    '嵌合面とはんだ面の左右反転、Pin1表示、キー形状を図面に併記してください。',
+                    ...summary.warnings,
+                    ...(hasRating(f.tempRiseLimit) ? [] : ['温度上昇上限が未入力のため、全ピン同時通電のPASS判定はしません。']),
+                    '嵌合面/はんだ面/ケーブル側の左右反転、Pin1表示、キー形状を図面に併記してください。',
                 ],
-                nextActions: ['データシートの温度上昇条件、全ピン同時通電条件、mating face/solder side図を確認する'],
+                nextActions: ['写真またはピン配置図、データシート定格、相手側部品、未割付ピンのNC理由をそろえる'],
             };
         }
 
@@ -1207,27 +2212,17 @@ export default function setup() {
     });
 
     // ══════════════════════════════════════════════
-    // 3. 抵抗分圧 / NTC温度変換
+    // 3. NTC/PTC温度変換
     // ══════════════════════════════════════════════
     const divider = reactive({
-        mode: 'voltage',  // 'voltage' | 'ntc'
-        // 電圧分圧
-        vin: 5.0, r1: 10000, r2: 10000,
-        // NTC
+        mode: 'ntc',
         R0: 10000, T0: 25, B: 3950, Rmeas: 10000, tempMin: -20, tempMax: 85, tempStep: 25, adcBits: 12, adcVref: 3.3, pullupCandidates: '4700,10000,22000',
     });
     const dividerResult = computed(() => {
-        if (divider.mode === 'voltage') {
-            const vout = divider.vin * divider.r2 / (divider.r1 + divider.r2);
-            const ratio = divider.r2 / (divider.r1 + divider.r2);
-            return { vout: vout.toFixed(4), ratio: (ratio * 100).toFixed(2) };
-        } else {
-            // NTC: 1/T = 1/T0 + (1/B)*ln(R/R0)
-            const T0k  = divider.T0 + 273.15;
-            const Tk   = 1 / (1 / T0k + Math.log(divider.Rmeas / divider.R0) / divider.B);
-            const Tc   = Tk - 273.15;
-            return { temp_c: Tc.toFixed(2), temp_k: Tk.toFixed(2) };
-        }
+        const T0k  = divider.T0 + 273.15;
+        const Tk   = 1 / (1 / T0k + Math.log(divider.Rmeas / divider.R0) / divider.B);
+        const Tc   = Tk - 273.15;
+        return { temp_c: Tc.toFixed(2), temp_k: Tk.toFixed(2) };
     });
 
     // ══════════════════════════════════════════════
@@ -1493,20 +2488,14 @@ export default function setup() {
                 field(cap, 'targetLifeY', '目標寿命 (年)', '出力・保存', 'number', 'life'),
                 field(cap, 'voltageDeratingPct', '電圧ディレーティング (%)', '部品定格', 'number', 'V'),
             ],
-            divider: divider.mode === 'ntc'
-                ? [
-                    field(divider, 'tempMin', '温度 sweep min (degC)', '最悪条件', 'number', 'temp'),
-                    field(divider, 'tempMax', '温度 sweep max (degC)', '最悪条件', 'number', 'temp'),
-                    field(divider, 'tempStep', '温度 sweep step (degC)', '最悪条件', 'number', 'temp'),
-                    field(divider, 'pullupCandidates', 'プルアップ候補 (ohm)', '部品定格', 'text', 'R0'),
-                    field(divider, 'adcBits', 'ADC bits', '出力・保存', 'number', 'temp'),
-                    field(divider, 'adcVref', 'ADC Vref (V)', '出力・保存', 'number', 'temp'),
-                ]
-                : [
-                    field(divider, 'tempMin', '想定温度 min (degC)', '最悪条件', 'number', 'vin'),
-                    field(divider, 'tempMax', '想定温度 max (degC)', '最悪条件', 'number', 'vin'),
-                    field(divider, 'pullupCandidates', '候補抵抗 (ohm)', '部品定格', 'text', 'r1'),
-                ],
+            divider: [
+                field(divider, 'tempMin', '温度 sweep min (degC)', '最悪条件', 'number', 'temp'),
+                field(divider, 'tempMax', '温度 sweep max (degC)', '最悪条件', 'number', 'temp'),
+                field(divider, 'tempStep', '温度 sweep step (degC)', '最悪条件', 'number', 'temp'),
+                field(divider, 'pullupCandidates', 'プルアップ/プルダウン候補 (ohm)', '部品定格', 'text', 'R0'),
+                field(divider, 'adcBits', 'ADC bits', '出力・保存', 'number', 'temp'),
+                field(divider, 'adcVref', 'ADC Vref (V)', '出力・保存', 'number', 'temp'),
+            ],
             shunt: [
                 field(shunt, 'powerRating', 'Rs電力定格 (W)', '部品定格', 'number', 'Rs'),
                 field(shunt, 'tcrPpm', 'Rs TCR (ppm/degC)', '最悪条件', 'number', 'Rs'),
@@ -1921,6 +2910,34 @@ export default function setup() {
     };
 
     const analysisReport = computed(() => {
+        if (activeToolId.value === 'passive-network') {
+            const modeLabel = passiveNetwork.modeOptions.find((mode) => mode.value === passiveNetwork.activeMode)?.label ?? 'ネットワーク探索';
+            const candidateCount = passiveNetwork.activeMode === 'variable'
+                ? passiveNetwork.variableResult.candidates.length
+                : (passiveNetwork.activeMode === 'divider' && passiveNetwork.form.divider_mode === 'variable'
+                    ? passiveNetwork.dividerVariableResult.candidates.length
+                    : passiveNetwork.results.length);
+            const activeDetail = passiveNetwork.activeMode === 'divider'
+                ? (passiveNetwork.form.divider_mode === 'variable' ? 'VR分圧' : '通常分圧')
+                : modeLabel;
+            return designReport({
+                verdict: 'CHECK',
+                tone: 'neutral',
+                summary: '通常分圧、VR分圧、抵抗/容量ネットワーク、可変抵抗設計は専用作業面を正本として使います。',
+                metrics: [
+                    { label: '現在のサブモード', value: activeDetail },
+                    { label: '候補数', value: `${candidateCount}件` },
+                    { label: '通常分圧', value: 'Vin/Vout直接入力、負荷、素子許容差、電流/電力' },
+                    { label: 'VR分圧', value: '指定VR公称値、R上/R下、出力範囲、端点電力' },
+                    { label: 'R/C探索', value: '直列・並列・混在、RSS/コーナー範囲' },
+                ],
+                dominantFactors: ['探索候補', '負荷条件', '素子許容差'],
+                warnings: passiveNetwork.warnings,
+                nextActions: passiveNetwork.nextActions.length ? passiveNetwork.nextActions : ['受動部品ネットワーク/分圧設計を開き、分圧タブまたはネットワーク探索タブで候補を選定する'],
+                candidateLinks: [{ label: '受動部品ネットワーク/分圧設計を開く', url: '/tools/network' }],
+            });
+        }
+
         if (activeToolId.value === 'adc') {
             const codeCount = Math.pow(2, adc.bits);
             const fullScale = codeCount - 1;
@@ -2012,29 +3029,6 @@ export default function setup() {
         }
 
         if (activeToolId.value === 'divider') {
-            if (divider.mode === 'voltage') {
-                const totalR = divider.r1 + divider.r2;
-                const dividerCurrent = divider.vin / Math.max(totalR, 1e-12);
-                const candidates = String(divider.pullupCandidates).split(/[\s,;]+/).filter(Boolean).slice(0, 4);
-                const tone = dividerCurrent > 0.001 || dividerCurrent < 0.00001 ? 'warn' : 'ok';
-                return designReport({
-                    verdict: tone === 'warn' ? 'WARN' : 'PASS',
-                    tone,
-                    summary: tone === 'ok'
-                        ? '分圧比と自己消費は目安範囲です。負荷インピーダンスを入れると成立性を確定できます。'
-                        : '分圧電流が極端です。消費電流、入力バイアス、ADCサンプル容量の影響を確認してください。',
-                    metrics: [
-                        { label: '分圧比', value: `${dividerResult.value.ratio} %` },
-                        { label: '分圧電流', value: formatNumber(dividerCurrent * 1000, 3, 'mA') },
-                        { label: '合成抵抗', value: formatNumber(totalR, 0, 'ohm') },
-                        { label: '候補抵抗', value: candidates.join(', ') || '未入力' },
-                        { label: '温度範囲', value: `${divider.tempMin} - ${divider.tempMax} degC` },
-                    ],
-                    dominantFactors: ['R1/R2比', '合成抵抗', '後段入力インピーダンス'],
-                    warnings: ['負荷インピーダンス未入力のため、後段での分圧ずれは未判定です。'],
-                    nextActions: ['ADC入力ならサンプル時間と入力インピーダンス条件を確認する'],
-                });
-            }
             const pullups = String(divider.pullupCandidates).split(/[\s,;]+/).filter(Boolean).map((value) => parseNumber(value)).filter((value) => value > 0).slice(0, 4);
             const fullScale = 2 ** divider.adcBits - 1;
             const resistanceAtTemp = (tempC) => {
@@ -2327,8 +3321,8 @@ export default function setup() {
             fuse: ['周囲温度、突入電流、I2t条件を入れて定格選定を確定する'],
             polyfuse: ['保持電流の温度ディレーティングとトリップ時間をデータシートで確認する'],
             protection: ['TVS熱インピーダンス、ヒューズ時間電流特性、eFuse制限順序を同じ故障波形で確認する'],
-            'logic-ic': ['VIH/VIL、出力電流、速度、電源範囲、ピン配置を候補型番のデータシートで照合する'],
-            connector: ['電流定格、嵌合方向、mating face/solder sideの図を部品候補へ紐づける'],
+            'logic-ic': ['VIH/VIL、出力電流、速度、電源範囲、ピン配置、未使用入力処理を候補型番のデータシートで照合する'],
+            connector: ['写真/図、定格根拠、ピン別電圧/電流、mating face/solder side/cable sideを部品候補へ紐づける'],
             cable: ['量産図面には端A/端Bの視点とピン1方向を併記する'],
             jumper: ['量産初期値、デバッグ用、未実装の目的をBOM注記へ落とす'],
             startup: ['各レールのPG信号、リセット解除条件、最大立上り時間を追加する'],
@@ -2342,7 +3336,7 @@ export default function setup() {
             polyfuse: ['保持余裕', '発熱', 'トリップ比'],
             protection: ['TVS余裕', '遮断I2t', 'eFuse/逆接保護'],
             'logic-ic': ['候補型番', 'Vcc範囲', '入出力形式'],
-            connector: ['電流目安', '用途別確認観点', '参照不足条件'],
+            connector: ['ピンマップ', '電圧/電流margin', 'BOM/シルク注記'],
             cable: ['結線判定', '端子数差', '図面化注意'],
             jumper: ['状態数', '量産実装数', '未定義目的'],
             startup: ['依存関係', 'PG/RESET', 'バックパワー'],
@@ -2374,12 +3368,15 @@ export default function setup() {
         thermal, thermalResult, thermalReferences, addNode, removeNode,
         iface, ifaceResult,
         quickForms, quickTool, analysisReport,
+        connectorCatalog, connectorActiveTemplate, connectorTemplateOptions, connectorPinMap, connectorSummary, connectorAssignments,
+        connectorUserTemplates, applyConnectorTemplate, saveConnectorTemplate,
         outputSave, analysisPayload, copyAnalysisSummary, saveAnalysisReport,
         advancedInputGroups,
         analysisTemplates, templateState, selectedTemplate, applyAnalysisTemplate, duplicateAnalysisTemplate,
         componentImport, loadComponentContext, loadedComponentName, loadedComponentStock,
         savedAnalysis, loadSavedAnalysis,
         activeDiagram, diagramFocus, focusDiagram, clearDiagramFocus, isDiagramFocused, diagramItemClass,
+        passiveNetwork,
         parseNumber, setNumericInput,
     };
 }

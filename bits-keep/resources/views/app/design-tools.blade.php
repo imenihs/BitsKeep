@@ -36,6 +36,370 @@
   <!-- アクティブツールの説明 -->
   <p v-if="activeTool?.desc" class="text-xs opacity-60 mb-5">@{{ activeTool.desc }}</p>
 
+  <section v-if="activeToolId === 'passive-network'" class="mb-6 space-y-4">
+    <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">受動部品ネットワーク/分圧</div>
+          <h2 class="mt-1 text-lg font-bold">サブモードを選んで同じ画面で計算</h2>
+        </div>
+        <div class="flex flex-wrap gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-1">
+          <button v-for="mode in passiveNetwork.modeOptions" :key="mode.value" type="button"
+            @click="passiveNetwork.setActiveMode(mode.value)"
+            class="rounded-md px-3 py-2 text-sm font-semibold"
+            :class="passiveNetwork.activeMode === mode.value ? 'bg-[var(--color-primary)] text-white' : 'hover:bg-[var(--color-card-even)]'">
+            @{{ mode.label }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="passiveNetwork.activeMode === 'network' || (passiveNetwork.activeMode === 'divider' && passiveNetwork.form.divider_mode === 'fixed')" class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <h3 class="text-sm font-bold">@{{ passiveNetwork.activeMode === 'divider' ? '分圧条件' : 'R/C探索条件' }}</h3>
+            <span class="text-xs opacity-60">@{{ passiveNetwork.partTypeLabel }}</span>
+          </div>
+          <div class="grid gap-3">
+            <div v-if="passiveNetwork.activeMode === 'network'" class="grid grid-cols-2 gap-2">
+              <button v-for="type in passiveNetwork.partTypeOptions" :key="type.value" type="button"
+                @click="passiveNetwork.setPartType(type.value)"
+                class="rounded border px-3 py-2 text-sm font-semibold"
+                :class="passiveNetwork.form.part_type === type.value ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)]'">
+                @{{ type.label }}
+              </button>
+            </div>
+
+            <div v-if="passiveNetwork.activeMode === 'divider'" class="grid grid-cols-2 gap-2">
+              <button v-for="mode in passiveNetwork.dividerModeOptions" :key="mode.value" type="button"
+                @click="passiveNetwork.setDividerMode(mode.value)"
+                class="rounded border px-3 py-2 text-sm font-semibold"
+                :class="passiveNetwork.form.divider_mode === mode.value ? 'border-[var(--color-primary)] bg-[var(--color-card-even)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                @{{ mode.label }}
+              </button>
+            </div>
+
+            <div v-if="passiveNetwork.activeMode === 'divider'" class="grid grid-cols-2 gap-2">
+              <button v-for="mode in passiveNetwork.dividerTargetModeOptions" :key="mode.value" type="button"
+                @click="passiveNetwork.form.divider_target_mode = mode.value"
+                class="rounded border px-3 py-2 text-sm"
+                :class="passiveNetwork.form.divider_target_mode === mode.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                @{{ mode.label }}
+              </button>
+            </div>
+
+            <label v-if="passiveNetwork.activeMode !== 'divider' || passiveNetwork.form.divider_target_mode === 'ratio'" class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">@{{ passiveNetwork.activeMode === 'divider' ? '目標比率' : '目標値' }}</span>
+              <input v-model="passiveNetwork.form.target_raw" class="input-text w-full font-mono" :placeholder="passiveNetwork.targetHint" @keyup.enter="passiveNetwork.search" />
+            </label>
+
+            <div v-if="passiveNetwork.activeMode === 'divider' && passiveNetwork.form.divider_target_mode === 'voltage'" class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+                <input v-model="passiveNetwork.form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="passiveNetwork.search" />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">出力電圧</span>
+                <input v-model="passiveNetwork.form.output_voltage_raw" class="input-text w-full font-mono" placeholder="2.5" @keyup.enter="passiveNetwork.search" />
+              </label>
+              <div class="col-span-2 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 py-2 text-xs">
+                <span class="opacity-55">換算比率</span>
+                <span class="ml-2 font-mono font-semibold">@{{ passiveNetwork.dividerVoltageTarget.valid ? `${(passiveNetwork.dividerVoltageTarget.ratio * 100).toPrecision(5)}%` : '-' }}</span>
+              </div>
+            </div>
+
+            <label v-if="passiveNetwork.activeMode === 'divider' && passiveNetwork.form.divider_target_mode === 'ratio'" class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
+              <input v-model="passiveNetwork.form.input_voltage_raw" class="input-text w-full font-mono" placeholder="3.3" @keyup.enter="passiveNetwork.search" />
+            </label>
+
+            <div v-if="passiveNetwork.activeMode === 'divider'" class="grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <div class="grid grid-cols-2 gap-2">
+                <button v-for="loadType in passiveNetwork.loadTypeOptions" :key="loadType.value" type="button"
+                  @click="passiveNetwork.form.load_type = loadType.value"
+                  class="rounded border px-3 py-2 text-sm"
+                  :class="passiveNetwork.form.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+                  @{{ loadType.label }}
+                </button>
+              </div>
+              <label v-if="passiveNetwork.form.load_type === 'resistance'" class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">負荷抵抗</span>
+                <div class="flex gap-2">
+                  <input v-model="passiveNetwork.form.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" @keyup.enter="passiveNetwork.search" />
+                  <button type="button" @click="passiveNetwork.setLoadResistanceInfinite(passiveNetwork.form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
+                </div>
+              </label>
+              <label v-if="passiveNetwork.form.load_type === 'current'" class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span>
+                <div class="flex gap-2">
+                  <input v-model="passiveNetwork.form.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" @keyup.enter="passiveNetwork.search" />
+                  <button type="button" @click="passiveNetwork.setLoadCurrentZero(passiveNetwork.form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
+                </div>
+              </label>
+              <div class="text-xs opacity-60">負荷: @{{ passiveNetwork.dividerLoadConfig.display }}</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">許容誤差</span>
+                <input v-model.number="passiveNetwork.form.tolerance_pct" type="number" min="0.001" max="50" step="0.1" class="input-text w-full font-mono" />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">E系列</span>
+                <select v-model="passiveNetwork.form.series" class="input-text w-full">
+                  <option v-for="series in passiveNetwork.seriesOptions" :key="series" :value="series">@{{ series }}</option>
+                </select>
+              </label>
+            </div>
+
+            <label v-if="passiveNetwork.activeMode === 'network'" class="block">
+              <span class="mb-1 block text-xs font-semibold opacity-60">採用素子許容差</span>
+              <input v-model.number="passiveNetwork.form.element_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" />
+            </label>
+
+            <div v-if="passiveNetwork.activeMode === 'divider'" class="grid grid-cols-2 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">R1許容差</span>
+                <input v-model.number="passiveNetwork.form.divider_upper_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">R2許容差</span>
+                <input v-model.number="passiveNetwork.form.divider_lower_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" />
+              </label>
+            </div>
+
+            <textarea v-if="passiveNetwork.form.series === 'custom'" v-model="passiveNetwork.form.custom_values" rows="4"
+              class="input-text w-full resize-none font-mono text-sm" placeholder="100, 220, 470, 1k, 2.2k"></textarea>
+
+            <div v-if="passiveNetwork.activeMode === 'network'" class="grid grid-cols-3 gap-2">
+              <button v-for="type in passiveNetwork.circuitOptions" :key="type.value" type="button"
+                @click="passiveNetwork.toggleCircuitType(type.value)"
+                class="rounded border px-2 py-2 text-sm"
+                :class="passiveNetwork.form.circuit_types.includes(type.value) ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-[var(--color-card-even)]' : 'border-[var(--color-border)]'">
+                @{{ type.label }}
+              </button>
+            </div>
+
+            <div v-if="passiveNetwork.activeMode === 'network'" class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">最小素子数</span>
+                <select v-model.number="passiveNetwork.form.min_elements" class="input-text w-full">
+                  <option v-for="n in 4" :key="`pn-min-${n}`" :value="n">@{{ n }}</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">最大素子数</span>
+                <select v-model.number="passiveNetwork.form.max_elements" class="input-text w-full">
+                  <option v-for="n in 4" :key="`pn-max-${n}`" :value="n">@{{ n }}</option>
+                </select>
+              </label>
+            </div>
+
+            <div v-if="passiveNetwork.activeMode === 'divider'" class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 min</span>
+                <input v-model="passiveNetwork.form.total_res_min_raw" class="input-text w-full font-mono" placeholder="1k" />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 max</span>
+                <input v-model="passiveNetwork.form.total_res_max_raw" class="input-text w-full font-mono" placeholder="100k" />
+              </label>
+            </div>
+
+            <button type="button" @click="passiveNetwork.search" :disabled="!passiveNetwork.formValid || passiveNetwork.searching"
+              class="btn-primary rounded-lg px-4 py-3 text-sm font-bold disabled:opacity-40">
+              @{{ passiveNetwork.searching ? '探索中' : '探索' }}
+            </button>
+            <div v-if="passiveNetwork.error || !passiveNetwork.formValid" class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              @{{ passiveNetwork.error || passiveNetwork.validationMessage }}
+            </div>
+          </div>
+        </aside>
+
+        <main class="min-w-0 space-y-4">
+          <div class="grid gap-3 md:grid-cols-4">
+            <div v-for="metric in passiveNetwork.statusMetrics" :key="metric.label" class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+              <div class="text-xs opacity-55">@{{ metric.label }}</div>
+              <div class="mt-1 truncate font-mono text-lg font-bold">@{{ metric.value }}</div>
+            </div>
+          </div>
+          <div v-if="passiveNetwork.warnings.length || passiveNetwork.nextActions.length" class="grid gap-2">
+            <div v-for="message in passiveNetwork.warnings" :key="`pn-warn-${message}`" class="rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">@{{ message }}</div>
+            <div v-for="message in passiveNetwork.nextActions" :key="`pn-next-${message}`" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm">@{{ message }}</div>
+          </div>
+          <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)]">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
+              <div>
+                <h3 class="text-sm font-bold">候補</h3>
+                <div class="text-xs opacity-60">@{{ passiveNetwork.summaryText }}</div>
+              </div>
+              <span v-if="passiveNetwork.elapsedMs !== null" class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">@{{ passiveNetwork.elapsedMs }}ms</span>
+            </div>
+            <div v-if="passiveNetwork.searching" class="grid min-h-56 place-items-center text-sm opacity-60">探索中</div>
+            <div v-else-if="passiveNetwork.elapsedMs === null" class="grid min-h-56 place-items-center text-sm opacity-45">候補待ち</div>
+            <div v-else-if="passiveNetwork.results.length === 0" class="grid min-h-56 place-items-center text-sm opacity-60">該当候補なし</div>
+            <div v-else class="divide-y divide-[var(--color-border)]">
+              <article v-for="candidate in passiveNetwork.rankedResults" :key="candidate.id" class="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div class="min-w-0">
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs font-semibold">#@{{ candidate.rank }}</span>
+                    <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs">@{{ candidate.topology_label || passiveNetwork.circuitTypeLabel(candidate.circuit_type) }}</span>
+                    <span class="rounded bg-[var(--color-card-even)] px-2 py-1 text-xs">@{{ candidate.elements_count }}素子</span>
+                  </div>
+                  <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3 font-mono text-sm">@{{ candidate.expression }}</div>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <span v-for="part in candidate.parts" :key="`${candidate.id}-${part.role}-${part.label}`" class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">
+                      <span class="opacity-50">@{{ part.role }}</span>
+                      <span class="ml-1">@{{ part.label }}</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                    <div class="text-xs opacity-50">合成値</div>
+                    <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.actual_display }}</div>
+                    <div v-if="candidate.actual_output_display" class="mt-1 font-mono text-xs opacity-65">@{{ candidate.actual_output_display }}</div>
+                  </div>
+                  <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                    <div class="text-xs opacity-50">誤差</div>
+                    <div class="mt-1 font-mono text-lg font-bold" :class="passiveNetwork.errorClass(candidate.error_pct)">@{{ candidate.error_display }}</div>
+                    <div v-if="candidate.output_error_display" class="mt-1 font-mono text-xs opacity-65">@{{ candidate.output_error_display }}</div>
+                  </div>
+                  <div v-if="candidate.circuit_type === 'divider' && candidate.source_current_display" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                    <div class="text-xs opacity-50">電流/電力</div>
+                    <div class="mt-1 font-mono text-lg font-bold">@{{ candidate.source_current_display }}</div>
+                    <div class="mt-1 grid gap-1 font-mono text-xs opacity-70">
+                      <span>R1 @{{ candidate.upper_power_display }}</span>
+                      <span>R2 @{{ candidate.lower_power_display }}</span>
+                      <span>合計 @{{ candidate.resistor_power_display }}</span>
+                    </div>
+                  </div>
+                  <div v-if="candidate.divider_rss_range_display || candidate.rss_range_display" class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+                    <div class="text-xs opacity-50">素子誤差範囲</div>
+                    <div class="mt-1 font-mono text-sm font-bold">@{{ candidate.divider_rss_range_display || candidate.rss_range_display }}</div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div v-if="passiveNetwork.activeMode === 'variable'" class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <h3 class="mb-3 text-sm font-bold">可変抵抗 + 固定抵抗</h3>
+          <div class="grid gap-3">
+            <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">基準抵抗値</span><input v-model="passiveNetwork.variable.reference_raw" class="input-text w-full font-mono" placeholder="10k" /></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">可変幅</span><input v-model="passiveNetwork.variable.span_raw" class="input-text w-full font-mono" placeholder="20 または 2k" /></label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="passiveNetwork.variable.span_mode = 'percent'" class="rounded border px-3 py-2 text-sm" :class="passiveNetwork.variable.span_mode === 'percent' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">%</button>
+              <button type="button" @click="passiveNetwork.variable.span_mode = 'ohm'" class="rounded border px-3 py-2 text-sm" :class="passiveNetwork.variable.span_mode === 'ohm' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">Ω</button>
+            </div>
+            <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">基準位置</span><select v-model="passiveNetwork.variable.reference_position" class="input-text w-full"><option v-for="position in passiveNetwork.variableReferencePositionOptions" :key="position.value" :value="position.value">@{{ position.label }}</option></select></label>
+            <select v-model="passiveNetwork.variable.circuit" class="input-text w-full"><option value="series">直列トリム</option><option value="parallel">並列トリム</option></select>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">固定抵抗ソース</span><select v-model="passiveNetwork.variable.fixed_source" class="input-text w-full"><option v-for="source in passiveNetwork.variableFixedSourceOptions" :key="source" :value="source">@{{ source }}</option></select></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">VRソース</span><select v-model="passiveNetwork.variable.pot_source" class="input-text w-full"><option v-for="source in passiveNetwork.variablePotSourceOptions" :key="source" :value="source">@{{ source === 'vr-common' ? '標準VR値' : source }}</option></select></label>
+            </div>
+            <div class="grid grid-cols-2 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">固定許容差</span><input v-model.number="passiveNetwork.variable.fixed_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">VR許容差</span><input v-model.number="passiveNetwork.variable.pot_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" /></label>
+            </div>
+          </div>
+        </aside>
+        <main class="space-y-4">
+          <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-bold">採用候補</h3>
+              <span v-if="passiveNetwork.variableResult.bestCandidate" class="rounded border px-2 py-1 text-xs font-semibold" :class="passiveNetwork.variableStatusClass(passiveNetwork.variableResult.bestCandidate.status)">@{{ passiveNetwork.variableResult.bestCandidate.verdict }}</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-4">
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補固定抵抗</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.variableResult.selectedFixedDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補VR</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.variableResult.selectedPotDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補下限</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.variableResult.selectedLowDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補上限</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.variableResult.selectedHighDisplay }}</div></div>
+            </div>
+            <div v-if="passiveNetwork.variableResult.bestCandidate" class="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+              <div class="font-mono text-sm">@{{ passiveNetwork.variableResult.bestCandidate.expression }}</div>
+              <div class="mt-3 flex flex-wrap gap-2"><span v-for="tag in passiveNetwork.variableResult.bestCandidate.tags" :key="tag" class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">@{{ tag }}</span></div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div v-if="passiveNetwork.activeMode === 'divider' && passiveNetwork.form.divider_mode === 'variable'" class="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <aside class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+          <h3 class="mb-3 text-sm font-bold">VR分圧条件</h3>
+          <div class="grid gap-3">
+            <div class="grid grid-cols-2 gap-2">
+              <button v-for="mode in passiveNetwork.dividerModeOptions" :key="mode.value" type="button" @click="passiveNetwork.setDividerMode(mode.value)"
+                class="rounded border px-3 py-2 text-sm font-semibold"
+                :class="passiveNetwork.form.divider_mode === mode.value ? 'border-[var(--color-primary)] bg-[var(--color-card-even)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">@{{ mode.label }}</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button v-for="mode in passiveNetwork.dividerTargetModeOptions" :key="mode.value" type="button" @click="passiveNetwork.form.divider_target_mode = mode.value"
+                class="rounded border px-3 py-2 text-sm"
+                :class="passiveNetwork.form.divider_target_mode === mode.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">@{{ mode.label }}</button>
+            </div>
+            <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span><input v-model="passiveNetwork.form.input_voltage_raw" class="input-text w-full font-mono" placeholder="5" /></label>
+            <div v-if="passiveNetwork.form.divider_target_mode === 'voltage'" class="grid grid-cols-2 gap-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">出力下限</span><input v-model="passiveNetwork.dividerVariable.output_low_raw" class="input-text w-full font-mono" placeholder="1" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">出力上限</span><input v-model="passiveNetwork.dividerVariable.output_high_raw" class="input-text w-full font-mono" placeholder="3" /></label>
+            </div>
+            <div v-if="passiveNetwork.form.divider_target_mode === 'ratio'" class="grid grid-cols-2 gap-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">出力下限比率</span><input v-model="passiveNetwork.dividerVariable.output_low_ratio_raw" class="input-text w-full font-mono" placeholder="20%" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">出力上限比率</span><input v-model="passiveNetwork.dividerVariable.output_high_ratio_raw" class="input-text w-full font-mono" placeholder="60%" /></label>
+            </div>
+            <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">基準VR値</span><input v-model="passiveNetwork.dividerVariable.nominal_pot_raw" class="input-text w-full font-mono" placeholder="10k" /></label>
+            <div class="grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <div class="grid grid-cols-2 gap-2">
+                <button v-for="loadType in passiveNetwork.loadTypeOptions" :key="loadType.value" type="button" @click="passiveNetwork.form.load_type = loadType.value"
+                  class="rounded border px-3 py-2 text-sm"
+                  :class="passiveNetwork.form.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">@{{ loadType.label }}</button>
+              </div>
+              <label v-if="passiveNetwork.form.load_type === 'resistance'" class="block"><span class="mb-1 block text-xs font-semibold opacity-60">負荷抵抗</span><div class="flex gap-2"><input v-model="passiveNetwork.form.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" /><button type="button" @click="passiveNetwork.setLoadResistanceInfinite(passiveNetwork.form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm">∞</button></div></label>
+              <label v-if="passiveNetwork.form.load_type === 'current'" class="block"><span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span><div class="flex gap-2"><input v-model="passiveNetwork.form.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" /><button type="button" @click="passiveNetwork.setLoadCurrentZero(passiveNetwork.form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm">0A</button></div></label>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">許容誤差</span><input v-model.number="passiveNetwork.form.tolerance_pct" type="number" min="0" max="50" step="0.1" class="input-text w-full font-mono" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">E系列</span><select v-model="passiveNetwork.form.series" class="input-text w-full"><option v-for="series in passiveNetwork.seriesOptions" :key="series" :value="series">@{{ series }}</option></select></label>
+            </div>
+            <div class="grid grid-cols-3 gap-3 rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] p-3">
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">R上許容差</span><input v-model.number="passiveNetwork.dividerVariable.top_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">VR許容差</span><input v-model.number="passiveNetwork.dividerVariable.pot_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" /></label>
+              <label class="block"><span class="mb-1 block text-xs font-semibold opacity-60">R下許容差</span><input v-model.number="passiveNetwork.dividerVariable.bottom_tolerance_pct" type="number" min="0" max="100" step="0.1" class="input-text w-full font-mono" /></label>
+            </div>
+          </div>
+        </aside>
+        <main class="space-y-4">
+          <section class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-bold">採用候補</h3>
+              <span v-if="passiveNetwork.dividerVariableResult.bestCandidate" class="rounded border px-2 py-1 text-xs font-semibold" :class="passiveNetwork.variableStatusClass(passiveNetwork.dividerVariableResult.bestCandidate.status)">@{{ passiveNetwork.dividerVariableResult.bestCandidate.verdict }}</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-5">
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">R上</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.dividerVariableResult.selectedTopDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">VR</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.dividerVariableResult.selectedPotDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">R下</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.dividerVariableResult.selectedBottomDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補下限</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.dividerVariableResult.selectedLowDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">候補上限</div><div class="mt-1 font-mono text-xl font-bold">@{{ passiveNetwork.dividerVariableResult.selectedHighDisplay }}</div></div>
+            </div>
+            <div v-if="passiveNetwork.dividerVariableResult.bestCandidate" class="mt-3 grid gap-3 md:grid-cols-5">
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">最大回路電流</div><div class="mt-1 font-mono text-lg font-bold">@{{ passiveNetwork.dividerVariableResult.selectedSourceCurrentDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">R上最大電力</div><div class="mt-1 font-mono text-lg font-bold">@{{ passiveNetwork.dividerVariableResult.selectedTopPowerDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">VR最大電力</div><div class="mt-1 font-mono text-lg font-bold">@{{ passiveNetwork.dividerVariableResult.selectedPotPowerDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">R下最大電力</div><div class="mt-1 font-mono text-lg font-bold">@{{ passiveNetwork.dividerVariableResult.selectedBottomPowerDisplay }}</div></div>
+              <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3"><div class="text-xs opacity-50">抵抗合計最大</div><div class="mt-1 font-mono text-lg font-bold">@{{ passiveNetwork.dividerVariableResult.selectedResistorPowerDisplay }}</div></div>
+            </div>
+            <div v-if="passiveNetwork.dividerVariableResult.bestCandidate" class="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+              <div class="font-mono text-sm">@{{ passiveNetwork.dividerVariableResult.bestCandidate.expression }}</div>
+              <div class="mt-3 flex flex-wrap gap-2"><span v-for="tag in passiveNetwork.dividerVariableResult.bestCandidate.tags" :key="tag" class="rounded border border-[var(--color-border)] px-2 py-1 text-xs">@{{ tag }}</span></div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </section>
+
   <section v-if="advancedInputGroups.length" class="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <div>
@@ -56,8 +420,8 @@
             <input v-else-if="item.type === 'text'" v-model="item.target[item.key]"
               @focus="focusDiagram(item.diagramKey || item.key)" @blur="clearDiagramFocus"
               type="text" class="input-text w-full font-mono text-xs" />
-            <input v-else :value="item.target[item.key]" @change="setNumericInput(item.target, item.key, $event, item.storageUnitFactor)"
-              @focus="focusDiagram(item.diagramKey || item.key)" @blur="setNumericInput(item.target, item.key, $event, item.storageUnitFactor); clearDiagramFocus()"
+            <input v-else :value="item.target[item.key]" @change="setNumericInput(item.target, item.key, $event, item.storedUnitFactor)"
+              @focus="focusDiagram(item.diagramKey || item.key)" @blur="setNumericInput(item.target, item.key, $event, item.storedUnitFactor); clearDiagramFocus()"
               type="text" inputmode="decimal" autocomplete="off" class="input-text w-full font-mono text-xs" />
           </label>
         </div>
@@ -609,6 +973,118 @@
     </div>
   </div>
 
+  <section v-if="activeToolId === 'connector'" class="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">ピン配置</div>
+            <h3 class="mt-1 text-sm font-bold">@{{ connectorActiveTemplate?.label }}</h3>
+            <p class="mt-1 text-xs leading-5 opacity-60">@{{ connectorActiveTemplate?.numbering }}</p>
+          </div>
+          <button type="button" @click="applyConnectorTemplate()"
+            class="rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)]">
+            テンプレート反映
+          </button>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div v-for="pin in connectorPinMap" :key="pin.pin"
+            class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-2 text-xs"
+            :class="{
+              'border-[var(--color-tag-eol)]': pin.currentMargin < 0 || pin.voltageMargin < 0 || pin.awgMargin < 0,
+              'border-[var(--color-tag-ok)]': pin.assigned && pin.currentMargin >= 0 && pin.voltageMargin >= 0
+            }">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono font-bold">@{{ pin.pin }}</span>
+              <span class="tag text-[10px]">@{{ pin.type }}</span>
+            </div>
+            <div class="mt-1 truncate font-semibold">@{{ pin.signal || '未割付' }}</div>
+            <div class="mt-1 font-mono opacity-70">@{{ pin.voltage }}V / @{{ pin.current }}A</div>
+            <div class="mt-1 text-[11px] opacity-60">I余裕 @{{ pin.currentMargin.toFixed(3) }}A</div>
+          </div>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-3">
+          <a v-if="quickForms.connector.photoUrl || connectorActiveTemplate?.photoUrl"
+            :href="quickForms.connector.photoUrl || connectorActiveTemplate.photoUrl" target="_blank"
+            class="rounded border border-[var(--color-border)] px-3 py-2 text-xs no-underline hover:bg-[var(--color-card-odd)]">写真を開く</a>
+          <a v-if="quickForms.connector.diagramUrl || connectorActiveTemplate?.diagramUrl"
+            :href="quickForms.connector.diagramUrl || connectorActiveTemplate.diagramUrl" target="_blank"
+            class="rounded border border-[var(--color-border)] px-3 py-2 text-xs no-underline hover:bg-[var(--color-card-odd)]">ピン配置図を開く</a>
+          <a v-if="quickForms.connector.datasheetUrl || connectorActiveTemplate?.datasheetUrl"
+            :href="quickForms.connector.datasheetUrl || connectorActiveTemplate.datasheetUrl" target="_blank"
+            class="rounded border border-[var(--color-border)] px-3 py-2 text-xs no-underline hover:bg-[var(--color-card-odd)]">データシートを開く</a>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
+        <div class="text-[11px] uppercase tracking-[0.18em] opacity-50">ユーザー登録</div>
+        <h3 class="mt-1 text-sm font-bold">コネクタテンプレートを追加</h3>
+        <div class="mt-3 grid gap-2 md:grid-cols-2">
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">名称</span>
+            <input v-model="quickForms.connector.userTemplateName" class="input-text w-full text-xs" placeholder="例: XH 6P custom" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">規格/系列</span>
+            <input v-model="quickForms.connector.userTemplateStandard" class="input-text w-full text-xs" placeholder="例: JST XH" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">極数</span>
+            <input :value="quickForms.connector.userTemplatePins" @change="setNumericInput(quickForms.connector, 'userTemplatePins', $event)" class="input-text w-full text-xs font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">列数</span>
+            <input :value="quickForms.connector.userTemplateRows" @change="setNumericInput(quickForms.connector, 'userTemplateRows', $event)" class="input-text w-full text-xs font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">ピッチ(mm)</span>
+            <input :value="quickForms.connector.userTemplatePitchMm" @change="setNumericInput(quickForms.connector, 'userTemplatePitchMm', $event, 1e-3)" class="input-text w-full text-xs font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">1pin定格(A)</span>
+            <input :value="quickForms.connector.userTemplateCurrentRatingPerPin" @change="setNumericInput(quickForms.connector, 'userTemplateCurrentRatingPerPin', $event)" class="input-text w-full text-xs font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">定格電圧(V)</span>
+            <input :value="quickForms.connector.userTemplateVoltageRatingV" @change="setNumericInput(quickForms.connector, 'userTemplateVoltageRatingV', $event)" class="input-text w-full text-xs font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">相手側部品</span>
+            <input v-model="quickForms.connector.userTemplateMatingPart" class="input-text w-full text-xs" placeholder="例: XHP-6 housing" />
+          </label>
+          <label class="block md:col-span-2">
+            <span class="mb-1 block text-[11px] opacity-60">ピン番号規則</span>
+            <input v-model="quickForms.connector.userTemplateNumbering" class="input-text w-full text-xs" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">登録写真URL</span>
+            <input v-model="quickForms.connector.userTemplatePhotoUrl" class="input-text w-full text-xs" placeholder="写真URL" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-[11px] opacity-60">登録ピン配置図URL</span>
+            <input v-model="quickForms.connector.userTemplateDiagramUrl" class="input-text w-full text-xs" placeholder="ピン配置図URL" />
+          </label>
+          <label class="block md:col-span-2">
+            <span class="mb-1 block text-[11px] opacity-60">登録データシートURL</span>
+            <input v-model="quickForms.connector.userTemplateDatasheetUrl" class="input-text w-full text-xs" placeholder="データシートURL" />
+          </label>
+          <label class="block md:col-span-2">
+            <span class="mb-1 block text-[11px] opacity-60">登録メモ</span>
+            <input v-model="quickForms.connector.userTemplateNotes" class="input-text w-full text-xs" placeholder="ロック向き、シェル接続、圧着条件など" />
+          </label>
+        </div>
+        <button type="button" @click="saveConnectorTemplate"
+          class="mt-3 rounded border border-[var(--color-border)] px-3 py-2 text-xs font-semibold hover:bg-[var(--color-card-odd)]">
+          ユーザーコネクタを登録
+        </button>
+        <div class="mt-4 text-xs leading-5 opacity-70">
+          <div>登録済みユーザー定義: @{{ connectorUserTemplates.length }}</div>
+          <div>相手側: @{{ quickForms.connector.matingPart || connectorActiveTemplate?.matingPart || '未指定' }}</div>
+          <div>BOM: @{{ quickForms.connector.bomNote || '未入力' }}</div>
+          <div>シルク: @{{ quickForms.connector.silkNote || '未入力' }}</div>
+        </div>
+      </div>
+  </section>
+
   <!-- ══════ コンデンサ寿命 ══════ -->
   <div v-if="activeToolId === 'cap-life'">
     <h2 class="font-bold text-lg mb-4">電解コンデンサ寿命推定（アレニウス則）</h2>
@@ -645,35 +1121,14 @@
     </div>
   </div>
 
-  <!-- ══════ 分圧・温度変換 ══════ -->
+  <!-- ══════ NTC/PTC温度変換 ══════ -->
   <div v-if="activeToolId === 'divider'">
-    <h2 class="font-bold text-lg mb-4">抵抗分圧 / NTC温度変換</h2>
-    <div class="flex gap-4 mb-4">
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input v-model="divider.mode" type="radio" value="voltage" />
-        <span class="text-sm">電圧分圧</span>
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input v-model="divider.mode" type="radio" value="ntc" />
-        <span class="text-sm">NTC温度計算</span>
-      </label>
+    <h2 class="font-bold text-lg mb-4">NTC/PTC温度変換</h2>
+    <div class="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-3 text-sm leading-6 opacity-80">
+      通常分圧とVR分圧は <a href="{{ route('tools.network') }}" class="text-[var(--color-primary)] underline">受動部品ネットワーク/分圧設計</a> に統合しています。この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div v-if="divider.mode === 'voltage'" class="space-y-3">
-        <div class="flex items-center gap-3"><label class="w-24 text-sm">Vin (V)</label>
-          <input :value="divider.vin" @change="setNumericInput(divider, 'vin', $event)" type="text" inputmode="decimal" autocomplete="off"
-            @focus="focusDiagram('vin')" @blur="setNumericInput(divider, 'vin', $event); clearDiagramFocus()"
-            class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
-        <div class="flex items-center gap-3"><label class="w-32 text-sm">R1 上側抵抗 (Ω)</label>
-          <input :value="divider.r1" @change="setNumericInput(divider, 'r1', $event)" type="text" inputmode="decimal" autocomplete="off"
-            @focus="focusDiagram('r1')" @blur="setNumericInput(divider, 'r1', $event); clearDiagramFocus()"
-            class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
-        <div class="flex items-center gap-3"><label class="w-32 text-sm">R2 下側抵抗 (Ω)</label>
-          <input :value="divider.r2" @change="setNumericInput(divider, 'r2', $event)" type="text" inputmode="decimal" autocomplete="off"
-            @focus="focusDiagram('r2')" @blur="setNumericInput(divider, 'r2', $event); clearDiagramFocus()"
-            class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
-      </div>
-      <div v-else class="space-y-3">
+      <div class="space-y-3">
         <div class="flex items-center gap-3"><label class="w-28 text-sm">R₀ @ T₀ (Ω)</label>
           <input :value="divider.R0" @change="setNumericInput(divider, 'R0', $event)" type="text" inputmode="decimal" autocomplete="off"
             @focus="focusDiagram('R0')" @blur="setNumericInput(divider, 'R0', $event); clearDiagramFocus()"
@@ -692,18 +1147,14 @@
             class="flex-1 bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded px-3 py-1.5 text-sm font-mono" /></div>
       </div>
       <div class="bg-[var(--color-card-odd)] border border-[var(--color-border)] rounded-lg p-4 space-y-2">
-        <template v-if="divider.mode === 'voltage'">
-          <div class="flex justify-between"><span class="opacity-60 text-sm">出力電圧 Vout</span>
-            <span class="font-mono font-bold text-xl">@{{ dividerResult.vout }} V</span></div>
-          <div class="flex justify-between"><span class="opacity-60 text-sm">分圧比</span>
-            <span class="font-mono">@{{ dividerResult.ratio }}%</span></div>
-        </template>
-        <template v-else>
-          <div class="flex justify-between"><span class="opacity-60 text-sm">温度</span>
-            <span class="font-mono font-bold text-xl">@{{ dividerResult.temp_c }} °C</span></div>
-          <div class="flex justify-between"><span class="opacity-60 text-sm">絶対温度</span>
-            <span class="font-mono">@{{ dividerResult.temp_k }} K</span></div>
-        </template>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">温度</span>
+          <span class="font-mono font-bold text-xl">@{{ dividerResult.temp_c }} °C</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">絶対温度</span>
+          <span class="font-mono">@{{ dividerResult.temp_k }} K</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">ADC条件</span>
+          <span class="font-mono">@{{ divider.adcBits }}bit / @{{ divider.adcVref }}V</span></div>
+        <div class="flex justify-between"><span class="opacity-60 text-sm">温度sweep</span>
+          <span class="font-mono">@{{ divider.tempMin }}〜@{{ divider.tempMax }}°C</span></div>
       </div>
     </div>
   </div>
@@ -996,10 +1447,26 @@
     <h2 class="font-bold text-lg mb-4">@{{ quickTool.title }}</h2>
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)] gap-6">
       <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-even)] p-4">
-        <div class="grid gap-3 md:grid-cols-2">
-          <label v-for="field in quickTool.fields" :key="field.key" class="block">
-            <span class="block text-[11px] font-semibold opacity-60 mb-1">@{{ field.label }}</span>
+        <div class="grid gap-3" :class="activeToolId === 'logic-ic' ? 'xl:grid-cols-2' : 'md:grid-cols-2'">
+          <label v-for="field in quickTool.fields" :key="field.key" class="block"
+            :class="activeToolId === 'logic-ic' ? 'sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center sm:gap-3' : ''">
+            <span class="block text-[11px] font-semibold opacity-60"
+              :class="activeToolId === 'logic-ic' ? 'mb-1 sm:mb-0' : 'mb-1'">
+              @{{ activeToolId === 'logic-ic' ? ({
+                family: '系列',
+                function: '機能',
+                inputs: '入力数',
+                packagePins: 'ピン数',
+                supplyV: 'Vcc',
+                outputType: '出力',
+                driverFamily: '送信系列',
+                driverVcc: '送信Vcc',
+                receiverFamily: '受信系列',
+                receiverVcc: '受信Vcc'
+              }[field.key] || field.label) : field.label }}
+            </span>
             <select v-if="field.type === 'select'" v-model="quickForms[quickTool.model][field.key]"
+              @change="field.key === 'selectedTemplateId' ? applyConnectorTemplate() : null"
               @focus="focusDiagram(field.diagramKey || field.key)" @blur="clearDiagramFocus"
               class="input-text w-full">
               <option v-for="option in field.options" :key="option[0]" :value="option[0]">@{{ option[1] }}</option>
@@ -1010,8 +1477,8 @@
             <input v-else-if="field.type === 'text'" v-model="quickForms[quickTool.model][field.key]"
               @focus="focusDiagram(field.diagramKey || field.key)" @blur="clearDiagramFocus"
               type="text" class="input-text w-full font-mono" />
-            <input v-else :value="quickForms[quickTool.model][field.key]" @change="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storageUnitFactor)"
-              @focus="focusDiagram(field.diagramKey || field.key)" @blur="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storageUnitFactor); clearDiagramFocus()"
+            <input v-else :value="quickForms[quickTool.model][field.key]" @change="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storedUnitFactor)"
+              @focus="focusDiagram(field.diagramKey || field.key)" @blur="setNumericInput(quickForms[quickTool.model], field.key, $event, field.storedUnitFactor); clearDiagramFocus()"
               type="text" inputmode="decimal" autocomplete="off" class="input-text w-full font-mono" />
           </label>
         </div>

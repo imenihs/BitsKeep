@@ -505,6 +505,76 @@ class UiApiSurfaceSmokeTest extends TestCase
         }
     }
 
+    public function test_design_tools_page_exposes_network_hub_temperature_logic_ic_and_connector_surfaces(): void
+    {
+        $response = $this->get('/tools/design')
+            ->assertOk()
+            ->assertSee('data-page="design-tools"', false)
+            ->assertSee('受動部品ネットワーク/分圧設計', false)
+            ->assertSee('通常分圧、VR分圧、抵抗/容量ネットワーク探索、可変抵抗 + 固定抵抗', false)
+            ->assertSee('href="'.route('tools.network').'"', false)
+            ->assertSee('NTC/PTC温度変換', false)
+            ->assertSee('この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。', false)
+            ->assertDontSee('センサ分圧', false);
+
+        $html = $response->getContent();
+        $blade = file_get_contents(resource_path('views/app/design-tools.blade.php'));
+        $script = file_get_contents(resource_path('js/pages/design-tools.js'));
+        $surface = $html.$blade.$script;
+
+        $this->assertStringContainsString("label: '受動部品ネットワーク/分圧'", $script);
+        $this->assertStringContainsString("if (activeToolId.value === 'passive-network')", $script);
+        $this->assertStringContainsString("{ id: 'logic-ic',   label: 'ロジックIC参照'", $script);
+        $this->assertStringContainsString("if (activeToolId.value === 'logic-ic')", $script);
+        $this->assertStringContainsString("model: 'logic-ic'", $script);
+        $this->assertStringNotContainsString('v-model="divider.mode"', $blade);
+        $this->assertDoesNotMatchRegularExpression("/id:\\s*'divider'\\s*,\\s*label:\\s*'分圧'/u", $script);
+        $this->assertMatchesRegularExpression(
+            "/<\\/div>\\s*<section v-if=\"activeToolId === 'connector'\"/u",
+            $blade,
+            'Connector pin-map and registration surface must be a top-level section, not nested under the ADC-only block.'
+        );
+
+        foreach ([
+            'ロジックIC参照',
+            '候補ファミリ',
+            '機能',
+            '入力数の目安',
+            'ピン数(0=不問)',
+            '使用Vcc(V)',
+            '出力形式',
+            '送信側シリーズ',
+            '受信側シリーズ',
+            '候補一覧',
+            'VOH(min)送信',
+            'VIH(min)受信',
+            '伝搬遅延/最大周波数',
+            'パッケージピン配置',
+        ] as $label) {
+            $this->assertStringContainsString($label, $surface);
+        }
+
+        $this->assertStringContainsString('コネクタ設計/ピン配置', $surface);
+        $this->assertTrue(
+            str_contains($surface, 'USB Type-C') || str_contains($surface, '標準/ユーザーコネクタ'),
+            'Design tools must expose a standard connector template label such as USB Type-C or 標準/ユーザーコネクタ.'
+        );
+        foreach ([
+            'ピン割付',
+            '写真URL',
+            'ピン配置図URL',
+            'データシートURL',
+            'BOM注記',
+            'シルク/組立注記',
+            'ユーザーコネクタを登録',
+            '登録写真URL',
+            '登録ピン配置図URL',
+            '登録データシートURL',
+        ] as $label) {
+            $this->assertStringContainsString($label, $surface);
+        }
+    }
+
     public function test_network_tool_page_exposes_updated_design_surface(): void
     {
         $this->get('/tools/network')
