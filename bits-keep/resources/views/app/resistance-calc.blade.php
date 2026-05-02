@@ -22,7 +22,7 @@
         <span class="rounded border border-[var(--color-border)] px-2 py-1">並列</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">直並列混在</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">分圧</span>
-        <span class="rounded border border-[var(--color-border)] px-2 py-1">VR分圧</span>
+        <span class="rounded border border-[var(--color-border)] px-2 py-1">VR調整</span>
         <span class="rounded border border-[var(--color-border)] px-2 py-1">在庫値</span>
       </div>
     </div>
@@ -174,7 +174,7 @@
             </label>
           </div>
 
-          <label class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+          <label v-if="activeMode === 'network'" class="flex items-center justify-between gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
             <span class="text-sm font-semibold">在庫値のみ</span>
             <input type="checkbox" v-model="form.inventory_only" class="h-5 w-5 accent-[var(--color-primary)]" />
           </label>
@@ -540,7 +540,7 @@
     <aside class="rounded-lg border border-[var(--color-border)] bg-[var(--color-card-odd)] p-4">
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="text-sm font-bold">分圧条件</h2>
-        <span class="text-xs opacity-60">VR分圧</span>
+        <span class="text-xs opacity-60">VR調整あり</span>
       </div>
       <div class="grid gap-3">
         <div class="grid grid-cols-2 gap-2">
@@ -551,11 +551,19 @@
           </button>
         </div>
 
+        <div class="grid grid-cols-2 gap-2">
+          <button v-for="mode in dividerTargetModeOptions" :key="`vr-target-${mode.value}`" @click="form.divider_target_mode = mode.value"
+            class="rounded border px-3 py-2 text-sm"
+            :class="form.divider_target_mode === mode.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+            @{{ mode.label }}
+          </button>
+        </div>
+
         <label class="block">
           <span class="mb-1 block text-xs font-semibold opacity-60">入力電圧</span>
-          <input v-model="dividerVariable.input_voltage_raw" class="input-text w-full font-mono" placeholder="5" />
+          <input v-model="form.input_voltage_raw" class="input-text w-full font-mono" placeholder="5" />
         </label>
-        <div class="grid grid-cols-2 gap-3">
+        <div v-if="form.divider_target_mode === 'voltage'" class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="mb-1 block text-xs font-semibold opacity-60">出力下限</span>
             <input v-model="dividerVariable.output_low_raw" class="input-text w-full font-mono" placeholder="1" />
@@ -565,6 +573,16 @@
             <input v-model="dividerVariable.output_high_raw" class="input-text w-full font-mono" placeholder="3" />
           </label>
         </div>
+        <div v-if="form.divider_target_mode === 'ratio'" class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">出力下限比率</span>
+            <input v-model="dividerVariable.output_low_ratio_raw" class="input-text w-full font-mono" placeholder="20%" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">出力上限比率</span>
+            <input v-model="dividerVariable.output_high_ratio_raw" class="input-text w-full font-mono" placeholder="60%" />
+          </label>
+        </div>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold opacity-60">基準VR値</span>
           <input v-model="dividerVariable.nominal_pot_raw" class="input-text w-full font-mono" placeholder="10k" />
@@ -572,24 +590,24 @@
 
         <div class="grid gap-3 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <div class="grid grid-cols-2 gap-2">
-            <button v-for="loadType in loadTypeOptions" :key="`vr-load-${loadType.value}`" @click="dividerVariable.load_type = loadType.value"
+            <button v-for="loadType in loadTypeOptions" :key="`vr-load-${loadType.value}`" @click="form.load_type = loadType.value"
               class="rounded border px-3 py-2 text-sm"
-              :class="dividerVariable.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
+              :class="form.load_type === loadType.value ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-[var(--color-border)]'">
               @{{ loadType.label }}
             </button>
           </div>
-          <label v-if="dividerVariable.load_type === 'resistance'" class="block">
+          <label v-if="form.load_type === 'resistance'" class="block">
             <span class="mb-1 block text-xs font-semibold opacity-60">負荷抵抗</span>
             <div class="flex gap-2">
-              <input v-model="dividerVariable.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" />
-              <button @click="setLoadResistanceInfinite(dividerVariable)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
+              <input v-model="form.load_resistance_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="∞ / 10k" />
+              <button @click="setLoadResistanceInfinite(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">∞</button>
             </div>
           </label>
-          <label v-if="dividerVariable.load_type === 'current'" class="block">
+          <label v-if="form.load_type === 'current'" class="block">
             <span class="mb-1 block text-xs font-semibold opacity-60">負荷電流</span>
             <div class="flex gap-2">
-              <input v-model="dividerVariable.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" />
-              <button @click="setLoadCurrentZero(dividerVariable)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
+              <input v-model="form.load_current_raw" class="input-text min-w-0 flex-1 font-mono" placeholder="0 / 1mA" />
+              <button @click="setLoadCurrentZero(form)" class="rounded border border-[var(--color-border)] px-3 py-2 font-mono text-sm hover:border-[var(--color-primary)]">0A</button>
             </div>
           </label>
           <div class="text-xs opacity-60">負荷: @{{ dividerVariableResult.loadDisplay }}</div>
@@ -597,20 +615,35 @@
 
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
-            <span class="mb-1 block text-xs font-semibold opacity-60">固定抵抗ソース</span>
-            <select v-model="dividerVariable.fixed_source" class="input-text w-full">
-              <option v-for="source in variableFixedSourceOptions" :key="`divider-fixed-${source}`" :value="source">@{{ source }}</option>
+            <span class="mb-1 block text-xs font-semibold opacity-60">許容誤差</span>
+            <input v-model.number="form.tolerance_pct" type="number" min="0" max="50" step="0.1"
+              class="input-text w-full font-mono" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">E系列</span>
+            <select v-model="form.series" class="input-text w-full">
+              <option v-for="series in seriesOptions" :key="`vr-series-${series}`" :value="series">@{{ series }}</option>
             </select>
           </label>
-          <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
-            <div class="text-xs font-semibold opacity-60">採用VR</div>
-            <div class="mt-1 font-mono text-sm font-bold">@{{ dividerVariableResult.nominalPotDisplay }}</div>
-          </div>
         </div>
-        <textarea v-if="dividerVariable.fixed_source === 'custom'" v-model="dividerVariable.fixed_custom_values"
+        <textarea v-if="form.series === 'custom'" v-model="form.custom_values"
           rows="3"
           class="input-text w-full resize-none font-mono text-sm"
           placeholder="5k, 10k, 15k"></textarea>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 min</span>
+            <input v-model="form.total_res_min_raw" class="input-text w-full font-mono" placeholder="1k" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-xs font-semibold opacity-60">総抵抗 max</span>
+            <input v-model="form.total_res_max_raw" class="input-text w-full font-mono" placeholder="100k" />
+          </label>
+        </div>
+        <div class="rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+          <div class="text-xs font-semibold opacity-60">採用VR</div>
+          <div class="mt-1 font-mono text-sm font-bold">@{{ dividerVariableResult.nominalPotDisplay }}</div>
+        </div>
       </div>
     </aside>
 

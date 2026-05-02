@@ -484,16 +484,22 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertStringNotContainsString("activeMode === 'divider-variable'", $blade);
         $this->assertStringNotContainsString("activeMode === 'network' && isDividerVariableMode", $blade);
 
-        $this->assertMatchesRegularExpression("/value:\\s*'fixed'\\s*,\\s*label:\\s*'分圧'/u", $script);
-        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'VR分圧'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'fixed'\\s*,\\s*label:\\s*'VR調整なし'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'VR調整あり'/u", $script);
+        $this->assertStringContainsString('output_low_ratio_raw', $script);
+        $this->assertStringContainsString('total_res_min_raw', $script);
+        $this->assertStringContainsString("output_mode: form.divider_target_mode", $script);
+        $this->assertGreaterThanOrEqual(2, substr_count($blade, 'dividerTargetModeOptions'));
+        $this->assertGreaterThanOrEqual(2, substr_count($blade, 'form.series'));
+        $this->assertGreaterThanOrEqual(2, substr_count($blade, 'form.total_res_min_raw'));
 
         preg_match_all('/<button\b[\s\S]*?<\/button>/u', $blade, $buttonMatches);
         $buttons = $buttonMatches[0];
         $infiniteResistanceButtons = array_filter($buttons, static fn (string $button): bool => str_contains($button, '∞'));
         $zeroCurrentButtons = array_filter($buttons, static fn (string $button): bool => str_contains($button, '0A'));
 
-        $this->assertGreaterThanOrEqual(2, count($infiniteResistanceButtons), '分圧 and VR分圧 must each expose a load-resistance infinity button.');
-        $this->assertGreaterThanOrEqual(2, count($zeroCurrentButtons), '分圧 and VR分圧 must each expose a load-current zero button.');
+        $this->assertGreaterThanOrEqual(2, count($infiniteResistanceButtons), 'VR adjustment off/on must each expose a load-resistance infinity button.');
+        $this->assertGreaterThanOrEqual(2, count($zeroCurrentButtons), 'VR adjustment off/on must each expose a load-current zero button.');
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'setLoadResistanceInfinite('));
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'setLoadCurrentZero('));
     }

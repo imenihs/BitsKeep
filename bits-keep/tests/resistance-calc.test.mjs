@@ -25,7 +25,7 @@ function findDividerSubmodeOptions(surface) {
             const values = raw.map((item) => String(unwrapVueValue(item)?.value ?? unwrapVueValue(item)?.id ?? ''));
             const labels = raw.map((item) => String(unwrapVueValue(item)?.label ?? unwrapVueValue(item)?.name ?? ''));
             const keyLooksLikeDividerMode = /divider/iu.test(path) && /mode/iu.test(path);
-            const hasDividerSubmodeLabels = labels.includes('分圧') && labels.includes('VR分圧');
+            const hasDividerSubmodeLabels = labels.includes('VR調整なし') && labels.includes('VR調整あり');
 
             if (keyLooksLikeDividerMode && hasDividerSubmodeLabels) {
                 matches.push({ path, values, labels });
@@ -82,7 +82,7 @@ assert.equal(
 );
 assert.ok(
     findDividerSubmodeOptions(appSurface).length > 0,
-    'Divider UI must expose 分圧 and VR分圧 as divider submodes.',
+    'Divider UI must expose VR adjustment off/on as divider submodes.',
 );
 const networkPartTypeOptions = unwrapVueValue(appSurface.networkPartTypeOptions ?? appSurface.partTypeOptions);
 assert.equal(
@@ -288,6 +288,27 @@ assert.equal(dividerVariableNoLoad.bestCandidate.pot, 10000);
 assert.equal(dividerVariableNoLoad.bestCandidate.low, 1);
 assert.equal(dividerVariableNoLoad.bestCandidate.high, 3);
 assert.ok(dividerVariableNoLoad.bestCandidate.tags.includes('無負荷分圧'));
+
+const dividerVariableRatioRange = calculateVariableDivider({
+    ...dividerVariableBase,
+    output_mode: 'ratio',
+    output_low_raw: '',
+    output_high_raw: '',
+    output_low_ratio_raw: '20%',
+    output_high_ratio_raw: '60%',
+});
+assert.equal(dividerVariableRatioRange.valid, true);
+assert.equal(dividerVariableRatioRange.requirement.outputLow, 1);
+assert.equal(dividerVariableRatioRange.requirement.outputHigh, 3);
+assert.equal(dividerVariableRatioRange.bestCandidate.pot, 10000);
+
+const dividerVariableTotalRange = calculateVariableDivider({
+    ...dividerVariableBase,
+    fixed_custom_values: '5k, 10k, 20k',
+    total_res_min_raw: '30k',
+});
+assert.equal(dividerVariableTotalRange.valid, true);
+assert.ok(dividerVariableTotalRange.bestCandidate.total >= 30000);
 
 const dividerVariableNominalPotLocked = calculateVariableDivider({
     ...dividerVariableBase,

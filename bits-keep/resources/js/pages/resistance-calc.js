@@ -22,8 +22,8 @@ const MODE_OPTIONS = [
     { value: 'variable', label: '可変抵抗' },
 ];
 const DIVIDER_MODE_OPTIONS = [
-    { value: 'fixed', label: '分圧' },
-    { value: 'variable', label: 'VR分圧' },
+    { value: 'fixed', label: 'VR調整なし' },
+    { value: 'variable', label: 'VR調整あり' },
 ];
 const DIVIDER_TARGET_MODE_OPTIONS = [
     { value: 'ratio', label: '比率' },
@@ -581,28 +581,43 @@ export function calculateVariable(raw) {
 
 function dividerVariableRequirement(raw) {
     const inputVoltage = parseTarget(raw.input_voltage_raw, 'V') ?? 0;
-    const outputLow = parseTarget(raw.output_low_raw, 'V') ?? 0;
-    const outputHigh = parseTarget(raw.output_high_raw, 'V') ?? 0;
+    const outputMode = raw.output_mode || 'voltage';
+    const parsedLowRatio = parseTarget(raw.output_low_ratio_raw, 'divider');
+    const parsedHighRatio = parseTarget(raw.output_high_ratio_raw, 'divider');
+    const lowRatio = outputMode === 'ratio'
+        ? (parsedLowRatio ?? 0)
+        : (inputVoltage > 0 ? (parseTarget(raw.output_low_raw, 'V') ?? 0) / inputVoltage : 0);
+    const highRatio = outputMode === 'ratio'
+        ? (parsedHighRatio ?? 0)
+        : (inputVoltage > 0 ? (parseTarget(raw.output_high_raw, 'V') ?? 0) / inputVoltage : 0);
+    const outputLow = inputVoltage > 0 ? inputVoltage * lowRatio : 0;
+    const outputHigh = inputVoltage > 0 ? inputVoltage * highRatio : 0;
     const nominalPot = parseTarget(raw.nominal_pot_raw, 'R') ?? 0;
+    const totalMin = parseTarget(raw.total_res_min_raw, 'R') ?? 0;
+    const parsedTotalMax = parseTarget(raw.total_res_max_raw, 'R');
+    const totalMax = parsedTotalMax && parsedTotalMax > 0 ? parsedTotalMax : Infinity;
     const load = dividerLoad(raw);
-    const lowRatio = inputVoltage > 0 ? outputLow / inputVoltage : 0;
-    const highRatio = inputVoltage > 0 ? outputHigh / inputVoltage : 0;
     const spanRatio = highRatio - lowRatio;
 
     return {
         inputVoltage,
         outputLow,
         outputHigh,
+        outputMode,
         nominalPot,
         lowRatio,
         highRatio,
         spanRatio,
+        totalMin,
+        totalMax,
         load,
         valid: inputVoltage > 0
             && outputLow >= 0
             && outputHigh > outputLow
             && outputHigh <= inputVoltage
             && nominalPot > 0
+            && totalMin >= 0
+            && totalMax >= totalMin
             && load.valid
             && spanRatio > 0,
     };
@@ -711,7 +726,8 @@ function makeVariableDividerCandidate({
 export function calculateVariableDivider(raw) {
     const requirement = dividerVariableRequirement(raw);
     const tolerancePct = Math.max(0, Number(raw.endpoint_tolerance_pct) || 0);
-    const fixedSource = raw.fixed_source || 'E24';
+    const fixedSource = raw.fixed_source || raw.series || 'E24';
+    const fixedCustomValues = raw.fixed_custom_values ?? raw.custom_values ?? '';
     const potSource = raw.pot_source || 'vr-common';
 
     if (!requirement.valid) {
@@ -731,8 +747,8 @@ export function calculateVariableDivider(raw) {
         const idealTotalForPot = potValue / requirement.spanRatio;
         const idealTopForPot = (1 - requirement.highRatio) * idealTotalForPot;
         const idealBottomForPot = requirement.lowRatio * idealTotalForPot;
-        const topValues = fixedDividerValues(fixedSource, idealTopForPot, raw.fixed_custom_values);
-        const bottomValues = fixedDividerValues(fixedSource, idealBottomForPot, raw.fixed_custom_values);
+        const topValues = fixedDividerValues(fixedSource, idealTopForPot, fixedCustomValues);
+        const bottomValues = fixedDividerValues(fixedSource, idealBottomForPot, fixedCustomValues);
 
         return topValues.flatMap((topValue) => bottomValues.map((bottomValue) => makeVariableDividerCandidate({
             inputVoltage: requirement.inputVoltage,
@@ -750,6 +766,7 @@ export function calculateVariableDivider(raw) {
             tolerancePct,
         })));
     })
+        .filter((candidate) => candidate.total >= requirement.totalMin && candidate.total <= requirement.totalMax)
         .sort((a, b) => a.score - b.score || a.total - b.total || a.top - b.top || a.bottom - b.bottom)
         .slice(0, 8);
 
@@ -910,6 +927,7 @@ export default function setup() {
             form.circuit_types = ['divider'];
             form.min_elements = 2;
             form.max_elements = 2;
+            form.inventory_only = false;
             if (oldType !== 'divider') {
                 form.divider_mode = 'fixed';
                 form.divider_target_mode = 'ratio';
@@ -936,6 +954,7 @@ export default function setup() {
         activeMode.value = mode;
         resetSearchState();
         if (mode === 'divider') {
+            form.inventory_only = false;
             if (form.part_type !== 'divider') setPartType('divider');
             return;
         }
@@ -947,6 +966,7 @@ export default function setup() {
     const applyPreset = (preset) => {
         activeMode.value = preset.type === 'divider' ? 'divider' : 'network';
         form.part_type = preset.type;
+        form.inventory_only = false;
         form.divider_mode = 'fixed';
         form.divider_target_mode = preset.targetMode ?? 'ratio';
         form.target_raw = preset.target ?? form.target_raw;
@@ -1111,9 +1131,10 @@ export default function setup() {
         };
     });
     const dividerVariable = reactive({
-        input_voltage_raw: '5',
         output_low_raw: '1',
         output_high_raw: '3',
+        output_low_ratio_raw: '20%',
+        output_high_ratio_raw: '60%',
         nominal_pot_raw: '10k',
         fixed_source: 'E24',
         fixed_custom_values: '',
@@ -1125,7 +1146,19 @@ export default function setup() {
         load_current_raw: '0',
     });
     const dividerVariableResult = computed(() => {
-        const result = calculateVariableDivider(dividerVariable);
+        const result = calculateVariableDivider({
+            ...dividerVariable,
+            input_voltage_raw: form.input_voltage_raw,
+            output_mode: form.divider_target_mode,
+            fixed_source: form.series,
+            fixed_custom_values: form.custom_values,
+            endpoint_tolerance_pct: form.tolerance_pct,
+            total_res_min_raw: form.total_res_min_raw,
+            total_res_max_raw: form.total_res_max_raw,
+            load_type: form.load_type,
+            load_resistance_raw: form.load_resistance_raw,
+            load_current_raw: form.load_current_raw,
+        });
         const ideal = result.ideal ?? { top: 0, pot: 0, bottom: 0, total: 0, low: 0, high: 0 };
         const requirement = result.requirement ?? {};
 

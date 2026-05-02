@@ -7162,3 +7162,34 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - ✓ `git diff --check --` 今回対象ファイル。
 - DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
 - 曹長(テスト分隊)の心の声: UI階層、負荷ショートカット、API負荷計算、VR値固定の4点を同時に縛った。`10k` 指定時の採用VRが `10000Ω` になる回帰テストも固定済み。
+
+### [大将] 2026-05-02 12:38 JST
+- [ユーザ] 分圧とVR分圧で持っている機能が違うのはなぜか、機能は同じであるべきで、設計仕様がVRで調整するかどうかだけではないかと指摘。
+- 判断: 指摘通り。分圧とVR分圧を別ツールのように分けたのが不自然だった。`分圧` タブでは共通条件として入力電圧、出力条件、負荷、候補値ソース、制約条件を扱い、違いは `VR調整なし` と `VR調整あり` のトポロジ/出力条件だけにする。
+- 対応方針: 通常分圧とVR分圧の入力面を共通化し、VR分圧にも比率範囲指定、同じ候補値ソース、同じ総抵抗制約、同じ許容誤差、同じ負荷UXを持たせる。実装とドキュメント、回帰テストを更新する。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: ここはUIの抽象化を一段間違えた。ユーザーが設計したいのは分圧で、VRは調整要素の有無でしかない。
+
+### [曹長(コード分隊)] 2026-05-02 12:47 JST
+- 実装: 分圧タブ内のサブモード名を `VR調整なし` / `VR調整あり` に変更し、分圧とVR分圧を別機能に見せない構成へ修正した。
+- 実装: `VR調整あり` でも、比率/電圧範囲指定、入力電圧、負荷条件、E系列/カスタム候補、許容誤差、総抵抗範囲を同じ入力軸で扱うようにした。
+- 実装: `VR調整あり` の計算に比率範囲指定と総抵抗min/maxフィルタを追加し、UI側は `VR調整なし` と同じフォーム状態を使うようにした。
+- 実装: VR側と同等の在庫限定探索が未実装のため、分圧タブ内の共通条件から在庫限定を外し、在庫値探索はネットワーク探索側に残した。
+- ドキュメント: README、ヘルプ、詳細仕様、進捗チェックリストへ、分圧共通条件とVR調整有無の考え方を反映した。
+- DB変更: なし。
+- 曹長(コード分隊)の心の声: 「分圧」と「VR分圧」を横並びの別ツールにした時点で、設計者の頭の中とUIがズレていた。サブモードは機能差ではなくトポロジ差として扱うべきだった。
+
+### [曹長(テスト分隊)] 2026-05-02 12:47 JST
+- ✓ `node --check resources/js/pages/resistance-calc.js`
+- ✓ `php -l resources/views/app/resistance-calc.blade.php`
+- ✓ `php -l resources/views/app/help.blade.php`
+- ✓ `npm run test:resistance-calc`
+- ✓ `php artisan test --filter UiApiSurfaceSmokeTest`。15 tests / 386 assertions。
+- ✓ `php artisan test --filter NetworkSearchApiTest`。18 tests / 76 assertions。
+- ✓ `composer run test`。92 tests / 824 assertions。
+- ✓ `npm run build`
+- ✓ `php artisan view:cache`
+- ✓ `php artisan view:clear`
+- ✓ `git diff --check --` 今回対象ファイル。
+- DB変更: なし。テスト実行のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: UI文言だけでなく、VR調整ありの計算入力に比率範囲と総抵抗制約を追加して固定した。これでサブモード間の差分はVR調整有無へ寄った。
