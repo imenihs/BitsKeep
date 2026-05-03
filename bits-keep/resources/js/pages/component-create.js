@@ -1,25 +1,16 @@
-import { ref, reactive, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
-import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
-import {
-    buildSpecDraftFromApi,
-    buildSpecPayload,
-    createEmptySpecRow,
-    getSpecProfileControlLabel,
-    getSpecProfileHelpText,
-    getSpecDisplayName,
-    getSpecProfileBadgeLabel,
-    getSpecBaseUnit,
-    getSpecUnitSuggestions,
-    normalizeBaseUnitInput,
-    normalizeSpecDraft,
-    normalizeSpecDraftUnitToBase,
-    normalizeSpecProfile,
-    renderSymbol,
-    SPEC_PROFILE_OPTIONS,
-} from '../utils/specValue.js';
+import { buildSpecDraftFromApi, buildSpecPayload, renderSymbol } from '../utils/specValue.js';
+import { useComponentCreateSpecs } from './component-create/specs.js';
+import { useComponentCreateAi } from './component-create/ai.js';
 
+/**
+ * 部品作成/編集画面の公開setup。
+ * 入力はBladeのdata属性とURLクエリで、戻り値はフォーム状態、候補、保存/解析操作をVueテンプレートへ公開する。
+ * 動作条件は各マスタAPIが参照可能なことで、初期ロード、PDF一時保存、部品保存、画面遷移、トースト表示の副作用を持つ。
+ */
+// 目的: 部品登録画面のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const appEl = document.getElementById('app');
@@ -39,11 +30,9 @@ export default function setup() {
     const CHATGPT_WORKER_READY_POLL_MS = 400;
     const CHATGPT_TEMP_CLEANUP_TIMEOUT_MS = 4000;
     const CHATGPT_JOB_CREATE_TIMEOUT_MS = 15000;
-    let chatGptWindowRef = null;
     let lastChatGptHelperLogSignature = '';
-    let lastSyncedChatGptStatusAt = '';
-    let lastSyncedChatGptResultAt = '';
 
+    // 目的: 部品登録画面のlog Chat Gpt Flowを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const logChatGptFlow = (stage, detail = {}) => {
         console.info('[BitsKeep][ChatGPT Flow]', stage, detail);
         const helper = window.__bitskeepTampermonkeyHelper;
@@ -52,7 +41,7 @@ export default function setup() {
         }
     };
 
-    // ── マスタデータ ──────────────────────────────────────
+    // マスタデータ
     const categories = ref([]);
     const packageGroups = ref([]);
     const packages   = ref([]);
@@ -77,7 +66,7 @@ export default function setup() {
     const altiumLibraries = ref([]);
     const manufacturerOptions = ref([]);
 
-    // ── フォーム ──────────────────────────────────────────
+    // フォーム
     const form = reactive({
         part_number: '', manufacturer: '', common_name: '', description: '',
         procurement_status: 'active',
@@ -144,6 +133,7 @@ export default function setup() {
     const componentSeriesValueOptions = computed(() =>
         (selectedComponentSeries.value?.values ?? []).filter((item) => item.is_enabled !== false)
     );
+    // 目的: 部品登録画面のcomponent Series Option Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const componentSeriesOptionLabel = (series) => {
         const groupName = series?.spec_group?.name ?? series?.specGroup?.name ?? '';
         const packageName = series?.package?.name ?? '';
@@ -163,136 +153,19 @@ export default function setup() {
     });
     const canCreateSupplier = computed(() => appEl?.dataset?.canCreateSupplier === '1');
     const canCreateSpecType = computed(() => appEl?.dataset?.canCreateSpecType === '1');
-    const specProfileOptions = SPEC_PROFILE_OPTIONS;
-    const createInlineSpecTypeForm = () => ({
-        name_ja: '',
-        name_en: '',
-        symbol: '',
-        description: '',
-        value_type: 'numeric',
-        unit: '',
-        suggest_prefixes: [],
-        display_prefixes: [],
-        aliases_text: '',
-    });
-    const inlineSpecTypeModal = reactive({
-        open: false,
-        saving: false,
-        targetSpec: null,
-        form: createInlineSpecTypeForm(),
-    });
-    const normalizeInlinePrefixes = (prefixes) => Array.isArray(prefixes)
-        ? prefixes.map((prefix) => prefix == null ? '' : String(prefix))
-        : [];
-    const decimalInlinePrefixOptions = ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-    const byteBitInlinePrefixOptions = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
-    const binaryInlineIecPrefixes = new Set(['Ti', 'Gi', 'Mi', 'Ki']);
-    const decimalInlineNonFractionalPrefixes = new Set(['T', 'G', 'M', 'k']);
-    const decimalInlineFractionalPrefixes = new Set(['m', 'u', 'n', 'p', 'f']);
-    const byteBitInlineUnits = new Set(['B', 'bit', 'bps']);
-    const normalizeInlineUnitForPrefixPolicy = (unit = '') => String(unit ?? '')
-        .trim()
-        .replaceAll('μ', 'u')
-        .replaceAll('µ', 'u')
-        .replaceAll('Ω', 'Ω')
-        .replace(/\bohms?\b/iu, 'Ω')
-        .replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
-    const isInlineByteBitPrefixUnit = (unit = inlineSpecTypeModal.form.unit) => byteBitInlineUnits.has(normalizeInlineUnitForPrefixPolicy(unit));
-    const normalizeInlinePrefixToken = (prefix) => {
-        const normalized = prefix == null ? '' : String(prefix).trim();
-        return normalized === 'K' ? 'k' : normalized;
-    };
-    const sanitizeInlinePrefixesForUnit = (prefixes = [], unit = inlineSpecTypeModal.form.unit) => {
-        const normalized = normalizeInlinePrefixes(prefixes)
-            .map(normalizeInlinePrefixToken)
-            .filter((prefix) => prefix === '' || decimalInlinePrefixOptions.includes(prefix) || binaryInlineIecPrefixes.has(prefix));
-        const unique = [...new Set(normalized)];
-        if (!isInlineByteBitPrefixUnit(unit)) {
-            return unique.filter((prefix) => !binaryInlineIecPrefixes.has(prefix));
-        }
 
-        const withoutFractional = unique.filter((prefix) => !decimalInlineFractionalPrefixes.has(prefix));
-        const hasBinary = withoutFractional.some((prefix) => binaryInlineIecPrefixes.has(prefix));
-        if (hasBinary) {
-            return withoutFractional.filter((prefix) => prefix === '' || binaryInlineIecPrefixes.has(prefix));
-        }
-
-        return withoutFractional.filter((prefix) => prefix === '' || decimalInlineNonFractionalPrefixes.has(prefix));
-    };
-    const inlinePrefixOptionsFor = () => {
-        const isByteBit = isInlineByteBitPrefixUnit();
-        return (isByteBit ? byteBitInlinePrefixOptions : decimalInlinePrefixOptions)
-            .map((prefix) => ({
-                value: prefix,
-                label: prefix === '' ? '（無印）' : prefix,
-                disabled: !isByteBit && binaryInlineIecPrefixes.has(prefix),
-            }));
-    };
-    const inlinePrefixPolicyHelp = computed(() => (
-        isInlineByteBitPrefixUnit()
-            ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
-            : '値入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
-    ));
-    const syncInlinePrefixList = (field, changedPrefix = null) => {
-        let prefixes = normalizeInlinePrefixes(inlineSpecTypeModal.form[field]).map(normalizeInlinePrefixToken);
-        const changed = normalizeInlinePrefixToken(changedPrefix);
-        if (isInlineByteBitPrefixUnit() && prefixes.includes(changed)) {
-            if (binaryInlineIecPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !decimalInlineNonFractionalPrefixes.has(prefix) && !decimalInlineFractionalPrefixes.has(prefix));
-            } else if (decimalInlineNonFractionalPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !binaryInlineIecPrefixes.has(prefix) && !decimalInlineFractionalPrefixes.has(prefix));
-            }
-        }
-        inlineSpecTypeModal.form[field] = sanitizeInlinePrefixesForUnit(prefixes);
-    };
-
+    // 目的: 部品登録画面のsync Manufacturer Queryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncManufacturerQuery = () => {
         manufacturerQuery.value = form.manufacturer ?? '';
     };
+    // 目的: 部品登録画面のnormalize Unique Namesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const normalizeUniqueNames = (values) => [...new Set(values.map((value) => String(value).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+    // 目的: 部品登録画面のensure Manufacturer Optionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const ensureManufacturerOption = (name) => {
         if (!name) return;
         manufacturerOptions.value = normalizeUniqueNames([...manufacturerOptions.value, name]);
     };
-    const mergeSpecGroupDetails = (groups = []) => {
-        if (!Array.isArray(groups) || !groups.length) return;
-        const byId = new Map(categories.value.map((group) => [Number(group.id), group]));
-        groups.forEach((group) => {
-            byId.set(Number(group.id), {
-                ...(byId.get(Number(group.id)) ?? {}),
-                ...group,
-                _detail_loaded: true,
-            });
-        });
-        categories.value = [...byId.values()]
-            .filter((group) => group?.id)
-            .sort((a, b) => {
-                const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
-                return sortOrder || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ja');
-            });
-    };
-    const fetchSpecGroupCatalog = async () => {
-        try {
-            const res = await api.get('/spec-groups?with_spec_types=1&with_templates=1');
-            mergeSpecGroupDetails(res.data ?? []);
-        } catch {
-            // 基本の部品分類一覧は維持する。候補詳細は選択時に再取得する。
-        }
-    };
-    const ensureSpecGroupDetail = async (groupId) => {
-        if (!groupId || groupId === 'all') return null;
-        const current = categories.value.find((group) => Number(group.id) === Number(groupId));
-        if (current?._detail_loaded) return current;
-
-        try {
-            const res = await api.get(`/spec-groups/${groupId}`);
-            mergeSpecGroupDetails([res.data]);
-            return categories.value.find((group) => Number(group.id) === Number(groupId)) ?? res.data ?? null;
-        } catch {
-            toastError('部品分類の候補詳細を取得できませんでした');
-            return null;
-        }
-    };
+    // 目的: 部品登録画面のmerge Component Series Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const mergeComponentSeriesDetail = (series) => {
         if (!series?.id) return;
         const exists = componentSeriesOptions.value.some((item) => Number(item.id) === Number(series.id));
@@ -300,6 +173,7 @@ export default function setup() {
             ? componentSeriesOptions.value.map((item) => Number(item.id) === Number(series.id) ? { ...item, ...series } : item)
             : [...componentSeriesOptions.value, series];
     };
+    // 目的: 部品登録画面のfetch Component Series Optionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchComponentSeriesOptions = async () => {
         componentSeriesLoading.value = true;
         componentSeriesLoadError.value = '';
@@ -313,6 +187,7 @@ export default function setup() {
             componentSeriesLoading.value = false;
         }
     };
+    // 目的: 部品登録画面のensure Component Series Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const ensureComponentSeriesDetail = async (seriesId) => {
         if (!seriesId) return;
         const current = componentSeriesOptions.value.find((item) => Number(item.id) === Number(seriesId));
@@ -326,265 +201,38 @@ export default function setup() {
         }
     };
 
-    // ── スペック操作 ──────────────────────────────────────
-    const removeSpec = (i) => form.specs.splice(i, 1);
-    const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(specTypes.value.find(st => st.id == specTypeId));
-    const specDisplayName = (spec) => getSpecDisplayName(spec, findSpecTypeById(spec?.spec_type_id));
-    const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
-    const specProfileControlLabel = (profile) => getSpecProfileControlLabel(profile);
-    const specProfileHelpText = (profile) => getSpecProfileHelpText(profile);
-    const specTypeOptionLabel = (specType) => {
-        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
-        const symbol = String(specType?.symbol ?? '').trim();
-        const english = String(specType?.name_en ?? '').trim();
-        const suffix = [symbol, english].filter(Boolean).join(' / ');
-
-        return suffix ? `${primary} (${suffix})` : primary;
-    };
-    const specTypeShortLabel = (specType) => {
-        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
-        const symbol = String(specType?.symbol ?? '').trim();
-
-        return [primary, symbol].filter(Boolean).join(' ');
-    };
-    const specIdentityKey = (spec) => {
-        const typeId = Number(spec?.spec_type_id ?? 0);
-        const sourceKey = [
-            spec?.name_ja,
-            spec?.symbol,
-            spec?.name_en,
-            spec?.name,
-        ].map((value) => String(value ?? '').trim().toLowerCase()).find(Boolean);
-
-        return `${typeId || sourceKey || 'no-type'}:${normalizeSpecProfile(spec?.value_profile)}`;
-    };
-    const templateItemSpecType = (item) => item?.spec_type ?? item?.specType ?? findSpecTypeById(item?.spec_type_id);
-    const templateItemProfile = (item) => normalizeSpecProfile(item?.value_profile ?? item?.default_profile ?? 'typ');
-    const templateItemUnit = (item, specType = null) => {
-        const baseUnit = !isToleranceSpecType(specType) ? getSpecBaseUnit(specType) : '';
-
-        return String(baseUnit || item?.unit || item?.default_unit || specType?.base_unit || specType?.units?.[0]?.unit || '').trim();
-    };
-    const specTemplateGroup = (template) =>
-        specGroupOptions.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
-            ?? specGroups.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
-            ?? helperSpecGroups.value.find((group) => Number(group.id) === Number(template?.spec_group_id))
-            ?? null;
-    const specTemplateLabel = (template) => {
-        const groupName = specTemplateGroup(template)?.name;
-        return groupName ? `${template.name} / ${groupName}` : template.name;
-    };
-    const hasSpecTypeRow = (specTypeId, rows = form.specs) =>
-        rows.some((spec) => Number(spec.spec_type_id) === Number(specTypeId));
-    const isToleranceSpecType = (specType) => (specType?.spec_kind ?? 'normal') === 'tolerance';
-    const defaultToleranceSettings = (fallbackUnit = '%') => ({
-        default_mode: 'symmetric',
-        default_unit: fallbackUnit || '%',
-        allowed_units: [fallbackUnit || '%'],
-        grade_options: [],
+    const specs = useComponentCreateSpecs({
+        form, categories, specTypes, specGroups, specSuggestionTypes, specTemplates,
+        selectedSpecGroupId, selectedSpecCandidateId, selectedSpecTemplateId,
+        specTypeSearchQuery, specSuggestionLoading, helperSpecGroups,
+        toastSuccess, toastError, canCreateSpecType,
     });
-    const normalizeToleranceSettings = (settings = {}, fallbackUnit = '%') => {
-        const source = settings && typeof settings === 'object' ? settings : {};
-        const defaultUnit = String(source.default_unit ?? source.unit ?? fallbackUnit ?? '%').trim() || '%';
-        const allowedUnits = Array.isArray(source.allowed_units)
-            ? [...new Set(source.allowed_units.map((unit) => String(unit ?? '').trim()).filter(Boolean))]
-            : [defaultUnit];
+    const {
+        specProfileOptions, inlineSpecTypeModal, normalizeInlinePrefixes, sanitizeInlinePrefixesForUnit,
+        inlinePrefixOptionsFor, inlinePrefixPolicyHelp, syncInlinePrefixList, removeSpec,
+        getUnitSuggestions, specDisplayName, specProfileBadge, specProfileControlLabel, specProfileHelpText,
+        specTypeOptionLabel, specTypeShortLabel, templateItemSpecType, templateItemProfile, templateItemUnit,
+        specTemplateLabel, hasSpecTypeRow, isToleranceSpecType, toleranceSettingsForSpecType,
+        isToleranceSpecRow, toleranceUnitOptionsFor, toleranceValuePlaceholder, toleranceGradeOptionsFor,
+        toleranceGradeOptionLabel, isToleranceGradeMenuOpen, closeToleranceGradeMenu, toggleToleranceGradeMenu,
+        selectToleranceGradeOption, hasSpecBaseUnit, syncNormalSpecUnitToBase, prepareSpecDraftForEdit,
+        handleSpecTypeSelection, sortSpecTypes, openInlineSpecTypeModal, closeInlineSpecTypeModal,
+        changeSpecProfile, normalizeHelperText, matchByName, specTypeSearchText, findCategoryById,
+        findPackageById, findSpecTypeById, specPreview, fetchSpecSuggestionsForForm, selectedSpecGroupLabel,
+        scopedSpecTypes, specTypePickerOptionLabel, filteredSpecTypesForPicker, showRecommendedSpecTypes,
+        showAllSpecTypes, visibleSpecTemplates, selectedSpecTemplate, selectedSpecTemplateItems,
+        templateItemPreviewLabel, handleSpecGroupPickerChange, addSelectedSpecCandidate, applySpecTemplate,
+        applySelectedSpecTemplate, createSpecTypeFromDraft, fetchSpecGroupCatalog, ensureSpecGroupDetail,
+        specGroupOptions,
+    } = specs;
 
-        return {
-            ...defaultToleranceSettings(defaultUnit),
-            default_mode: source.default_mode ?? source.mode ?? source.input_format ?? 'symmetric',
-            default_unit: defaultUnit,
-            allowed_units: allowedUnits.length ? allowedUnits : [defaultUnit],
-            grade_options: Array.isArray(source.grade_options) ? source.grade_options : [],
-        };
-    };
-    const toleranceSettingsForSpecType = (specType) =>
-        normalizeToleranceSettings(specType?.tolerance_settings, specType?.base_unit ?? specType?.units?.[0]?.unit ?? '%');
-    const specTypeForSpec = (spec) => findSpecTypeById(spec?.spec_type_id);
-    const isToleranceSpecRow = (spec) => isToleranceSpecType(specTypeForSpec(spec));
-    const toleranceSettingsForSpec = (spec) => toleranceSettingsForSpecType(specTypeForSpec(spec));
-    const toleranceUnitOptionsFor = (spec) => toleranceSettingsForSpec(spec).allowed_units;
-    const toleranceValuePlaceholder = (spec) => {
-        const mode = toleranceSettingsForSpec(spec).default_mode;
-        if (mode === 'grade') return '例: J / 5 / +80/-20';
-        if (mode === 'asymmetric') return '例: +80/-20';
-
-        return '例: 5 / ±5';
-    };
-    const toleranceGradeOptionsFor = (spec) => toleranceSettingsForSpec(spec).grade_options;
-    const toleranceGradeOptionLabel = (option) => {
-        const label = String(option?.label ?? option?.rank ?? '').trim();
-        const unit = String(option?.unit ?? '').trim();
-        if (option?.plus !== undefined || option?.minus !== undefined) {
-            return `${label} +${option?.plus ?? ''}/-${option?.minus ?? ''}${unit}`;
-        }
-        if (option?.value !== undefined) return `${label} ±${option.value}${unit}`;
-        return label;
-    };
-    const toleranceGradeOptionValue = (option) => {
-        if (option?.text) return String(option.text);
-        if (option?.plus !== undefined || option?.minus !== undefined) {
-            return `+${option?.plus ?? ''}/-${option?.minus ?? ''}`;
-        }
-        if (option?.value !== undefined) return String(option.value);
-
-        return String(option?.label ?? option?.rank ?? '');
-    };
-    const applyToleranceDefaults = (spec, specType = specTypeForSpec(spec)) => {
-        if (!isToleranceSpecType(specType)) return spec;
-        const settings = toleranceSettingsForSpecType(specType);
-        spec.value_profile = 'typ';
-        if (!String(spec.unit ?? '').trim()) {
-            spec.unit = settings.default_unit || specType?.base_unit || '%';
-        }
-        if (!String(spec.value_typ ?? '').trim()) {
-            const rangeValue = [spec.value_min, spec.value_max].filter(Boolean).join('〜');
-            spec.value_typ = rangeValue || spec.value || '';
-        }
-        return spec;
-    };
-    const applyToleranceGradeOption = (spec, option) => {
-        spec.value_profile = 'typ';
-        spec.value_typ = toleranceGradeOptionValue(option);
-        spec.unit = String(option?.unit ?? '').trim() || toleranceSettingsForSpec(spec).default_unit || spec.unit || '%';
-    };
-    const activeToleranceGradeMenu = ref('');
-    const toleranceGradeMenuKey = (scope, index) => `${scope}-${index}`;
-    const isToleranceGradeMenuOpen = (scope, index) => activeToleranceGradeMenu.value === toleranceGradeMenuKey(scope, index);
-    const closeToleranceGradeMenu = () => {
-        activeToleranceGradeMenu.value = '';
-    };
-    const toggleToleranceGradeMenu = (scope, index, spec) => {
-        if (!toleranceGradeOptionsFor(spec).length) {
-            closeToleranceGradeMenu();
-            return;
-        }
-
-        const key = toleranceGradeMenuKey(scope, index);
-        activeToleranceGradeMenu.value = activeToleranceGradeMenu.value === key ? '' : key;
-    };
-    const selectToleranceGradeOption = (spec, option) => {
-        applyToleranceGradeOption(spec, option);
-        closeToleranceGradeMenu();
-    };
-    const specBaseUnit = (spec) => isToleranceSpecRow(spec) ? '' : getSpecBaseUnit(specTypeForSpec(spec));
-    const hasSpecBaseUnit = (spec) => !!specBaseUnit(spec);
-    const syncNormalSpecUnitToBase = (spec, specType = specTypeForSpec(spec)) => {
-        if (!spec || !specType || isToleranceSpecType(specType)) return spec;
-
-        return normalizeSpecDraftUnitToBase(spec, specType);
-    };
-    const prepareSpecDraftForEdit = (spec, specType = specTypeForSpec(spec)) =>
-        syncNormalSpecUnitToBase(applyToleranceDefaults(spec, specType), specType);
-    const buildSpecRowFromTemplateItem = (item) => {
-        const specType = templateItemSpecType(item);
-
-        return prepareSpecDraftForEdit({
-            ...createEmptySpecRow(),
-            spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
-            spec_type_name: specType?.name_ja ?? specType?.name ?? '',
-            value_profile: templateItemProfile(item),
-            unit: templateItemUnit(item, specType),
-        }, specType);
-    };
-    const handleSpecTypeSelection = (spec) => {
-        const selected = findSpecTypeById(spec?.spec_type_id);
-        if (selected) {
-            spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
-            applyToleranceDefaults(spec, selected);
-            syncNormalSpecUnitToBase(spec, selected);
-        } else {
-            spec.spec_type_name = '';
-        }
-    };
-    const buildSpecTypeAliases = (aliasesText, extraAliases = [], excludedValues = []) => {
-        const excluded = new Set(excludedValues.map((value) => normalizeHelperText(value)).filter(Boolean));
-        const seen = new Set;
-
-        return [
-            ...String(aliasesText ?? '').split(/\r?\n/u),
-            ...extraAliases,
-        ].map((value) => String(value ?? '').trim())
-            .filter((value) => {
-                const key = normalizeHelperText(value);
-                if (!key || excluded.has(key) || seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-            .map((alias) => ({ alias }));
-    };
-    const sortSpecTypes = (items) => [...items].sort((a, b) => {
-        const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
-        return sortOrder || String(a.name_ja ?? a.name ?? '').localeCompare(String(b.name_ja ?? b.name ?? ''), 'ja');
-    });
-    const openInlineSpecTypeModal = (spec = null) => {
-        if (!canCreateSpecType.value) return;
-        if (!resolveInlineSpecOwnerGroup()) {
-            toastError('スペック詳細を追加する部品分類を1つ選んでください');
-            return;
-        }
-
-        const selected = findSpecTypeById(spec?.spec_type_id);
-        const rawName = String(spec?.name ?? '').trim();
-        const nameJa = String(spec?.name_ja ?? '').trim()
-            || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
-            || rawName;
-        const aliases = [rawName].filter((value) => value && normalizeHelperText(value) !== normalizeHelperText(nameJa));
-        const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
-        const unit = unitDraft.unit;
-        const suggestedPrefixes = unitDraft.prefix
-            ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix]
-            : (spec?.suggest_prefixes ?? []);
-        const displayPrefixes = unitDraft.prefix
-            ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix]
-            : (spec?.display_prefixes ?? []);
-
-        inlineSpecTypeModal.targetSpec = spec;
-        inlineSpecTypeModal.form = {
-            name_ja: nameJa,
-            name_en: String(spec?.name_en ?? '').trim(),
-            symbol: String(spec?.symbol ?? '').trim(),
-            description: String(spec?.description ?? '').trim(),
-            value_type: spec?.value_type ?? 'numeric',
-            unit,
-            suggest_prefixes: sanitizeInlinePrefixesForUnit(suggestedPrefixes, unit),
-            display_prefixes: sanitizeInlinePrefixesForUnit(displayPrefixes, unit),
-            aliases_text: aliases.join('\n'),
-        };
-        inlineSpecTypeModal.open = true;
-    };
-    const closeInlineSpecTypeModal = (force = false) => {
-        if (inlineSpecTypeModal.saving && force !== true) return;
-        inlineSpecTypeModal.open = false;
-        inlineSpecTypeModal.targetSpec = null;
-        inlineSpecTypeModal.form = createInlineSpecTypeForm();
-    };
-    const changeSpecProfile = (spec, profile) => {
-        const previous = normalizeSpecProfile(spec?.value_profile);
-        const next = normalizeSpecProfile(profile);
-        const typ = String(spec.value_typ ?? '').trim();
-        const min = String(spec.value_min ?? '').trim();
-        const max = String(spec.value_max ?? '').trim();
-        const fallback = typ || max || min;
-
-        if (next === 'typ' && !typ) {
-            spec.value_typ = fallback;
-        } else if (next === 'max_only' && !max) {
-            spec.value_max = previous === 'typ' && typ ? typ : fallback;
-        } else if (next === 'min_only' && !min) {
-            spec.value_min = previous === 'typ' && typ ? typ : fallback;
-        } else if ((next === 'range' || next === 'triple') && !typ && previous === 'max_only' && max) {
-            spec.value_typ = max;
-        } else if (next === 'triple' && !typ && previous === 'min_only' && min) {
-            spec.value_typ = min;
-        }
-
-        spec.value_profile = next;
-    };
+    // 目的: 部品登録画面のadd Custom Attributeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addCustomAttribute = () => form.custom_attributes.push({ key: '', value: '' });
+    // 目的: 部品登録画面のremove Custom Attributeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeCustomAttribute = (i) => form.custom_attributes.splice(i, 1);
 
-    // ── 仕入先操作 ────────────────────────────────────────
+    // 仕入先操作
+    // 目的: 部品登録画面のcreate Supplier Rowを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const createSupplierRow = () => ({
         supplier_id: '',
         supplier_name: '',
@@ -595,11 +243,16 @@ export default function setup() {
         is_preferred: false,
         price_breaks: [],
     });
+    // 目的: 部品登録画面のadd Supplierを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addSupplier = () => form.supplierRows.push(createSupplierRow());
+    // 目的: 部品登録画面のremove Supplierを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeSupplier = (i) => form.supplierRows.splice(i, 1);
+    // 目的: 部品登録画面のadd Price Breakを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addPriceBreak = (row) => row.price_breaks.push({ min_qty: 1, unit_price: '' });
+    // 目的: 部品登録画面のremove Price Breakを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removePriceBreak = (row, i) => row.price_breaks.splice(i, 1);
 
+    // 目的: 部品登録画面のcreate Masterを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const createMaster = async (type, name, extra = {}) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
@@ -614,128 +267,14 @@ export default function setup() {
         }
     };
 
-    const createSpecTypeFromDraft = async (spec) => {
-        const nameJa = String(spec?.name_ja ?? spec?.spec_type_name ?? spec?.name ?? '').trim();
-        const name = nameJa || String(spec?.name ?? '').trim();
-        if (!name) return null;
-
-        const ownerGroup = resolveInlineSpecOwnerGroup();
-        if (!ownerGroup) {
-            toastError('スペック詳細を追加する部品分類を1つ選んでください');
-            return null;
-        }
-        const existing = matchByName(name, specTypes.value, specTypeSearchText);
-        if (existing) {
-            const linked = await ensureSpecTypeLinkedToOwnerGroup(existing, ownerGroup);
-            if (!linked) return null;
-            toastSuccess(`既存のスペック詳細を候補に追加しました: ${name}`);
-            return existing;
-        }
-
-        try {
-            const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
-            const unit = unitDraft.unit;
-            const suggestPrefixes = sanitizeInlinePrefixesForUnit(
-                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix] : (spec?.suggest_prefixes ?? []),
-                unit
-            );
-            const displayPrefixes = sanitizeInlinePrefixesForUnit(
-                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix] : (spec?.display_prefixes ?? []),
-                unit
-            );
-            const res = await api.post('/spec-types', {
-                name,
-                name_ja: nameJa || name,
-                name_en: String(spec?.name_en ?? '').trim(),
-                symbol: String(spec?.symbol ?? '').trim(),
-                description: String(spec?.description ?? '').trim() || null,
-                value_type: spec?.value_type ?? 'numeric',
-                unit,
-                suggest_prefixes: suggestPrefixes.length > 0 ? suggestPrefixes : null,
-                display_prefixes: displayPrefixes.length > 0 ? displayPrefixes : null,
-                spec_scope: 'group_local',
-                owner_spec_group_id: ownerGroup.id,
-                aliases: buildSpecTypeAliases(
-                    spec?.aliases_text ?? '',
-                    [spec?.name],
-                    [name, nameJa, spec?.name_en, spec?.symbol]
-                ),
-                sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
-            });
-            specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
-            attachSpecTypeToOwnerGroup(res.data, ownerGroup.id);
-            toastSuccess(`スペック詳細を追加しました: ${name}`);
-            return res.data;
-        } catch (e) {
-            await fetchSpecTypesForInlineCreate();
-            const matchedAfterReload = matchByName(name, specTypes.value, specTypeSearchText);
-            if (matchedAfterReload) return matchedAfterReload;
-            toastError(e.message);
-            return null;
-        }
-    };
-
-    const buildSpecRowFromSpecType = (specType) => prepareSpecDraftForEdit({
-        ...createEmptySpecRow(),
-        spec_type_id: specType?.id ?? '',
-        spec_type_name: specType?.name_ja ?? specType?.name ?? '',
-        unit: isToleranceSpecType(specType)
-            ? toleranceSettingsForSpecType(specType).default_unit
-            : (specType?.base_unit ?? specType?.units?.[0]?.unit ?? ''),
-    }, specType);
-
-    const addInlineCreatedSpecType = (specType) => {
-        if (!specType?.id) return;
-
-        const ownerGroup = resolveInlineSpecOwnerGroup();
-        if (ownerGroup?.id) {
-            selectedSpecGroupId.value = String(ownerGroup.id);
-        }
-        selectedSpecCandidateId.value = String(specType.id);
-
-        if (hasSpecTypeRow(specType.id)) {
-            toastError('既に同じスペック詳細の行があります');
-            return;
-        }
-
-        form.specs.push(buildSpecRowFromSpecType(specType));
-        selectedSpecCandidateId.value = '';
-    };
-
-    const saveInlineSpecType = async () => {
-        if (inlineSpecTypeModal.saving) return;
-
-        const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
-        if (!nameJa) {
-            toastError('スペック詳細の日本語名を入力してください');
-            return;
-        }
-
-        inlineSpecTypeModal.saving = true;
-        try {
-            const created = await createSpecTypeFromDraft(inlineSpecTypeModal.form);
-            if (!created) return;
-
-            const targetSpec = inlineSpecTypeModal.targetSpec;
-            if (targetSpec) {
-                targetSpec.spec_type_id = created.id;
-                targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
-                targetSpec.matched = true;
-            } else {
-                addInlineCreatedSpecType(created);
-            }
-            closeInlineSpecTypeModal(true);
-        } finally {
-            inlineSpecTypeModal.saving = false;
-        }
-    };
-
+    // 目的: 部品登録画面のselect Manufacturerを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectManufacturer = (name) => {
         form.manufacturer = name;
         manufacturerQuery.value = name;
         ensureManufacturerOption(name);
         manufacturerSuggestionsOpen.value = false;
     };
+    // 目的: 部品登録画面のcommit Manufacturerを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const commitManufacturer = () => {
         const trimmed = manufacturerQuery.value.trim();
         form.manufacturer = trimmed;
@@ -743,15 +282,18 @@ export default function setup() {
         manufacturerSuggestionsOpen.value = false;
     };
 
+    // 目的: 部品登録画面のtoggle Categoryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const toggleCategory = (id) => {
         const exists = form.category_ids.includes(id);
         form.category_ids = exists
             ? form.category_ids.filter((value) => value !== id)
             : [...form.category_ids, id];
     };
+    // 目的: 部品登録画面のselect Packageを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectPackage = (id) => {
         form.package_id = id;
     };
+    // 目的: 部品登録画面のadd Category From Queryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addCategoryFromQuery = async () => {
         const created = await createMaster('category', categoryQuery.value);
         if (!created) return;
@@ -759,6 +301,7 @@ export default function setup() {
         toggleCategory(created.id);
         categoryQuery.value = '';
     };
+    // 目的: 部品登録画面のadd Package From Queryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addPackageFromQuery = async () => {
         const created = await createMaster('package', packageQuery.value, { package_group_id: form.package_group_id });
         if (!created) return;
@@ -767,21 +310,25 @@ export default function setup() {
         packageQuery.value = '';
     };
 
+    // 目的: 部品登録画面のfiltered Suppliers For Rowを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const filteredSuppliersForRow = (row) => {
         const q = (row.supplier_name ?? '').trim().toLowerCase();
         if (!q) return suppliers.value.slice(0, 8);
         return suppliers.value.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 8);
     };
+    // 目的: 部品登録画面のcan Create Supplier For Rowを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const canCreateSupplierForRow = (row) => {
         if (!canCreateSupplier.value) return false;
         const q = (row.supplier_name ?? '').trim();
         if (!q) return false;
         return !suppliers.value.some((item) => item.name.toLowerCase() === q.toLowerCase());
     };
+    // 目的: 部品登録画面のselect Supplierを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectSupplier = (row, supplier) => {
         row.supplier_id = supplier.id;
         row.supplier_name = supplier.name;
     };
+    // 目的: 部品登録画面のcommit Supplierを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const commitSupplier = async (row) => {
         const trimmed = (row.supplier_name ?? '').trim();
         if (!trimmed) {
@@ -799,12 +346,14 @@ export default function setup() {
         selectSupplier(row, created);
     };
 
+    // 目的: 部品登録画面のrevoke Preview Urlを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const revokePreviewUrl = () => {
         if (imagePreviewUrl.value?.startsWith('blob:')) {
             URL.revokeObjectURL(imagePreviewUrl.value);
         }
     };
 
+    // 目的: 部品登録画面のon Image Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onImageChange = (event) => {
         const [file] = event.target.files ?? [];
         imageFile.value = file ?? null;
@@ -812,6 +361,7 @@ export default function setup() {
         imagePreviewUrl.value = file ? URL.createObjectURL(file) : (currentImageUrl.value || '');
     };
 
+    // 目的: 部品登録画面のon Datasheet Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onDatasheetChange = async (event) => {
         await clearChatGptTempDatasheets();
         datasheetFiles.value = Array.from(event.target.files ?? []);
@@ -820,6 +370,7 @@ export default function setup() {
         resetChatGptJobState();
     };
 
+    // 目的: 部品登録画面のcreate Datasheet Draftを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const createDatasheetDraft = (sheet = {}) => ({
         id: sheet.id ?? '',
         original_name: sheet.original_name ?? sheet.name ?? '',
@@ -827,1943 +378,55 @@ export default function setup() {
         url: sheet.url ?? '',
     });
 
-    // ── データシート解析ヘルパー共通 ─────────────────────────
-    const analyzing = ref(false);
-    const helperResult = ref(null);
-    const showDatasheetManagerModal = ref(false);
-    const showChatGptRunModal = ref(false);
-    const showHelperResultModal = ref(false);
-    const showChatGptHelperUpdateModal = ref(false);
-    const chatGptHelperCheckStatus = ref('idle');
-    const chatGptHelperCheckMessage = ref('');
-    const chatGptGuideReason = ref('');
-    const pendingAiAction = ref('');
-    const chatGptTempDatasheets = ref([]);
-    const chatGptJob = reactive({
-        connected: false,
-        helperVersion: '',
-        jobId: '',
-        state: 'idle',
-        detail: '',
-        error: '',
-        updatedAt: '',
+    const chatGptConfig = {
+        CHATGPT_HELPER_MIN_VERSION, CHATGPT_WINDOW_NAME, BITSKEEP_WINDOW_NAME,
+        CHATGPT_HELPER_RECHECK_STORAGE_KEY, CHATGPT_ACTIVE_JOB_STORAGE_KEY,
+        CHATGPT_STATUS_STALE_MS, CHATGPT_QUEUED_STALE_MS, CHATGPT_WAITING_STALE_MS,
+        CHATGPT_WORKER_STALE_MS, CHATGPT_WORKER_READY_WAIT_MS, CHATGPT_WORKER_READY_POLL_MS,
+        CHATGPT_TEMP_CLEANUP_TIMEOUT_MS, CHATGPT_JOB_CREATE_TIMEOUT_MS,
+    };
+    const chatGptRuntime = {
+        tampermonkeyPollTimer: null,
+        chatGptHelperPromptTimer: null,
+        chatGptJobWatchdogTimer: null,
+    };
+    // 目的: 部品登録画面のget Chat Gpt Runtimeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
+    const getChatGptRuntime = (key) => chatGptRuntime[key];
+    // 目的: 部品登録画面のset Chat Gpt Runtimeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
+    const setChatGptRuntime = (key, value) => { chatGptRuntime[key] = value; };
+    const ai = useComponentCreateAi({
+        form, dirty, datasheetFiles, datasheetLabels, datasheetTargetIndex, currentDatasheets,
+        inlineSpecTypeModal, manufacturerQuery, helperSpecGroups, helperSpecTemplates, helperSuggestionLoading,
+        categories, packages, specTypes, toastSuccess, toastError, ensureManufacturerOption,
+        findCategoryById, findPackageById, findSpecTypeById, matchByName, normalizeHelperText,
+        specTypeSearchText, prepareSpecDraftForEdit, templateItemSpecType, templateItemProfile,
+        templateItemUnit, hasSpecTypeRow, applyToleranceDefaults: specs.applyToleranceDefaults,
+        syncNormalSpecUnitToBase, chatGptConfig, logChatGptFlow, getChatGptRuntime, setChatGptRuntime,
     });
-    const chatGptWorkerHeartbeat = ref(null);
-    let tampermonkeyPollTimer = null;
-    let chatGptHelperPromptTimer = null;
-    let chatGptJobWatchdogTimer = null;
-    let chatGptHelperPromptShown = false;
-    const chatGptUiLockSuppressed = ref(false);
-    const isChatGptJobRunning = computed(() => ['preparing', 'opening', 'waiting'].includes(chatGptJob.state));
-    const isChatGptJobBusy = computed(() => isChatGptJobRunning.value && !chatGptUiLockSuppressed.value);
-    const canDismissChatGptRun = computed(() => !isChatGptJobBusy.value);
-    const anyModalOpen = computed(() => (
-        isChatGptJobBusy.value
-        || analyzing.value
-        || showDatasheetManagerModal.value
-        || showChatGptRunModal.value
-        || showHelperResultModal.value
-        || showChatGptHelperUpdateModal.value
-        || inlineSpecTypeModal.open
-        || showChatGPTPaste.value
-    ));
-    const syncScrollLock = (isLocked) => {
-        document.documentElement.classList.toggle('modal-open', !!isLocked);
-        document.body.classList.toggle('modal-open', !!isLocked);
-    };
-    const releaseScrollLockIfNoModal = () => {
-        if (!anyModalOpen.value) {
-            syncScrollLock(false);
-        }
-    };
-    const helperResultSummary = computed(() => {
-        if (!helperResult.value) return null;
-
-        const basicCount = [
-            helperResult.value.part_number?.value,
-            helperResult.value.manufacturer?.value,
-            helperResult.value.common_name?.value,
-            helperResult.value.description?.value,
-        ].filter((value) => String(value ?? '').trim() !== '').length;
-
-        const categoryCount = (helperResult.value.categories ?? [])
-            .filter((item) => String(item.name ?? '').trim() !== '' || item.category_id)
-            .length;
-
-        const packageCount = (helperResult.value.packages ?? [])
-            .filter((item) => String(item.name ?? '').trim() !== '' || item.package_id)
-            .length;
-
-        const specCount = (helperResult.value.specs ?? [])
-            .filter((item) =>
-                String(item.name ?? '').trim() !== '' ||
-                String(item.value_typ ?? '').trim() !== '' ||
-                String(item.value_min ?? '').trim() !== '' ||
-                String(item.value_max ?? '').trim() !== '' ||
-                String(item.unit ?? '').trim() !== '' ||
-                item.spec_type_id
-            )
-            .length;
-
-        return { basicCount, categoryCount, packageCount, specCount };
-    });
-    const datasheetTargetLabel = computed(() => {
-        if (selectedDatasheetFile.value) {
-            return datasheetLabels.value[datasheetTargetIndex.value]?.trim() || selectedDatasheetFile.value.name;
-        }
-
-        if (currentDatasheets.value.length === 1) {
-            const currentSheet = currentDatasheets.value[0];
-            return currentSheet.display_name || currentSheet.original_name || '既存PDF';
-        }
-
-        return '';
-    });
-
-    const normalizeHelperText = (value) =>
-        String(value ?? '')
-            .toLowerCase()
-            .replace(/[\s()\[\]_.-]/gu, '');
-
-    const matchByName = (name, items, resolver = (item) => item.name) => {
-        const normalized = normalizeHelperText(name);
-        if (!normalized) return null;
-
-        let matched = items.find((item) => normalizeHelperText(resolver(item)) === normalized);
-        if (matched) return matched;
-
-        matched = items.find((item) => {
-            const itemName = normalizeHelperText(resolver(item));
-            return itemName && (normalized.includes(itemName) || itemName.includes(normalized));
-        });
-
-        return matched ?? null;
-    };
-
-    const specTypeSearchText = (item) => [
-        item?.name,
-        item?.name_ja,
-        item?.name_en,
-        item?.symbol,
-        ...(item?.aliases ?? []).map((alias) => alias.alias),
-    ].filter(Boolean).join(' ');
-
-    const fetchSpecTypesForInlineCreate = async () => {
-        try {
-            const res = await api.get('/spec-types');
-            specTypes.value = res.data ?? [];
-        } catch {
-            // 保存時の本筋を邪魔しない。作成失敗時は呼び出し元でエラーを表示する。
-        }
-    };
-
-    const findCategoryById = (categoryId) =>
-        categories.value.find((item) => Number(item.id) === Number(categoryId)) ?? null;
-
-    const findPackageById = (packageId) =>
-        packages.value.find((item) => Number(item.id) === Number(packageId)) ?? null;
-
-    const findSpecTypeById = (specTypeId) =>
-        specTypes.value.find((item) => Number(item.id) === Number(specTypeId)) ?? null;
-
-    const specPreview = (spec) => normalizeSpecDraft(spec, findSpecTypeById(spec.spec_type_id));
-    let specSuggestionRequestSeq = 0;
-    const normalizeSpecGroupId = (value) => {
-        if (value === '' || value === null || value === undefined) return '';
-        return String(value);
-    };
-    const groupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
-    const specGroupOptions = computed(() => categories.value ?? []);
-    const groupTemplates = (group) => group?.templates ?? [];
-    const allSpecTemplates = computed(() =>
-        specGroupOptions.value.flatMap((group) =>
-            groupTemplates(group).map((template) => ({
-                ...template,
-                spec_group_id: template.spec_group_id ?? group.id,
-            }))
-        )
-    );
-    const fetchSpecSuggestionsForForm = async () => {
-        const categoryIds = form.category_ids.map((id) => Number(id)).filter(Boolean);
-        const seq = ++specSuggestionRequestSeq;
-
-        if (!categoryIds.length) {
-            specSuggestionTypes.value = [];
-            selectedSpecGroupId.value = 'all';
-            selectedSpecCandidateId.value = '';
-            selectedSpecTemplateId.value = '';
-            specSuggestionLoading.value = false;
-            return;
-        }
-
-        specSuggestionLoading.value = true;
-        try {
-            const params = new URLSearchParams();
-            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
-            const res = await api.get(`/spec-suggestions?${params.toString()}`);
-            if (seq !== specSuggestionRequestSeq) return;
-
-            specGroups.value = res.data?.groups ?? [];
-            specSuggestionTypes.value = res.data?.spec_types ?? [];
-            specTemplates.value = res.data?.templates ?? [];
-
-            const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
-            const currentStillAvailable = currentId === ''
-                || currentId === 'all'
-                || specGroupOptions.value.some((group) => String(group.id) === currentId);
-            if (!currentStillAvailable) {
-                selectedSpecGroupId.value = 'all';
-            }
-        } catch {
-            if (seq !== specSuggestionRequestSeq) return;
-            specGroups.value = [];
-            specSuggestionTypes.value = [];
-            specTemplates.value = [];
-            toastError('部品分類候補の取得に失敗しました。必要なら全スペック詳細から選択してください');
-        } finally {
-            if (seq === specSuggestionRequestSeq) {
-                specSuggestionLoading.value = false;
-            }
-        }
-    };
-    const selectedSpecGroup = computed(() => {
-        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (!groupId || groupId === 'all') return null;
-        return specGroupOptions.value.find((group) => String(group.id) === groupId) ?? null;
-    });
-    const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
-    const selectedSpecCategoryIds = computed(() => form.category_ids.map((id) => Number(id)).filter(Boolean));
-    const hasSelectedSpecCategories = computed(() => selectedSpecCategoryIds.value.length > 0);
-    const selectedSpecGroupLabel = computed(() => {
-        if (isAllSpecTypesSelected.value) return 'フィルタしない';
-        if (selectedSpecGroup.value) return selectedSpecGroup.value.name;
-        if (specSuggestionTypes.value.length) return '推奨候補';
-        return hasSelectedSpecCategories.value ? '候補スペック詳細なし' : '部品分類未選択';
-    });
-    const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
-    const scopedSpecTypes = computed(() => {
-        const group = selectedSpecGroup.value;
-        if (group) return groupSpecTypes(group);
-        if (isAllSpecTypesSelected.value) return specTypes.value;
-        if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
-        return [];
-    });
-    const resolveInlineSpecOwnerGroup = () => {
-        const selectedGroupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (selectedGroupId && selectedGroupId !== 'all') {
-            const group = specGroupOptions.value.find((item) => String(item.id) === selectedGroupId)
-                ?? findCategoryById(selectedGroupId);
-            if (group) {
-                return { id: Number(group.id), name: group.name };
-            }
-        }
-
-        const suggestedGroups = specGroups.value.filter((group) => group.is_suggested);
-        if (suggestedGroups.length === 1) {
-            const [group] = suggestedGroups;
-            return { id: Number(group.id), name: group.name };
-        }
-
-        if (selectedSpecCategoryIds.value.length === 1) {
-            const categoryId = selectedSpecCategoryIds.value[0];
-            const category = findCategoryById(categoryId);
-            return { id: categoryId, name: category?.name ?? '' };
-        }
-
-        return null;
-    };
-    const attachSpecTypeToOwnerGroup = (specType, ownerSpecGroupId) => {
-        const group = specGroupOptions.value.find((item) => Number(item.id) === Number(ownerSpecGroupId));
-        if (!group || !specType?.id) return;
-
-        const currentTypes = groupSpecTypes(group);
-        if (!currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
-            group.spec_types = sortSpecTypes([...currentTypes, specType]);
-        }
-        if (group.is_suggested && !specSuggestionTypes.value.some((item) => Number(item.id) === Number(specType.id))) {
-            specSuggestionTypes.value = sortSpecTypes([...specSuggestionTypes.value, specType]);
-        }
-    };
-    const specGroupCandidatePayload = (specType, index = 0) => ({
-        spec_type_id: Number(specType.id),
-        sort_order: Number(specType?.pivot?.sort_order ?? specType?.sort_order ?? ((index + 1) * 10)),
-        is_required: Boolean(specType?.pivot?.is_required ?? false),
-        is_recommended: Boolean(specType?.pivot?.is_recommended ?? true),
-        default_profile: specType?.pivot?.default_profile ?? 'typ',
-        default_unit: specType?.pivot?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? null,
-        note: specType?.pivot?.note ?? null,
-    });
-    const ensureSpecTypeLinkedToOwnerGroup = async (specType, ownerGroup) => {
-        if (!specType?.id || !ownerGroup?.id) return false;
-
-        const loadedGroup = await ensureSpecGroupDetail(ownerGroup.id);
-        if (!loadedGroup) return false;
-        const group = specGroupOptions.value.find((item) => Number(item.id) === Number(ownerGroup.id));
-        const currentTypes = groupSpecTypes(group);
-        if (currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
-            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
-            return true;
-        }
-
-        const items = currentTypes.map((item, index) => specGroupCandidatePayload(item, index));
-        const nextSortOrder = Math.max(0, ...items.map((item) => Number(item.sort_order ?? 0))) + 10;
-        items.push({
-            ...specGroupCandidatePayload(specType, items.length),
-            sort_order: nextSortOrder,
-            is_required: false,
-            is_recommended: true,
-        });
-
-        try {
-            const res = await api.put(`/spec-groups/${ownerGroup.id}/spec-types`, { items });
-            mergeSpecGroupDetails([res.data]);
-            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
-            return true;
-        } catch (e) {
-            toastError(e.message || '既存スペック詳細を部品分類の候補に追加できませんでした');
-            return false;
-        }
-    };
-    const specTypePickerOptionLabel = (specType) => {
-        const label = specTypeOptionLabel(specType);
-        return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
-            ? `${label}（推奨）`
-            : label;
-    };
-    const filteredSpecTypesForPicker = (spec = null) => {
-        const query = normalizeHelperText(specTypeSearchQuery.value);
-        const selected = findSpecTypeById(spec?.spec_type_id);
-        const candidates = [...scopedSpecTypes.value];
-        if (selected && !candidates.some((item) => Number(item.id) === Number(selected.id))) {
-            candidates.unshift(selected);
-        }
-
-        const seen = new Set;
-        return sortSpecTypes(candidates)
-            .filter((item) => {
-                const key = Number(item.id);
-                if (seen.has(key)) return false;
-                seen.add(key);
-                if (!query) return true;
-                return normalizeHelperText(specTypeSearchText(item)).includes(query);
-            })
-            .sort((a, b) => {
-                if (!isAllSpecTypesSelected.value) return 0;
-                const aRecommended = recommendedSpecTypeIds.value.has(Number(a.id));
-                const bRecommended = recommendedSpecTypeIds.value.has(Number(b.id));
-                return Number(bRecommended) - Number(aRecommended);
-            });
-    };
-    const showRecommendedSpecTypes = () => {
-        selectedSpecGroupId.value = '';
-        specTypeSearchQuery.value = '';
-    };
-    const showAllSpecTypes = () => {
-        selectedSpecGroupId.value = 'all';
-        specTypeSearchQuery.value = '';
-    };
-    const recommendedSpecGroupIdSet = computed(() =>
-        new Set(specGroups.value.filter((group) => group.is_suggested).map((group) => Number(group.id)))
-    );
-    const visibleSpecTemplates = computed(() => {
-        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-
-        if (groupId && groupId !== 'all') {
-            return groupTemplates(selectedSpecGroup.value);
-        }
-
-        return allSpecTemplates.value;
-    });
-    const selectedSpecCandidate = computed(() =>
-        filteredSpecTypesForPicker().find((item) => Number(item.id) === Number(selectedSpecCandidateId.value)) ?? null
-    );
-    const selectedSpecTemplate = computed(() =>
-        visibleSpecTemplates.value.find((template) => Number(template.id) === Number(selectedSpecTemplateId.value)) ?? null
-    );
-    const selectedSpecTemplateItems = computed(() => (
-        Array.isArray(selectedSpecTemplate.value?.items) ? selectedSpecTemplate.value.items : []
-    ));
-    const templateItemPreviewLabel = (item) => {
-        const specType = templateItemSpecType(item);
-        return specTypeShortLabel(specType) || item?.spec_type_name || 'スペック';
-    };
-    const handleSpecGroupPickerChange = () => {
-        specTypeSearchQuery.value = '';
-        selectedSpecCandidateId.value = '';
-        selectedSpecTemplateId.value = '';
-        void ensureSpecGroupDetail(selectedSpecGroupId.value);
-    };
-    const addSelectedSpecCandidate = () => {
-        const specType = selectedSpecCandidate.value;
-        if (!specType?.id) {
-            toastError('スペック候補を選択してください');
-            return;
-        }
-        if (hasSpecTypeRow(specType.id)) {
-            toastError('既に同じスペック詳細の行があります');
-            return;
-        }
-
-        form.specs.push(buildSpecRowFromSpecType(specType));
-        selectedSpecCandidateId.value = '';
-    };
-    const applySpecTemplate = (template) => {
-        const rows = Array.isArray(template?.items) ? template.items : [];
-        if (!rows.length) {
-            toastError('この入力テンプレートにはスペック行がありません');
-            return;
-        }
-
-        let added = 0;
-        let skipped = 0;
-        rows.forEach((item) => {
-            const specTypeId = Number(item?.spec_type_id ?? templateItemSpecType(item)?.id ?? 0);
-            if (!specTypeId || hasSpecTypeRow(specTypeId)) {
-                skipped++;
-                return;
-            }
-
-            form.specs.push(buildSpecRowFromTemplateItem(item));
-            added++;
-        });
-
-        if (template?.spec_group_id) {
-            selectedSpecGroupId.value = String(template.spec_group_id);
-        }
-
-        if (added > 0) {
-            toastSuccess(skipped > 0
-                ? `${template.name} を適用しました（追加 ${added} 件 / 既存 ${skipped} 件）`
-                : `${template.name} を適用しました（追加 ${added} 件）`);
-            return;
-        }
-
-        toastError('既に同じスペック詳細の行があります');
-    };
-    const applySelectedSpecTemplate = () => {
-        if (!selectedSpecTemplate.value) {
-            toastError('入力テンプレートを選択してください');
-            return;
-        }
-
-        applySpecTemplate(selectedSpecTemplate.value);
-    };
-
-    const createHelperBasicField = (value = '') => ({
-        value: String(value ?? '').trim(),
-        apply: String(value ?? '').trim() !== '',
-    });
-
-    const createHelperCategoryCandidate = (overrides = {}) => {
-        const rawName = String(overrides.name ?? '').trim();
-        const matchedCategory = overrides.category_id
-            ? findCategoryById(overrides.category_id)
-            : matchByName(rawName, categories.value);
-
-        return {
-            name: rawName || matchedCategory?.name || '',
-            category_id: matchedCategory?.id ?? overrides.category_id ?? '',
-            matched: overrides.matched ?? !!matchedCategory,
-            apply: overrides.apply ?? (rawName !== '' || !!matchedCategory),
-        };
-    };
-
-    const createHelperPackageCandidate = (overrides = {}) => {
-        const rawName = String(overrides.name ?? '').trim();
-        const matchedPackage = overrides.package_id
-            ? findPackageById(overrides.package_id)
-            : matchByName(rawName, packages.value);
-
-        return {
-            name: rawName || matchedPackage?.name || '',
-            package_group_id: matchedPackage?.package_group_id ?? overrides.package_group_id ?? '',
-            package_id: matchedPackage?.id ?? overrides.package_id ?? '',
-            matched: overrides.matched ?? !!matchedPackage,
-            package_query: String(overrides.package_query ?? '').trim(),
-        };
-    };
-
-    const createHelperSpecCandidate = (overrides = {}) => {
-        const rawName = String(overrides.name ?? '').trim();
-        const rawNameJa = String(overrides.name_ja ?? rawName).trim();
-        const rawNameEn = String(overrides.name_en ?? '').trim();
-        const rawSymbol = String(overrides.symbol ?? '').trim();
-        const matchedSpecType = overrides.spec_type_id
-            ? findSpecTypeById(overrides.spec_type_id)
-            : matchByName(rawNameJa || rawNameEn || rawSymbol || rawName, specTypes.value, specTypeSearchText);
-        const specTypeId = matchedSpecType?.id ?? overrides.spec_type_id ?? '';
-        const draft = prepareSpecDraftForEdit(buildSpecDraftFromApi({
-            ...overrides,
-            spec_type_id: specTypeId,
-            unit: overrides.unit ?? getSpecBaseUnit(matchedSpecType),
-        }), matchedSpecType);
-
-        return {
-            name: rawName,
-            name_ja: rawNameJa,
-            name_en: rawNameEn,
-            symbol: rawSymbol,
-            spec_type_name: matchedSpecType?.name_ja ?? matchedSpecType?.name ?? rawNameJa,
-            value_profile: draft.value_profile,
-            value_typ: draft.value_typ,
-            value_min: draft.value_min,
-            value_max: draft.value_max,
-            unit: draft.unit,
-            spec_type_id: specTypeId,
-            matched: overrides.matched ?? !!matchedSpecType,
-            apply: overrides.apply ?? (
-                rawName !== ''
-                || String(overrides.value ?? '').trim() !== ''
-                || String(overrides.value_typ ?? '').trim() !== ''
-                || String(overrides.value_min ?? '').trim() !== ''
-                || String(overrides.value_max ?? '').trim() !== ''
-            ),
-        };
-    };
-    const createHelperSpecFromTemplateItem = (item) => {
-        const specType = templateItemSpecType(item);
-
-        return createHelperSpecCandidate({
-            spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
-            name: specType?.name ?? specType?.name_ja ?? '',
-            name_ja: specType?.name_ja ?? specType?.name ?? '',
-            name_en: specType?.name_en ?? '',
-            symbol: specType?.symbol ?? '',
-            value_profile: templateItemProfile(item),
-            unit: templateItemUnit(item, specType),
-            apply: true,
-            matched: !!specType,
-        });
-    };
-    const helperSelectedCategoryIds = computed(() => [
-        ...new Set((helperResult.value?.categories ?? [])
-            .filter((category) => category.apply && category.category_id)
-            .map((category) => Number(category.category_id))
-            .filter(Boolean)),
-    ]);
-    let helperSuggestionRequestSeq = 0;
-    const fetchSpecSuggestionsForHelper = async () => {
-        const categoryIds = helperSelectedCategoryIds.value;
-        const seq = ++helperSuggestionRequestSeq;
-
-        if (!categoryIds.length) {
-            helperSpecGroups.value = [];
-            helperSpecTemplates.value = [];
-            helperSuggestionLoading.value = false;
-            return;
-        }
-
-        helperSuggestionLoading.value = true;
-        try {
-            const params = new URLSearchParams();
-            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
-            const res = await api.get(`/spec-suggestions?${params.toString()}`);
-            if (seq !== helperSuggestionRequestSeq) return;
-
-            helperSpecGroups.value = res.data?.groups ?? [];
-            helperSpecTemplates.value = res.data?.templates ?? [];
-        } catch {
-            if (seq !== helperSuggestionRequestSeq) return;
-            helperSpecGroups.value = [];
-            helperSpecTemplates.value = [];
-        } finally {
-            if (seq === helperSuggestionRequestSeq) {
-                helperSuggestionLoading.value = false;
-            }
-        }
-    };
-    const applyHelperTemplate = (template) => {
-        if (!helperResult.value) return;
-
-        const rows = Array.isArray(template?.items) ? template.items : [];
-        if (!rows.length) {
-            toastError('この入力テンプレートにはスペック行がありません');
-            return;
-        }
-
-        let added = 0;
-        let skipped = 0;
-        rows.forEach((item) => {
-            const specTypeId = Number(item?.spec_type_id ?? templateItemSpecType(item)?.id ?? 0);
-            if (!specTypeId || hasSpecTypeRow(specTypeId, helperResult.value.specs ?? [])) {
-                skipped++;
-                return;
-            }
-
-            helperResult.value.specs.push(createHelperSpecFromTemplateItem(item));
-            added++;
-        });
-
-        if (added > 0) {
-            toastSuccess(skipped > 0
-                ? `${template.name} をスペック候補へ追加しました（追加 ${added} 件 / 既存 ${skipped} 件）`
-                : `${template.name} をスペック候補へ追加しました（追加 ${added} 件）`);
-            return;
-        }
-
-        toastError('既に同じスペック詳細の候補があります');
-    };
-
-    const extractCategoryNames = (data) => {
-        const names = [];
-
-        if (Array.isArray(data?.component_types)) {
-            names.push(...data.component_types);
-        }
-
-        if (Array.isArray(data?.category_names)) {
-            names.push(...data.category_names);
-        }
-
-        if (Array.isArray(data?.categories)) {
-            names.push(...data.categories.map((item) => (typeof item === 'string' ? item : item?.name ?? '')));
-        }
-
-        if (typeof data?.component_type === 'string') {
-            names.push(data.component_type);
-        }
-
-        return [...new Set(
-            names
-                .map((value) => String(value ?? '').trim())
-                .filter(Boolean)
-        )];
-    };
-
-    const extractPackageCandidates = (data) => {
-        const candidates = [];
-        const addCandidate = (value) => {
-            if (typeof value === 'string') {
-                const name = value.trim();
-                if (name) candidates.push({ name });
-                return;
-            }
-
-            if (!value || typeof value !== 'object') return;
-            const name = String(value.name ?? value.package_name ?? value.package ?? value.type ?? '').trim();
-            const packageId = value.package_id ?? '';
-            const packageGroupId = value.package_group_id ?? value.group_id ?? '';
-            if (name || packageId) {
-                candidates.push({
-                    name,
-                    package_id: packageId,
-                    package_group_id: packageGroupId,
-                });
-            }
-        };
-
-        if (Array.isArray(data?.package_names)) {
-            data.package_names.forEach(addCandidate);
-        }
-
-        if (Array.isArray(data?.packages)) {
-            data.packages.forEach(addCandidate);
-        }
-
-        if (typeof data?.package_name === 'string') {
-            addCandidate(data.package_name);
-        }
-
-        if (typeof data?.package === 'string') {
-            addCandidate(data.package);
-        } else {
-            addCandidate(data?.package);
-        }
-
-        if (typeof data?.package_type === 'string') {
-            addCandidate(data.package_type);
-        }
-
-        const seen = new Set;
-        return candidates.filter((candidate) => {
-            const key = `${candidate.package_id || ''}:${String(candidate.name ?? '').toLowerCase()}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    };
-
-    const buildHelperResult = (data) => {
-        const source = data ?? {};
-        const packageCandidates = extractPackageCandidates(source).map((candidate) => createHelperPackageCandidate(candidate));
-        const preferredPackageIndex = packageCandidates.findIndex((item) => item.package_id);
-        const selectedPackageIndex = preferredPackageIndex >= 0 ? preferredPackageIndex : (packageCandidates.length ? 0 : null);
-
-        return {
-            part_number: createHelperBasicField(source.part_number),
-            manufacturer: createHelperBasicField(source.manufacturer),
-            common_name: createHelperBasicField(source.common_name),
-            description: createHelperBasicField(source.description),
-            categories: extractCategoryNames(source).map((name) => createHelperCategoryCandidate({ name })),
-            package_apply: packageCandidates.length > 0,
-            selected_package_index: selectedPackageIndex,
-            packages: packageCandidates,
-            specs: (Array.isArray(source.specs) ? source.specs : []).map((spec) => createHelperSpecCandidate(spec)),
-        };
-    };
-
-    const hasHelperCandidates = (result) => {
-        if (!result) return false;
-
-        return [
-            result.part_number?.value,
-            result.manufacturer?.value,
-            result.common_name?.value,
-            result.description?.value,
-        ].some((value) => String(value ?? '').trim() !== '')
-            || (result.categories ?? []).length > 0
-            || (result.packages ?? []).length > 0
-            || (result.specs ?? []).length > 0;
-    };
-
-    const openHelperResultModal = () => {
-        if (!helperResult.value) return;
-        showHelperResultModal.value = true;
-    };
-
-    const closeHelperResultModal = () => {
-        showHelperResultModal.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const discardHelperResult = () => {
-        helperResult.value = null;
-        showHelperResultModal.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const addHelperCategory = () => {
-        helperResult.value?.categories.push(createHelperCategoryCandidate({ apply: true }));
-    };
-
-    const removeHelperCategory = (index) => {
-        helperResult.value?.categories.splice(index, 1);
-    };
-
-    const addHelperSpec = () => {
-        helperResult.value?.specs.push(createHelperSpecCandidate({ apply: true }));
-    };
-
-    const addHelperPackage = () => {
-        if (!helperResult.value) return;
-
-        helperResult.value.packages.push(createHelperPackageCandidate());
-        if (helperResult.value.selected_package_index === null || helperResult.value.selected_package_index === '') {
-            helperResult.value.selected_package_index = helperResult.value.packages.length - 1;
-        }
-    };
-
-    const removeHelperPackage = (index) => {
-        if (!helperResult.value) return;
-
-        helperResult.value.packages.splice(index, 1);
-
-        if (helperResult.value.packages.length === 0) {
-            helperResult.value.selected_package_index = null;
-            return;
-        }
-
-        const selectedIndex = helperResult.value.selected_package_index === null || helperResult.value.selected_package_index === ''
-            ? null
-            : Number(helperResult.value.selected_package_index);
-
-        if (selectedIndex === null || selectedIndex === index) {
-            helperResult.value.selected_package_index = 0;
-            return;
-        }
-
-        if (selectedIndex > index) {
-            helperResult.value.selected_package_index = selectedIndex - 1;
-        }
-    };
-
-    const removeHelperSpec = (index) => {
-        helperResult.value?.specs.splice(index, 1);
-    };
-
-    const handleHelperCategorySelection = (candidate) => {
-        const matchedCategory = findCategoryById(candidate.category_id);
-        candidate.matched = !!matchedCategory;
-        if (matchedCategory && !String(candidate.name ?? '').trim()) {
-            candidate.name = matchedCategory.name;
-        }
-    };
-
-    const handleHelperSpecTypeSelection = (spec) => {
-        const matchedType = findSpecTypeById(spec.spec_type_id);
-        spec.matched = !!matchedType;
-        spec.spec_type_name = matchedType?.name_ja ?? matchedType?.name ?? '';
-        if (matchedType) {
-            applyToleranceDefaults(spec, matchedType);
-            syncNormalSpecUnitToBase(spec, matchedType);
-        }
-    };
-
-    const handleHelperPackageGroupChange = (packageCandidate) => {
-        if (!packageCandidate) return;
-
-        packageCandidate.package_query = '';
-        if (!packageCandidate.package_group_id) {
-            packageCandidate.package_id = '';
-            packageCandidate.matched = false;
-            return;
-        }
-
-        const selectedPackage = findPackageById(packageCandidate.package_id);
-        if (!selectedPackage || Number(selectedPackage.package_group_id) !== Number(packageCandidate.package_group_id)) {
-            packageCandidate.package_id = '';
-            packageCandidate.matched = false;
-        }
-    };
-
-    const handleHelperPackageSelection = (packageCandidate) => {
-        if (!packageCandidate) return;
-
-        const matchedPackage = findPackageById(packageCandidate.package_id);
-        if (!matchedPackage) {
-            packageCandidate.matched = false;
-            return;
-        }
-
-        packageCandidate.package_group_id = matchedPackage.package_group_id;
-        packageCandidate.matched = true;
-        if (!String(packageCandidate.name ?? '').trim()) {
-            packageCandidate.name = matchedPackage.name;
-        }
-    };
-
-    const helperFilteredPackages = (packageCandidate) => {
-        const groupId = packageCandidate?.package_group_id;
-        if (!groupId) return [];
-
-        const scopedPackages = packages.value.filter((item) => Number(item.package_group_id) === Number(groupId));
-        const query = String(packageCandidate?.package_query ?? '').trim().toLowerCase();
-        if (!query) return scopedPackages;
-
-        return scopedPackages.filter((item) => item.name.toLowerCase().includes(query));
-    };
-
-    // ── ChatGPT 貼り付けモーダル ───────────────────────────
-    const selectedDatasheetFile = computed(() => datasheetFiles.value[datasheetTargetIndex.value] ?? null);
-    const hasDatasheetForAi = computed(() => datasheetFiles.value.length > 0);
-    const showChatGPTPaste = ref(false);
-    const chatGPTPasteText = ref('');
-    const chatGPTPasteTextarea = ref(null);
-    const navigationGuardActive = computed(() => (
-        dirty.value
-        || showHelperResultModal.value
-        || inlineSpecTypeModal.open
-        || !!helperResult.value
-        || showChatGPTPaste.value
-        || !!String(chatGPTPasteText.value ?? '').trim()
-        || showDatasheetManagerModal.value
-        || showChatGptRunModal.value
-    ));
-    useNavigationConfirm(navigationGuardActive, '未保存の入力があります。このまま画面を離れてもよいですか？');
-    const chatGptStatusLabel = computed(() => {
-        const labels = {
-            idle: '待機中',
-            preparing: 'PDF準備中',
-            opening: 'ChatGPT起動中',
-            waiting: 'ChatGPT待ち',
-            review: '結果受信',
-            failed: '自動取得失敗',
-            login_required: 'ChatGPTログイン待ち',
-        };
-
-        return labels[chatGptJob.state] ?? '待機中';
-    });
-    const chatGptStatusChips = computed(() => {
-        const chips = [
-            {
-                label: chatGptJob.connected ? 'Tampermonkey接続済み' : 'Tampermonkey未接続',
-                tone: chatGptJob.connected ? 'ok' : 'warning',
-            },
-            {
-                label: chatGptJob.helperVersion ? `helper v${chatGptJob.helperVersion}` : 'helper version 不明',
-                tone: chatGptJob.helperVersion
-                    ? (isChatGptHelperVersionCompatible() ? 'ok' : 'warning')
-                    : 'warning',
-            },
-        ];
-
-        if (datasheetFiles.value.length) {
-            chips.push({
-                label: selectedDatasheetFile.value ? `解析対象: ${selectedDatasheetFile.value.name}` : '解析対象未選択',
-                tone: selectedDatasheetFile.value ? 'neutral' : 'warning',
-            });
-        }
-
-        if (chatGptJob.state !== 'idle') {
-            chips.push({
-                label: chatGptStatusLabel.value,
-                tone: chatGptJob.state === 'failed' ? 'danger' : (chatGptJob.state === 'review' ? 'ok' : 'neutral'),
-            });
-        }
-
-        if (chatGptTempDatasheets.value.length) {
-            chips.push({
-                label: `temp PDF ${chatGptTempDatasheets.value.length}件`,
-                tone: 'neutral',
-            });
-        }
-
-        return chips;
-    });
-    const chatGptStepStates = computed(() => {
-        const state = chatGptJob.state;
-
-        return [
-            {
-                label: 'PDF準備',
-                status: ['preparing', 'opening', 'waiting', 'review', 'failed', 'login_required'].includes(state) ? 'done' : 'current',
-            },
-            {
-                label: 'ChatGPT起動',
-                status: ['opening', 'waiting', 'review', 'failed', 'login_required'].includes(state)
-                    ? (state === 'opening' || state === 'login_required' ? 'current' : 'done')
-                    : 'pending',
-            },
-            {
-                label: '解析待ち',
-                status: ['waiting', 'review', 'failed'].includes(state)
-                    ? (state === 'waiting' ? 'current' : 'done')
-                    : 'pending',
-            },
-            {
-                label: '結果確認',
-                status: state === 'review' ? 'current' : 'pending',
-            },
-        ];
-    });
-    const canStartChatGptAutoFill = computed(() => (
-        !!selectedDatasheetFile.value && chatGptJob.connected && isChatGptHelperVersionCompatible()
-    ));
-    const chatGptHelperIssue = computed(() => {
-        if (!chatGptJob.connected) {
-            return {
-                kind: 'missing',
-                title: 'Tampermonkey helper を検出できません',
-                body: 'BitsKeep ページで userscript が動いていません。Tampermonkey の有効化対象URLとスクリプトの有効状態を確認してください。',
-            };
-        }
-
-        if (!isChatGptHelperVersionCompatible()) {
-            return {
-                kind: 'outdated',
-                title: 'Tampermonkey helper が旧版です',
-                body: `現在の helper は v${chatGptJob.helperVersion || '不明'} です。ChatGPT自動入力には v${CHATGPT_HELPER_MIN_VERSION} 以上が必要です。`,
-            };
-        }
-
-        return null;
-    });
-    const showChatGptRunHint = computed(() => (
-        !selectedDatasheetFile.value
-            ? '先に解析対象のPDFを選択してください。'
-            : (!chatGptJob.connected
-                ? 'Tampermonkey helper が BitsKeep ページで検出できていません。userscript の有効化対象URLを確認してください。'
-                : (!isChatGptHelperVersionCompatible()
-                    ? `Tampermonkey helper を更新してください。必要: v${CHATGPT_HELPER_MIN_VERSION}+ / 現在: v${chatGptJob.helperVersion || '不明'}`
-                    : '解析開始後は別タブの ChatGPT で PDF 添付と送信を自動化します。'))
-    ));
-
-    const compareVersion = (left, right) => {
-        const leftParts = String(left ?? '').split('.').map((part) => Number.parseInt(part, 10) || 0);
-        const rightParts = String(right ?? '').split('.').map((part) => Number.parseInt(part, 10) || 0);
-        const length = Math.max(leftParts.length, rightParts.length);
-
-        for (let index = 0; index < length; index += 1) {
-            const leftPart = leftParts[index] ?? 0;
-            const rightPart = rightParts[index] ?? 0;
-            if (leftPart > rightPart) return 1;
-            if (leftPart < rightPart) return -1;
-        }
-
-        return 0;
-    };
-
-    const withTimeout = async (promise, timeoutMs, timeoutMessage) => {
-        let timerId = null;
-
-        try {
-            return await Promise.race([
-                promise,
-                new Promise((_, reject) => {
-                    timerId = window.setTimeout(() => {
-                        reject(new Error(timeoutMessage || 'timeout'));
-                    }, timeoutMs);
-                }),
-            ]);
-        } finally {
-            if (timerId !== null) {
-                window.clearTimeout(timerId);
-            }
-        }
-    };
-
-    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-    const isChatGptHelperVersionCompatible = () => (
-        !!chatGptJob.helperVersion && compareVersion(chatGptJob.helperVersion, CHATGPT_HELPER_MIN_VERSION) >= 0
-    );
-
-    const persistActiveChatGptJob = (overrides = {}) => {
-        const jobId = overrides.jobId || chatGptJob.jobId;
-        if (!jobId) return;
-
-        window.sessionStorage.setItem(CHATGPT_ACTIVE_JOB_STORAGE_KEY, JSON.stringify({
-            jobId,
-            startedAt: overrides.startedAt || chatGptJob.updatedAt || new Date().toISOString(),
-            datasheetLabel: overrides.datasheetLabel || datasheetTargetLabel.value || '',
-        }));
-    };
-
-    const readPersistedActiveChatGptJob = () => {
-        const raw = window.sessionStorage.getItem(CHATGPT_ACTIVE_JOB_STORAGE_KEY);
-        if (!raw) return null;
-
-        try {
-            return JSON.parse(raw);
-        } catch {
-            window.sessionStorage.removeItem(CHATGPT_ACTIVE_JOB_STORAGE_KEY);
-            return null;
-        }
-    };
-
-    const clearPersistedActiveChatGptJob = () => {
-        window.sessionStorage.removeItem(CHATGPT_ACTIVE_JOB_STORAGE_KEY);
-    };
-
-    const resetChatGptJobState = ({ clearPersisted = true } = {}) => {
-        chatGptJob.jobId = '';
-        chatGptJob.state = 'idle';
-        chatGptJob.detail = '';
-        chatGptJob.error = '';
-        chatGptJob.updatedAt = '';
-        lastSyncedChatGptStatusAt = '';
-        lastSyncedChatGptResultAt = '';
-        chatGptUiLockSuppressed.value = false;
-        if (clearPersisted) {
-            clearPersistedActiveChatGptJob();
-        }
-    };
-
-    const syncTampermonkeyConnection = () => {
-        const helper = window.__bitskeepTampermonkeyHelper;
-        chatGptJob.connected = !!helper?.connected;
-        chatGptJob.helperVersion = String(helper?.version ?? '');
-        const helperLogPayload = {
-            connected: chatGptJob.connected,
-            helperVersion: chatGptJob.helperVersion || '(unknown)',
-            hasHelperObject: !!helper,
-            windowName: CHATGPT_WINDOW_NAME,
-        };
-        const nextSignature = JSON.stringify(helperLogPayload);
-        if (nextSignature !== lastChatGptHelperLogSignature) {
-            console.info('[BitsKeep][ChatGPT Helper]', helperLogPayload);
-            lastChatGptHelperLogSignature = nextSignature;
-        }
-    };
-
-    const syncStoredChatGptBridgeState = async () => {
-        const helper = window.__bitskeepTampermonkeyHelper;
-        if (!helper?.connected) return;
-
-        try {
-            const [statusDetail, resultDetail] = await Promise.all([
-                typeof helper.getStoredStatus === 'function' ? helper.getStoredStatus() : null,
-                typeof helper.getStoredResult === 'function' ? helper.getStoredResult() : null,
-            ]);
-
-            if (statusDetail?.jobId && statusDetail.updatedAt && statusDetail.updatedAt !== lastSyncedChatGptStatusAt) {
-                lastSyncedChatGptStatusAt = statusDetail.updatedAt;
-                handleChatGptStatusEvent({ detail: statusDetail });
-            }
-            if (resultDetail?.jobId && resultDetail.updatedAt && resultDetail.updatedAt !== lastSyncedChatGptResultAt && (resultDetail.jsonText || resultDetail.rawText)) {
-                lastSyncedChatGptResultAt = resultDetail.updatedAt;
-                handleChatGptResultEvent({ detail: resultDetail });
-            }
-        } catch {
-            // helper 側の現在値取得に失敗しても通常の event/poll 同期へ任せる。
-        }
-    };
-
-    const syncChatGptWorkerHeartbeat = async () => {
-        const helper = window.__bitskeepTampermonkeyHelper;
-        if (!helper?.connected || typeof helper.getWorkerHeartbeat !== 'function') {
-            chatGptWorkerHeartbeat.value = null;
-            return;
-        }
-
-        try {
-            chatGptWorkerHeartbeat.value = await helper.getWorkerHeartbeat();
-        } catch {
-            chatGptWorkerHeartbeat.value = null;
-        }
-    };
-
-    const hasFreshChatGptWorker = () => {
-        const updatedAt = Date.parse(chatGptWorkerHeartbeat.value?.updatedAt || '');
-        if (Number.isNaN(updatedAt)) return false;
-
-        return (Date.now() - updatedAt) < CHATGPT_WORKER_STALE_MS;
-    };
-
-    const isChatGptWorkerReady = () => (
-        hasFreshChatGptWorker()
-        && chatGptWorkerHeartbeat.value?.ready === true
-        && chatGptWorkerHeartbeat.value?.acceptingJobs !== false
-    );
-
-    const waitForChatGptWorkerReady = async ({ openWindowIfNeeded = true } = {}) => {
-        await syncChatGptWorkerHeartbeat();
-        if (isChatGptWorkerReady()) {
-            logChatGptFlow('worker.ready.existing', {
-                workerHeartbeat: chatGptWorkerHeartbeat.value,
-            });
-            return true;
-        }
-
-        if (openWindowIfNeeded) {
-            primeChatGptWindow();
-        }
-
-        logChatGptFlow('worker.ready.wait.start', {
-            workerHeartbeat: chatGptWorkerHeartbeat.value,
-        });
-
-        const startedAt = Date.now();
-        while ((Date.now() - startedAt) < CHATGPT_WORKER_READY_WAIT_MS) {
-            await sleep(CHATGPT_WORKER_READY_POLL_MS);
-            await syncChatGptWorkerHeartbeat();
-
-            if (isChatGptWorkerReady()) {
-                logChatGptFlow('worker.ready.wait.done', {
-                    elapsedMs: Date.now() - startedAt,
-                    workerHeartbeat: chatGptWorkerHeartbeat.value,
-                });
-                return true;
-            }
-        }
-
-        logChatGptFlow('worker.ready.wait.timeout', {
-            elapsedMs: Date.now() - startedAt,
-            workerHeartbeat: chatGptWorkerHeartbeat.value,
-        });
-        return false;
-    };
-
-    const openChatGptHelperUpdateModal = () => {
-        syncTampermonkeyConnection();
-        if (chatGptJob.connected && isChatGptHelperVersionCompatible()) {
-            chatGptHelperCheckStatus.value = 'success';
-            chatGptHelperCheckMessage.value = `helper v${chatGptJob.helperVersion} を検出しました。このまま ChatGPT自動解析を使えます。`;
-        } else {
-            chatGptHelperCheckStatus.value = 'idle';
-            chatGptHelperCheckMessage.value = '';
-        }
-        showChatGptHelperUpdateModal.value = true;
-    };
-
-    const closeChatGptHelperUpdateModal = () => {
-        chatGptHelperCheckStatus.value = 'idle';
-        chatGptHelperCheckMessage.value = '';
-        showChatGptHelperUpdateModal.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const maybePromptChatGptHelperUpdate = () => {
-        if (chatGptHelperPromptShown) return;
-        if (!chatGptHelperIssue.value) return;
-        if (!showChatGptRunModal.value && !showChatGptHelperUpdateModal.value) return;
-
-        chatGptHelperPromptShown = true;
-        showChatGptHelperUpdateModal.value = true;
-    };
-
-    const ensureChatGptHelperReady = ({ showModal = true, showToast = true } = {}) => {
-        syncTampermonkeyConnection();
-        const allowToast = showToast && !showChatGptHelperUpdateModal.value;
-
-        if (!chatGptJob.connected) {
-            if (allowToast) {
-                toastError('Tampermonkey helper を検出できません。userscript を確認してください。');
-            }
-            if (showModal) {
-                openChatGptHelperUpdateModal();
-            }
-            return false;
-        }
-
-        if (!isChatGptHelperVersionCompatible()) {
-            if (allowToast) {
-                toastError(`Tampermonkey helper が旧版です。v${CHATGPT_HELPER_MIN_VERSION}+ へ更新してください。現在: v${chatGptJob.helperVersion || '不明'}`);
-            }
-            if (showModal) {
-                openChatGptHelperUpdateModal();
-            }
-            return false;
-        }
-
-        return true;
-    };
-
-    const reloadForChatGptHelperUpdate = () => {
-        window.sessionStorage.setItem(CHATGPT_HELPER_RECHECK_STORAGE_KEY, '1');
-        window.location.reload();
-    };
-
-    const handleChatGptHelperReloadRecheck = () => {
-        if (ensureChatGptHelperReady({ showModal: false, showToast: false })) {
-            chatGptHelperPromptShown = true;
-            chatGptHelperCheckStatus.value = 'idle';
-            chatGptHelperCheckMessage.value = '';
-            toastSuccess(`Tampermonkey helper v${chatGptJob.helperVersion} を検出しました。ChatGPT自動入力を使えます。`);
-            return;
-        }
-
-        openChatGptHelperUpdateModal();
-        chatGptHelperCheckStatus.value = 'warning';
-        chatGptHelperCheckMessage.value = `${chatGptHelperIssue.value.body} userscript 更新後は、この部品登録画面を再読込してください。`;
-    };
-
-    const primeChatGptWindow = () => {
-        if (hasFreshChatGptWorker()) {
-            logChatGptFlow('prime.reuse_worker', {
-                workerHeartbeat: chatGptWorkerHeartbeat.value,
-            });
-            return;
-        }
-
-        try {
-            const openedWindow = window.open('https://chatgpt.com/', CHATGPT_WINDOW_NAME);
-            if (openedWindow) {
-                chatGptWindowRef = openedWindow;
-                chatGptWindowRef.focus?.();
-                logChatGptFlow('prime.open_window', {
-                    reusedNamedWindow: true,
-                });
-            }
-        } catch {
-            // ブラウザが拒否した場合は userscript 側 fallback に任せる。
-        }
-    };
-
-    const updateChatGptJobState = (state, detail = '', error = '', updatedAt = '') => {
-        chatGptJob.state = state;
-        chatGptJob.detail = detail;
-        chatGptJob.error = error;
-        chatGptJob.updatedAt = updatedAt || new Date().toISOString();
-        if (!['preparing', 'opening', 'waiting'].includes(state)) {
-            chatGptUiLockSuppressed.value = false;
-        }
-        if (chatGptJob.jobId && ['preparing', 'opening', 'waiting', 'login_required'].includes(state)) {
-            persistActiveChatGptJob({ startedAt: chatGptJob.updatedAt });
-        }
-        if (['idle', 'review', 'failed'].includes(state)) {
-            clearPersistedActiveChatGptJob();
-        }
-    };
-
-    const hardResetChatGptJob = async () => {
-        const currentJobId = chatGptJob.jobId;
-
-        await clearRemoteChatGptState(currentJobId);
-        await clearChatGptTempDatasheets();
-
-        helperResult.value = null;
-        chatGPTPasteText.value = '';
-        showHelperResultModal.value = false;
-        showChatGPTPaste.value = false;
-        showDatasheetManagerModal.value = false;
-        showChatGptRunModal.value = false;
-        chatGptGuideReason.value = '';
-        pendingAiAction.value = '';
-        chatGptUiLockSuppressed.value = false;
-        resetChatGptJobState();
-        chatGptWorkerHeartbeat.value = null;
-
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-        toastSuccess('ChatGPT ジョブ状態を破棄してリセットしました。');
-    };
-
-    const clearRemoteChatGptState = async (jobId = '') => {
-        const helper = window.__bitskeepTampermonkeyHelper;
-        if (helper?.connected && typeof helper.clearRemoteState === 'function') {
-            try {
-                await helper.clearRemoteState(jobId);
-            } catch {
-                // remote state 掃除に失敗しても画面復帰を優先する。
-            }
-        }
-    };
-
-    const expireStaleChatGptJob = (jobId, message) => {
-        if (!jobId || chatGptJob.jobId !== jobId) return;
-
-        updateChatGptJobState('failed', message, message);
-        showChatGptRunModal.value = false;
-        void clearRemoteChatGptState(jobId);
-        openChatGptGuide(`${message} ChatGPT タブを閉じた場合や、同期が途切れた場合は、もう一度「ChatGPTで自動入力」を実行してください。`);
-        toastError(message);
-    };
-
-    const maybeExpireChatGptJobState = () => {
-        if (!chatGptJob.jobId || !['preparing', 'opening', 'waiting'].includes(chatGptJob.state)) return;
-        if (!chatGptJob.updatedAt) return;
-
-        const heartbeatAt = Date.parse(chatGptWorkerHeartbeat.value?.updatedAt || '');
-        const hasFreshWorker = !Number.isNaN(heartbeatAt) && (Date.now() - heartbeatAt) < CHATGPT_WORKER_STALE_MS;
-
-        if ((chatGptJob.state === 'preparing' || chatGptJob.state === 'opening') && !hasFreshWorker) {
-            expireStaleChatGptJob(chatGptJob.jobId, 'ChatGPT タブが見つからないため、前回ジョブを破棄しました。');
-            return;
-        }
-
-        const updatedAt = Date.parse(chatGptJob.updatedAt);
-        if (Number.isNaN(updatedAt)) return;
-        const staleMs = chatGptJob.state === 'waiting' ? CHATGPT_WAITING_STALE_MS : CHATGPT_STATUS_STALE_MS;
-        if ((Date.now() - updatedAt) < staleMs) return;
-
-        expireStaleChatGptJob(chatGptJob.jobId, 'ChatGPT 解析の状態更新が途切れました。');
-    };
-
-    const getChatGptStatusStaleMs = (status) => {
-        if (status === 'queued') return CHATGPT_QUEUED_STALE_MS;
-        if (status === 'waiting_response') return CHATGPT_WAITING_STALE_MS;
-        return CHATGPT_STATUS_STALE_MS;
-    };
-
-    const clearChatGptTempDatasheets = async () => {
-        const tokens = chatGptTempDatasheets.value.map((entry) => entry.token).filter(Boolean);
-        if (!tokens.length) {
-            chatGptTempDatasheets.value = [];
-            logChatGptFlow('cleanup.skip', {
-                reason: 'no_temp_tokens',
-            });
-            return;
-        }
-
-        logChatGptFlow('cleanup.start', {
-            tokenCount: tokens.length,
-        });
-
-        const results = await Promise.allSettled(tokens.map((token) => withTimeout(
-            api.delete(`/component-helper/chatgpt-jobs/${token}`),
-            CHATGPT_TEMP_CLEANUP_TIMEOUT_MS,
-            `temp cleanup timeout: ${token}`
-        )));
-        chatGptTempDatasheets.value = [];
-
-        const failedTokens = results.flatMap((result, index) => (
-            result.status === 'rejected'
-                ? [{
-                    token: tokens[index],
-                    reason: result.reason?.message || 'cleanup_failed',
-                }]
-                : []
-        ));
-
-        logChatGptFlow('cleanup.done', {
-            tokenCount: tokens.length,
-            failedCount: failedTokens.length,
-            failedTokens,
-        });
-    };
-
-    const openDatasheetManager = () => {
-        if (isChatGptJobBusy.value) return;
-        showChatGptRunModal.value = false;
-        showDatasheetManagerModal.value = true;
-    };
-
-    const closeDatasheetManager = () => {
-        showDatasheetManagerModal.value = false;
-        pendingAiAction.value = '';
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const queueChatGptJob = async (job) => {
-        const helper = window.__bitskeepTampermonkeyHelper;
-        logChatGptFlow('queue.start', {
-            jobId: job?.job_id || '',
-            hasHelper: !!helper,
-            helperConnected: !!helper?.connected,
-            helperVersion: chatGptJob.helperVersion || '(unknown)',
-        });
-
-        if (helper?.connected && typeof helper.enqueueJob === 'function') {
-            try {
-                const queued = await helper.enqueueJob(job);
-                logChatGptFlow('queue.helper.result', {
-                    jobId: job?.job_id || '',
-                    queued: queued !== false,
-                });
-                if (queued !== false) {
-                    return;
-                }
-            } catch (error) {
-                console.error('[BitsKeep][ChatGPT Flow] queue.helper.failed', error);
-                // userscript bridge が失敗した場合は CustomEvent fallback を使う。
-            }
-        }
-
-        logChatGptFlow('queue.fallback.event', {
-            jobId: job?.job_id || '',
-        });
-        window.dispatchEvent(new CustomEvent('bitskeep-chatgpt-start', { detail: job }));
-    };
-
-    const beginAiAction = async (action) => {
-        logChatGptFlow('begin.action', {
-            action,
-            datasheetCount: datasheetFiles.value.length,
-            selectedIndex: datasheetTargetIndex.value,
-            selectedName: selectedDatasheetFile.value?.name || '',
-        });
-        if (!datasheetFiles.value.length) {
-            toastError('先にデータシートPDFを選択してください。');
-            return;
-        }
-
-        if (action === 'chatgpt' && !ensureChatGptHelperReady()) {
-            return;
-        }
-
-        if (datasheetFiles.value.length > 1) {
-            pendingAiAction.value = action;
-            openDatasheetManager();
-            return;
-        }
-
-        pendingAiAction.value = '';
-        if (action === 'gemini') {
-            await analyzeDatasheet(true);
-            return;
-        }
-
-        primeChatGptWindow();
-        openChatGptRun();
-        await nextTick();
-        await startChatGPTAutoFill();
-    };
-
-    const confirmDatasheetTargetSelection = async () => {
-        const action = pendingAiAction.value;
-        logChatGptFlow('confirm.target', {
-            action,
-            selectedIndex: datasheetTargetIndex.value,
-            selectedName: selectedDatasheetFile.value?.name || '',
-        });
-        closeDatasheetManager();
-
-        if (action === 'gemini') {
-            await analyzeDatasheet(true);
-            return;
-        }
-
-        if (action !== 'chatgpt') {
-            return;
-        }
-
-        if (!ensureChatGptHelperReady()) {
-            return;
-        }
-
-        primeChatGptWindow();
-        openChatGptRun();
-        await nextTick();
-        await startChatGPTAutoFill();
-    };
-
-    const openChatGptRun = () => {
-        syncTampermonkeyConnection();
-        chatGptGuideReason.value = '';
-        showChatGptHelperUpdateModal.value = false;
-        showDatasheetManagerModal.value = false;
-        showChatGptRunModal.value = true;
-    };
-
-    const closeChatGptRun = () => {
-        if (isChatGptJobBusy.value) {
-            toastError('ChatGPT 解析中はこの画面を閉じられません。結果受信まで待ってください。');
-            return;
-        }
-        showChatGptRunModal.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const openChatGptGuide = (reason) => {
-        chatGptGuideReason.value = reason;
-        showChatGptRunModal.value = true;
-    };
-
-    const consumeChatGptRawText = (rawText) => {
-        let raw = String(rawText ?? '').trim();
-        if (!raw) {
-            return false;
-        }
-
-        raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-
-        let data;
-        try {
-            data = JSON.parse(raw);
-        } catch {
-            return false;
-        }
-
-        const result = buildHelperResult(data);
-        if (!hasHelperCandidates(result)) {
-            return false;
-        }
-
-        helperResult.value = result;
-        showChatGptRunModal.value = false;
-        showHelperResultModal.value = true;
-        return true;
-    };
-
-    const openChatGPTPaste = () => {
-        showChatGptRunModal.value = false;
-        showChatGPTPaste.value = true;
-        nextTick(() => {
-            chatGPTPasteTextarea.value?.focus?.();
-        });
-    };
+    const {
+        analyzing, helperResult, helperResultSummary, showHelperResultModal, applyHelperTemplate,
+        helperFilteredPackages, analyzeDatasheet, openHelperResultModal, closeHelperResultModal,
+        discardHelperResult, applyHelperResult, addHelperCategory, removeHelperCategory, handleHelperCategorySelection,
+        addHelperPackage, removeHelperPackage, addHelperSpec, removeHelperSpec, handleHelperSpecTypeSelection,
+        handleHelperPackageGroupChange, handleHelperPackageSelection, showDatasheetManagerModal,
+        openDatasheetManager, closeDatasheetManager, confirmDatasheetTargetSelection, datasheetTargetLabel,
+        hasDatasheetForAi, isChatGptHelperVersionCompatible, isChatGptJobBusy, canDismissChatGptRun,
+        showChatGptRunModal, showChatGptHelperUpdateModal, chatGptHelperIssue, chatGptHelperCheckStatus,
+        chatGptHelperCheckMessage, openChatGptHelperUpdateModal, closeChatGptHelperUpdateModal,
+        reloadForChatGptHelperUpdate, showChatGPTPaste, chatGPTPasteText, chatGPTPasteTextarea,
+        openChatGPTPaste, beginAiAction, openChatGptRun, closeChatGptRun, startChatGPTAutoFill,
+        parseChatGPTResult, dismissChatGPTPaste, chatGptGuideReason, openPasteFallbackFromGuide,
+        copyChatGptFallbackText, hardResetChatGptJob, chatGptStatusChips, chatGptStepStates,
+        canStartChatGptAutoFill, showChatGptRunHint, chatGptJob, clearChatGptTempDatasheets,
+        initializeChatGptBridge, cleanupChatGptBridge,
+    } = ai;
 
     /**
-     * ChatGPT が返した JSON テキストをパースして helperResult にセットする。
-     * JSON にコードブロック（```json ... ```）が含まれていても除去して処理する。
+     * 現在の入力状態を部品保存APIへ渡すFormDataへ変換する。
+     * 入力はform、画像、データシート、既存PDF表示名で、戻り値はmultipart送信用payload。
+     * 動作条件は保存前バリデーション通過後で、データ作成だけを行い通信副作用は持たない。
      */
-    const parseChatGPTResult = () => {
-        if (!chatGPTPasteText.value.trim()) {
-            toastError('テキストを貼り付けてください。');
-            return;
-        }
-
-        if (!consumeChatGptRawText(chatGPTPasteText.value)) {
-            toastError('JSON の形式が正しくありません。ChatGPT の出力をそのまま貼り付けてください。');
-            return;
-        }
-        chatGPTPasteText.value = '';
-        showChatGPTPaste.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const dismissChatGPTPaste = () => {
-        showChatGPTPaste.value = false;
-        nextTick(() => {
-            releaseScrollLockIfNoModal();
-        });
-    };
-
-    const handleChatGptStatusEvent = (event) => {
-        const detail = event.detail ?? {};
-        logChatGptFlow('status.event.received', detail);
-        if (!detail.jobId) return;
-
-        if (!chatGptJob.jobId) {
-            const persistedJob = readPersistedActiveChatGptJob();
-            if (persistedJob?.jobId === detail.jobId) {
-                chatGptJob.jobId = detail.jobId;
-            }
-        }
-        if (detail.jobId !== chatGptJob.jobId) return;
-        lastSyncedChatGptStatusAt = detail.updatedAt || lastSyncedChatGptStatusAt;
-
-        if (['queued', 'opening_chatgpt', 'downloading_pdf', 'attaching_pdf', 'submitting', 'waiting_response'].includes(detail.status)) {
-            const sourceUpdatedAt = Date.parse(detail.updatedAt || '');
-            const staleMs = getChatGptStatusStaleMs(detail.status);
-            if (!Number.isNaN(sourceUpdatedAt) && (Date.now() - sourceUpdatedAt) >= staleMs) {
-                expireStaleChatGptJob(detail.jobId, 'ChatGPT 解析の古い状態が残っていたため、前回ジョブを破棄しました。');
-                return;
-            }
-        }
-
-        const statusMap = {
-            queued: ['opening', 'ChatGPTタブを起動しています。'],
-            opening_chatgpt: ['opening', 'ChatGPTタブを前面化しました。'],
-            downloading_pdf: ['opening', '解析対象PDFをChatGPTタブへ渡しています。'],
-            attaching_pdf: ['opening', 'PDFを添付しています。'],
-            submitting: ['waiting', 'プロンプトとPDFを送信しています。'],
-            waiting_response: ['waiting', 'ChatGPTの応答を待っています。'],
-            result_ready: ['review', '結果を受信しました。候補を確認してください。'],
-            login_required: ['login_required', 'ChatGPTへログインしてから再開してください。'],
-            failed: ['failed', detail.message || '自動取得に失敗しました。'],
-        };
-
-        const [nextState, nextDetail] = statusMap[detail.status] ?? ['waiting', detail.message || 'ChatGPTの応答を待っています。'];
-        updateChatGptJobState(nextState, nextDetail, detail.message || '', detail.updatedAt || '');
-
-        if (['opening', 'waiting'].includes(nextState) && !chatGptUiLockSuppressed.value) {
-            showChatGptRunModal.value = true;
-        }
-
-        if (detail.status === 'login_required') {
-            openChatGptGuide('ChatGPT タブでログインしてから、もう一度「ChatGPTで自動入力」を実行してください。');
-        }
-
-        if (detail.status === 'failed') {
-            if (detail.rawText) {
-                chatGPTPasteText.value = detail.rawText;
-            }
-            openChatGptGuide(detail.message || '自動解析に失敗しました。「ChatGPTから貼り付け」に切り替えてください。');
-        }
-    };
-
-    const handleChatGptResultEvent = (event) => {
-        const detail = event.detail ?? {};
-        logChatGptFlow('result.event.received', {
-            jobId: detail.jobId || '',
-            hasJsonText: !!detail.jsonText,
-            rawLength: String(detail.rawText ?? '').length,
-            updatedAt: detail.updatedAt || '',
-        });
-        if (!detail.jobId) return;
-
-        if (!chatGptJob.jobId) {
-            const persistedJob = readPersistedActiveChatGptJob();
-            if (persistedJob?.jobId === detail.jobId) {
-                chatGptJob.jobId = detail.jobId;
-            }
-        }
-        if (detail.jobId !== chatGptJob.jobId) return;
-        lastSyncedChatGptResultAt = detail.updatedAt || lastSyncedChatGptResultAt;
-
-        updateChatGptJobState('review', '結果を受信しました。候補を確認してください。', '', detail.updatedAt || '');
-        showChatGptRunModal.value = false;
-        window.focus?.();
-
-        if (consumeChatGptRawText(detail.jsonText ?? detail.rawText ?? '')) {
-            toastSuccess('ChatGPT の解析結果を受信しました。BitsKeep に戻って候補を確認してください。');
-            return;
-        }
-
-        chatGPTPasteText.value = detail.rawText ?? '';
-        openChatGptGuide('ChatGPT の返答から JSON を自動抽出できませんでした。貼り付け fallback へ切り替えてください。');
-    };
-
-    const openPasteFallbackFromGuide = () => {
-        chatGptGuideReason.value = '';
-        openChatGPTPaste();
-    };
-
-    const copyChatGptFallbackText = async () => {
-        const rawText = String(chatGPTPasteText.value ?? '').trim();
-        if (!rawText) {
-            toastError('コピーできる ChatGPT 応答テキストがありません。');
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(rawText);
-            toastSuccess('ChatGPT の応答テキストをコピーしました。');
-        } catch {
-            toastError('クリップボードへのコピーに失敗しました。');
-        }
-    };
-
-    const startChatGPTAutoFill = async () => {
-        logChatGptFlow('autofill.start', {
-            datasheetCount: datasheetFiles.value.length,
-            selectedIndex: datasheetTargetIndex.value,
-            selectedName: selectedDatasheetFile.value?.name || '',
-            helperConnected: chatGptJob.connected,
-            helperVersion: chatGptJob.helperVersion || '(unknown)',
-        });
-        if (!datasheetFiles.value.length) {
-            toastError('先にデータシートPDFを選択してください。');
-            return;
-        }
-
-        if (!selectedDatasheetFile.value) {
-            toastError('解析対象のPDFを選択してください。');
-            return;
-        }
-
-        if (!ensureChatGptHelperReady()) {
-            if (!chatGptJob.connected) {
-                openChatGptGuide('Tampermonkey helper が未接続です。userscript を有効化してから再試行してください。');
-                return;
-            }
-
-            openChatGptGuide(`Tampermonkey helper が古いです。userscript を更新してください。必要: v${CHATGPT_HELPER_MIN_VERSION}+ / 現在: v${chatGptJob.helperVersion || '不明'}`);
-            return;
-        }
-
-        const workerReady = await waitForChatGptWorkerReady({ openWindowIfNeeded: true });
-        if (!workerReady) {
-            const message = 'ChatGPT タブの受信準備を確認できませんでした。ChatGPT タブを開いたまま、もう一度「ChatGPTで自動入力」を実行してください。';
-            logChatGptFlow('worker.ready.failed', {
-                message,
-                workerHeartbeat: chatGptWorkerHeartbeat.value,
-            });
-            updateChatGptJobState('failed', message, message);
-            openChatGptGuide(message);
-            toastError(message);
-            return;
-        }
-
-        try {
-            logChatGptFlow('autofill.cleanup.previous.start', {
-                previousJobId: chatGptJob.jobId || '',
-                tempCount: chatGptTempDatasheets.value.length,
-            });
-            await clearRemoteChatGptState(chatGptJob.jobId || '');
-            await clearChatGptTempDatasheets();
-            helperResult.value = null;
-            showHelperResultModal.value = false;
-            updateChatGptJobState('preparing', '解析ジョブを準備しています。');
-            logChatGptFlow('autofill.cleanup.previous.done', {
-                previousJobId: chatGptJob.jobId || '',
-            });
-
-            const fd = new FormData();
-            datasheetFiles.value.forEach((file, index) => {
-                fd.append(`datasheets[${index}]`, file);
-                fd.append(`datasheet_labels[${index}]`, datasheetLabels.value[index] ?? '');
-            });
-            fd.append('target_index', String(datasheetTargetIndex.value));
-
-            logChatGptFlow('autofill.job.create.request', {
-                datasheetCount: datasheetFiles.value.length,
-                targetIndex: datasheetTargetIndex.value,
-            });
-            const response = await withTimeout(
-                api.upload('/component-helper/chatgpt-jobs', fd, {
-                    transport: 'xhr',
-                    timeoutMs: CHATGPT_JOB_CREATE_TIMEOUT_MS,
-                    timeoutMessage: 'ChatGPT 解析ジョブの作成がタイムアウトしました。ジョブを破棄してリセットしてから再試行してください。',
-                    onEvent: (type, detail = {}) => {
-                        logChatGptFlow(`autofill.job.create.xhr.${type}`, detail);
-                    },
-                }),
-                CHATGPT_JOB_CREATE_TIMEOUT_MS + 1000,
-                'ChatGPT 解析ジョブの作成がタイムアウトしました。ジョブを破棄してリセットしてから再試行してください。'
-            );
-            const job = response.data ?? {};
-            logChatGptFlow('autofill.job.created', {
-                jobId: job.job_id || '',
-                datasheetCount: Array.isArray(job.datasheets) ? job.datasheets.length : 0,
-                targetName: job.target_datasheet?.original_name || '',
-            });
-            chatGptTempDatasheets.value = Array.isArray(job.datasheets) ? job.datasheets : [];
-            chatGptJob.jobId = job.job_id ?? '';
-            persistActiveChatGptJob({
-                jobId: chatGptJob.jobId,
-                startedAt: new Date().toISOString(),
-                datasheetLabel: datasheetTargetLabel.value,
-            });
-            updateChatGptJobState('opening', 'ChatGPTタブを起動しています。');
-            await queueChatGptJob(job);
-        } catch (e) {
-            console.error('[BitsKeep][ChatGPT Flow] autofill.failed', e);
-            logChatGptFlow('autofill.failed', {
-                message: e.message || 'ChatGPT 自動解析ジョブの作成に失敗しました。',
-                code: e.code || '',
-                status: e.status || '',
-            });
-            await clearRemoteChatGptState('');
-            updateChatGptJobState('failed', e.message || 'ChatGPT 自動解析ジョブの作成に失敗しました。', e.message || '');
-            openChatGptGuide(e.message || 'ChatGPT 自動解析ジョブの作成に失敗しました。');
-            toastError(e.message ?? 'ChatGPT 自動解析ジョブの作成に失敗しました。');
-        }
-    };
-
-    /**
-     * PDFデータシートを Gemini で解析し、helperResult に結果をセットする。
-     */
-    const analyzeDatasheet = async (skipSelection = false) => {
-        if (!skipSelection && datasheetFiles.value.length > 1) {
-            pendingAiAction.value = 'gemini';
-            openDatasheetManager();
-            return;
-        }
-
-        const file = selectedDatasheetFile.value;
-        if (!file) {
-            toastError('先にデータシートPDFを選択してください。');
-            return;
-        }
-
-        analyzing.value = true;
-        helperResult.value = null;
-        showHelperResultModal.value = false;
-        try {
-            const fd = new FormData();
-            fd.append('pdf', file);
-            const r = await api.upload('/component-helper/analyze-datasheet', fd);
-            const data = r.data;
-            const result = buildHelperResult(data ?? {});
-
-            if (!hasHelperCandidates(result)) {
-                toastError('データシートから情報を抽出できませんでした。手動で入力してください。');
-                return;
-            }
-
-            helperResult.value = result;
-            showHelperResultModal.value = true;
-        } catch (e) {
-            const msg = e.message ?? '';
-            if (e.status === 403) {
-                toastError('Gemini APIキーが未設定です。連携設定から登録してください。');
-            } else if (e.status === 422) {
-                const validationMessage = Object.values(e.errors ?? {})
-                    .flat()
-                    .find((value) => String(value ?? '').trim() !== '');
-                toastError(validationMessage ?? '入力内容を確認してください。');
-            } else if (msg) {
-                toastError(msg);
-            } else {
-                toastError('解析に失敗しました。しばらく後で再試行してください。');
-            }
-        } finally {
-            analyzing.value = false;
-        }
-    };
-
-    /**
-     * 解析結果パネルで選択されたフィールドをフォームに書き込む。
-     */
-    const applyHelperResult = () => {
-        const r = helperResult.value;
-        if (!r) return;
-
-        let appliedCount = 0;
-        let skippedSpecs = 0;
-        let skippedCategories = 0;
-        let skippedPackage = false;
-
-        if (r.part_number.apply  && r.part_number.value) {
-            form.part_number = r.part_number.value;
-            appliedCount++;
-        }
-        if (r.manufacturer.apply && r.manufacturer.value) {
-            form.manufacturer = r.manufacturer.value;
-            manufacturerQuery.value = r.manufacturer.value;
-            ensureManufacturerOption(r.manufacturer.value);
-            appliedCount++;
-        }
-        if (r.common_name.apply  && r.common_name.value) {
-            form.common_name = r.common_name.value;
-            appliedCount++;
-        }
-        if (r.description.apply  && r.description.value) {
-            form.description = r.description.value;
-            appliedCount++;
-        }
-
-        const categoryIdsToAdd = [];
-        for (const category of r.categories ?? []) {
-            if (!category.apply) continue;
-            if (!category.category_id) {
-                skippedCategories++;
-                continue;
-            }
-
-            categoryIdsToAdd.push(Number(category.category_id));
-        }
-        if (categoryIdsToAdd.length) {
-            form.category_ids = [...new Set([...form.category_ids, ...categoryIdsToAdd])];
-            appliedCount += categoryIdsToAdd.length;
-        }
-
-        if (r.package_apply) {
-            const selectedPackageIndex = r.selected_package_index === null || r.selected_package_index === ''
-                ? null
-                : Number(r.selected_package_index);
-            const selectedPackage = selectedPackageIndex === null ? null : r.packages?.[selectedPackageIndex] ?? null;
-
-            if (selectedPackage?.package_id) {
-                const matchedPackage = findPackageById(selectedPackage.package_id);
-                form.package_group_id = String(matchedPackage?.package_group_id ?? selectedPackage.package_group_id ?? '');
-                form.package_id = String(matchedPackage?.id ?? selectedPackage.package_id);
-                packageQuery.value = matchedPackage?.name ?? selectedPackage.name ?? '';
-                appliedCount++;
-            } else if ((r.packages ?? []).some((item) => String(item.name ?? '').trim() !== '' || item.package_id)) {
-                skippedPackage = true;
-            } else if (selectedPackage && String(selectedPackage.name ?? '').trim() !== '') {
-                skippedPackage = true;
-            }
-        }
-
-        for (const spec of r.specs ?? []) {
-            if (!spec.apply) continue;
-
-            const existing = form.specs.find((item) => specIdentityKey(item) === specIdentityKey(spec));
-            if (existing) {
-                existing.name = spec.name || existing.name;
-                existing.name_ja = spec.name_ja || existing.name_ja;
-                existing.name_en = spec.name_en || existing.name_en;
-                existing.symbol = spec.symbol || existing.symbol;
-                existing.spec_type_id = spec.spec_type_id || existing.spec_type_id;
-                existing.spec_type_name = spec.spec_type_name || existing.spec_type_name;
-                existing.value_profile = normalizeSpecProfile(spec.value_profile);
-                existing.value_typ = spec.value_typ;
-                existing.value_min = spec.value_min;
-                existing.value_max = spec.value_max;
-                existing.unit = spec.unit;
-                handleSpecTypeSelection(existing);
-            } else {
-                const nextSpec = {
-                    ...createEmptySpecRow(),
-                    name: spec.name ?? '',
-                    name_ja: spec.name_ja ?? '',
-                    name_en: spec.name_en ?? '',
-                    symbol: spec.symbol ?? '',
-                    spec_type_id: spec.spec_type_id,
-                    spec_type_name: spec.spec_type_name ?? '',
-                    value_profile: normalizeSpecProfile(spec.value_profile),
-                    value_typ: spec.value_typ,
-                    value_min: spec.value_min,
-                    value_max: spec.value_max,
-                    unit: spec.unit,
-                };
-                handleSpecTypeSelection(nextSpec);
-                form.specs.push(nextSpec);
-            }
-            appliedCount++;
-            if (!spec.spec_type_id) {
-                skippedSpecs++;
-            }
-        }
-
-        if (appliedCount === 0) {
-            toastError('適用できる候補がありません。部品分類・パッケージ詳細・スペック詳細を確認してください。');
-            return;
-        }
-
-        const warnings = [];
-        if (skippedCategories > 0) warnings.push(`部品分類 ${skippedCategories} 件`);
-        if (skippedSpecs > 0) warnings.push(`スペック詳細未選択 ${skippedSpecs} 件`);
-        if (skippedPackage) warnings.push('パッケージ 1 件');
-
-        if (warnings.length > 0) {
-            toastSuccess(`解析結果を適用しました（要確認: ${warnings.join(' / ')}）`);
-        } else {
-            toastSuccess('解析結果を適用しました。');
-        }
-
-        helperResult.value = null;
-        showHelperResultModal.value = false;
-    };
-
+    // 目的: 部品登録画面のbuild Payloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const buildPayload = () => {
         const payload = new FormData();
 
@@ -2844,6 +507,7 @@ export default function setup() {
         return payload;
     };
 
+    // 目的: 部品登録画面のvalidate Before Submitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const validateBeforeSubmit = () => {
         const missingSpecTypeRows = form.specs
             .map((spec, index) => ({ spec, index }))
@@ -2861,13 +525,19 @@ export default function setup() {
         return true;
     };
 
+    // 目的: 部品登録画面のresolve Spec Types Before Submitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const resolveSpecTypesBeforeSubmit = async () => {
         for (const spec of form.specs) {
             handleSpecTypeSelection(spec);
         }
     };
 
-    // ── 保存 ──────────────────────────────────────────────
+    /**
+     * 部品の新規登録または編集保存を実行する。
+     * 入力は画面全体のフォーム状態で、出力は保存成功後の詳細画面遷移。
+     * 動作条件はスペック詳細が確定済みであること、部品APIが利用可能なことで、API送信、トースト、dirty解除、location変更の副作用を持つ。
+     */
+    // 目的: 部品登録画面のsubmitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const submit = async () => {
         saving.value = true;
 
@@ -2894,7 +564,7 @@ export default function setup() {
         }
     };
 
-    // ── 初期ロード ────────────────────────────────────────
+    // 初期ロード
     onMounted(async () => {
         window.addEventListener('click', closeToleranceGradeMenu);
         const [catRes, groupRes, pkgRes, stRes, supRes, compRes, locRes, altiumRes] = await Promise.all([
@@ -2920,6 +590,7 @@ export default function setup() {
         void fetchComponentSeriesOptions();
 
         // 編集モードなら既存データをロード
+        // 目的: 部品登録画面のload Source Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
         const loadSourceComponent = async (id) => {
             const res = await api.get(`/components/${id}`);
             const p = res.data;
@@ -2989,63 +660,14 @@ export default function setup() {
             datasheets: currentDatasheets.value.map((sheet) => ({ id: sheet.id, display_name: sheet.display_name })),
         });
 
-        syncTampermonkeyConnection();
-        window.name = BITSKEEP_WINDOW_NAME;
-        const persistedChatGptJob = readPersistedActiveChatGptJob();
-        if (persistedChatGptJob?.jobId) {
-            chatGptJob.jobId = persistedChatGptJob.jobId;
-            updateChatGptJobState(
-                'waiting',
-                persistedChatGptJob.datasheetLabel
-                    ? `前回の ChatGPT 解析状態を確認しています。対象: ${persistedChatGptJob.datasheetLabel}`
-                    : '前回の ChatGPT 解析状態を確認しています。',
-                '',
-                persistedChatGptJob.startedAt || ''
-            );
-            showChatGptRunModal.value = true;
-        }
-        const shouldRecheckChatGptHelper = window.sessionStorage.getItem(CHATGPT_HELPER_RECHECK_STORAGE_KEY) === '1';
-        if (shouldRecheckChatGptHelper) {
-            window.sessionStorage.removeItem(CHATGPT_HELPER_RECHECK_STORAGE_KEY);
-            handleChatGptHelperReloadRecheck();
-        } else if (chatGptJob.connected && isChatGptHelperVersionCompatible()) {
-            toastSuccess(`Tampermonkey helper v${chatGptJob.helperVersion} を検出しました。ChatGPT自動入力を使えます。`);
-        }
-        window.addEventListener('bitskeep-chatgpt-status', handleChatGptStatusEvent);
-        window.addEventListener('bitskeep-chatgpt-result', handleChatGptResultEvent);
-        void syncStoredChatGptBridgeState();
-        void syncChatGptWorkerHeartbeat();
-        tampermonkeyPollTimer = window.setInterval(() => {
-            syncTampermonkeyConnection();
-            void syncStoredChatGptBridgeState();
-            void syncChatGptWorkerHeartbeat();
-        }, 1500);
-        chatGptJobWatchdogTimer = window.setInterval(maybeExpireChatGptJobState, 3000);
+        initializeChatGptBridge();
     });
 
     onBeforeUnmount(() => {
         window.removeEventListener('click', closeToleranceGradeMenu);
-        window.removeEventListener('bitskeep-chatgpt-status', handleChatGptStatusEvent);
-        window.removeEventListener('bitskeep-chatgpt-result', handleChatGptResultEvent);
-        if (tampermonkeyPollTimer) {
-            window.clearInterval(tampermonkeyPollTimer);
-            tampermonkeyPollTimer = null;
-        }
-        if (chatGptHelperPromptTimer) {
-            window.clearTimeout(chatGptHelperPromptTimer);
-            chatGptHelperPromptTimer = null;
-        }
-        if (chatGptJobWatchdogTimer) {
-            window.clearInterval(chatGptJobWatchdogTimer);
-            chatGptJobWatchdogTimer = null;
-        }
-        document.documentElement.classList.remove('modal-open');
-        document.body.classList.remove('modal-open');
+        cleanupChatGptBridge();
     });
 
-    watch(anyModalOpen, (isOpen) => {
-        syncScrollLock(isOpen);
-    }, { immediate: true });
 
     watch(() => JSON.stringify({
         form,
@@ -3116,36 +738,8 @@ export default function setup() {
         }
     }, { immediate: true });
 
-    watch(() => helperSelectedCategoryIds.value.join(','), () => {
-        void fetchSpecSuggestionsForHelper();
-    });
 
-    watch(() => datasheetFiles.value.length, (length) => {
-        if (length === 0) {
-            datasheetTargetIndex.value = 0;
-            return;
-        }
 
-        if (datasheetTargetIndex.value >= length) {
-            datasheetTargetIndex.value = 0;
-        }
-    });
-
-    watch(() => [chatGptJob.connected, chatGptJob.helperVersion], () => {
-        if (chatGptHelperIssue.value === null) {
-            if (showChatGptHelperUpdateModal.value) {
-                chatGptHelperCheckStatus.value = 'success';
-                chatGptHelperCheckMessage.value = `helper v${chatGptJob.helperVersion} を検出しました。このまま ChatGPT自動解析を使えます。`;
-            }
-            return;
-        }
-
-        if (showChatGptHelperUpdateModal.value && chatGptHelperCheckStatus.value === 'success') {
-            chatGptHelperCheckStatus.value = 'warning';
-            chatGptHelperCheckMessage.value = chatGptHelperIssue.value.body;
-        }
-
-    });
 
     return {
         toasts, isEdit, form, saving, dirty, locations, masterLoadError, canCreateSupplier,

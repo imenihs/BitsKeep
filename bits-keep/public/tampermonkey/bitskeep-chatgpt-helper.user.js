@@ -13,6 +13,8 @@
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
+// @require      https://bits-keep.rwc.0t0.jp/tampermonkey/bitskeep-chatgpt-notice-helpers.js
+// @require      https://bits-keep.rwc.0t0.jp/tampermonkey/bitskeep-chatgpt-dom-helpers.js
 // @connect      bits-keep.rwc.0t0.jp
 // ==/UserScript==
 
@@ -37,11 +39,11 @@
     let debugPanelBody = null;
     let debugPanelStatus = null;
     let debugPanelReady = false;
-    let userNoticeRoot = null;
-    let userNoticeBody = null;
     let unloadSucceededJobId = null;
 
+    /** 目的: 非同期ポーリング間隔を制御する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 待機ミリ秒。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    /** 目的: GM storage値を安全にJSON化する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const parseValue = (raw) => {
         if (!raw || typeof raw !== 'string') return null;
         try {
@@ -51,6 +53,7 @@
         }
     };
 
+    /** 目的: デバッグ付帯情報を文字列化する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const toDebugText = (value) => {
         if (value === null || value === undefined) return '';
         if (typeof value === 'string') return value;
@@ -61,11 +64,13 @@
         }
     };
 
+    /** 目的: デバッグログを1行表示へ整形する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const formatDebugEntry = (entry) => {
         const prefix = `${entry.at} [${entry.page}] ${entry.stage}`;
         return entry.message ? `${prefix}: ${entry.message}` : prefix;
     };
 
+    /** 目的: デバッグパネルを最新ログで再描画する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const renderDebugPanel = () => {
         if (!debugPanelReady || !debugPanelBody || !debugPanelStatus) return;
         debugPanelStatus.textContent = `helper v${HELPER_VERSION} | ${PAGE_ROLE} | ${debugEntries.length} logs`;
@@ -76,117 +81,12 @@
         debugPanelBody.scrollTop = debugPanelBody.scrollHeight;
     };
 
-    const ensureUserNoticeRoot = () => {
-        if (userNoticeRoot) return;
+    const { showUserNotice } = window.BitsKeepChatGptNoticeHelpers?.() ?? {};
+    if (!showUserNotice) {
+        throw new Error('BitsKeep ChatGPT notice helpers を読み込めませんでした。');
+    }
 
-        userNoticeRoot = document.createElement('div');
-        userNoticeRoot.style.position = 'fixed';
-        userNoticeRoot.style.left = '50%';
-        userNoticeRoot.style.top = '16px';
-        userNoticeRoot.style.transform = 'translateX(-50%)';
-        userNoticeRoot.style.zIndex = '2147483646';
-        userNoticeRoot.style.width = 'min(560px, calc(100vw - 24px))';
-        userNoticeRoot.style.pointerEvents = 'none';
-
-        userNoticeBody = document.createElement('div');
-        userNoticeBody.style.display = 'none';
-        userNoticeBody.style.pointerEvents = 'auto';
-        userNoticeRoot.appendChild(userNoticeBody);
-
-        document.documentElement.appendChild(userNoticeRoot);
-    };
-
-    const showUserNotice = ({ tone = 'info', title, message, actionLabel = '', onAction = null } = {}) => {
-        ensureUserNoticeRoot();
-
-        const toneStyles = {
-            info: {
-                border: 'rgba(59, 130, 246, 0.55)',
-                bg: 'rgba(15, 23, 42, 0.96)',
-                text: '#dbeafe',
-                button: '#2563eb',
-            },
-            success: {
-                border: 'rgba(16, 185, 129, 0.55)',
-                bg: 'rgba(6, 78, 59, 0.96)',
-                text: '#d1fae5',
-                button: '#059669',
-            },
-            warning: {
-                border: 'rgba(245, 158, 11, 0.55)',
-                bg: 'rgba(120, 53, 15, 0.96)',
-                text: '#fef3c7',
-                button: '#d97706',
-            },
-            danger: {
-                border: 'rgba(239, 68, 68, 0.55)',
-                bg: 'rgba(127, 29, 29, 0.96)',
-                text: '#fee2e2',
-                button: '#dc2626',
-            },
-        };
-        const style = toneStyles[tone] || toneStyles.info;
-
-        userNoticeBody.innerHTML = '';
-        userNoticeBody.style.display = 'block';
-        userNoticeBody.style.border = `1px solid ${style.border}`;
-        userNoticeBody.style.borderRadius = '14px';
-        userNoticeBody.style.background = style.bg;
-        userNoticeBody.style.color = style.text;
-        userNoticeBody.style.boxShadow = '0 16px 40px rgba(15, 23, 42, 0.35)';
-        userNoticeBody.style.padding = '14px 16px';
-        userNoticeBody.style.backdropFilter = 'blur(10px)';
-        userNoticeBody.style.font = '13px/1.5 "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif';
-
-        const titleEl = document.createElement('div');
-        titleEl.style.fontWeight = '700';
-        titleEl.style.fontSize = '14px';
-        titleEl.textContent = title || '';
-        userNoticeBody.appendChild(titleEl);
-
-        const messageEl = document.createElement('div');
-        messageEl.style.marginTop = '4px';
-        messageEl.style.opacity = '0.92';
-        messageEl.textContent = message || '';
-        userNoticeBody.appendChild(messageEl);
-
-        const actionRow = document.createElement('div');
-        actionRow.style.display = 'flex';
-        actionRow.style.gap = '8px';
-        actionRow.style.marginTop = '10px';
-        actionRow.style.justifyContent = 'flex-end';
-
-        if (actionLabel && typeof onAction === 'function') {
-            const actionButton = document.createElement('button');
-            actionButton.type = 'button';
-            actionButton.textContent = actionLabel;
-            actionButton.style.border = 'none';
-            actionButton.style.borderRadius = '10px';
-            actionButton.style.padding = '8px 12px';
-            actionButton.style.background = style.button;
-            actionButton.style.color = '#fff';
-            actionButton.style.cursor = 'pointer';
-            actionButton.addEventListener('click', onAction);
-            actionRow.appendChild(actionButton);
-        }
-
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.textContent = '閉じる';
-        closeButton.style.border = `1px solid ${style.border}`;
-        closeButton.style.borderRadius = '10px';
-        closeButton.style.padding = '8px 12px';
-        closeButton.style.background = 'transparent';
-        closeButton.style.color = style.text;
-        closeButton.style.cursor = 'pointer';
-        closeButton.addEventListener('click', () => {
-            userNoticeBody.style.display = 'none';
-        });
-        actionRow.appendChild(closeButton);
-
-        userNoticeBody.appendChild(actionRow);
-    };
-
+    /** 目的: デバッグログをGM storageへ保存する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const persistDebugEntries = () => {
         void GM_setValue(DEBUG_KEY, JSON.stringify({
             updatedAt: new Date().toISOString(),
@@ -194,6 +94,7 @@
         }));
     };
 
+    /** 目的: 処理段階をコンソールとデバッグパネルへ記録する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const pushDebugLog = (stage, message = '', extra = null) => {
         const entry = {
             at: new Date().toLocaleTimeString('ja-JP', { hour12: false }),
@@ -212,6 +113,7 @@
         persistDebugEntries();
     };
 
+    /** 目的: デバッグパネルDOMを初期化する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const installDebugPanel = () => {
         if (!DEBUG_PANEL_ENABLED) return;
         if (debugPanelReady) return;
@@ -306,6 +208,7 @@
         renderDebugPanel();
     };
 
+    /** 目的: GM storage上のデバッグログを画面へ同期する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const syncDebugEntriesFromStorage = async () => {
         const payload = parseValue(await GM_getValue(DEBUG_KEY, ''));
         if (!payload?.entries || !Array.isArray(payload.entries)) return;
@@ -313,6 +216,7 @@
         renderDebugPanel();
     };
 
+    /** 目的: BitsKeepとChatGPT間のジョブ状態を保存して通知する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const setStatus = async (payload, options = {}) => {
         const {
             suppressDebug = false,
@@ -359,6 +263,7 @@
         }
     };
 
+    /** 目的: ChatGPT解析結果をGM storageへ保存する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const setResult = async (payload) => {
         pushDebugLog('result', '解析結果を保存しました。', {
             jobId: payload.jobId,
@@ -399,10 +304,12 @@
         }
     };
 
+    /** 目的: BitsKeep画面へCustomEventで状態を通知する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const dispatchPageEvent = (eventName, detail) => {
         window.dispatchEvent(new CustomEvent(eventName, { detail }));
     };
 
+    /** 目的: BitsKeep画面へフォーカスを戻す。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const focusBitsKeepWindow = async (reason) => {
         try {
             if (window.opener && !window.opener.closed) {
@@ -420,6 +327,7 @@
         return false;
     };
 
+    /** 目的: 処理完了後にBitsKeep画面へ状態付きで戻る。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const returnToBitsKeep = async (reason, options = {}) => {
         const {
             closeCurrentTab = false,
@@ -466,6 +374,7 @@
         return false;
     };
 
+    /** 目的: GM storage上のジョブ状態を掃除する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const clearRemoteState = async (jobId = '') => {
         const [queuedJob, claim, status, result] = await Promise.all([
             GM_getValue(JOB_KEY, ''),
@@ -492,6 +401,7 @@
         }
     };
 
+    /** 目的: ChatGPTワーカーの生存状態を保存する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const writeWorkerHeartbeat = async (extra = {}) => {
         if (PAGE_ROLE !== 'chatgpt') return;
 
@@ -503,6 +413,7 @@
         }));
     };
 
+    /** 目的: BitsKeep画面からChatGPTワーカーへジョブを投入する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const queueJobForChatGpt = async (job) => {
         if (!job?.job_id) return false;
 
@@ -528,6 +439,7 @@
         return true;
     };
 
+    /** 目的: 同期条件が成立するまでポーリングする。機能: Tampermonkey連携の対象処理を安全に進める。入力: 条件関数、タイムアウト、ポーリング間隔。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const waitFor = async (resolver, timeoutMs = 15000, intervalMs = 250) => {
         const startedAt = Date.now();
         while (Date.now() - startedAt < timeoutMs) {
@@ -538,6 +450,7 @@
         return null;
     };
 
+    /** 目的: 非同期条件が成立するまでポーリングする。機能: Tampermonkey連携の対象処理を安全に進める。入力: 条件関数、タイムアウト、ポーリング間隔。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const waitForAsync = async (resolver, timeoutMs = 15000, intervalMs = 250) => {
         const startedAt = Date.now();
         while (Date.now() - startedAt < timeoutMs) {
@@ -548,6 +461,7 @@
         return null;
     };
 
+    /** 目的: ChatGPT画面の読み込み完了を待つ。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const waitForDocumentReady = async (timeoutMs = 60000) => {
         pushDebugLog('chatgpt.ready.wait', 'document.readyState complete を待機します。', { readyState: document.readyState });
         const ready = await waitFor(() => document.readyState === 'complete', timeoutMs, 250);
@@ -557,6 +471,7 @@
         pushDebugLog('chatgpt.ready.done', 'document.readyState complete を確認しました。');
     };
 
+    /** 目的: ワーカータブ識別子を生成する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 探索結果、抽出結果、生成値のいずれか。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: なし。 */
     const createTabId = () => {
         try {
             return crypto.randomUUID();
@@ -565,558 +480,51 @@
         }
     };
 
-    const normalizeText = (value) => (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-
-    const getNodeLabel = (node) => normalizeText(
-        node?.getAttribute?.('aria-label')
-        || node?.getAttribute?.('title')
-        || node?.textContent
-        || ''
-    );
-
-    const isElementVisible = (node) => {
-        if (!(node instanceof Element)) return false;
-        const style = window.getComputedStyle(node);
-        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-            return false;
-        }
-        const rect = node.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-    };
-
-    const isElementDisabled = (node) => {
-        if (!(node instanceof Element)) return false;
-        return node.matches(':disabled') || node.getAttribute('aria-disabled') === 'true';
-    };
-
-    const listInteractiveLabels = (selector) => Array.from(document.querySelectorAll(selector))
-        .map((node) => getNodeLabel(node))
-        .filter(Boolean)
-        .slice(0, 20);
-
-    const findComposer = () => {
-        return document.querySelector('#prompt-textarea')
-            || document.querySelector('textarea[data-id]')
-            || document.querySelector('textarea')
-            || document.querySelector('div[contenteditable="true"][id="prompt-textarea"]')
-            || document.querySelector('div[contenteditable="true"]');
-    };
-
-    const findSendButton = () => {
-        const candidates = Array.from(document.querySelectorAll('button, [role="button"]')).filter((node) => {
-            if (!isElementVisible(node)) return false;
-            const label = getNodeLabel(node);
-            if (!label) return false;
-            return label.includes('send')
-                || label.includes('send prompt')
-                || label.includes('メッセージを送信')
-                || label.includes('送信');
-        });
-
-        return candidates.find((node) => !isElementDisabled(node))
-            || candidates[0]
-            || document.querySelector('button[data-testid*="send"]')
-            || document.querySelector('button[aria-label*="Send"]')
-            || document.querySelector('button[aria-label*="送信"]');
-    };
-
-    const findAttachButton = () => {
-        return document.querySelector('button[aria-label*="Attach"]')
-            || document.querySelector('button[aria-label*="アップロード"]')
-            || document.querySelector('button[aria-label*="添付"]');
-    };
-
-    const findFileInput = () => {
-        return document.querySelector('input[type="file"]');
-    };
-
-    const findNewChatButton = () => {
-        return document.querySelector('a[href="/"]')
-            || document.querySelector('button[data-testid*="new-chat"]')
-            || Array.from(document.querySelectorAll('button, a')).find((node) => {
-                const text = getNodeLabel(node);
-                return text === 'new chat'
-                    || text === '新しいチャット'
-                    || text === '新規チャット';
-            })
-            || null;
-    };
-
-    const findTemporaryButton = () => {
-        const buttons = Array.from(document.querySelectorAll('button, [role="button"], [aria-pressed], [role="menuitem"], [role="switch"]'));
-        return buttons.find((button) => {
-            const text = getNodeLabel(button);
-            if (!text) return false;
-            return text === 'temporary'
-                || text.includes('temporary chat')
-                || text.includes('temporary')
-                || text === '一時'
-                || text.includes('一時チャット');
-        }) || null;
-    };
-
-    const findModelMenuButton = () => {
-        const candidates = Array.from(document.querySelectorAll('header button, header [role="button"], nav button, nav [role="button"], button[aria-haspopup="menu"], [role="button"][aria-haspopup="menu"]'));
-        return candidates.find((node) => {
-            const text = getNodeLabel(node);
-            if (!text) return false;
-            return text === 'chatgpt'
-                || text.includes('chatgpt')
-                || text.includes('model')
-                || text.includes('モデル')
-                || text.includes('gpt-')
-                || text.includes('gpt ');
-        }) || null;
-    };
-
-    const hasTemporaryChatBanner = () => {
-        const bannerTexts = Array.from(document.querySelectorAll('main h1, main h2, main [role="heading"], main p, main span'))
-            .map((node) => normalizeText(node.textContent))
-            .filter(Boolean);
-
-        return bannerTexts.some((text) =>
-            text === '一時チャット'
-            || text.includes('temporary chat')
-            || text.includes('このチャットはチャット履歴に表示されず')
-            || text.includes('モデルの学習にも使用されません')
-            || text.includes('won’t appear in history')
-            || text.includes('will not appear in history')
-        );
-    };
-
-    const isTemporaryChatActive = () => {
-        const searchParams = new URLSearchParams(location.search);
-        if (searchParams.get('temporary-chat') === 'true') {
-            return true;
-        }
-
-        const button = findTemporaryButton();
-        if (button?.getAttribute('aria-pressed') === 'true') {
-            return true;
-        }
-
-        const candidates = Array.from(document.querySelectorAll('[role="status"], [aria-live]'));
-        if (candidates.some((node) => {
-            const text = normalizeText(node.textContent);
-            if (!text) return false;
-            return text.includes('temporary chat')
-                || text.includes('temporary chats')
-                || text.includes('一時チャット');
-        })) {
-            return true;
-        }
-
-        return hasTemporaryChatBanner();
-    };
-
-    const ensureNewChatWorkspace = async () => {
-        if (location.pathname === '/' || location.pathname === '') {
-            pushDebugLog('chatgpt.workspace', '既に新規チャット画面です。', { path: location.pathname });
-            return;
-        }
-
-        const newChatButton = await waitFor(findNewChatButton, 15000, 250);
-        if (!newChatButton) {
-            throw new Error('新規チャットの開始ボタンを見つけられませんでした。ChatGPT の画面構成が変わった可能性があります。');
-        }
-
-        pushDebugLog('chatgpt.workspace', '新規チャットボタンを押します。', { path: location.pathname });
-        newChatButton.click();
-
-        const moved = await waitFor(() => location.pathname === '/' || location.pathname === '', 10000, 250);
-        if (!moved) {
-            await sleep(1200);
-        }
-    };
-
-    const ensureTemporaryChat = async () => {
-        if (isTemporaryChatActive()) {
-            pushDebugLog('chatgpt.temporary', 'Temporary Chat は既に有効です。');
-            return;
-        }
-
-        let button = await waitFor(findTemporaryButton, 2500, 250);
-        if (!button) {
-            const modelMenuButton = await waitFor(findModelMenuButton, 5000, 250);
-            if (modelMenuButton) {
-                pushDebugLog('chatgpt.temporary.menu', 'モデルメニューを開いて Temporary Chat を探します。', {
-                    triggerLabel: getNodeLabel(modelMenuButton),
-                    headerLabels: listInteractiveLabels('header button, header [role="button"], nav button, nav [role="button"]'),
-                });
-                modelMenuButton.click();
-                await sleep(600);
-                button = await waitFor(findTemporaryButton, 4000, 250);
-            }
-        }
-        if (!button) {
-            pushDebugLog('chatgpt.temporary.missing', 'Temporary Chat の切替UIを検出できませんでした。', {
-                headerLabels: listInteractiveLabels('header button, header [role="button"], nav button, nav [role="button"]'),
-                visibleButtons: listInteractiveLabels('button, [role="button"], [role="menuitem"], [role="switch"]'),
-            });
-            throw new Error('Temporary Chat の切り替えボタンを見つけられませんでした。ChatGPT の画面構成が変わった可能性があります。');
-        }
-
-        pushDebugLog('chatgpt.temporary', 'Temporary Chat へ切り替えます。');
-        button.click();
-
-        const active = await waitFor(() => isTemporaryChatActive(), 8000, 250);
-        if (!active) {
-            pushDebugLog('chatgpt.temporary.inactive', 'Temporary Chat の見た目は切り替わったが、有効判定が false のままです。', {
-                search: location.search,
-                hasTemporaryBanner: hasTemporaryChatBanner(),
-                headerLabels: listInteractiveLabels('header button, header [role="button"], nav button, nav [role="button"]'),
-            });
-            throw new Error('Temporary Chat を有効化できませんでした。通常履歴へ送信しないため処理を中止しました。');
-        }
-    };
-
-    const isLoginRequired = () => {
-        if (location.pathname.includes('/auth') || location.pathname.includes('/login')) {
-            return true;
-        }
-
-        return !!document.querySelector('a[href*="login"], button[data-testid="login-button"]');
-    };
-
-    const fillComposer = (composer, text) => {
-        composer.focus();
-
-        if (composer instanceof HTMLTextAreaElement) {
-            composer.value = text;
-            composer.dispatchEvent(new Event('input', { bubbles: true }));
-            return;
-        }
-
-        composer.textContent = text;
-        composer.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
-    };
-
-    const getComposerText = () => {
-        const composer = findComposer();
-        if (!composer) return '';
-        if (composer instanceof HTMLTextAreaElement) {
-            return composer.value?.trim() || '';
-        }
-        return composer.textContent?.trim() || '';
-    };
-
-    const attachPdfToChatGpt = async (file) => {
-        let input = findFileInput();
-        if (!input) {
-            pushDebugLog('chatgpt.attach', '添付ボタンを押して input[type=file] を探します。');
-            findAttachButton()?.click();
-            input = await waitFor(findFileInput, 15000, 250);
-        }
-        if (!input) {
-            throw new Error('ChatGPT のファイル入力欄を見つけられませんでした。DOM変更の可能性があります。');
-        }
-
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        pushDebugLog('chatgpt.attach', 'PDF を input[type=file] へ設定しました。', {
-            fileName: file.name,
-            size: file.size,
-        });
-    };
-
-    const submitPrompt = async () => {
-        const button = await waitFor(findSendButton, 5000, 200);
-        if (button) {
-            pushDebugLog('chatgpt.submit', '送信ボタンで送信します。');
-            button.click();
-            return;
-        }
-
-        const composer = findComposer();
-        if (composer instanceof HTMLTextAreaElement) {
-            pushDebugLog('chatgpt.submit', 'Enter キー送信へフォールバックします。');
-            composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-            return;
-        }
-
-        throw new Error('ChatGPT の送信ボタンを見つけられませんでした。');
-    };
-
-    const listConversationTurns = () => {
-        const roleTurns = Array.from(document.querySelectorAll('[data-message-author-role]')).filter(isElementVisible);
-        if (roleTurns.length > 0) {
-            return roleTurns;
-        }
-
-        const conversationTurns = Array.from(document.querySelectorAll(
-            'main article, main [data-testid^="conversation-turn-"], main [data-testid*="conversation-turn"], main section[data-testid*="conversation"]'
-        )).filter(isElementVisible);
-        if (conversationTurns.length > 0) {
-            return conversationTurns;
-        }
-
-        return Array.from(document.querySelectorAll('main article, main [role="article"], main .markdown')).filter(isElementVisible);
-    };
-
-    const getTurnText = (node) => {
-        if (!node) return '';
-        const text = node.innerText?.trim() || node.textContent?.trim() || '';
-        return text;
-    };
-
-    const chooseLongestNode = (nodes) => {
-        if (!Array.isArray(nodes) || nodes.length === 0) return null;
-        return nodes.reduce((best, node) => {
-            if (!best) return node;
-            return getTurnText(node).length >= getTurnText(best).length ? node : best;
-        }, null);
-    };
-
-    const getAssistantCandidates = () => {
-        const roleTurns = Array.from(document.querySelectorAll('[data-message-author-role="assistant"]')).filter(isElementVisible);
-        if (roleTurns.length > 0) {
-            return roleTurns;
-        }
-
-        const conversationTurns = listConversationTurns();
-        if (conversationTurns.length === 0) {
-            return [];
-        }
-
-        const candidates = [];
-        for (let index = conversationTurns.length - 1; index >= 0; index -= 1) {
-            const turn = conversationTurns[index];
-            const label = getNodeLabel(turn);
-            const text = getTurnText(turn);
-            if (!text) continue;
-            if (!label || (!label.includes('you said') && !label.includes('user') && !label.includes('あなた') && !label.includes('you'))) {
-                candidates.unshift(turn);
-            }
-        }
-
-        return candidates;
-    };
-
-    const latestAssistantMessage = () => {
-        const candidates = getAssistantCandidates();
-        if (candidates.length === 0) {
-            return null;
-        }
-
-        return chooseLongestNode(candidates.slice(-3)) || candidates[candidates.length - 1] || null;
-    };
-
-    const latestUserMessage = () => {
-        const roleTurns = Array.from(document.querySelectorAll('[data-message-author-role="user"]')).filter(isElementVisible);
-        if (roleTurns.length > 0) {
-            return roleTurns[roleTurns.length - 1];
-        }
-
-        const conversationTurns = listConversationTurns();
-        for (let index = conversationTurns.length - 1; index >= 0; index -= 1) {
-            const turn = conversationTurns[index];
-            const label = getNodeLabel(turn);
-            if (label.includes('you said') || label.includes('user') || label.includes('あなた') || label.includes('you')) {
-                return turn;
-            }
-        }
-
-        return null;
-    };
-
-    const findPendingResponseIndicator = () => {
-        const strictMatch = document.querySelector(
-            'button[data-testid*="stop"], button[aria-label*="Stop generating"], button[aria-label*="Stop streaming"], button[aria-label*="回答を停止"], button[aria-label*="生成を停止"]'
-        );
-        if (strictMatch && isElementVisible(strictMatch)) {
-            return strictMatch;
-        }
-
-        return Array.from(document.querySelectorAll('button, [role="button"]')).find((node) => {
-            if (!isElementVisible(node)) return false;
-            const label = getNodeLabel(node);
-            if (!label) return false;
-            return label === 'stop generating'
-                || label === 'stop streaming'
-                || label === 'stop'
-                || label.includes('回答を停止')
-                || label.includes('生成を停止');
-        }) || null;
-    };
-
-    const waitForSubmissionStart = async () => {
-        const startedAt = Date.now();
-        const initialTurnCount = listConversationTurns().length;
-        const initialComposerText = getComposerText();
-
-        pushDebugLog('chatgpt.submit.wait', '送信成立の確認を待ちます。', {
-            initialTurnCount,
-            initialComposerLength: initialComposerText.length,
-        });
-
-        while (Date.now() - startedAt < 15000) {
-            const turnCount = listConversationTurns().length;
-            const userText = getTurnText(latestUserMessage());
-            const composerText = getComposerText();
-            const sendButton = findSendButton();
-
-            const pendingIndicator = findPendingResponseIndicator();
-            if (pendingIndicator) {
-                pushDebugLog('chatgpt.submit.confirmed', '応答中UIを検出しました。', {
-                    turnCount,
-                    composerLength: composerText.length,
-                    indicatorLabel: getNodeLabel(pendingIndicator),
-                });
-                return;
-            }
-
-            if (turnCount > initialTurnCount && userText) {
-                pushDebugLog('chatgpt.submit.confirmed', '会話ターン増加で送信成立を確認しました。', {
-                    turnCount,
-                    userLength: userText.length,
-                });
-                return;
-            }
-
-            if (initialComposerText && composerText.length === 0) {
-                pushDebugLog('chatgpt.submit.confirmed', '入力欄クリアで送信成立を確認しました。', {
-                    turnCount,
-                });
-                return;
-            }
-
-            if (sendButton && isElementDisabled(sendButton) && composerText.length < initialComposerText.length) {
-                pushDebugLog('chatgpt.submit.confirmed', '送信ボタン無効化で送信成立を確認しました。', {
-                    turnCount,
-                    composerLength: composerText.length,
-                });
-                return;
-            }
-
-            await sleep(400);
-        }
-
-        pushDebugLog('chatgpt.submit.unconfirmed', '送信成立を確認できませんでした。', {
-            turnCount: listConversationTurns().length,
-            composerLength: getComposerText().length,
-            pendingIndicatorLabel: getNodeLabel(findPendingResponseIndicator()),
-            hasSendButton: !!findSendButton(),
-        });
-        throw new Error('ChatGPT への送信成立を確認できませんでした。送信ボタン押下後も会話が開始されていません。');
-    };
-
-    const extractJsonCandidate = (root) => {
-        if (!root) return { jsonText: '', rawText: '' };
-
-        const codeBlocks = Array.from(root.querySelectorAll('pre code'))
-            .map((node) => node.textContent?.trim() ?? '')
-            .filter(Boolean);
-        for (const block of codeBlocks) {
-            try {
-                JSON.parse(block);
-                return { jsonText: block, rawText: root.innerText.trim() };
-            } catch {
-                // continue
-            }
-        }
-
-        const rawText = root.innerText?.trim() ?? '';
-        const fencedMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i);
-        if (fencedMatch?.[1]) {
-            const candidate = fencedMatch[1].trim();
-            try {
-                JSON.parse(candidate);
-                return { jsonText: candidate, rawText };
-            } catch {
-                // continue
-            }
-        }
-
-        const firstBrace = rawText.indexOf('{');
-        const lastBrace = rawText.lastIndexOf('}');
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            const candidate = rawText.slice(firstBrace, lastBrace + 1).trim();
-            try {
-                JSON.parse(candidate);
-                return { jsonText: candidate, rawText };
-            } catch {
-                // continue
-            }
-        }
-
-        return { jsonText: '', rawText };
-    };
-
-    const waitForAssistantResponse = async () => {
-        pushDebugLog('chatgpt.response.wait', 'ChatGPT 応答待機を開始します。');
-        let lastText = '';
-        let stableSince = Date.now();
-        const startedAt = Date.now();
-        let lastDebugAt = 0;
-        let lastGrowthAt = Date.now();
-
-        while (Date.now() - startedAt < 180000) {
-            const message = latestAssistantMessage();
-            if (message) {
-                const currentText = getTurnText(message);
-                if (currentText && currentText !== lastText) {
-                    lastText = currentText;
-                    stableSince = Date.now();
-                    lastGrowthAt = Date.now();
-                }
-
-                const stopButton = findPendingResponseIndicator();
-                if (currentText && !stopButton && Date.now() - stableSince > 4000) {
-                    pushDebugLog('chatgpt.response.done', 'ChatGPT 応答を検出しました。', {
-                        responseLength: currentText.length,
-                    });
-                    return extractJsonCandidate(message);
-                }
-
-                const stalledMs = Date.now() - lastGrowthAt;
-                if (currentText && stopButton && stalledMs > 90000 && currentText.length >= 300) {
-                    pushDebugLog('chatgpt.response.stalled', '停止UIが残留していますが、応答本文が長時間増えていないため完了扱いにします。', {
-                        responseLength: currentText.length,
-                        stalledForMs: stalledMs,
-                        pendingIndicatorLabel: getNodeLabel(stopButton),
-                    });
-                    return extractJsonCandidate(message);
-                }
-            }
-
-            if (Date.now() - lastDebugAt > 15000) {
-                lastDebugAt = Date.now();
-                pushDebugLog('chatgpt.response.pending', '応答待機中です。', {
-                    assistantLength: lastText.length,
-                    stableForMs: Date.now() - stableSince,
-                    turnCount: listConversationTurns().length,
-                    pendingIndicatorLabel: getNodeLabel(findPendingResponseIndicator()),
-                    latestUserLength: getTurnText(latestUserMessage()).length,
-                    assistantCandidateLengths: getAssistantCandidates().slice(-4).map((node) => getTurnText(node).length),
-                });
-            }
-
-            await sleep(1500);
-        }
-
-        throw new Error('ChatGPT の応答待機がタイムアウトしました。');
-    };
-
-    const downloadPdfBlob = (url) => new Promise((resolve, reject) => {
-        pushDebugLog('chatgpt.download', '署名付きURLから PDF を取得します。');
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url,
-            responseType: 'blob',
-            onload: (response) => {
-                if (response.status >= 200 && response.status < 300 && response.response) {
-                    pushDebugLog('chatgpt.download', 'PDF 取得に成功しました。', { status: response.status });
-                    resolve(response.response);
-                    return;
-                }
-                reject(new Error(`PDF取得に失敗しました (${response.status})`));
-            },
-            onerror: () => reject(new Error('PDF取得中に通信エラーが発生しました。')),
-        });
+    const chatGptDomHelpers = window.BitsKeepChatGptDomHelpers?.({
+        sleep,
+        waitFor,
+        pushDebugLog,
+        GM_xmlhttpRequest,
     });
+    if (!chatGptDomHelpers) {
+        throw new Error('BitsKeep ChatGPT DOM helpers を読み込めませんでした。');
+    }
+    const {
+        normalizeText,
+        getNodeLabel,
+        isElementVisible,
+        isElementDisabled,
+        listInteractiveLabels,
+        findComposer,
+        findSendButton,
+        findAttachButton,
+        findFileInput,
+        findNewChatButton,
+        findTemporaryButton,
+        findModelMenuButton,
+        hasTemporaryChatBanner,
+        isTemporaryChatActive,
+        ensureNewChatWorkspace,
+        ensureTemporaryChat,
+        isLoginRequired,
+        fillComposer,
+        getComposerText,
+        attachPdfToChatGpt,
+        submitPrompt,
+        listConversationTurns,
+        getTurnText,
+        chooseLongestNode,
+        getAssistantCandidates,
+        latestAssistantMessage,
+        latestUserMessage,
+        findPendingResponseIndicator,
+        waitForSubmissionStart,
+        extractJsonCandidate,
+        waitForAssistantResponse,
+        downloadPdfBlob,
+    } = chatGptDomHelpers;
 
+    /** 目的: ジョブの二重実行を防ぐclaimを取得する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const tryClaimJob = async (jobId, tabId) => {
         const currentClaim = parseValue(await GM_getValue(JOB_CLAIM_KEY, ''));
         const claimFresh = currentClaim?.lastSeenAt
@@ -1166,6 +574,7 @@
         return confirmedClaim?.jobId === jobId && confirmedClaim?.tabId === tabId;
     };
 
+    /** 目的: 実行中ジョブのclaim期限を延長する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const refreshClaim = async (jobId, tabId) => {
         const currentClaim = parseValue(await GM_getValue(JOB_CLAIM_KEY, ''));
         if (currentClaim?.jobId !== jobId || currentClaim?.tabId !== tabId) return false;
@@ -1178,6 +587,7 @@
         return true;
     };
 
+    /** 目的: 自タブが保持するclaimを解放する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 成功可否または完了Promise。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const releaseClaimIfOwned = async (jobId, tabId) => {
         const currentClaim = parseValue(await GM_getValue(JOB_CLAIM_KEY, ''));
         if (currentClaim?.jobId === jobId && currentClaim?.tabId === tabId) {
@@ -1185,11 +595,13 @@
         }
     };
 
+    /** 目的: PDF解析ジョブをChatGPT画面上で実行する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const runChatGptJob = async (job, tabId) => {
         if (!job?.job_id || !job?.target_datasheet?.signed_download_url) return;
 
         let heartbeatTimer = null;
         let lastStatusPayload = null;
+        /** 目的: ジョブ状態の保存と画面通知をまとめる。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
         const updateJobStatus = async (status, message) => {
             lastStatusPayload = {
                 jobId: job.job_id,
@@ -1303,11 +715,13 @@
         }
     };
 
+    /** 目的: BitsKeep画面側のGM storageブリッジを初期化する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const initBitsKeepBridge = () => {
         let bridgePollTimer = null;
         let lastStatusUpdatedAt = '';
         let lastResultUpdatedAt = '';
 
+        /** 目的: 保存済みジョブ状態をBitsKeep画面へ再送する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
         const dispatchStoredStatus = async () => {
             const detail = parseValue(await GM_getValue(STATUS_KEY, ''));
             if (!detail?.updatedAt || detail.updatedAt === lastStatusUpdatedAt) return;
@@ -1319,6 +733,7 @@
             dispatchPageEvent('bitskeep-chatgpt-status', detail);
         };
 
+        /** 目的: 保存済み解析結果をBitsKeep画面へ再送する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
         const dispatchStoredResult = async () => {
             const detail = parseValue(await GM_getValue(RESULT_KEY, ''));
             if (!detail?.updatedAt || detail.updatedAt === lastResultUpdatedAt) return;
@@ -1346,6 +761,7 @@
         };
         pushDebugLog('init.bitskeep', 'BitsKeep bridge を初期化しました。');
 
+        // BitsKeep画面からの解析開始イベントを受け取り、ChatGPT側ジョブキューへ保存する。
         window.addEventListener('bitskeep-chatgpt-start', async (event) => {
             const job = event.detail;
             if (!job?.job_id) return;
@@ -1377,6 +793,7 @@
             void dispatchStoredResult();
         }, 1000);
 
+        // 画面離脱時にポーリングタイマーを解除する。ブラウザ資源を残さないための副作用を持つ。
         window.addEventListener('beforeunload', () => {
             if (bridgePollTimer !== null) {
                 window.clearInterval(bridgePollTimer);
@@ -1385,6 +802,7 @@
         });
     };
 
+    /** 目的: ChatGPT画面側のワーカー監視を初期化する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
     const initChatGptBridge = () => {
         let runningJobId = null;
         let pendingRawJob = '';
@@ -1394,6 +812,7 @@
         let idleJobLogged = false;
         pushDebugLog('init.chatgpt', 'ChatGPT bridge を初期化しました。', { tabId, path: location.pathname });
 
+        /** 目的: GM storageから読んだジョブを検証して実行する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
         const handleRawJob = async (rawValue) => {
             pendingRawJob = rawValue || pendingRawJob;
 
@@ -1414,6 +833,7 @@
             pendingRawJob = '';
         };
 
+        /** 目的: 保存済みジョブを定期確認する。機能: Tampermonkey連携の対象処理を安全に進める。入力: 関数シグネチャで指定された値。出力: 処理結果またはなし。動作条件: BitsKeepまたはChatGPTの対象ページで実行されること。副作用: DOM、GM storage、ウィンドウ状態、ネットワーク通信のいずれかを更新する場合がある。 */
         const pollStoredJob = async () => {
             const storedJob = await GM_getValue(JOB_KEY, '');
             if (!storedJob) {

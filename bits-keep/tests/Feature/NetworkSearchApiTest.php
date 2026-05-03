@@ -13,7 +13,14 @@ use Tests\TestCase;
 class NetworkSearchApiTest extends TestCase
 {
     use RefreshDatabase;
-
+    /**
+     * 目的: setupの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -23,7 +30,14 @@ class NetworkSearchApiTest extends TestCase
             'is_active' => true,
         ]));
     }
-
+    /**
+     * 目的: 「resistor series and parallel custom values are calculated」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_resistor_series_and_parallel_custom_values_are_calculated(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -54,7 +68,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_value', 500)
             ->assertJsonPath('data.result.candidates.0.circuit_type', 'parallel');
     }
-
+    /**
+     * 目的: 「resistor network candidates include adopted element tolerance rss and corner ranges」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_resistor_network_candidates_include_adopted_element_tolerance_rss_and_corner_ranges(): void
     {
         $seriesResponse = $this->postJson('/api/calc/networks/search', [
@@ -132,7 +153,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.max_target_deviation_display', '5%');
         $this->assertEqualsWithDelta(2.8868, $threeSeriesResponse->json('data.result.candidates.0.rss_max_target_deviation_pct'), 1e-4);
     }
-
+    /**
+     * 目的: 「capacitor series and parallel use capacitance rules」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_capacitor_series_and_parallel_use_capacitance_rules(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -163,7 +191,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_display', '200nF')
             ->assertJsonPath('data.result.candidates.0.topology_label', '容量並列');
     }
-
+    /**
+     * 目的: 「capacitor network candidates include adopted element tolerance rss and corner ranges」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_capacitor_network_candidates_include_adopted_element_tolerance_rss_and_corner_ranges(): void
     {
         $response = $this->postJson('/api/calc/networks/search', [
@@ -193,7 +228,14 @@ class NetworkSearchApiTest extends TestCase
         $this->assertEqualsWithDelta(55e-9, $response->json('data.result.candidates.0.high_equivalent_value'), 1e-18);
         $this->assertEqualsWithDelta(10, $response->json('data.result.candidates.0.max_target_deviation_pct'), 1e-9);
     }
-
+    /**
+     * 目的: 「divider ratio and total resistance range are checked」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_ratio_and_total_resistance_range_are_checked(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -217,7 +259,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result', null)
             ->assertJsonPath('data.summary', '分圧比は 0 より大きく 1 より小さい値で指定してください');
     }
-
+    /**
+     * 目的: 「divider uses input and output voltage with infinite load」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_uses_input_and_output_voltage_with_infinite_load(): void
     {
         $response = $this->postJson('/api/calc/networks/search', [
@@ -245,7 +294,14 @@ class NetworkSearchApiTest extends TestCase
         $this->assertEqualsWithDelta(0.000165, $response->json('data.result.candidates.0.source_current'), 1e-12);
         $this->assertEqualsWithDelta(0.00027225, $response->json('data.result.candidates.0.upper_power'), 1e-12);
     }
-
+    /**
+     * 目的: 「divider candidates include per resistor tolerance output ranges」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_candidates_include_per_resistor_tolerance_output_ranges(): void
     {
         $response = $this->postJson('/api/calc/networks/search', [
@@ -270,7 +326,14 @@ class NetworkSearchApiTest extends TestCase
         $this->assertEqualsWithDelta(2.475, $response->json('data.result.candidates.0.divider_corner_low_ratio') * 5, 1e-12);
         $this->assertEqualsWithDelta(2.525, $response->json('data.result.candidates.0.divider_corner_high_ratio') * 5, 1e-12);
     }
-
+    /**
+     * 目的: 「divider resistance load makes 10k pair one third ratio」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_resistance_load_makes_10k_pair_one_third_ratio(): void
     {
         $response = $this->postJson('/api/calc/networks/search', [
@@ -290,7 +353,14 @@ class NetworkSearchApiTest extends TestCase
 
         $this->assertEqualsWithDelta(1 / 3, $response->json('data.result.candidates.0.actual_value'), 1e-12);
     }
-
+    /**
+     * 目的: 「divider current load without input voltage returns invalid response」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_current_load_without_input_voltage_returns_invalid_response(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -305,7 +375,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result', null)
             ->assertJsonPath('data.summary', '電流負荷の計算には入力電圧が必要です');
     }
-
+    /**
+     * 目的: 「e series pair search does not drop parallel exact match」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_e_series_pair_search_does_not_drop_parallel_exact_match(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -321,7 +398,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_display', '909.090909Ω')
             ->assertJsonPath('data.result.candidates.0.circuit_type', 'parallel');
     }
-
+    /**
+     * 目的: 「e48 and e96 pair search reaches exact matches before evaluation limit」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_e48_and_e96_pair_search_reaches_exact_matches_before_evaluation_limit(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -366,7 +450,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_display', '50nF')
             ->assertJsonPath('data.result.candidates.0.expression', '100nF + 100nF');
     }
-
+    /**
+     * 目的: 「divider search uses full e series for tight total range」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_divider_search_uses_full_e_series_for_tight_total_range(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -383,7 +474,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_display', '50%')
             ->assertJsonPath('data.result.candidates.0.total_display', '20kΩ');
     }
-
+    /**
+     * 目的: 「invalid element range returns design analysis warning」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_invalid_element_range_returns_design_analysis_warning(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -397,7 +495,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result', null)
             ->assertJsonPath('data.summary', '素子数の最小値が最大値を超えています');
     }
-
+    /**
+     * 目的: 「empty custom values return invalid response」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_empty_custom_values_return_invalid_response(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -410,7 +515,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result', null)
             ->assertJsonPath('data.summary', '任意値が入力されていません');
     }
-
+    /**
+     * 目的: 「too many custom values are rejected」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_too_many_custom_values_are_rejected(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -422,7 +534,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('custom_values');
     }
-
+    /**
+     * 目的: 「evaluation limit counts no hit attempts」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_evaluation_limit_counts_no_hit_attempts(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -440,7 +559,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.truncated', true)
             ->assertJsonCount(0, 'data.result.candidates');
     }
-
+    /**
+     * 目的: 「three element series exact match is not lost by pool limit」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_three_element_series_exact_match_is_not_lost_by_pool_limit(): void
     {
         $this->postJson('/api/calc/networks/search', [
@@ -456,7 +582,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.actual_display', '1kΩ')
             ->assertJsonPath('data.result.candidates.0.elements_count', 3);
     }
-
+    /**
+     * 目的: 「inventory search uses matching value spec not first numeric spec」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_inventory_search_uses_matching_value_spec_not_first_numeric_spec(): void
     {
         $group = SpecGroup::create(['name' => '抵抗器', 'sort_order' => 10]);
@@ -508,7 +641,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertJsonPath('data.result.candidates.0.parts.0.component_id', $component->id)
             ->assertJsonPath('data.result.candidates.0.parts.0.stock_quantity', 10);
     }
-
+    /**
+     * 目的: 「inventory search excludes component without matching value spec」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_inventory_search_excludes_component_without_matching_value_spec(): void
     {
         $group = SpecGroup::create(['name' => '抵抗器', 'sort_order' => 10]);
@@ -550,7 +690,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data.result.candidates');
     }
-
+    /**
+     * 目的: 「inventory search excludes temperature coefficient as resistance value」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_inventory_search_excludes_temperature_coefficient_as_resistance_value(): void
     {
         $group = SpecGroup::create(['name' => '抵抗器', 'sort_order' => 10]);
@@ -592,7 +739,14 @@ class NetworkSearchApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data.result.candidates');
     }
-
+    /**
+     * 目的: 「inventory search does not reuse component beyond stock quantity」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_inventory_search_does_not_reuse_component_beyond_stock_quantity(): void
     {
         $group = SpecGroup::create(['name' => '抵抗器', 'sort_order' => 10]);

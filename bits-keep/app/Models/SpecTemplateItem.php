@@ -20,12 +20,26 @@ class SpecTemplateItem extends Model
     protected $casts = [
         'is_required' => 'boolean',
     ];
-
+    /**
+     * 目的: SpecTemplateItemからtemplateへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function template(): BelongsTo
     {
         return $this->belongsTo(SpecTemplate::class, 'spec_template_id');
     }
-
+    /**
+     * 目的: SpecTemplateItemからspec TypeへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function specType(): BelongsTo
     {
         return $this->belongsTo(SpecType::class);

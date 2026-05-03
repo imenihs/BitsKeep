@@ -4,6 +4,7 @@
  */
 const BASE = '/api';
 
+// 目的: APIクライアントのrequest Form Data With Xhrを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: APIクライアントの初期化後に呼び出す。副作用: HTTP通信を行う。
 function requestFormDataWithXhr(method, path, form, options = {}) {
     const {
         timeoutMs = 0,
@@ -13,6 +14,7 @@ function requestFormDataWithXhr(method, path, form, options = {}) {
 
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        // 目的: APIクライアントのemitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: APIクライアントの初期化後に呼び出す。副作用: HTTP通信を行う。
         const emit = (type, detail = {}) => {
             if (typeof onEvent === 'function') {
                 onEvent(type, detail);
@@ -54,6 +56,7 @@ function requestFormDataWithXhr(method, path, form, options = {}) {
         };
 
         xhr.onload = () => {
+            // 目的: APIクライアントのjsonを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: APIクライアントの初期化後に呼び出す。副作用: HTTP通信を行う。
             const json = (() => {
                 try {
                     return xhr.responseText ? JSON.parse(xhr.responseText) : null;

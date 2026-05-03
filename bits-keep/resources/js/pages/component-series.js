@@ -1,163 +1,71 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
+import {
+    appendUnitForDisplay,
+    defaultInputPrefixesForUnit,
+    formatEngineeringValue,
+    normalizePrefixList,
+    normalizeUnitLabel,
+    parseEngineeringNumber,
+    prefixLabel,
+    prefixListText,
+} from '../utils/engineeringUnits.js';
 
 const E_SERIES_OPTIONS = ['E6', 'E12', 'E24', 'E48', 'E96'];
 const E_SERIES_TYPES = ['e_series', 'hybrid_series'];
-const NUMBER_PREFIX_FACTORS = {
-    Y: 1e24,
-    Z: 1e21,
-    E: 1e18,
-    P: 1e15,
-    Ti: 1099511627776,
-    Gi: 1073741824,
-    Mi: 1048576,
-    Ki: 1024,
-    T: 1e12,
-    G: 1e9,
-    M: 1e6,
-    k: 1e3,
-    K: 1e3,
-    '': 1,
-    m: 1e-3,
-    u: 1e-6,
-    µ: 1e-6,
-    μ: 1e-6,
-    n: 1e-9,
-    p: 1e-12,
-    f: 1e-15,
-};
-const DECIMAL_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-const BYTE_BIT_PREFIX_ORDER = ['T', 'G', 'M', 'k', ''];
-const BYTE_BIT_UNITS = new Set(['B', 'bit', 'bps']);
 
+/**
+ * 改行・カンマ・セミコロン区切りの入力を値配列へ分割する。
+ * 入力は任意値、戻り値は空値を除いた文字列配列で、副作用はない。
+ */
+// 目的: 部品系列管理のsplit Listを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const splitList = (value) => String(value ?? '')
     .split(/[\s,;]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 
+/** 値が未入力扱いかを判定する。入力は任意値、戻り値は真偽値で副作用はない。 */
+// 目的: 部品系列管理のis Blankを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 部品系列管理の初期化後に呼び出す。副作用: なし。
 const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
 
+/** 値候補の作り方がE系列を使う形式かを判定する。入力は形式キー、戻り値は真偽値で副作用はない。 */
+// 目的: 部品系列管理のis ESeries Policy Typeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 部品系列管理の初期化後に呼び出す。副作用: なし。
 const isESeriesPolicyType = (type) => E_SERIES_TYPES.includes(type);
 
+/**
+ * 整数として扱える入力だけをnumberへ変換する。
+ * 空値はnull、不正な数値もnullとして返し、副作用はない。
+ */
+// 目的: 部品系列管理のto Integer Or Nullを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: なし。
 const toIntegerOrNull = (value) => {
     if (isBlank(value)) return null;
     const number = Number(value);
     return Number.isInteger(number) ? number : null;
 };
 
+/**
+ * 入力値をtrim済み文字列またはnullへ変換する。
+ * 空文字はDBへ送らない条件としてnullにし、副作用はない。
+ */
+// 目的: 部品系列管理のclean Text Or Nullを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const cleanTextOrNull = (value) => {
     const text = String(value ?? '').trim();
     return text === '' ? null : text;
 };
 
-const normalizePrefixToken = (prefix) => {
-    const normalized = prefix == null ? '' : String(prefix).trim();
-    if (normalized === 'K') return 'k';
-    if (normalized === 'µ' || normalized === 'μ') return 'u';
-    return normalized;
-};
-
-const normalizePrefixList = (prefixes) => {
-    if (!Array.isArray(prefixes)) return [];
-
-    const seen = new Set();
-    return prefixes
-        .map(normalizePrefixToken)
-        .filter((prefix) => Object.hasOwn(NUMBER_PREFIX_FACTORS, prefix))
-        .filter((prefix) => {
-            if (seen.has(prefix)) return false;
-            seen.add(prefix);
-            return true;
-        });
-};
-
-const normalizeUnitLabel = (value = '') => String(value ?? '')
-    .trim()
-    .replaceAll('μ', 'u')
-    .replaceAll('µ', 'u')
-    .replaceAll('Ω', 'Ω')
-    .replace(/\bohms?\b/iu, 'Ω')
-    .replace(/\bohm\b/iu, 'Ω');
-
-const isByteBitUnit = (unit = '') => BYTE_BIT_UNITS.has(normalizeUnitLabel(unit));
-
-const defaultInputPrefixesForUnit = (unit = '') => (
-    isByteBitUnit(unit) ? BYTE_BIT_PREFIX_ORDER : ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f']
-);
-
-const sortPrefixesByFactor = (prefixes) => normalizePrefixList(prefixes)
-    .sort((a, b) => NUMBER_PREFIX_FACTORS[b] - NUMBER_PREFIX_FACTORS[a]);
-
-const prefixLabel = (prefix) => (prefix === '' ? '無印' : prefix);
-
-const prefixListText = (prefixes) => {
-    const labels = normalizePrefixList(prefixes).map(prefixLabel);
-    return labels.length ? labels.join(' / ') : '無印';
-};
-
+/**
+ * 利用可能な接頭語から優先順に最初の候補を選ぶ。
+ * 入力は候補配列と優先配列、戻り値は接頭語文字列で、副作用はない。
+ */
+// 目的: 部品系列管理のfirst Available Prefixを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const firstAvailablePrefix = (prefixes, preferred) => preferred.find((prefix) => prefixes.includes(prefix)) ?? '';
 
-const stripUnitSuffix = (text, unit = '') => {
-    const normalized = normalizeUnitLabel(text)
-        .replace(/,/g, '')
-        .replace(/\s+/gu, '');
-    const normalizedUnit = normalizeUnitLabel(unit)
-        .replace(/,/g, '')
-        .replace(/\s+/gu, '');
-
-    if (normalizedUnit && normalized.endsWith(normalizedUnit)) {
-        return normalized.slice(0, -normalizedUnit.length);
-    }
-
-    return normalized;
-};
-
-const appendUnitForDisplay = (value, unit = '') => {
-    const text = String(value ?? '').trim();
-    if (!text) return '-';
-    const normalizedUnit = normalizeUnitLabel(unit);
-    if (!normalizedUnit) return text;
-    return normalizeUnitLabel(text).endsWith(normalizedUnit) ? text : `${text}${unit}`;
-};
-
-const parseEngineeringNumber = (value, allowedPrefixes = null, unit = '') => {
-    if (typeof value === 'number') {
-        return Number.isFinite(value) ? value : null;
-    }
-    const text = stripUnitSuffix(String(value ?? '').trim(), unit);
-    if (!text) return null;
-    const match = text.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)(Ti|Gi|Mi|Ki|[YZEPTGMkKmunpf]?)/u);
-    if (!match) return null;
-    if (match[0] !== text) return null;
-    const prefix = normalizePrefixToken(match[2] ?? '');
-    const allowed = allowedPrefixes === null ? null : normalizePrefixList(allowedPrefixes);
-    if (allowed !== null && !allowed.includes(prefix)) return null;
-    const factor = NUMBER_PREFIX_FACTORS[prefix] ?? 1;
-    return Number(match[1]) * factor;
-};
-
-const formatEngineeringValue = (value, unit = '', displayPrefixes = null) => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return value ?? '';
-    if (numeric === 0) return `0${unit}`;
-
-    const prefixes = sortPrefixesByFactor(displayPrefixes?.length ? displayPrefixes : (isByteBitUnit(unit) ? BYTE_BIT_PREFIX_ORDER : DECIMAL_PREFIX_ORDER));
-    const abs = Math.abs(numeric);
-    const fallbackPrefix = prefixes.at(-1) ?? '';
-    for (const prefix of prefixes) {
-        const factor = NUMBER_PREFIX_FACTORS[prefix] ?? 1;
-        if (abs >= factor || prefix === fallbackPrefix) {
-            const scaled = numeric / factor;
-            if (Math.abs(scaled) >= 1 || prefix === fallbackPrefix) {
-                return `${Number(scaled.toPrecision(12)).toString()}${prefix}${unit}`;
-            }
-        }
-    }
-
-    return `${numeric}${unit}`;
-};
-
+/**
+ * decade値をユーザーが読める接頭語付き値へ変換する。
+ * 入力は10の指数と単位、戻り値は表示文字列で、無効値はハイフンを返し副作用はない。
+ */
+// 目的: 部品系列管理のformat Power Of Tenを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品系列管理の初期化後に呼び出す。副作用: なし。
 const formatPowerOfTen = (decade, unit = '') => {
     const number = toIntegerOrNull(decade);
     if (number === null) return '-';
@@ -188,6 +96,11 @@ const formatPowerOfTen = (decade, unit = '') => {
     return `${10 ** (number - power)}${prefix}${unit}`;
 };
 
+/**
+ * 部品シリーズ編集フォームの初期値を生成する。
+ * 入力は不要、戻り値は新しいフォームオブジェクトで、副作用はない。
+ */
+// 目的: 部品系列管理のempty Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const emptyForm = () => ({
     id: null,
     spec_group_id: '',
@@ -215,6 +128,7 @@ const emptyForm = () => ({
     },
 });
 
+// 目的: 部品系列管理のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastError } = useToast();
     const canEdit = document.getElementById('app')?.dataset?.canEdit === '1';
@@ -334,6 +248,7 @@ export default function setup() {
         return `${selectedValueIds.value.length}件を部品として登録します`;
     });
 
+    // 目的: 部品系列管理のreset Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const resetForm = () => {
         Object.assign(form, emptyForm());
         previewRows.value = [];
@@ -341,28 +256,34 @@ export default function setup() {
         clearPolicyErrors();
     };
 
+    // 目的: 部品系列管理のclear Policy Errorsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearPolicyErrors = () => {
         Object.keys(policyErrors).forEach((key) => {
             delete policyErrors[key];
         });
     };
 
+    // 目的: 部品系列管理のset Policy Errorを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const setPolicyError = (key, message) => {
         policyErrors[key] = [message];
     };
 
+    // 目的: 部品系列管理のfield Errorを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fieldError = (key) => policyErrors[key]?.[0] ?? '';
 
+    // 目的: 部品系列管理のfirst Policy Errorを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const firstPolicyError = () => Object.values(policyErrors)
         .flat()
         .find(Boolean) ?? '';
 
+    // 目的: 部品系列管理のshow Policy Error Summaryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const showPolicyErrorSummary = () => {
         const message = firstPolicyError() || 'シリーズ値の入力を確認してください。';
         error.value = message;
         toastError(message);
     };
 
+    // 目的: 部品系列管理のvalidate Policy Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const validatePolicyForm = () => {
         clearPolicyErrors();
         const type = form.policy.value_set_type;
@@ -429,6 +350,7 @@ export default function setup() {
         return true;
     };
 
+    // 目的: 部品系列管理のapply Request Errorを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const applyRequestError = (e) => {
         clearPolicyErrors();
         Object.entries(e.errors ?? {}).forEach(([key, messages]) => {
@@ -440,6 +362,7 @@ export default function setup() {
         toastError(message);
     };
 
+    // 目的: 部品系列管理のpolicy Payloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const policyPayload = () => {
         const values = splitList(form.policy.values_text);
         const type = form.policy.value_set_type;
@@ -468,6 +391,7 @@ export default function setup() {
         };
     };
 
+    // 目的: 部品系列管理のseries Payloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const seriesPayload = () => ({
         spec_group_id: form.spec_group_id || null,
         value_spec_type_id: form.value_spec_type_id || null,
@@ -480,12 +404,14 @@ export default function setup() {
         policy: policyPayload(),
     });
 
+    // 目的: 部品系列管理のsync Policy Unit From Spec Typeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncPolicyUnitFromSpecType = () => {
         if (selectedSpecTypeUnit.value) {
             form.policy.unit = selectedSpecTypeUnit.value;
         }
     };
 
+    // 目的: 部品系列管理のhandle Spec Group Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleSpecGroupChange = () => {
         const candidates = filteredSpecTypes.value;
         if (form.value_spec_type_id
@@ -495,10 +421,12 @@ export default function setup() {
         syncPolicyUnitFromSpecType();
     };
 
+    // 目的: 部品系列管理のhandle Value Spec Type Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleValueSpecTypeChange = () => {
         syncPolicyUnitFromSpecType();
     };
 
+    // 目的: 部品系列管理のhandle Package Group Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handlePackageGroupChange = () => {
         if (form.package_id
             && !filteredPackages.value.some((item) => Number(item.id) === Number(form.package_id))) {
@@ -506,6 +434,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のfill Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fillForm = (item) => {
         resetForm();
         const policy = item?.policy ?? {};
@@ -544,6 +473,7 @@ export default function setup() {
         syncPolicyUnitFromSpecType();
     };
 
+    // 目的: 部品系列管理のfetch Seriesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSeries = async () => {
         try {
             const params = new URLSearchParams({ include_archived: '1' });
@@ -556,6 +486,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のfetch Optionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchOptions = async () => {
         const [groups, types, pkgGroups, pkgs] = await Promise.all([
             api.get('/spec-groups?include_archived=1&with_spec_types=1'),
@@ -569,6 +500,7 @@ export default function setup() {
         packages.value = pkgs.data ?? [];
     };
 
+    // 目的: 部品系列管理のselect Seriesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectSeries = async (item) => {
         try {
             const res = await api.get(`/component-series/${item.id}`);
@@ -580,6 +512,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のopen Newを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openNew = () => {
         selected.value = null;
         resetForm();
@@ -597,6 +530,7 @@ export default function setup() {
         handlePackageGroupChange();
     });
 
+    // 目的: 部品系列管理のpreview Valuesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const previewValues = async () => {
         if (!validatePolicyForm()) return;
         try {
@@ -613,6 +547,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のsave Seriesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveSeries = async () => {
         if (!validatePolicyForm()) return;
         saving.value = true;
@@ -634,6 +569,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のmaterialize Selectedを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const materializeSelected = async () => {
         if (materializeDisabled.value) return;
         try {
@@ -651,6 +587,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品系列管理のorigin Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品系列管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const originLabel = (origin, sourceSeries = '') => {
         const labels = {
             primary_generated: sourceSeries || '基準系列',

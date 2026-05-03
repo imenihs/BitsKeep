@@ -14,6 +14,14 @@ use Illuminate\Support\Facades\DB;
 
 class AkizukiReferenceMasterSeeder extends Seeder
 {
+    /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     public function run(): void
     {
         DB::transaction(function () {
@@ -26,7 +34,14 @@ class AkizukiReferenceMasterSeeder extends Seeder
             $this->call(PassiveToleranceSpecSeeder::class);
         });
     }
-
+    /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     private function seedCategories(): void
     {
         $rows = [
@@ -55,6 +70,12 @@ class AkizukiReferenceMasterSeeder extends Seeder
     }
 
     /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @return array<string, PackageGroup>
      */
     private function seedPackageGroups(): array
@@ -87,6 +108,12 @@ class AkizukiReferenceMasterSeeder extends Seeder
     }
 
     /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $groups。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<string, PackageGroup>  $groups
      */
     private function seedPackages(array $groups): void
@@ -158,7 +185,14 @@ class AkizukiReferenceMasterSeeder extends Seeder
             $this->updateOrCreateWithRestore(Package::class, ['name' => $row['name']], $row);
         }
     }
-
+    /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     private function seedSpecTypes(): void
     {
         $rows = [
@@ -269,6 +303,14 @@ class AkizukiReferenceMasterSeeder extends Seeder
      * @param  array<int, string>  $aliases
      * @return array<string, mixed>
      */
+    /**
+     * 目的: 秋月参照マスタ用のスペック定義配列を作成する。
+     * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
+     * 入力: 関数シグネチャで指定された引数。
+     * 出力: 型宣言または呼び出し規約に従う処理結果。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function spec(
         string $name,
         string $nameEn,
@@ -304,6 +346,12 @@ class AkizukiReferenceMasterSeeder extends Seeder
     }
 
     /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $specType, $units。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<int, string>  $units
      */
     private function seedSpecUnits(SpecType $specType, array $units): void
@@ -317,6 +365,12 @@ class AkizukiReferenceMasterSeeder extends Seeder
     }
 
     /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $specType, $aliases。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<int, string>  $aliases
      */
     private function seedSpecAliases(SpecType $specType, array $aliases): void
@@ -332,7 +386,14 @@ class AkizukiReferenceMasterSeeder extends Seeder
             );
         }
     }
-
+    /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $specType。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     private function removeAmbiguousAliases(SpecType $specType): void
     {
         $denyList = [
@@ -354,8 +415,13 @@ class AkizukiReferenceMasterSeeder extends Seeder
     }
 
     /**
+     * 目的: Akizuki Reference Masterの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $modelClass, $lookup, $values。
+     * 出力: Modelで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @template TModel of Model
-     *
      * @param  class-string<TModel>  $modelClass
      * @return TModel
      */

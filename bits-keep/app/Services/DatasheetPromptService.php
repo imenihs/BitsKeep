@@ -12,7 +12,14 @@ class DatasheetPromptService
     private const SOURCE_PATH = '../プロンプト/データシート解析プロンプト.md';
 
     private const COPY_MARKER = '## プロンプト本文（ここからコピー）';
-
+    /**
+     * 目的: Datasheet Promptのgetprompttextを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function getPromptText(): string
     {
         $path = base_path(self::SOURCE_PATH);
@@ -34,7 +41,14 @@ class DatasheetPromptService
 
         return $prompt !== '' ? $prompt : $this->fallbackPrompt();
     }
-
+    /**
+     * 目的: Datasheet Promptのfallbackpromptを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function fallbackPrompt(): string
     {
         return <<<'PROMPT'

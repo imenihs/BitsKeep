@@ -67,7 +67,14 @@ class SpecSymbolNotationSeeder extends Seeder
         '容量許容差' => ['symbol' => 'C_tol', 'previous' => ['Ctol']],
         '容量温度特性' => ['symbol' => 'T_C', 'previous' => ['TC']],
     ];
-
+    /**
+     * 目的: Spec Symbol Notationの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     public function run(): void
     {
         DB::transaction(function (): void {
@@ -94,12 +101,26 @@ class SpecSymbolNotationSeeder extends Seeder
         });
     }
 
+    /**
+     * 目的: Spec Symbol Notationの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $name, $fallback。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     public static function symbolFor(string $name, ?string $fallback): ?string
     {
         return self::SYMBOLS[$name]['symbol'] ?? $fallback;
     }
 
     /**
+     * 目的: Spec Symbol Notationの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $specType, $aliases。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<int, string>  $aliases
      */
     private function seedSymbolAliases(SpecType $specType, array $aliases): void

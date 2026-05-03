@@ -15,7 +15,14 @@ use Illuminate\Http\Request;
  */
 class ComponentCompareController extends Controller
 {
-    // GET /api/components/compare?ids[]=1&ids[]=2&ids[]=3
+    /**
+     * 目的: Component Compareのcompareを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function compare(Request $request)
     {
         $validated = $request->validate([
@@ -33,8 +40,7 @@ class ComponentCompareController extends Controller
         ])->findMany($validated['ids']);
 
         // 指定順序を保持
-        $ordered = collect($validated['ids'])->map(
-            fn ($id) => $components->firstWhere('id', $id)
+        $ordered = collect($validated['ids'])->map( fn ($id) => $components->firstWhere('id', $id)
         )->filter()->values();
 
         // 全部品に存在するスペック詳細 + profile を収集（比較軸）
@@ -56,10 +62,10 @@ class ComponentCompareController extends Controller
 
         // 部品ごとにスペックを spec_type_id + profile をキーにしたマップへ変換
         $result = $ordered->map(function ($comp) use ($specAxisMap) {
-            $specsByAxis = $comp->specs->mapWithKeys(fn ($spec) => [
+            $specsByAxis = $comp->specs->mapWithKeys( fn ($spec) => [
                 $this->specAxisKey($spec->spec_type_id, (string) ($spec->value_profile ?? 'typ')) => $spec,
             ]);
-            $specValues = collect($specAxisMap)->mapWithKeys(fn ($axis) => [
+            $specValues = collect($specAxisMap)->mapWithKeys( fn ($axis) => [
                 $axis['key'] => [
                     'value' => $specsByAxis[$axis['key']]->value ?? null,
                     'value_profile' => $specsByAxis[$axis['key']]->value_profile ?? $axis['value_profile'],
@@ -88,7 +94,7 @@ class ComponentCompareController extends Controller
                 'packages' => $comp->packages->pluck('name'),
                 'specs' => $specValues,
                 'cheapest_price' => $cheapestPrice,
-                'suppliers' => $comp->componentSuppliers->map(fn ($cs) => [
+                'suppliers' => $comp->componentSuppliers->map( fn ($cs) => [
                     'name' => $cs->supplier->name,
                     'part_number' => $cs->supplier_part_number,
                     'min_price' => $cs->priceBreaks->min('unit_price'),
@@ -102,7 +108,14 @@ class ComponentCompareController extends Controller
         ]);
     }
 
-    // GET /api/components/{component}/similar
+    /**
+     * 目的: Component Compareのsimilarを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function similar(Component $component)
     {
         // 同一部品分類に属し、スペックが近い部品を取得（数値スペックの類似度で近似）
@@ -168,7 +181,14 @@ class ComponentCompareController extends Controller
 
         return ApiResponse::success($similar);
     }
-
+    /**
+     * 目的: Component Compareのスペックdistanceを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $baseSpec, $candSpec。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function specDistance(object $baseSpec, object $candSpec): ?float
     {
         $baseRepresentative = $baseSpec->value_numeric_typ;
@@ -184,23 +204,44 @@ class ComponentCompareController extends Controller
 
         return abs(((float) $candRepresentative - (float) $baseRepresentative) / (float) $baseRepresentative);
     }
-
+    /**
+     * 目的: Component Compareのrepresentativetypスペックを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specs。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function representativeTypSpecs(EloquentCollection $specs): \Illuminate\Support\Collection
     {
         return $specs
-            ->filter(fn ($spec) => in_array($spec->value_profile, ['typ', 'triple'], true) && $spec->value_numeric_typ !== null)
-            ->sortBy(fn ($spec) => $spec->value_profile === 'triple' ? 0 : 1)
+            ->filter( fn ($spec) => in_array($spec->value_profile, ['typ', 'triple'], true) && $spec->value_numeric_typ !== null)
+            ->sortBy( fn ($spec) => $spec->value_profile === 'triple' ? 0 : 1)
             ->groupBy('spec_type_id')
-            ->map(fn ($group) => $group->first());
+            ->map( fn ($group) => $group->first());
     }
-
+    /**
+     * 目的: Component Compareのスペックaxiskeyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specTypeId, $profile。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function specAxisKey(int|string|null $specTypeId, ?string $profile): string
     {
         $normalizedProfile = $profile ?: 'typ';
 
         return sprintf('%s:%s', (string) $specTypeId, $normalizedProfile);
     }
-
+    /**
+     * 目的: Component Compareの生成表示名称を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $baseName, $profile。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function buildDisplayName(string $baseName, string $profile): string
     {
         return $baseName;

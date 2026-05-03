@@ -11,13 +11,21 @@ use Illuminate\Http\Request;
 
 class SpecSuggestionController extends Controller
 {
+    /**
+     * 目的: Spec Suggestionの一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request): JsonResponse
     {
         $categoryIds = collect([
             ...(array) $request->input('category_ids', []),
             ...(array) $request->input('spec_group_ids', []),
         ])
-            ->map(fn ($id) => (int) $id)
+            ->map( fn ($id) => (int) $id)
             ->filter()
             ->unique()
             ->values()
@@ -48,11 +56,11 @@ class SpecSuggestionController extends Controller
             })
             ->values();
         $recommendedTemplateIds = $templates
-            ->filter(fn ($template) => (bool) $template->is_suggested)
+            ->filter( fn ($template) => (bool) $template->is_suggested)
             ->pluck('id')
             ->values();
         $specTypeIds = $recommendedGroups
-            ->flatMap(fn (SpecGroup $group) => $group->specTypes->pluck('id'))
+            ->flatMap( fn (SpecGroup $group) => $group->specTypes->pluck('id'))
             ->unique()
             ->values();
 

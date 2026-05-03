@@ -12,6 +12,14 @@ use Illuminate\Support\Facades\DB;
 
 class SpecGroupTemplateSeeder extends Seeder
 {
+    /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     public function run(): void
     {
         DB::transaction(function () {
@@ -25,6 +33,12 @@ class SpecGroupTemplateSeeder extends Seeder
     }
 
     /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @return array<string, SpecGroup>
      */
     private function seedGroups(): array
@@ -51,6 +65,12 @@ class SpecGroupTemplateSeeder extends Seeder
     }
 
     /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $groups, $specTypes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<string, SpecGroup>  $groups
      * @param  \Illuminate\Support\Collection<string, SpecType>  $specTypes
      */
@@ -98,7 +118,14 @@ class SpecGroupTemplateSeeder extends Seeder
             $group->specTypes()->syncWithoutDetaching($sync);
         }
     }
-
+    /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     private function seedCommonSpecTypes(): void
     {
         SpecType::query()
@@ -110,6 +137,12 @@ class SpecGroupTemplateSeeder extends Seeder
     }
 
     /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $groups, $specTypes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @param  array<string, SpecGroup>  $groups
      * @param  \Illuminate\Support\Collection<string, SpecType>  $specTypes
      */
@@ -161,6 +194,12 @@ class SpecGroupTemplateSeeder extends Seeder
     }
 
     /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: $modelClass, $lookup, $values。
+     * 出力: Modelで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
      * @template TModel of Model
      * @param  class-string<TModel>  $modelClass
      * @return TModel
@@ -174,7 +213,14 @@ class SpecGroupTemplateSeeder extends Seeder
 
         return $model;
     }
-
+    /**
+     * 目的: Spec Group Templateの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     private function removeLegacyCommonGroup(): void
     {
         $commonGroupIds = DB::table('spec_groups')

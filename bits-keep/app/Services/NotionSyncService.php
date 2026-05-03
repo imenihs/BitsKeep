@@ -23,12 +23,26 @@ class NotionSyncService
 
     // 事業ページ番号の正規表現（010〜099）
     private const BUSINESS_CODE_PATTERN = '/^(0[1-9][0-9])_(.+)$/u';
-
+    /**
+     * 目的: Notion Syncのisconfiguredを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function isConfigured(): bool
     {
         return app(AppSettingService::class)->getNotionConfig()['configured'];
     }
-
+    /**
+     * 目的: Notion Syncのdiagnoseconnectionを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function diagnoseConnection(): array
     {
         $config = app(AppSettingService::class)->getNotionConfig();
@@ -66,8 +80,12 @@ class NotionSyncService
     }
 
     /**
-     * Notion事業ページを自動発見し、01_案件管理 DBを同期する。
-     * 同期結果を ProjectSyncRun として保存して返す。
+     * 目的: Notion Syncのdiscoverand同期を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $triggeredBy。
+     * 出力: ProjectSyncRunで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     public function discoverAndSync(int $triggeredBy): ProjectSyncRun
     {
@@ -112,7 +130,14 @@ class NotionSyncService
 
         return $run->fresh();
     }
-
+    /**
+     * 目的: Notion Syncの同期fromrootpageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $rootPageId, $syncedCount, $errorCount, $errors, $notices, $businessResults。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function syncFromRootPage(string $rootPageId, int &$syncedCount, int &$errorCount, array &$errors, array &$notices, array &$businessResults): void
     {
         $businessPages = $this->findBusinessPages($rootPageId);
@@ -155,7 +180,14 @@ class NotionSyncService
             $notices[] = '同期対象は見つかりましたが、案件レコードが0件でした。Notion側の案件データを確認してください。';
         }
     }
-
+    /**
+     * 目的: Notion Syncの同期byworkspacesearchを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $errorCount, $errors, $notices, $businessResults。
+     * 出力: intで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function syncByWorkspaceSearch(int &$errorCount, array &$errors, array &$notices, array &$businessResults): int
     {
         $synced = 0;
@@ -249,8 +281,12 @@ class NotionSyncService
     }
 
     /**
-     * 事業ページ配下の「01_案件管理」DBを検索し、案件をupsertする。
-     * 返却値: 同期した件数
+     * 目的: Notion Syncの同期businesspageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $pageId, $businessCode, $businessName。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     private function syncBusinessPage(string $pageId, string $businessCode, string $businessName): array
     {
@@ -271,7 +307,14 @@ class NotionSyncService
             'found_database' => $foundDatabase,
         ];
     }
-
+    /**
+     * 目的: Notion Syncの生成businessresultを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $businessCode, $businessName, $status, $syncedCount, $message。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function buildBusinessResult(string $businessCode, string $businessName, string $status, int $syncedCount, string $message): array
     {
         return [
@@ -282,7 +325,14 @@ class NotionSyncService
             'message' => $message,
         ];
     }
-
+    /**
+     * 目的: Notion Syncのfindbusinesspagesを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $rootPageId, $visited。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function findBusinessPages(string $rootPageId, array &$visited = []): array
     {
         if (isset($visited[$rootPageId])) {
@@ -310,7 +360,14 @@ class NotionSyncService
 
         return $results;
     }
-
+    /**
+     * 目的: Notion Syncのfindprojectdatabasesを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $pageId, $visited。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function findProjectDatabases(string $pageId, array &$visited = []): array
     {
         if (isset($visited[$pageId])) {
@@ -331,7 +388,14 @@ class NotionSyncService
 
         return array_values(array_unique($databaseIds));
     }
-
+    /**
+     * 目的: Notion Syncの解決nearestbusinesspageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $pageId。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function resolveNearestBusinessPage(string $pageId): ?array
     {
         $page = $this->fetchPage($pageId);
@@ -354,7 +418,12 @@ class NotionSyncService
     }
 
     /**
-     * Notion DBレコードを projects テーブルへ upsert する。
+     * 目的: Notion Syncのupsertprojectを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $page, $businessCode, $businessName。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     private function upsertProject(array $page, string $businessCode, string $businessName): void
     {
@@ -388,8 +457,14 @@ class NotionSyncService
         );
     }
 
-    // ── Notion API ヘルパー ────────────────────────────────
-
+    /**
+     * 目的: Notion Syncのfetchblockchildrenを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $blockId。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function fetchBlockChildren(string $blockId): array
     {
         $results = [];
@@ -408,7 +483,14 @@ class NotionSyncService
 
         return $results;
     }
-
+    /**
+     * 目的: Notion Syncのquerydatabaseを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $dbId。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function queryDatabase(string $dbId): array
     {
         $results = [];
@@ -427,7 +509,14 @@ class NotionSyncService
 
         return $results;
     }
-
+    /**
+     * 目的: Notion Syncのsearchdatabasesbytitleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $query。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function searchDatabasesByTitle(string $query): array
     {
         $results = [];
@@ -450,12 +539,26 @@ class NotionSyncService
 
         return $results;
     }
-
+    /**
+     * 目的: Notion Syncのfetchpageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $pageId。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function fetchPage(string $pageId): array
     {
         return $this->notionRequest('GET', "/pages/{$pageId}");
     }
-
+    /**
+     * 目的: Notion Syncのnotionrequestを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $method, $path, $params。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function notionRequest(string $method, string $path, array $params = []): array
     {
         $token = app(AppSettingService::class)->getNotionConfig()['token'];
@@ -479,7 +582,14 @@ class NotionSyncService
 
         return $response->json();
     }
-
+    /**
+     * 目的: Notion Syncの生成userfacingerrormessageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $status, $code, $message, $path。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function buildUserFacingErrorMessage(int $status, ?string $code, string $message, string $path): string
     {
         if (in_array($status, [401, 403], true)) {
@@ -504,7 +614,14 @@ class NotionSyncService
 
         return "Notion API エラー ({$status}): {$message}";
     }
-
+    /**
+     * 目的: Notion Syncのextractpagetitleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $page。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function extractPageTitle(array $page): string
     {
         foreach (($page['properties'] ?? []) as $property) {
@@ -516,15 +633,28 @@ class NotionSyncService
         return '';
     }
 
-    // ── プロパティ値抽出ヘルパー ─────────────────────────
-
+    /**
+     * 目的: Notion Syncのextracttitleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $prop。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function extractTitle(array $prop): string
     {
         return collect($prop['title'] ?? [])
             ->pluck('plain_text')
             ->implode('');
     }
-
+    /**
+     * 目的: Notion Syncのextracttextを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $prop。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function extractText(array $prop): ?string
     {
         // rich_text / number / formula いずれにも対応

@@ -5,16 +5,19 @@ import ConfirmLeaveModal from './components/ConfirmLeaveModal.vue';
 
 const THEME_KEY = 'bitskeep-theme';
 
+// 目的: 画面モジュールのapply Themeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
 }
 
+// 目的: 画面モジュールのresolve Initial Themeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
 function resolveInitialTheme() {
     const saved = window.localStorage.getItem(THEME_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+// 目的: 画面モジュールのensure Theme Toggleを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 function ensureThemeToggle() {
     const current = resolveInitialTheme();
     applyTheme(current);
@@ -26,6 +29,7 @@ function ensureThemeToggle() {
     button.dataset.themeToggle = 'true';
     button.className = 'theme-toggle-fab';
 
+    // 目的: 画面モジュールのsync Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncLabel = () => {
         const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         button.textContent = theme === 'dark' ? '☀️' : '🌙';

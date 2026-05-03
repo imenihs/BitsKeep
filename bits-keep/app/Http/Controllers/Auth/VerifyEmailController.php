@@ -10,7 +10,12 @@ use Illuminate\Http\RedirectResponse;
 class VerifyEmailController extends Controller
 {
     /**
-     * Mark the authenticated user's email address as verified.
+     * 目的: Verify Emailのinvokeを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function __invoke(EmailVerificationRequest $request): RedirectResponse
     {

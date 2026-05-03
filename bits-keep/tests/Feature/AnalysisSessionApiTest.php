@@ -12,7 +12,14 @@ use Tests\TestCase;
 class AnalysisSessionApiTest extends TestCase
 {
     use RefreshDatabase;
-
+    /**
+     * 目的: 「editor can store show update filter and delete analysis session」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_editor_can_store_show_update_filter_and_delete_analysis_session(): void
     {
         $editor = User::factory()->create([
@@ -64,6 +71,15 @@ class AnalysisSessionApiTest extends TestCase
             ->assertJsonPath('data.creator.id', $editor->id);
 
         $sessionId = $createResponse->json('data.id');
+        AnalysisSession::create([
+            'tool_id' => 'bom-review',
+            'title' => 'Other BOM Line',
+            'project_id' => $project->id,
+            'component_id' => $component->id,
+            'bom_line_key' => 'line-999',
+            'created_by' => $otherEditor->id,
+            'updated_by' => $otherEditor->id,
+        ]);
         $this->assertDatabaseHas('analysis_sessions', [
             'id' => $sessionId,
             'tool_id' => 'bom-review',
@@ -77,7 +93,7 @@ class AnalysisSessionApiTest extends TestCase
             ->assertJsonPath('data.result_payload.risk_score', 72)
             ->assertJsonPath('data.candidate_links.0.label', 'Candidate A');
 
-        $this->actingAs($editor)->getJson("/api/analysis-sessions?tool_id=bom-review&project_id={$project->id}&component_id={$component->id}")
+        $this->actingAs($editor)->getJson("/api/analysis-sessions?tool_id=bom-review&project_id={$project->id}&component_id={$component->id}&bom_line_key=line-001")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $sessionId);
@@ -106,7 +122,14 @@ class AnalysisSessionApiTest extends TestCase
             'id' => $sessionId,
         ]);
     }
-
+    /**
+     * 目的: 「non editor cannot write analysis sessions」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_non_editor_cannot_write_analysis_sessions(): void
     {
         $viewer = User::factory()->create([

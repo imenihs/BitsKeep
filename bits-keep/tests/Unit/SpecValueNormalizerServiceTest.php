@@ -9,6 +9,14 @@ use Tests\TestCase;
 
 class SpecValueNormalizerServiceTest extends TestCase
 {
+    /**
+     * 目的: 「normalizes engineering prefix in value field」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_normalizes_engineering_prefix_in_value_field(): void
     {
         $service = new SpecValueNormalizerService;
@@ -25,7 +33,14 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('kΩ', $normalized['unit']);
         $this->assertSame('Ω', $normalized['normalized_unit']);
     }
-
+    /**
+     * 目的: 「normalizes inline uppercase k unit」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_normalizes_inline_uppercase_k_unit(): void
     {
         $service = new SpecValueNormalizerService;
@@ -41,7 +56,60 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('1', $normalized['value']);
         $this->assertSame('kΩ', $normalized['unit']);
     }
+    /**
+     * 目的: 「normalizes meg prefix in inline unit」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
+    public function test_normalizes_meg_prefix_in_inline_unit(): void
+    {
+        $service = new SpecValueNormalizerService;
+        $specType = $this->specType('Ω');
 
+        $normalized = $service->normalizeSpecPayload($specType, [
+            'value_profile' => 'typ',
+            'value_typ' => '1MEGΩ',
+            'unit' => '',
+        ]);
+
+        $this->assertSame('1000000', $normalized['value_numeric_typ']);
+        $this->assertSame('1', $normalized['value']);
+        $this->assertSame('MΩ', $normalized['unit']);
+    }
+    /**
+     * 目的: 「normalizes display prefix policy before humanizing」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
+    public function test_normalizes_display_prefix_policy_before_humanizing(): void
+    {
+        $service = new SpecValueNormalizerService;
+        $specType = $this->specType('Ω', ['K']);
+
+        $normalized = $service->normalizeSpecPayload($specType, [
+            'value_profile' => 'typ',
+            'value_typ' => '4700',
+            'unit' => 'Ω',
+        ]);
+
+        $this->assertSame('4700', $normalized['value_numeric_typ']);
+        $this->assertSame('4.7', $normalized['value']);
+        $this->assertSame('kΩ', $normalized['unit']);
+    }
+    /**
+     * 目的: 「normalizes micro prefix in value field」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_normalizes_micro_prefix_in_value_field(): void
     {
         $service = new SpecValueNormalizerService;
@@ -57,7 +125,14 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('4.7', $normalized['value']);
         $this->assertSame('uF', $normalized['unit']);
     }
-
+    /**
+     * 目的: 「normalizes partial triple without minimum」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_normalizes_partial_triple_without_minimum(): void
     {
         $service = new SpecValueNormalizerService;
@@ -78,7 +153,14 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('5 / 10', $normalized['value']);
         $this->assertSame('mA', $normalized['unit']);
     }
-
+    /**
+     * 目的: 「normalizes byte and bit units with decimal and iec prefixes」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_normalizes_byte_and_bit_units_with_decimal_and_iec_prefixes(): void
     {
         $service = new SpecValueNormalizerService;
@@ -131,7 +213,14 @@ class SpecValueNormalizerServiceTest extends TestCase
         $this->assertSame('1000000', $decimalBps['value_numeric_typ']);
         $this->assertSame('Mbps', $decimalBps['unit']);
     }
-
+    /**
+     * 目的: スペックtypeの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: $baseUnit, $displayPrefixes。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function specType(string $baseUnit, array $displayPrefixes = []): SpecType
     {
         $specType = new SpecType([

@@ -13,14 +13,26 @@ import {
 } from '../resources/js/pages/resistance-calc.js';
 import { api } from '../resources/js/api.js';
 
+/**
+ * Vue refまたは通常値から実値を取り出す。
+ * 入力は任意値、戻り値はref.valueまたは元値で、副作用はない。
+ */
+// 目的: 抵抗/容量探索のunwrap Vue Valueを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 抵抗/容量探索の初期化後に呼び出す。副作用: 失敗時にassert例外を投げる場合がある。
 function unwrapVueValue(value) {
     if (value && typeof value === 'object' && value.__v_isRef === true) return value.value;
     return value;
 }
 
+/**
+ * setup戻り値から分圧サブモード選択肢を探索する。
+ * 入力はVue setup surfaceで、戻り値は該当候補配列、探索中にローカル配列へ結果を蓄積する。
+ */
+// 目的: 抵抗/容量探索のfind Divider Submode Optionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 抵抗/容量探索の初期化後に呼び出す。副作用: なし。
 function findDividerSubmodeOptions(surface) {
     const matches = [];
 
+    // setup surfaceを浅く再帰探索する。入力は現在値/パス/深さで、matchesへ発見結果を追加する副作用がある。
+    // 目的: 抵抗/容量探索のvisitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 抵抗/容量探索の初期化後に呼び出す。副作用: 失敗時にassert例外を投げる場合がある。
     const visit = (value, path = '', depth = 0) => {
         const raw = unwrapVueValue(value);
         if (Array.isArray(raw)) {

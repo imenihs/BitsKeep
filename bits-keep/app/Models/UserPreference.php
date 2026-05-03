@@ -13,7 +13,14 @@ class UserPreference extends Model
     protected $casts = [
         'value' => 'array',
     ];
-
+    /**
+     * 目的: UserPreferenceからuserへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -10,8 +10,12 @@ use Illuminate\Validation\Rule;
 class ProfileUpdateRequest extends FormRequest
 {
     /**
-     * Get the validation rules that apply to the request.
-     *
+     * 目的: 入力検証ルールを定義する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: Laravelバリデーションルール配列。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: なし。
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array

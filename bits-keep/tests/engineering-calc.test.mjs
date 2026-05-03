@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { __engineeringCalcTest as calc } from '../resources/js/pages/engineering-calc.js';
 
+/**
+ * 電卓式を評価して値だけを取り出すテスト補助関数。
+ * 入力は式文字列、戻り値は評価結果のvalueで、失敗時は評価例外を投げる副作用がある。
+ */
+// 目的: 工学電卓のvalue Ofを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 工学電卓の初期化後に呼び出す。副作用: なし。
 const valueOf = (expr) => calc.evaluateProgram(expr).value;
 
 assert.equal(calc.formatNum(1e-10), '1e-10');

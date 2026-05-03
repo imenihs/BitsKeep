@@ -8,6 +8,7 @@ import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { getSpecProfileBadgeLabel } from '../utils/specValue.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency } = useFormatter();
@@ -29,11 +30,13 @@ export default function setup() {
         adding: false,
     });
 
+    // 目的: 画面モジュールのsync Compare Urlを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncCompareUrl = (ids) => {
         const query = ids.length ? `?ids=${ids.join(',')}` : '';
         window.history.replaceState({}, '', `/component-compare${query}`);
     };
 
+    // 目的: 画面モジュールのfetch Compareを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchCompare = async (ids) => {
         compareIds.value = ids;
         syncCompareUrl(ids);
@@ -76,6 +79,7 @@ export default function setup() {
     });
 
     // 差分ハイライト: 同一スペック軸（spec_type + profile）で値が全部同じなら差分なし
+    // 目的: 画面モジュールのhas Diffを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const hasDiff = (specAxisKey) => {
         const values = components.value.map((component) => {
             const spec = component.specs[specAxisKey];
@@ -100,6 +104,7 @@ export default function setup() {
             : specTypes.value
     ));
 
+    // 目的: 画面モジュールのremove Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeComponent = (componentId) => {
         const next = components.value.filter((comp) => comp.id !== componentId);
         components.value = next;
@@ -108,6 +113,7 @@ export default function setup() {
         emptyState.value = next.length < 2 ? 'insufficient' : '';
     };
 
+    // 目的: 画面モジュールのmove Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const moveComponent = (index, direction) => {
         const target = index + direction;
         if (target < 0 || target >= components.value.length) return;
@@ -118,6 +124,7 @@ export default function setup() {
         syncCompareUrl(compareIds.value);
     };
 
+    // 目的: 画面モジュールのsearch Partsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const searchParts = async () => {
         addLoading.value = true;
         try {
@@ -134,12 +141,14 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのopen Add Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openAddModal = async () => {
         showAddModal.value = true;
         addSearch.value = '';
         await searchParts();
     };
 
+    // 目的: 画面モジュールのadd Partを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addPart = async (part) => {
         if (compareIds.value.length >= 5) {
             toastError('比較は最大5件までです');
@@ -149,6 +158,7 @@ export default function setup() {
         showAddModal.value = false;
     };
 
+    // 目的: 画面モジュールのopen Project Drawerを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openProjectDrawer = (part) => {
         drawer.open = true;
         drawer.part = part;
@@ -156,10 +166,12 @@ export default function setup() {
         drawer.adding = false;
     };
 
+    // 目的: 画面モジュールのhandle New Project Createdを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleNewProjectCreated = (project) => {
         drawer.selectedProject = project;
     };
 
+    // 目的: 画面モジュールのadd To Projectを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addToProject = async () => {
         if (!drawer.part || !drawer.selectedProject?.id) return;
         drawer.adding = true;
@@ -177,8 +189,11 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのstatus Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const statusLabel = (s) => ({ active: '量産中', nrnd: '新規非推奨', eol: 'EOL', last_time: '在庫限り', custom: 'カスタム' }[s] ?? s);
+    // 目的: 画面モジュールのstatus Classを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const statusClass = (s) => ({ active: 'tag-ok', nrnd: 'tag-warning', eol: 'tag-eol' }[s] ?? '');
+    // 目的: 画面モジュールのspec Profile Badgeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const specProfileBadge = (profile) => getSpecProfileBadgeLabel(profile);
     const compareCountLabel = computed(() => `${components.value.length}件比較中`);
     const canShowTable = computed(() => !loading.value && !loadError.value && components.value.length >= 2);

@@ -13,6 +13,14 @@ use Illuminate\Validation\Rule;
 
 class SpecGroupController extends Controller
 {
+    /**
+     * 目的: 部品分類の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request): JsonResponse
     {
         $hasComponentSeries = $this->hasComponentSeriesTable();
@@ -64,7 +72,14 @@ class SpecGroupController extends Controller
 
         return ApiResponse::success($groups);
     }
-
+    /**
+     * 目的: 部品分類の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(Request $request): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -75,12 +90,26 @@ class SpecGroupController extends Controller
 
         return ApiResponse::created($this->loadForEditor($group));
     }
-
+    /**
+     * 目的: 部品分類の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(SpecGroup $specGroup): JsonResponse
     {
         return ApiResponse::success($this->loadForEditor($specGroup));
     }
-
+    /**
+     * 目的: 部品分類の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(Request $request, SpecGroup $specGroup): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -91,7 +120,14 @@ class SpecGroupController extends Controller
 
         return ApiResponse::success($this->loadForEditor($specGroup));
     }
-
+    /**
+     * 目的: 部品分類の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Request $request, SpecGroup $specGroup): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -102,7 +138,14 @@ class SpecGroupController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 部品分類のアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(Request $request, int $specGroup): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -114,7 +157,14 @@ class SpecGroupController extends Controller
 
         return ApiResponse::success($this->loadForEditor($model));
     }
-
+    /**
+     * 目的: 部品分類のforcedestroyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function forceDestroy(Request $request, int $specGroup): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -144,7 +194,14 @@ class SpecGroupController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 部品分類の同期スペックtypesを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function syncSpecTypes(Request $request, SpecGroup $specGroup): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -181,6 +238,12 @@ class SpecGroupController extends Controller
     }
 
     /**
+     * 目的: 部品分類のvalidatedgroupを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $group。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @return array<string, mixed>
      */
     private function validatedGroup(Request $request, ?SpecGroup $group = null): array
@@ -203,7 +266,14 @@ class SpecGroupController extends Controller
 
         return $payload;
     }
-
+    /**
+     * 目的: 部品分類の読込foreditorを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $group。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function loadForEditor(SpecGroup $group): SpecGroup
     {
         $compactSpecType = fn ($q) => $q->select([
@@ -239,6 +309,12 @@ class SpecGroupController extends Controller
     }
 
     /**
+     * 目的: 部品分類のcount関連を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $includeSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @return array<int|string, mixed>
      */
     private function countRelations(bool $includeSeries = true): array
@@ -264,12 +340,26 @@ class SpecGroupController extends Controller
 
         return $relations;
     }
-
+    /**
+     * 目的: 部品分類のhas部品系列tableを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function hasComponentSeriesTable(): bool
     {
         return Schema::hasTable('component_series');
     }
-
+    /**
+     * 目的: 部品分類のhas系列managementmodecolumnを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function hasSeriesManagementModeColumn(): bool
     {
         return Schema::hasColumn('spec_groups', 'series_management_mode');

@@ -6,6 +6,7 @@ import { ref, reactive, computed } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
 
@@ -19,10 +20,12 @@ export default function setup() {
     const result  = reactive({ created: 0, skipped: [] });
 
     // ── Step1: ファイル選択 ──────────────────────────────────
+    // 目的: 画面モジュールのon File Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onFileChange = (e) => {
         selectedFile.value = e.target.files[0] ?? null;
     };
 
+    // 目的: 画面モジュールのupload Previewを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const uploadPreview = async () => {
         if (!selectedFile.value) return;
         uploading.value = true;
@@ -37,12 +40,14 @@ export default function setup() {
     };
 
     // ── Step2→3: 確認へ ──────────────────────────────────────
+    // 目的: 画面モジュールのgo Confirmを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const goConfirm = () => {
         if (preview.rows.length === 0) { toastError('インポート可能な行がありません'); return; }
         step.value = 3;
     };
 
     // ── Step3: コミット ──────────────────────────────────────
+    // 目的: 画面モジュールのcommit Importを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const commitImport = async () => {
         committing.value = true;
         try {
@@ -55,6 +60,7 @@ export default function setup() {
     };
 
     // ── リセット ─────────────────────────────────────────────
+    // 目的: 画面モジュールのresetを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const reset = () => {
         step.value = 1;
         selectedFile.value = null;
@@ -63,6 +69,7 @@ export default function setup() {
         Object.assign(result, { created: 0, skipped: [] });
     };
 
+    // 目的: 画面モジュールのprocurement Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const procurementLabel = (v) => ({ active: '入手可', nrnd: 'NRND', eol: 'EOL', custom: 'カスタム' }[v] ?? v);
     const csvHeaderLabels = {
         part_number: '型番',
@@ -80,6 +87,7 @@ export default function setup() {
         unit_price: '単価',
         product_url: '商品URL',
     };
+    // 目的: 画面モジュールのcsv Header Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const csvHeaderLabel = (header) => csvHeaderLabels[header] ?? header;
     const stepCards = computed(() => ([
         {

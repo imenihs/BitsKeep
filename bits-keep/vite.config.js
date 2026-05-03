@@ -6,6 +6,10 @@ export default defineConfig({
     build: {
         rollupOptions: {
             output: {
+                /**
+                 * 依存パスからViteの分割チャンク名を決める。
+                 * 入力はRollupから渡されるモジュールIDで、戻り値はチャンク名または未指定、ビルド設定以外の副作用はない。
+                 */
                 manualChunks(id) {
                     if (id.includes('/node_modules/mathjs/lib/esm/expression/')) {
                         return 'vendor-mathjs-expression';

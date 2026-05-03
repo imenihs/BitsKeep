@@ -5,6 +5,7 @@ import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { SPEC_PROFILE_OPTIONS } from '../utils/specValue.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { favoriteIds, loadFavorites, toggleFavorite, isFavorite } = useFavoriteComponents();
@@ -56,17 +57,20 @@ export default function setup() {
 
     // ── 比較リスト ────────────────────────────────────────────
     const compareList = ref([]);
+    // 目的: 画面モジュールのtoggle Compareを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const toggleCompare = (part) => {
         const idx = compareList.value.findIndex(p => p.id === part.id);
         if (idx >= 0) compareList.value.splice(idx, 1);
         else if (compareList.value.length < 5) compareList.value.push(part);
         else toastError('比較は最大5件までです');
     };
+    // 目的: 画面モジュールのin Compareを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const inCompare = (part) => compareList.value.some(p => p.id === part.id);
     const compareUrl = computed(() => {
         const ids = compareList.value.map((part) => part.id);
         return ids.length >= 2 ? `/component-compare?ids=${ids.join(',')}` : '/component-compare';
     });
+    // 目的: 画面モジュールのhandle Toggle Favoriteを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleToggleFavorite = async (componentId) => {
         try {
             const wasFavorite = isFavorite(componentId);
@@ -142,6 +146,7 @@ export default function setup() {
     const hasFilter = computed(() =>
         searchQuery.value || filterCategories.value.length || filterStatus.value || favoriteOnly.value || advManufacturer.value || advPackageGroupId.value || advPackageId.value || advSpecTypeId.value || advUnit.value || advMin.value || advMax.value || advMinStock.value || advInventoryState.value || advPurchasedFrom.value || advPurchasedTo.value
     );
+    // 目的: 画面モジュールのclear Filtersを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearFilters = () => {
         searchQuery.value = ''; filterCategories.value = [];
         filterStatus.value = ''; advancedOpen.value = false;
@@ -151,6 +156,7 @@ export default function setup() {
         advMax.value = ''; advMinStock.value = '';
         advInventoryState.value = ''; advPurchasedFrom.value = ''; advPurchasedTo.value = '';
     };
+    // 目的: 画面モジュールのremove Filter Chipを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeFilterChip = (key) => {
         if (key === 'q') searchQuery.value = '';
         else if (key.startsWith('cat:')) {
@@ -173,6 +179,7 @@ export default function setup() {
     };
 
     // ── APIフェッチ ───────────────────────────────────────────
+    // 目的: 画面モジュールのfetch Partsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchParts = async () => {
         loading.value = true;
         listError.value = '';
@@ -218,6 +225,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのfetch Mastersを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchMasters = async () => {
         masterError.value = '';
         try {

@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const appEl = document.getElementById('app');
     const canEdit = appEl?.dataset?.canEdit === '1';
@@ -31,6 +32,7 @@ export default function setup() {
     });
     const initialRootPageUrl = ref('');
 
+    // 目的: 画面モジュールのfetch Statusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchStatus = async () => {
         loading.value = true;
         statusError.value = '';
@@ -50,6 +52,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのsaveを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const save = async () => {
         if (!canEdit) {
             saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
@@ -77,6 +80,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのclear Tokenを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearToken = async () => {
         if (!canEdit) {
             saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
@@ -105,6 +109,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのclear Root Pageを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearRootPage = async () => {
         if (!canEdit) {
             saveError.value = 'このアカウントには連携設定を変更する権限がありません。編集者以上でログインしてください。';
@@ -142,6 +147,7 @@ export default function setup() {
     const geminiMessage = ref('');
     const geminiError = ref('');
 
+    // 目的: 画面モジュールのfetch Gemini Statusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchGeminiStatus = async () => {
         try {
             const r = await api.get('/settings/integrations/gemini');
@@ -151,6 +157,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのsave Geminiを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveGemini = async () => {
         if (!canEdit) { geminiError.value = '編集者以上の権限が必要です。'; return; }
         geminiSaving.value = true;
@@ -166,6 +173,7 @@ export default function setup() {
         finally { geminiSaving.value = false; }
     };
 
+    // 目的: 画面モジュールのclear Gemini Keyを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearGeminiKey = async () => {
         if (!canEdit) { geminiError.value = '編集者以上の権限が必要です。'; return; }
         if (!gemini.value.configured || !await ask('保存済みの Gemini APIキーを削除しますか？')) return;

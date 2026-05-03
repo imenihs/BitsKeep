@@ -19,8 +19,14 @@ use Illuminate\Support\Facades\DB;
  */
 class ProjectController extends Controller
 {
-    // GET /api/projects
-    // クエリパラメータ: q, status, source_type, business_code
+    /**
+     * 目的: 案件の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request)
     {
         $query = Project::with(['creator:id,name'])
@@ -42,7 +48,7 @@ class ProjectController extends Controller
 
         if ($request->filled('q')) {
             $q = $request->q;
-            $query->where(fn($sub) => $sub
+            $query->where( fn($sub) => $sub
                 ->where('name',           'ilike', "%{$q}%")
                 ->orWhere('description',  'ilike', "%{$q}%")
                 ->orWhere('business_name','ilike', "%{$q}%")
@@ -54,8 +60,14 @@ class ProjectController extends Controller
         return ApiResponse::success($projects);
     }
 
-    // GET /api/projects/options  （案件選択コンボボックス用）
-    // クエリパラメータ: q（横断検索）, business_code（事業絞り込み）, active_only（bool）
+    /**
+     * 目的: 案件のoptionsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function options(Request $request)
     {
         $query = Project::where('status', 'active')
@@ -64,7 +76,7 @@ class ProjectController extends Controller
 
         if ($request->filled('q')) {
             $q = $request->q;
-            $query->where(fn($sub) => $sub
+            $query->where( fn($sub) => $sub
                 ->where('name',          'ilike', "%{$q}%")
                 ->orWhere('business_name', 'ilike', "%{$q}%")
                 ->orWhere('external_code', 'ilike', "%{$q}%")
@@ -81,7 +93,14 @@ class ProjectController extends Controller
         return ApiResponse::success($projects);
     }
 
-    // GET /api/project-businesses  （事業一覧 — コンボボックス事業フィルタ用）
+    /**
+     * 目的: 案件のbusinessesを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function businesses()
     {
         $businesses = Project::whereNotNull('business_code')
@@ -92,13 +111,27 @@ class ProjectController extends Controller
         return ApiResponse::success($businesses);
     }
 
-    // POST /api/projects/sync/notion  （Notion同期実行）
+    /**
+     * 目的: 案件の同期statusを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function syncStatus()
     {
         return ApiResponse::success(app(AppSettingService::class)->getNotionConfig());
     }
 
-    // POST /api/projects/sync/notion  （Notion同期実行）
+    /**
+     * 目的: 案件の同期notionを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function syncNotion(Request $request)
     {
         if (! $request->user()->isEditor()) {
@@ -122,7 +155,14 @@ class ProjectController extends Controller
         return ApiResponse::success($run);
     }
 
-    // GET /api/projects/sync-runs  （同期履歴一覧）
+    /**
+     * 目的: 案件の同期runsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function syncRuns()
     {
         $runs = ProjectSyncRun::with('triggeredBy:id,name')
@@ -132,7 +172,14 @@ class ProjectController extends Controller
         return ApiResponse::success($runs);
     }
 
-    // POST /api/projects
+    /**
+     * 目的: 案件の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(Request $request)
     {
         if (! $request->user()->isEditor()) {
@@ -163,7 +210,14 @@ class ProjectController extends Controller
         return ApiResponse::created($project->load('creator:id,name'));
     }
 
-    // GET /api/projects/{project}
+    /**
+     * 目的: 案件の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(Project $project)
     {
         $project->load([
@@ -180,7 +234,14 @@ class ProjectController extends Controller
         ]);
     }
 
-    // PUT /api/projects/{project}
+    /**
+     * 目的: 案件の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(Request $request, Project $project)
     {
         if (! $request->user()->isEditor()) {
@@ -210,7 +271,14 @@ class ProjectController extends Controller
         return ApiResponse::success($project->load('creator:id,name'));
     }
 
-    // DELETE /api/projects/{project}
+    /**
+     * 目的: 案件の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Request $request, Project $project)
     {
         if (! $request->user()->isEditor()) {
@@ -227,13 +295,20 @@ class ProjectController extends Controller
 
     // ── 使用部品管理 ─────────────────────────────────────
 
-    // GET /api/projects/{project}/components
+    /**
+     * 目的: 案件の一覧部品を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function listComponents(Project $project)
     {
         $components = $project->components()
             ->with(['categories', 'packages', 'componentSuppliers.priceBreaks'])
             ->get()
-            ->map(fn($c) => array_merge($c->toArray(), [
+            ->map( fn($c) => array_merge($c->toArray(), [
                 'required_qty'   => $c->pivot->required_qty,
                 'cheapest_price' => $c->componentSuppliers->flatMap->priceBreaks->min('unit_price'),
             ]));
@@ -241,7 +316,14 @@ class ProjectController extends Controller
         return ApiResponse::success($components);
     }
 
-    // POST /api/projects/{project}/components
+    /**
+     * 目的: 案件のadd部品を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function addComponent(Request $request, Project $project)
     {
         if (! $request->user()->isEditor()) {
@@ -260,7 +342,14 @@ class ProjectController extends Controller
         return ApiResponse::success(['message' => '部品を追加しました']);
     }
 
-    // PATCH /api/projects/{project}/components/{component}
+    /**
+     * 目的: 案件のupdate部品を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $project, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateComponent(Request $request, Project $project, Component $component)
     {
         if (! $request->user()->isEditor()) {
@@ -275,7 +364,14 @@ class ProjectController extends Controller
         return ApiResponse::success(['message' => '使用数を更新しました']);
     }
 
-    // DELETE /api/projects/{project}/components/{component}
+    /**
+     * 目的: 案件のremove部品を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $project, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function removeComponent(Request $request, Project $project, Component $component)
     {
         if (! $request->user()->isEditor()) {
@@ -288,13 +384,27 @@ class ProjectController extends Controller
 
     // ── コスト積算 ───────────────────────────────────────
 
-    // GET /api/projects/{project}/cost
+    /**
+     * 目的: 案件のcostを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function cost(Project $project)
     {
         $project->load(['components.componentSuppliers.priceBreaks']);
         return ApiResponse::success($this->calcCost($project));
     }
-
+    /**
+     * 目的: 案件のcalccostを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $project。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function calcCost(Project $project): array
     {
         $items = $project->components->map(function ($comp) {

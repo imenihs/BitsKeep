@@ -10,6 +10,14 @@ use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
+    /**
+     * 目的: 仕入先の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request)
     {
         $query = Supplier::query()->withCount('componentSuppliers as usage_count');
@@ -24,29 +32,64 @@ class SupplierController extends Controller
 
         return ApiResponse::success($suppliers);
     }
-
+    /**
+     * 目的: 仕入先の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(StoreSupplierRequest $request)
     {
         return ApiResponse::created(Supplier::create($request->validated()));
     }
-
+    /**
+     * 目的: 仕入先の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $supplier。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(Supplier $supplier)
     {
         return ApiResponse::success($supplier->load('shippingRules'));
     }
-
+    /**
+     * 目的: 仕入先の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $supplier。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(StoreSupplierRequest $request, Supplier $supplier)
     {
         $supplier->update($request->validated());
         return ApiResponse::success($supplier);
     }
-
+    /**
+     * 目的: 仕入先の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $supplier。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Supplier $supplier)
     {
         $supplier->delete();
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 仕入先のアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $supplier。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(int $supplier)
     {
         $model = Supplier::withTrashed()->findOrFail($supplier);
@@ -54,7 +97,14 @@ class SupplierController extends Controller
 
         return ApiResponse::success($model);
     }
-
+    /**
+     * 目的: 仕入先のforcedestroyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $supplier。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function forceDestroy(int $supplier)
     {
         $model = Supplier::withTrashed()->withCount('componentSuppliers as usage_count')->findOrFail($supplier);

@@ -12,7 +12,14 @@ use Tests\TestCase;
 class StockOrderTrackingTest extends TestCase
 {
     use RefreshDatabase;
-
+    /**
+     * 目的: 「editor can create stock order and pending endpoint returns it」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_editor_can_create_stock_order_and_pending_endpoint_returns_it(): void
     {
         $user = User::factory()->create([
@@ -57,7 +64,14 @@ class StockOrderTrackingTest extends TestCase
             ->assertJsonPath('0.component_id', $component->id)
             ->assertJsonPath('0.status', 'pending');
     }
-
+    /**
+     * 目的: 「pending endpoint excludes received and cancelled orders」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_pending_endpoint_excludes_received_and_cancelled_orders(): void
     {
         $user = User::factory()->create([

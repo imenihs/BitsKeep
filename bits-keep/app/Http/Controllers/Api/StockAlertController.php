@@ -9,8 +9,12 @@ use App\Models\Component;
 class StockAlertController extends Controller
 {
     /**
-     * GET /api/stock-alerts
-     * 発注点を下回っている部品を逼迫度（在庫/発注点）昇順で返す
+     * 目的: 在庫警告の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function index()
     {
@@ -23,16 +27,15 @@ class StockAlertController extends Controller
                 $urgencyUsed = $c->threshold_used > 0 ? $c->quantity_used / $c->threshold_used : 1;
                 $c->urgency  = min($urgencyNew, $urgencyUsed);
                 $suppliers = $c->componentSuppliers
-                    ->filter(fn ($item) => $item->supplier)
-                    ->sortBy([
-                        fn ($item) => $item->unit_price === null ? 1 : 0,
+                    ->filter( fn ($item) => $item->supplier)
+                    ->sortBy([ fn ($item) => $item->unit_price === null ? 1 : 0,
                         'unit_price',
                     ])
                     ->values();
 
                 $cheapest = $suppliers->first();
 
-                $c->supplier_options = $suppliers->map(fn ($item) => [
+                $c->supplier_options = $suppliers->map( fn ($item) => [
                     'component_supplier_id' => $item->id,
                     'supplier_id' => $item->supplier_id,
                     'name' => $item->supplier->name,

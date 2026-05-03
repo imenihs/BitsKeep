@@ -12,6 +12,14 @@ use Illuminate\Validation\Rule;
 
 class SpecTemplateController extends Controller
 {
+    /**
+     * 目的: 入力テンプレートの一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request): JsonResponse
     {
         $query = SpecTemplate::query()->with(['specGroup', 'items.specType.units', 'items.specType.aliases']);
@@ -26,7 +34,14 @@ class SpecTemplateController extends Controller
 
         return ApiResponse::success($query->orderBy('sort_order')->orderBy('name')->get());
     }
-
+    /**
+     * 目的: 入力テンプレートの検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(Request $request): JsonResponse
     {
         if (!$request->user()?->isAdmin()) {
@@ -42,12 +57,26 @@ class SpecTemplateController extends Controller
             return ApiResponse::created($this->loadForEditor($template));
         });
     }
-
+    /**
+     * 目的: 入力テンプレートの詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(SpecTemplate $specTemplate): JsonResponse
     {
         return ApiResponse::success($this->loadForEditor($specTemplate));
     }
-
+    /**
+     * 目的: 入力テンプレートの検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(Request $request, SpecTemplate $specTemplate): JsonResponse
     {
         if (!$request->user()?->isAdmin()) {
@@ -63,7 +92,14 @@ class SpecTemplateController extends Controller
             return ApiResponse::success($this->loadForEditor($specTemplate));
         });
     }
-
+    /**
+     * 目的: 入力テンプレートの削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Request $request, SpecTemplate $specTemplate): JsonResponse
     {
         if (!$request->user()?->isAdmin()) {
@@ -74,7 +110,14 @@ class SpecTemplateController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 入力テンプレートのアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(Request $request, int $specTemplate): JsonResponse
     {
         if (!$request->user()?->isAdmin()) {
@@ -86,7 +129,14 @@ class SpecTemplateController extends Controller
 
         return ApiResponse::success($this->loadForEditor($model));
     }
-
+    /**
+     * 目的: 入力テンプレートのforcedestroyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function forceDestroy(Request $request, int $specTemplate): JsonResponse
     {
         if (!$request->user()?->isAdmin()) {
@@ -102,7 +152,14 @@ class SpecTemplateController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 入力テンプレートの適用previewを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specTemplate。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function applyPreview(SpecTemplate $specTemplate): JsonResponse
     {
         $specTemplate->load(['items.specType.units', 'items.specType.aliases']);
@@ -125,6 +182,12 @@ class SpecTemplateController extends Controller
     }
 
     /**
+     * 目的: 入力テンプレートのvalidatedテンプレートを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $template。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @return array{attributes: array<string, mixed>, items: array<int, array<string, mixed>>}
      */
     private function validatedTemplate(Request $request, ?SpecTemplate $template = null): array
@@ -155,6 +218,12 @@ class SpecTemplateController extends Controller
     }
 
     /**
+     * 目的: 入力テンプレートの同期itemsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $template, $items。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      */
     private function syncItems(SpecTemplate $template, array $items): void
@@ -179,7 +248,14 @@ class SpecTemplateController extends Controller
             ]);
         }
     }
-
+    /**
+     * 目的: 入力テンプレートの読込foreditorを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $template。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function loadForEditor(SpecTemplate $template): SpecTemplate
     {
         return $template->load(['specGroup', 'items.specType.units', 'items.specType.aliases']);

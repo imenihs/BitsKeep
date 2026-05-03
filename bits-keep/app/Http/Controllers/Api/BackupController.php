@@ -15,7 +15,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class BackupController extends Controller
 {
-    // DBの接続情報を取得
+    /**
+     * 目的: バックアップのdbconfigを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function dbConfig(): array
     {
         return [
@@ -27,7 +34,14 @@ class BackupController extends Controller
         ];
     }
 
-    // GET /api/backup/download
+    /**
+     * 目的: バックアップのdownloadを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function download(Request $request): StreamedResponse|JsonResponse
     {
         if (! $request->user()->isAdmin()) {
@@ -63,7 +77,14 @@ class BackupController extends Controller
         ]);
     }
 
-    // POST /api/backup/restore
+    /**
+     * 目的: バックアップのアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(Request $request): JsonResponse
     {
         if (! $request->user()->isAdmin()) {

@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { ask } = useConfirmModal();
@@ -13,12 +14,14 @@ export default function setup() {
     const restoring     = ref(false);
     const restoreResult = ref(null);
 
+    // 目的: 画面モジュールのformat Sizeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const formatSize = (bytes) => {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / 1024 / 1024).toFixed(1) + ' MB';
     };
 
+    // 目的: 画面モジュールのdownload Backupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const downloadBackup = async () => {
         downloading.value = true;
         downloadError.value = '';
@@ -52,11 +55,13 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのon File Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onFileChange = (e) => {
         selectedFile.value = e.target.files[0] ?? null;
         restoreResult.value = null;
     };
 
+    // 目的: 画面モジュールのstart Restoreを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const startRestore = async () => {
         if (!selectedFile.value) return;
         if (!await ask('現在の登録データを、選択したバックアップファイルの内容で置き換えます。\nこの操作は元に戻せません。復元しますか？')) return;

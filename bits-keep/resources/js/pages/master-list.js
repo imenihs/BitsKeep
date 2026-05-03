@@ -1,8 +1,10 @@
 /**
- * マスタ管理ページ（SCR-009）
- * パッケージ分類 / パッケージ詳細 / 部品分類 / スペック詳細 の CRUD
- * ?tab=package-groups|packages|part-categories|spec-types|spec-candidates|common-spec-types|tolerance-spec-types|spec-templates で初期タブを切り替え可
- * スペック系タブでは ?group_id=123 で対象部品分類も初期選択できる
+ * 公開 setup: マスタ管理ページ（SCR-009）の画面状態と操作関数を Vue へ公開する。
+ * 目的/機能: タブ別マスタの取得、編集モーダル、並び替え、候補同期を統合する。
+ * 入力: #app の data 属性、URL の tab/group_id、各 API から返るマスタデータ。
+ * 出力: Blade テンプレートが参照する ref/computed/reactive と操作関数。
+ * 動作条件: Laravel 側で権限 data 属性と CSRF が埋め込まれ、API が認証済みで呼べること。
+ * 副作用: API 通信、URL 履歴更新、toast 表示、未保存確認、モーダル状態更新を行う。
  */
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { api } from '../api.js';
@@ -10,7 +12,29 @@ import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
 import { renderSymbol } from '../utils/specValue.js';
+import { usePackageMaster } from './master-list/packageMaster.js';
+import { useSpecTypeMaster } from './master-list/specTypeMaster.js';
+import { createMasterReorderDnd, createPackageDnd, createCandidateMemberDnd } from './master-list/dnd.js';
+import {
+    clone,
+    closeModalWithConfirm as confirmDirtyModalClose,
+    copyName,
+    nextSortOrder,
+    normalizeTab,
+    same,
+    specGroupCandidateCounts,
+    specGroupIdFromUrl,
+    specGroupSeriesModeLabel,
+    specGroupSidebarMeta as buildSpecGroupSidebarMeta,
+    specGroupSpecTypes,
+    splitActive,
+    splitArchived,
+    syncSpecGroupToUrl as syncSpecGroupSelectionToUrl,
+    syncTabToUrl,
+    tabFromUrl,
+} from './master-list/pageHelpers.js';
 
+// 目的: マスタ管理ページのVue状態と操作を組み立てる。機能: タブ、CRUD、並び替え、候補同期を各partialへ公開する。入力: #app data属性とURL状態。出力: テンプレートから参照する状態/関数。動作条件: 認証済み画面でAPIとCSRFが利用できること。副作用: API通信、URL履歴、toast、モーダル状態を更新する。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { ask } = useConfirmModal();
@@ -18,740 +42,78 @@ export default function setup() {
     const inlineDirty = ref(false);
     const dirty = computed(() => modalDirty.value || inlineDirty.value);
     useNavigationConfirm(dirty, '未保存の変更があります。このまま画面を離れてもよいですか？');
-
-    // ── タブ ──────────────────────────────────────────────
     const appEl  = document.getElementById('app');
-    const tabIds = ['package-groups', 'packages', 'part-categories', 'spec-types', 'spec-candidates', 'common-spec-types', 'tolerance-spec-types', 'spec-templates'];
-    const legacyTabMap = {
-        categories: 'part-categories',
-        'spec-groups': 'part-categories',
-    };
-    const normalizeTab = (tab) => {
-        const normalized = legacyTabMap[tab] ?? tab;
-        return tabIds.includes(normalized) ? normalized : 'package-groups';
-    };
-    const tabFromUrl = () => {
-        const params = new URLSearchParams(window.location.search);
-        const fromQuery = params.get('tab');
-        const fromHash = window.location.hash?.startsWith('#tab=') ? window.location.hash.slice(5) : '';
-        return normalizeTab(fromQuery || fromHash || appEl?.dataset?.tab);
-    };
-    const specGroupIdFromUrl = () => {
-        const value = Number.parseInt(new URLSearchParams(window.location.search).get('group_id') ?? '', 10);
-        return Number.isFinite(value) && value > 0 ? value : null;
-    };
-    const activeTab = ref(tabFromUrl());
+    const activeTab = ref(tabFromUrl(appEl));
     const requestedSpecGroupId = ref(specGroupIdFromUrl());
     const canEdit = appEl?.dataset?.canEdit === '1';
     const isAdmin = appEl?.dataset?.isAdmin === '1';
-
-    const syncTabToUrl = (tab, { replace = false } = {}) => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', normalizeTab(tab));
-        if (url.hash?.startsWith('#tab=')) url.hash = '';
-        const method = replace ? 'replaceState' : 'pushState';
-        window.history?.[method]?.({ tab: normalizeTab(tab) }, '', url);
-    };
-    const syncSpecGroupToUrl = (groupId, { replace = true } = {}) => {
-        if (!['spec-types', 'spec-candidates', 'common-spec-types', 'tolerance-spec-types', 'spec-templates'].includes(activeTab.value)) return;
-        const url = new URL(window.location.href);
-        const normalizedTab = normalizeTab(activeTab.value);
-        url.searchParams.set('tab', normalizedTab);
-        if (groupId) url.searchParams.set('group_id', String(groupId));
-        else url.searchParams.delete('group_id');
-        const method = replace ? 'replaceState' : 'pushState';
-        window.history?.[method]?.({ tab: normalizedTab, group_id: groupId ? String(groupId) : null }, '', url);
-    };
-
-    const clone = (value) => JSON.parse(JSON.stringify(value));
-    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    const splitActive = (items) => items.filter((item) => !item.deleted_at);
-    const splitArchived = (items) => items.filter((item) => item.deleted_at);
-    const nextSortOrder = (items) => (splitActive(items).at(-1)?.sort_order ?? 0) + 10;
-    const copyName = (name) => `${name} コピー`;
+    // 目的: マスタ管理画面のclose Modal With Confirmを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeModalWithConfirm = async (modal, snapshot) => {
-        if (modal.open && !same(modal.form, snapshot) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
-        modal.open = false;
+        await confirmDirtyModalClose(ask, modal, snapshot);
     };
-
     const fetchError = ref('');
-
-    // ── ドラッグ&ドロップ並び替え ─────────────────────────
+    // ドラッグ&ドロップ並び替え
     const dragSrc = ref(null);
     const dragTarget = ref(null);
-
-    const makeDnD = (arr, buildPayload, fetchFn) => ({
-        start: (i) => { dragSrc.value = i; dragTarget.value = i; },
-        over:  (e, i) => { e.preventDefault(); dragTarget.value = i; },
-        end:   () => { dragSrc.value = null; dragTarget.value = null; },
-        drop:  async (i) => {
-            const from = dragSrc.value;
-            dragSrc.value = null; dragTarget.value = null;
-            if (from === null || from === i) return;
-            const items = [...arr.value];
-            const [moved] = items.splice(from, 1);
-            items.splice(i, 0, moved);
-            arr.value = items; // 楽観的更新
-            try {
-                await Promise.all(items.map((item, idx) => api.put(buildPayload(item).url, { ...buildPayload(item).body, sort_order: (idx + 1) * 10 })));
-                toastSuccess('並び順を更新しました');
-                await fetchFn();
-            } catch (e) { toastError(e.message); await fetchFn(); }
-        },
-    });
-
-    // ── 汎用確認モーダル ──────────────────────────────────
+    // 汎用確認モーダル
     const confirmModal = reactive({ open: false, title: '', message: '', actionLabel: '', actionClass: '', onConfirm: null });
+    // 目的: マスタ管理画面のopen Confirmを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openConfirm = ({ title, message, actionLabel, actionClass = 'border-red-400 text-red-600 hover:bg-red-50', onConfirm }) => {
         Object.assign(confirmModal, { open: true, title, message, actionLabel, actionClass, onConfirm });
     };
+    // 目的: マスタ管理画面のdo Confirmを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const doConfirm = async () => {
         confirmModal.open = false;
         await confirmModal.onConfirm?.();
     };
-
-    // ── パッケージ詳細 ────────────────────────────────────
-    const packageGroups = ref([]);
-    const selectedPackageGroupId = ref(null);
-    const activePackageGroups = computed({
-        get: () => splitActive(packageGroups.value),
-        set: (items) => { packageGroups.value = [...items, ...splitArchived(packageGroups.value)]; },
+    const packageMaster = usePackageMaster({
+        activeTab,
+        toastSuccess,
+        toastError,
+        openConfirm,
+        closeModalWithConfirm,
+        clone,
+        splitActive,
+        splitArchived,
+        nextSortOrder,
+        copyName,
+        fetchError,
     });
-    const archivedPackageGroups = computed(() => splitArchived(packageGroups.value));
-    const currentPackageGroup = computed(() => packageGroups.value.find((group) => Number(group.id) === Number(selectedPackageGroupId.value)) ?? null);
-    const ensureSelectedPackageGroup = () => {
-        const activeGroups = activePackageGroups.value;
-        if (activeGroups.length === 0) {
-            selectedPackageGroupId.value = null;
-            return;
-        }
-        if (!activeGroups.some((group) => Number(group.id) === Number(selectedPackageGroupId.value))) {
-            selectedPackageGroupId.value = activeGroups[0].id;
-        }
-    };
-    const pkgGroupSnapshot = ref(null);
-    const pkgGroupModal = reactive({
-        open: false, isEdit: false, editId: null,
-        form: { name: '', description: '', sort_order: 0 }
-    });
-
-    const fetchPackageGroups = async () => {
-        fetchError.value = '';
-        try {
-            const r = await api.get('/package-groups?include_archived=1');
-            packageGroups.value = r.data;
-            ensureSelectedPackageGroup();
-            if (activeTab.value === 'packages' && selectedPackageGroupId.value && packages.value.length === 0) {
-                await fetchPackages();
-            }
-        }
-        catch { fetchError.value = 'パッケージ分類の取得に失敗しました。再試行してください。'; toastError('パッケージ分類の取得に失敗しました'); }
-    };
-
-    const openPkgGroupAdd = () => {
-        const form = { name: '', description: '', sort_order: nextSortOrder(packageGroups.value) };
-        pkgGroupSnapshot.value = clone(form);
-        Object.assign(pkgGroupModal, { open: true, isEdit: false, editId: null, form });
-    };
-    const openPkgGroupEdit = (group) => {
-        const form = { name: group.name, description: group.description ?? '', sort_order: group.sort_order ?? 0 };
-        pkgGroupSnapshot.value = clone(form);
-        Object.assign(pkgGroupModal, { open: true, isEdit: true, editId: group.id, form });
-    };
-    const openPkgGroupDuplicate = (group) => {
-        const form = { name: copyName(group.name), description: group.description ?? '', sort_order: nextSortOrder(packageGroups.value) };
-        pkgGroupSnapshot.value = clone(form);
-        Object.assign(pkgGroupModal, { open: true, isEdit: false, editId: null, form });
-    };
-
-    const savePackageGroup = async () => {
-        try {
-            if (pkgGroupModal.isEdit) await api.put(`/package-groups/${pkgGroupModal.editId}`, pkgGroupModal.form);
-            else await api.post('/package-groups', pkgGroupModal.form);
-            toastSuccess('保存しました'); pkgGroupModal.open = false; pkgGroupSnapshot.value = clone(pkgGroupModal.form); await fetchPackageGroups();
-        } catch (e) { toastError(e.message); }
-    };
-    const closePkgGroupModal = () => closeModalWithConfirm(pkgGroupModal, pkgGroupSnapshot.value);
-
-    const archivePackageGroup = (group) => openConfirm({
-        title: 'パッケージ分類をアーカイブしますか？',
-        message: `「${group.name}」をアーカイブします。\n使用件数: ${group.usage_count ?? 0}件`,
-        actionLabel: 'アーカイブする',
-        onConfirm: async () => {
-            try { await api.delete(`/package-groups/${group.id}`); await fetchPackageGroups(); toastSuccess('アーカイブしました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    const restorePackageGroup = (group) => openConfirm({
-        title: 'パッケージ分類を復元しますか？',
-        message: `「${group.name}」を復元します。`,
-        actionLabel: '復元する',
-        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
-        onConfirm: async () => {
-            try { await api.post(`/package-groups/${group.id}/restore`); await fetchPackageGroups(); toastSuccess('復元しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    const movePackageGroup = async (index, delta) => {
-        const target = index + delta;
-        if (target < 0 || target >= packageGroups.value.length) return;
-        const ordered = [...packageGroups.value];
-        [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-        try {
-            await Promise.all(ordered.map((item, idx) => api.put(`/package-groups/${item.id}`, {
-                name: item.name,
-                description: item.description ?? '',
-                sort_order: (idx + 1) * 10,
-            })));
-            toastSuccess('並び順を更新しました');
-            await fetchPackageGroups();
-        } catch (e) { toastError(e.message); }
-    };
-
-    const packages = ref([]);
-    const activePackages = computed({
-        get: () => splitActive(packages.value),
-        set: (items) => { packages.value = [...items, ...splitArchived(packages.value)]; },
-    });
-    const archivedPackages = computed(() => splitArchived(packages.value));
-    const pkgSnapshot = ref(null);
-    const pkgModal = reactive({
-        open: false, isEdit: false, editId: null,
-        form: {
-            package_group_id: '',
-            name: '',
-            description: '',
-            size_x: '',
-            size_y: '',
-            size_z: '',
-            image: null,
-            pdf: null,
-            image_url: '',
-            pdf_url: '',
-            sort_order: 0,
-        }
-    });
-
-    const packageForm = (overrides = {}) => ({
-        package_group_id: selectedPackageGroupId.value ?? '',
-        name: '',
-        description: '',
-        size_x: '',
-        size_y: '',
-        size_z: '',
-        image: null,
-        pdf: null,
-        image_url: '',
-        pdf_url: '',
-        sort_order: nextSortOrder(packages.value),
-        ...overrides,
-    });
-
-    const packageDimensions = (p) => {
-        const values = [p.size_x, p.size_y, p.size_z]
-            .map((value) => value === null || value === undefined || value === '' ? '' : Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }))
-            .filter(Boolean);
-        return values.length > 0 ? `${values.join(' x ')} mm` : '-';
-    };
-
-    const onPackageFileChange = (field, event) => {
-        pkgModal.form[field] = event.target.files?.[0] ?? null;
-    };
-
-    const packageFormData = () => {
-        const form = new FormData();
-        ['package_group_id', 'name', 'description', 'size_x', 'size_y', 'size_z', 'sort_order'].forEach((key) => {
-            form.append(key, pkgModal.form[key] ?? '');
-        });
-        if (pkgModal.form.image) form.append('image', pkgModal.form.image);
-        if (pkgModal.form.pdf) form.append('pdf', pkgModal.form.pdf);
-        return form;
-    };
-
-    const fetchPackages = async () => {
-        fetchError.value = '';
-        ensureSelectedPackageGroup();
-        if (!selectedPackageGroupId.value) {
-            packages.value = [];
-            return;
-        }
-        try {
-            const r = await api.get(`/packages?include_archived=1&package_group_id=${selectedPackageGroupId.value}`);
-            packages.value = r.data;
-        }
-        catch { fetchError.value = 'パッケージ詳細の取得に失敗しました。再試行してください。'; toastError('パッケージ詳細の取得に失敗しました'); }
-    };
-
-    const selectPackageGroup = async (group) => {
-        selectedPackageGroupId.value = group?.id ?? null;
-        packages.value = [];
-        await fetchPackages();
-    };
-
-    const openPkgAdd = () => {
-        if (!selectedPackageGroupId.value) {
-            toastError('先にパッケージ分類を選択してください');
-            return;
-        }
-        const form = packageForm();
-        pkgSnapshot.value = clone(form);
-        Object.assign(pkgModal, { open: true, isEdit: false, editId: null, form });
-    };
-    const openPkgEdit = (p) => {
-        const form = packageForm({
-            package_group_id: p.package_group_id ?? selectedPackageGroupId.value ?? '',
-            name: p.name,
-            description: p.description ?? '',
-            size_x: p.size_x ?? '',
-            size_y: p.size_y ?? '',
-            size_z: p.size_z ?? '',
-            image_url: p.image_url ?? '',
-            pdf_url: p.pdf_url ?? '',
-            sort_order: p.sort_order ?? 0,
-        });
-        pkgSnapshot.value = clone(form);
-        Object.assign(pkgModal, { open: true, isEdit: true, editId: p.id, form });
-    };
-    const openPkgDuplicate = (p) => {
-        const form = packageForm({
-            package_group_id: p.package_group_id ?? selectedPackageGroupId.value ?? '',
-            name: copyName(p.name),
-            description: p.description ?? '',
-            size_x: p.size_x ?? '',
-            size_y: p.size_y ?? '',
-            size_z: p.size_z ?? '',
-        });
-        pkgSnapshot.value = clone(form);
-        Object.assign(pkgModal, { open: true, isEdit: false, editId: null, form });
-    };
-
-    const savePackage = async () => {
-        try {
-            if (pkgModal.isEdit) await api.uploadPut(`/packages/${pkgModal.editId}`, packageFormData());
-            else await api.upload('/packages', packageFormData());
-            if (pkgModal.form.package_group_id) selectedPackageGroupId.value = pkgModal.form.package_group_id;
-            toastSuccess('保存しました'); pkgModal.open = false; pkgSnapshot.value = clone(pkgModal.form); await fetchPackageGroups(); await fetchPackages();
-        } catch (e) { toastError(e.message); }
-    };
-    const closePkgModal = () => closeModalWithConfirm(pkgModal, pkgSnapshot.value);
-
-    const archivePackage = (p) => openConfirm({
-        title: 'パッケージ詳細をアーカイブしますか？',
-        message: `「${p.name}」をアーカイブします。\n使用件数: ${p.usage_count ?? 0}件`,
-        actionLabel: 'アーカイブする',
-        onConfirm: async () => {
-            try { await api.delete(`/packages/${p.id}`); await fetchPackageGroups(); await fetchPackages(); toastSuccess('アーカイブしました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    const restorePackage = (p) => openConfirm({
-        title: 'パッケージ詳細を復元しますか？',
-        message: `「${p.name}」を復元します。`,
-        actionLabel: '復元する',
-        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
-        onConfirm: async () => {
-            try { await api.post(`/packages/${p.id}/restore`); await fetchPackageGroups(); await fetchPackages(); toastSuccess('復元しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    const movePackage = async (index, delta) => {
-        const target = index + delta;
-        if (target < 0 || target >= activePackages.value.length || !selectedPackageGroupId.value) return;
-        const ordered = [...activePackages.value];
-        [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-        activePackages.value = ordered;
-        try {
-            await api.put(`/package-groups/${selectedPackageGroupId.value}/packages/reorder`, {
-                package_ids: ordered.map((item) => item.id),
-            });
-            toastSuccess('並び順を更新しました');
-            await fetchPackages();
-        } catch (e) { toastError(e.message); await fetchPackages(); }
-    };
-
-    // ── スペック詳細 ──────────────────────────────────────
-    const specTypes = ref([]);
-    const commonSpecTypes = ref([]);
-    const specTypeOptions = ref([]);
-    const isToleranceSpecType = (item) => (item?.spec_kind ?? 'normal') === 'tolerance';
-    const isNormalSpecType = (item) => !isToleranceSpecType(item);
-    const isCommonSpecType = (item) => (item?.spec_scope ?? 'group_local') === 'common';
-    const activeSpecTypes = computed(() => splitActive(specTypes.value).filter((item) => !isCommonSpecType(item) && isNormalSpecType(item)));
-    const archivedSpecTypes = computed(() => splitArchived(specTypes.value).filter((item) => !isCommonSpecType(item) && isNormalSpecType(item)));
-    const activeCommonSpecTypes = computed(() => splitActive(commonSpecTypes.value).filter(isNormalSpecType));
-    const archivedCommonSpecTypes = computed(() => splitArchived(commonSpecTypes.value).filter(isNormalSpecType));
-    const activeToleranceSpecTypes = computed(() => splitActive(commonSpecTypes.value).filter(isToleranceSpecType));
-    const archivedToleranceSpecTypes = computed(() => splitArchived(commonSpecTypes.value).filter(isToleranceSpecType));
-    const activeSpecTypeOptions = computed(() => splitActive(specTypeOptions.value));
-    const stSnapshot = ref(null);
-    const stModal = reactive({
-        open: false, isEdit: false, editId: null,
-        form: { name: '', name_ja: '', name_en: '', symbol: '', aliases_text: '', description: '', value_type: 'numeric', sort_order: 0, unit: '', suggest_prefixes: [], display_prefixes: [], spec_scope: 'group_local', owner_spec_group_id: '', spec_kind: 'normal', tolerance_settings: { default_mode: 'symmetric', default_unit: '%', allowed_units: ['%', 'ppm'], grade_options: [], grade_options_text: '' } }
-    });
-
-    const fetchSpecTypes = async () => {
-        fetchError.value = '';
-        if (!selectedSpecGroupId.value) {
-            specTypes.value = [];
-            return;
-        }
-
-        const params = new URLSearchParams({
-            include_archived: '1',
-            scope: 'group_local',
-            kind: 'normal',
-            owner_spec_group_id: String(selectedSpecGroupId.value),
-        });
-        try { const r = await api.get(`/spec-types?${params.toString()}`); specTypes.value = r.data; }
-        catch { fetchError.value = 'スペック詳細の取得に失敗しました。再試行してください。'; toastError('スペック詳細の取得に失敗しました'); }
-    };
-    const fetchCommonSpecTypes = async () => {
-        fetchError.value = '';
-        try { const r = await api.get('/spec-types?include_archived=1&scope=common'); commonSpecTypes.value = r.data; }
-        catch { fetchError.value = '共通スペック詳細の取得に失敗しました。再試行してください。'; toastError('共通スペック詳細の取得に失敗しました'); }
-    };
-    const fetchSpecTypeOptions = async () => {
-        fetchError.value = '';
-        try { const r = await api.get('/spec-types?summary=1'); specTypeOptions.value = r.data ?? []; }
-        catch { fetchError.value = 'スペック詳細候補の取得に失敗しました。再試行してください。'; toastError('スペック詳細候補の取得に失敗しました'); }
-    };
-    const normalizePrefixes = (prefixes) => Array.isArray(prefixes)
-        ? prefixes.map((prefix) => prefix == null ? '' : String(prefix))
-        : [];
-    const decimalPrefixOptions = ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-    const byteBitPrefixOptions = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
-    const binaryIecPrefixes = new Set(['Ti', 'Gi', 'Mi', 'Ki']);
-    const decimalNonFractionalPrefixes = new Set(['T', 'G', 'M', 'k']);
-    const decimalFractionalPrefixes = new Set(['m', 'u', 'n', 'p', 'f']);
-    const byteBitUnits = new Set(['B', 'bit', 'bps']);
-    const normalizeUnitForPrefixPolicy = (unit = '') => String(unit ?? '')
-        .trim()
-        .replaceAll('μ', 'u')
-        .replaceAll('µ', 'u')
-        .replaceAll('Ω', 'Ω')
-        .replace(/\bohms?\b/iu, 'Ω')
-        .replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
-    const isByteBitPrefixUnit = (unit = stModal.form.unit) => byteBitUnits.has(normalizeUnitForPrefixPolicy(unit));
-    const normalizePrefixToken = (prefix) => {
-        const normalized = prefix == null ? '' : String(prefix).trim();
-        return normalized === 'K' ? 'k' : normalized;
-    };
-    const sanitizePrefixesForUnit = (prefixes = [], unit = stModal.form.unit) => {
-        const normalized = normalizePrefixes(prefixes)
-            .map(normalizePrefixToken)
-            .filter((prefix) => prefix === '' || decimalPrefixOptions.includes(prefix) || binaryIecPrefixes.has(prefix));
-        const unique = [...new Set(normalized)];
-        if (!isByteBitPrefixUnit(unit)) {
-            return unique.filter((prefix) => !binaryIecPrefixes.has(prefix));
-        }
-
-        const withoutFractional = unique.filter((prefix) => !decimalFractionalPrefixes.has(prefix));
-        const hasBinary = withoutFractional.some((prefix) => binaryIecPrefixes.has(prefix));
-        if (hasBinary) {
-            return withoutFractional.filter((prefix) => prefix === '' || binaryIecPrefixes.has(prefix));
-        }
-
-        return withoutFractional.filter((prefix) => prefix === '' || decimalNonFractionalPrefixes.has(prefix));
-    };
-    const prefixOptionsFor = () => {
-        const isByteBit = isByteBitPrefixUnit();
-        return (isByteBit ? byteBitPrefixOptions : decimalPrefixOptions)
-            .map((prefix) => {
-                const isBinary = binaryIecPrefixes.has(prefix);
-
-                return {
-                    value: prefix,
-                    label: prefix === '' ? '（無印）' : prefix,
-                    disabled: !isByteBit && isBinary,
-                };
-            });
-    };
-    const prefixPolicyHelp = computed(() => (
-        isByteBitPrefixUnit()
-            ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
-            : '単位入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
-    ));
-    const stModalTitle = computed(() => {
-        const base = stModal.form.spec_kind === 'tolerance'
-            ? '許容差スペック詳細'
-            : (stModal.form.spec_scope === 'common' ? '共通スペック詳細' : 'スペック詳細');
-        return `${base}${stModal.isEdit ? '編集' : '追加'}`;
-    });
-    const syncPrefixList = (field, changedPrefix = null) => {
-        let prefixes = normalizePrefixes(stModal.form[field]).map(normalizePrefixToken);
-        const changed = normalizePrefixToken(changedPrefix);
-        if (isByteBitPrefixUnit() && prefixes.includes(changed)) {
-            if (binaryIecPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !decimalNonFractionalPrefixes.has(prefix) && !decimalFractionalPrefixes.has(prefix));
-            } else if (decimalNonFractionalPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !binaryIecPrefixes.has(prefix) && !decimalFractionalPrefixes.has(prefix));
-            }
-        }
-        stModal.form[field] = sanitizePrefixesForUnit(prefixes);
-    };
-
-    const toleranceUnitOptions = [
-        { value: '%', label: '%' },
-        { value: 'ppm', label: 'ppm' },
-        { value: 'pF', label: 'pF' },
-        { value: 'ppm/℃', label: 'ppm/℃' },
-        { value: 'code', label: 'コード' },
-    ];
-    const defaultToleranceUnits = () => ['%', 'ppm'];
-    const normalizeToleranceUnits = (units, fallback = defaultToleranceUnits()) => {
-        const normalized = Array.isArray(units)
-            ? units.map((unit) => String(unit ?? '').trim()).filter(Boolean)
-            : [];
-
-        return normalized.length > 0 ? [...new Set(normalized)] : fallback;
-    };
-    const defaultGradeOptions = () => [
-        { label: 'F', value: 1, unit: '%' },
-        { label: 'G', value: 2, unit: '%' },
-        { label: 'J', value: 5, unit: '%' },
-        { label: 'K', value: 10, unit: '%' },
-        { label: 'M', value: 20, unit: '%' },
-    ];
-    const formatGradeOptions = (options = []) => Array.isArray(options)
-        ? options.map((option) => {
-            const label = option?.label ?? option?.rank ?? '';
-            if (!label) return '';
-            const unit = option?.unit ?? '%';
-            if (option?.plus !== undefined || option?.minus !== undefined) {
-                return `${label}: +${option?.plus ?? ''}/-${option?.minus ?? ''}${unit}`;
-            }
-            if (option?.value !== undefined) return `${label}: ±${option.value}${unit}`;
-            return `${label}:`;
-        }).filter(Boolean).join('\n')
-        : '';
-    const parseGradeOptions = (text = '', fallbackUnit = '%') => String(text ?? '')
-        .split(/\r?\n/u)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-            const match = line.match(/^([^:：\s]+)\s*[:：]\s*(.+)$/u);
-            if (!match) return null;
-            const label = match[1].trim();
-            const rawValue = match[2].trim();
-            const asymmetric = rawValue.match(/^\+?\s*([0-9]+(?:\.[0-9]+)?)\s*\/\s*-?\s*([0-9]+(?:\.[0-9]+)?)\s*(ppm\/℃|%|ppm|pF|code)?$/u);
-            if (asymmetric) {
-                return {
-                    label,
-                    plus: Number(asymmetric[1]),
-                    minus: Number(asymmetric[2]),
-                    unit: asymmetric[3] || fallbackUnit || '%',
-                };
-            }
-            const symmetric = rawValue.match(/^±?\s*([0-9]+(?:\.[0-9]+)?)\s*(ppm\/℃|%|ppm|pF|code)?$/u);
-            if (symmetric) {
-                return {
-                    label,
-                    value: Number(symmetric[1]),
-                    unit: symmetric[2] || fallbackUnit || '%',
-                };
-            }
-            return { label, text: rawValue, unit: fallbackUnit || '%' };
-        })
-        .filter(Boolean);
-    const defaultToleranceSettings = (overrides = {}) => {
-        const defaultUnit = overrides.default_unit ?? overrides.unit ?? '%';
-        const gradeOptions = Array.isArray(overrides.grade_options) ? overrides.grade_options : defaultGradeOptions();
-        return {
-            default_mode: overrides.default_mode ?? overrides.mode ?? overrides.input_format ?? 'symmetric',
-            default_unit: defaultUnit,
-            allowed_units: normalizeToleranceUnits(overrides.allowed_units),
-            grade_options: gradeOptions,
-            grade_options_text: overrides.grade_options_text ?? overrides.rank_definitions ?? formatGradeOptions(gradeOptions),
-        };
-    };
-    const normalizeToleranceSettings = (settings = {}, fallbackUnit = '%') => {
-        let source = settings ?? {};
-        if (typeof source === 'string') {
-            try { source = JSON.parse(source); }
-            catch { source = {}; }
-        }
-        const defaultUnit = source?.default_unit ?? source?.unit ?? fallbackUnit ?? '%';
-        const gradeOptions = Array.isArray(source?.grade_options)
-            ? source.grade_options
-            : parseGradeOptions(source?.grade_options_text ?? source?.rank_definitions ?? '', defaultUnit);
-        return defaultToleranceSettings({
-            default_mode: source?.default_mode ?? source?.mode ?? source?.input_format ?? 'symmetric',
-            default_unit: defaultUnit,
-            allowed_units: normalizeToleranceUnits(source?.allowed_units),
-            grade_options: gradeOptions.length > 0 ? gradeOptions : defaultGradeOptions(),
-            grade_options_text: source?.grade_options_text ?? source?.rank_definitions ?? formatGradeOptions(gradeOptions),
-        });
-    };
-    const compactToleranceSettings = (settings = {}, fallbackUnit = '%') => {
-        const normalized = normalizeToleranceSettings(settings, fallbackUnit);
-        const gradeOptions = parseGradeOptions(normalized.grade_options_text, normalized.default_unit);
-        return {
-            default_mode: normalized.default_mode || 'symmetric',
-            default_unit: normalized.default_unit || '%',
-            allowed_units: normalizeToleranceUnits(normalized.allowed_units),
-            grade_options: gradeOptions.length > 0 ? gradeOptions : normalized.grade_options,
-        };
-    };
-    const specTypeForm = (overrides = {}) => ({
-        name: '',
-        name_ja: '',
-        name_en: '',
-        symbol: '',
-        aliases_text: '',
-        description: '',
-        value_type: 'numeric',
-        sort_order: nextSortOrder(specTypes.value),
-        unit: '',
-        suggest_prefixes: [],
-        display_prefixes: [],
-        spec_scope: 'group_local',
-        owner_spec_group_id: '',
-        spec_kind: 'normal',
-        tolerance_settings: defaultToleranceSettings(),
-        ...overrides,
-    });
-    const openStAdd = (overrides = {}) => {
-        const form = specTypeForm(overrides);
-        stSnapshot.value = clone(form);
-        Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
-    };
-    const openCommonSpecTypeAdd = () => openStAdd({ spec_scope: 'common', owner_spec_group_id: null });
-    const openToleranceSpecTypeAdd = () => openStAdd({
-        spec_scope: 'common',
-        owner_spec_group_id: null,
-        spec_kind: 'tolerance',
-        value_type: 'numeric',
-        unit: '%',
-        tolerance_settings: defaultToleranceSettings(),
-    });
-    const openLocalSpecTypeAdd = () => {
-        if (!currentSpecGroup.value) {
-            toastError('先に部品分類を選択してください');
-            return;
-        }
-        openStAdd({ spec_scope: 'group_local', owner_spec_group_id: currentSpecGroup.value.id });
-    };
-    const openStEdit = async (s) => {
-        let detail = s;
-        if (!Array.isArray(s.aliases) || !Array.isArray(s.units) || s.suggest_prefixes === undefined) {
-            try {
-                const r = await api.get(`/spec-types/${s.id}`);
-                detail = r.data;
-            } catch (e) {
-                toastError(e.message);
-                return;
-            }
-        }
-        const unit = detail.units?.[0]?.unit ?? detail.base_unit ?? '';
-        const form = {
-            name: detail.name, name_ja: detail.name_ja ?? detail.name, name_en: detail.name_en ?? '', symbol: detail.symbol ?? '',
-            aliases_text: (detail.aliases ?? []).map((alias) => alias.alias).join('\n'),
-            description: detail.description ?? '',
-            value_type: detail.value_type ?? 'numeric',
-            sort_order: detail.sort_order ?? 0,
-            unit,
-            suggest_prefixes: sanitizePrefixesForUnit(detail.suggest_prefixes, unit),
-            display_prefixes: sanitizePrefixesForUnit(detail.display_prefixes, unit),
-            spec_scope: detail.spec_scope ?? 'group_local',
-            owner_spec_group_id: detail.owner_spec_group_id ?? '',
-            spec_kind: detail.spec_kind ?? 'normal',
-            tolerance_settings: normalizeToleranceSettings(detail.tolerance_settings, unit || '%'),
-        };
-        stSnapshot.value = clone(form);
-        Object.assign(stModal, { open: true, isEdit: true, editId: detail.id, form });
-    };
-    const openStDuplicate = (s, overrides = {}) => {
-        const unit = s.units?.[0]?.unit ?? s.base_unit ?? '';
-        const form = {
-            name: copyName(s.name), name_ja: copyName(s.name_ja ?? s.name), name_en: s.name_en ?? '', symbol: s.symbol ?? '',
-            aliases_text: (s.aliases ?? []).map((alias) => alias.alias).join('\n'),
-            description: s.description ?? '',
-            value_type: s.value_type ?? 'numeric',
-            sort_order: nextSortOrder(specTypes.value),
-            unit,
-            suggest_prefixes: sanitizePrefixesForUnit(s.suggest_prefixes, unit),
-            display_prefixes: sanitizePrefixesForUnit(s.display_prefixes, unit),
-            spec_scope: s.spec_scope ?? 'group_local',
-            owner_spec_group_id: s.owner_spec_group_id ?? '',
-            spec_kind: s.spec_kind ?? 'normal',
-            tolerance_settings: normalizeToleranceSettings(s.tolerance_settings, unit || '%'),
-            ...overrides,
-        };
-        stSnapshot.value = clone(form);
-        Object.assign(stModal, { open: true, isEdit: false, editId: null, form });
-    };
-    const openCommonSpecTypeDuplicate = (specType) => openStDuplicate(specType, { spec_scope: 'common', owner_spec_group_id: null });
-
-    const saveSpecType = async () => {
-        try {
-            const suggestPrefixes = sanitizePrefixesForUnit(stModal.form.suggest_prefixes);
-            const displayPrefixes = sanitizePrefixesForUnit(stModal.form.display_prefixes);
-            const toleranceSettings = compactToleranceSettings(stModal.form.tolerance_settings, stModal.form.unit || '%');
-            const isTolerance = stModal.form.spec_kind === 'tolerance';
-            const payload = {
-                ...stModal.form,
-                name: stModal.form.name_ja || stModal.form.name,
-                owner_spec_group_id: stModal.form.spec_scope === 'common' ? null : (stModal.form.owner_spec_group_id || null),
-                value_type: isTolerance ? 'numeric' : stModal.form.value_type,
-                unit: isTolerance ? (toleranceSettings.default_unit || '%') : stModal.form.unit,
-                aliases: String(stModal.form.aliases_text ?? '')
-                    .split(/\r?\n/u)
-                    .map((alias) => ({ alias: alias.trim() }))
-                    .filter((item) => item.alias),
-                suggest_prefixes: !isTolerance && suggestPrefixes.length > 0 ? suggestPrefixes : null,
-                display_prefixes: !isTolerance && displayPrefixes.length > 0 ? displayPrefixes : null,
-                tolerance_settings: isTolerance ? toleranceSettings : null,
-            };
-            delete payload.aliases_text;
-            delete payload.default_unit;
-            if (stModal.isEdit) await api.put(`/spec-types/${stModal.editId}`, payload);
-            else await api.post('/spec-types', payload);
-            toastSuccess('保存しました');
-            stModal.open = false;
-            stSnapshot.value = clone(stModal.form);
-            await fetchSpecTypes();
-            await fetchCommonSpecTypes();
-            if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions();
-            if (selectedSpecGroupId.value) await fetchSpecGroups({ forceDetail: true });
-        } catch (e) { toastError(e.message); }
-    };
-    const closeStModal = () => closeModalWithConfirm(stModal, stSnapshot.value);
-    const specTypeGroups = (item) => item?.spec_groups ?? item?.specGroups ?? [];
-    const specTypeOptionLabel = (item) => {
-        const name = item?.name_ja || item?.name || 'スペック詳細';
-        const suffix = [item?.symbol, item?.name_en].filter(Boolean).join(' / ');
-        const label = suffix ? `${name} (${suffix})` : name;
-        return isToleranceSpecType(item) ? `${label} [許容差]` : label;
-    };
-    const toleranceSettingsFor = (item) => normalizeToleranceSettings(item?.tolerance_settings, item?.units?.[0]?.unit ?? item?.base_unit ?? '%');
-    const toleranceUnit = (item) => toleranceSettingsFor(item).default_unit || '%';
-    const toleranceInputFormat = (item) => ({
-        symmetric: '± 対称',
-        asymmetric: '+/- 非対称',
-        grade: 'ランク',
-    })[toleranceSettingsFor(item).default_mode] || toleranceSettingsFor(item).default_mode || '± 対称';
-    const toleranceAllowedUnits = (item) => toleranceSettingsFor(item).allowed_units.join(', ');
-
-    const archiveSpecType = (s) => openConfirm({
-        title: 'スペック詳細をアーカイブしますか？',
-        message: `「${s.name}」をアーカイブします。\n使用件数: ${s.usage_count ?? 0}件`,
-        actionLabel: 'アーカイブする',
-        onConfirm: async () => {
-            try { await api.delete(`/spec-types/${s.id}`); await fetchSpecTypes(); await fetchCommonSpecTypes(); if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions(); if (selectedSpecGroupId.value) await fetchSpecGroups({ forceDetail: true }); toastSuccess('アーカイブしました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    const restoreSpecType = (s) => openConfirm({
-        title: 'スペック詳細を復元しますか？',
-        message: `「${s.name}」を復元します。`,
-        actionLabel: '復元する',
-        actionClass: 'border-emerald-400 text-emerald-700 hover:bg-emerald-50',
-        onConfirm: async () => {
-            try { await api.post(`/spec-types/${s.id}/restore`); await fetchSpecTypes(); await fetchCommonSpecTypes(); if (specTypeOptions.value.length > 0) await fetchSpecTypeOptions(); if (selectedSpecGroupId.value) await fetchSpecGroups({ forceDetail: true }); toastSuccess('復元しました'); }
-            catch (e) { toastError(e.message); }
-        },
-    });
-    // ── 部品分類 / 候補スペック詳細 / 入力テンプレート ─
+    const {
+        packageGroups,
+        selectedPackageGroupId,
+        activePackageGroups,
+        archivedPackageGroups,
+        currentPackageGroup,
+        pkgGroupModal,
+        pkgGroupSnapshot,
+        fetchPackageGroups,
+        openPkgGroupAdd,
+        openPkgGroupEdit,
+        openPkgGroupDuplicate,
+        savePackageGroup,
+        closePkgGroupModal,
+        archivePackageGroup,
+        restorePackageGroup,
+        movePackageGroup,
+        packages,
+        activePackages,
+        archivedPackages,
+        pkgModal,
+        pkgSnapshot,
+        packageDimensions,
+        onPackageFileChange,
+        fetchPackages,
+        selectPackageGroup,
+        openPkgAdd,
+        openPkgEdit,
+        openPkgDuplicate,
+        savePackage,
+        closePkgModal,
+        archivePackage,
+        restorePackage,
+        movePackage,
+    } = packageMaster;
     const specGroups = ref([]);
     const selectedSpecGroupId = ref(null);
     const specGroupDetailLoadingId = ref(null);
@@ -763,37 +125,65 @@ export default function setup() {
     });
     const archivedSpecGroups = computed(() => splitArchived(specGroups.value));
     const currentSpecGroup = computed(() => specGroups.value.find((group) => Number(group.id) === Number(selectedSpecGroupId.value)) ?? null);
-    const specGroupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
-    const specGroupTemplates = (group) => group?.templates ?? [];
-    const specGroupCandidateCounts = (group = currentSpecGroup.value) => {
-        const members = specGroupSpecTypes(group);
-
-        return {
-            total: members.length,
-            local: members.filter((item) => !isCommonSpecType(item) && !isToleranceSpecType(item)).length,
-            common: members.filter((item) => isCommonSpecType(item) && !isToleranceSpecType(item)).length,
-            tolerance: members.filter(isToleranceSpecType).length,
-            templates: specGroupTemplates(group).length,
-            templateItems: specGroupTemplates(group).reduce((sum, template) => sum + (template.items?.length ?? 0), 0),
-            series: Number(group?.series_count ?? 0),
-        };
-    };
+    const specTypeMaster = useSpecTypeMaster({
+        selectedSpecGroupId,
+        currentSpecGroup,
+        fetchSpecGroups: (...args) => fetchSpecGroups(...args),
+        fetchError,
+        toastSuccess,
+        toastError,
+        openConfirm,
+        closeModalWithConfirm,
+        clone,
+        splitActive,
+        splitArchived,
+        nextSortOrder,
+        copyName,
+    });
+    const {
+        specTypes,
+        commonSpecTypes,
+        specTypeOptions,
+        isToleranceSpecType,
+        isCommonSpecType,
+        activeSpecTypes,
+        archivedSpecTypes,
+        activeCommonSpecTypes,
+        archivedCommonSpecTypes,
+        activeToleranceSpecTypes,
+        archivedToleranceSpecTypes,
+        activeSpecTypeOptions,
+        stModal,
+        stSnapshot,
+        fetchSpecTypes,
+        fetchCommonSpecTypes,
+        fetchSpecTypeOptions,
+        prefixOptionsFor,
+        prefixPolicyHelp,
+        stModalTitle,
+        syncPrefixList,
+        toleranceUnitOptions,
+        toleranceUnit,
+        toleranceInputFormat,
+        toleranceAllowedUnits,
+        openCommonSpecTypeAdd,
+        openToleranceSpecTypeAdd,
+        openLocalSpecTypeAdd,
+        openCommonSpecTypeDuplicate,
+        saveSpecType,
+        closeStModal,
+        specTypeGroups,
+        specTypeOptionLabel,
+        archiveSpecType,
+        restoreSpecType,
+        openStAdd,
+        openStEdit,
+        openStDuplicate,
+    } = specTypeMaster;
+    // ── 部品分類 / 候補スペック詳細 / 入力テンプレート ─
     const currentSpecGroupCounts = computed(() => specGroupCandidateCounts(currentSpecGroup.value));
-    const countValue = (value) => Number(value ?? 0);
-    const specGroupSidebarCount = (group) => {
-        if (activeTab.value === 'spec-types') return countValue(group?.owned_spec_type_count);
-        if (activeTab.value === 'spec-candidates') return countValue(group?.usage_count);
-        if (activeTab.value === 'spec-templates') return countValue(group?.template_count);
-        if (activeTab.value === 'common-spec-types') return countValue(group?.common_candidate_count);
-        if (activeTab.value === 'tolerance-spec-types') return countValue(group?.tolerance_candidate_count);
-        return 0;
-    };
-    const specGroupSidebarMeta = (group) => `登録:${specGroupSidebarCount(group)}個`;
-    const specGroupSeriesModeLabel = (group) => ({
-        series_recommended: 'シリーズ登録を推奨',
-        series_optional: 'シリーズ登録も使う',
-        single: '',
-    })[group?.series_management_mode] ?? '';
+    // 目的: マスタ管理画面のspec Group Sidebar Metaを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
+    const specGroupSidebarMeta = (group) => buildSpecGroupSidebarMeta(group, activeTab.value);
     const specGroupSnapshot = ref(null);
     const specGroupModal = reactive({
         open: false, isEdit: false, editId: null,
@@ -827,10 +217,10 @@ export default function setup() {
         new Set(specGroupSpecTypes(selectedTemplateSpecGroup.value).map((item) => Number(item.id)))
     );
     const templateSpecTypeOptions = computed(() => splitActive(specGroupSpecTypes(selectedTemplateSpecGroup.value)));
+    // 目的: マスタ管理画面のtemplate Spec Type Options For Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const templateSpecTypeOptionsForItem = (item = {}) => {
         const selectedId = Number(item?.spec_type_id ?? 0);
         const candidates = [...templateSpecTypeOptions.value];
-
         if (selectedId && !candidates.some((specType) => Number(specType.id) === selectedId)) {
             const selected = item?.spec_type
                 ?? item?.specType
@@ -838,7 +228,6 @@ export default function setup() {
                 ?? null;
             if (selected) candidates.unshift(selected);
         }
-
         const seen = new Set;
         return candidates.filter((specType) => {
             const id = Number(specType.id);
@@ -847,16 +236,19 @@ export default function setup() {
             return true;
         });
     };
+    // 目的: マスタ管理画面のtemplate Spec Type Option Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const templateSpecTypeOptionLabel = (specType) => {
         const label = specTypeOptionLabel(specType);
         return templateCandidateSpecTypeIds.value.has(Number(specType?.id)) ? label : `${label}（候補外）`;
     };
+    // 目的: マスタ管理画面のensure Template Spec Group Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const ensureTemplateSpecGroupDetail = async () => {
         const groupId = Number(templateModal.form.spec_group_id);
         if (groupId) await fetchSpecGroupDetail(groupId);
     };
-
+    // 目的: マスタ管理画面のhas Spec Group Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const hasSpecGroupDetail = (group) => Array.isArray(group?.spec_types) && Array.isArray(group?.templates);
+    // 目的: マスタ管理画面のnormalize Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const normalizeSpecGroup = (group, existing = null) => {
         const next = { ...group };
         if (hasSpecGroupDetail(group)) {
@@ -870,6 +262,7 @@ export default function setup() {
         }
         return next;
     };
+    // 目的: マスタ管理画面のsort Spec Groupsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const sortSpecGroups = () => {
         specGroups.value.sort((a, b) => {
             const order = (a.sort_order ?? 0) - (b.sort_order ?? 0);
@@ -877,6 +270,7 @@ export default function setup() {
             return String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ja');
         });
     };
+    // 目的: マスタ管理画面のreplace Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const replaceSpecGroup = (group, { select = true } = {}) => {
         const index = specGroups.value.findIndex((item) => Number(item.id) === Number(group.id));
         const existing = index >= 0 ? specGroups.value[index] : null;
@@ -887,6 +281,7 @@ export default function setup() {
         if (select) selectedSpecGroupId.value = next.id;
         return next;
     };
+    // 目的: マスタ管理画面のensure Selected Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const ensureSelectedSpecGroup = () => {
         const activeGroups = activeSpecGroups.value;
         if (activeGroups.length === 0) {
@@ -904,16 +299,15 @@ export default function setup() {
             selectedSpecGroupId.value = activeGroups[0].id;
         }
     };
+    // 目的: マスタ管理画面のfetch Spec Group Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSpecGroupDetail = async (groupId, { force = false } = {}) => {
         const id = Number(groupId);
         if (!id) return null;
-
         const current = specGroups.value.find((group) => Number(group.id) === id);
         if (!force && hasSpecGroupDetail(current)) {
             syncMemberSnapshot(current);
             return current;
         }
-
         specGroupDetailLoadingId.value = id;
         try {
             const r = await api.get(`/spec-groups/${id}`);
@@ -928,6 +322,7 @@ export default function setup() {
             if (Number(specGroupDetailLoadingId.value) === id) specGroupDetailLoadingId.value = null;
         }
     };
+    // 目的: マスタ管理画面のfetch Spec Groupsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSpecGroups = async ({ forceDetail = false } = {}) => {
         fetchError.value = '';
         try {
@@ -942,6 +337,7 @@ export default function setup() {
             toastError('部品分類の取得に失敗しました');
         }
     };
+    // 目的: マスタ管理画面のselect Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectSpecGroup = async (group) => {
         if (Number(selectedSpecGroupId.value) === Number(group?.id)) {
             await fetchSpecGroupDetail(group?.id);
@@ -949,10 +345,11 @@ export default function setup() {
         }
         if (!await confirmDiscardUnsaved()) return;
         selectedSpecGroupId.value = group?.id ?? null;
-        syncSpecGroupToUrl(selectedSpecGroupId.value);
+        syncSpecGroupSelectionToUrl(activeTab, selectedSpecGroupId.value);
         await fetchSpecGroupDetail(selectedSpecGroupId.value);
         if (activeTab.value === 'spec-types') await fetchSpecTypes();
     };
+    // 目的: マスタ管理画面のspec Group Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const specGroupForm = (overrides = {}) => ({
         name: '',
         description: '',
@@ -960,11 +357,13 @@ export default function setup() {
         series_management_mode: 'single',
         ...overrides,
     });
+    // 目的: マスタ管理画面のopen Sg Addを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openSgAdd = () => {
         const form = specGroupForm();
         specGroupSnapshot.value = clone(form);
         Object.assign(specGroupModal, { open: true, isEdit: false, editId: null, form });
     };
+    // 目的: マスタ管理画面のopen Sg Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openSgEdit = (group) => {
         const form = specGroupForm({
             name: group.name,
@@ -975,6 +374,7 @@ export default function setup() {
         specGroupSnapshot.value = clone(form);
         Object.assign(specGroupModal, { open: true, isEdit: true, editId: group.id, form });
     };
+    // 目的: マスタ管理画面のopen Sg Duplicateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openSgDuplicate = (group) => {
         const form = specGroupForm({
             name: copyName(group.name),
@@ -984,6 +384,7 @@ export default function setup() {
         specGroupSnapshot.value = clone(form);
         Object.assign(specGroupModal, { open: true, isEdit: false, editId: null, form });
     };
+    // 目的/機能: 部品分類フォームを保存する。入力: specGroupModal.form。出力: なし。動作条件: 管理者操作でモーダルが開いていること。副作用: API通信、一覧更新、toast、モーダル終了。
     const saveSpecGroup = async () => {
         try {
             const payload = {
@@ -1001,7 +402,9 @@ export default function setup() {
             specGroupSnapshot.value = clone(specGroupModal.form);
         } catch (e) { toastError(e.message); }
     };
+    // 目的: マスタ管理画面のclose Spec Group Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeSpecGroupModal = () => closeModalWithConfirm(specGroupModal, specGroupSnapshot.value);
+    // 目的: マスタ管理画面のarchive Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const archiveSpecGroup = (group) => openConfirm({
         title: '部品分類をアーカイブしますか？',
         message: `「${group.name}」をアーカイブします。\n入力候補: ${group.usage_count ?? 0}件 / テンプレート: ${group.template_count ?? 0}件`,
@@ -1011,6 +414,7 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
+    // 目的: マスタ管理画面のrestore Spec Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const restoreSpecGroup = (group) => openConfirm({
         title: '部品分類を復元しますか？',
         message: `「${group.name}」を復元します。`,
@@ -1025,9 +429,13 @@ export default function setup() {
     const linkedCommonSpecTypeIds = computed(() => new Set((currentSpecGroup.value?.spec_types ?? [])
         .filter(isCommonSpecType)
         .map((item) => Number(item.id))));
+    // 目的: マスタ管理画面のis Common Spec Linkedを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const isCommonSpecLinked = (item) => linkedCommonSpecTypeIds.value.has(Number(item.id));
+    // 目的: マスタ管理画面のmember Stateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const memberState = (member) => member?.pivot?.is_required ? 'required' : (member?.pivot?.is_recommended ? 'recommended' : 'optional');
+    // 目的: マスタ管理画面のmember State Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const memberStateLabel = (member) => ({ required: '必須', recommended: '推奨', optional: '任意' })[memberState(member)] ?? '任意';
+    // 目的: マスタ管理画面のdefault Profile Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const defaultProfileLabel = (profile) => ({
         typ: 'TYP',
         range: 'MIN..MAX',
@@ -1035,21 +443,26 @@ export default function setup() {
         min_only: 'MIN',
         triple: 'MIN/TYP/MAX',
     })[profile] ?? '未指定';
+    // 目的: マスタ管理画面のmember Default Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const memberDefaultLabel = (member) => {
         const profile = defaultProfileLabel(member?.pivot?.default_profile);
         const unit = member?.pivot?.default_unit;
         return unit ? `${profile} / ${unit}` : profile;
     };
+    // 目的: マスタ管理画面のcandidate Member Type Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const candidateMemberTypeLabel = (member) => {
         if (isToleranceSpecType(member)) return '許容差';
         return isCommonSpecType(member) ? '共通' : '個別';
     };
+    // 目的: マスタ管理画面のcandidate Member Type Titleを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const candidateMemberTypeTitle = (member) => {
         if (isToleranceSpecType(member)) return '許容差スペック詳細';
         if (isCommonSpecType(member)) return '共通スペック詳細';
         return '左で選んだ部品分類に持たせるスペック詳細';
     };
+    // 目的: マスタ管理画面のdefault Candidate Setting Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const defaultCandidateSettingForm = () => ({ state: 'recommended', default_profile: 'typ', default_unit: '', note: '' });
+    // 目的: マスタ管理画面のmember Payloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const memberPayload = (members = []) => members.map((member, index) => ({
         spec_type_id: Number(member.id),
         sort_order: (index + 1) * 10,
@@ -1059,24 +472,30 @@ export default function setup() {
         default_unit: member.pivot?.default_unit || '',
         note: member.pivot?.note || '',
     }));
+    // 目的: マスタ管理画面のhas Member Changesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const hasMemberChanges = () => {
         if (activeTab.value !== 'spec-candidates' || !currentSpecGroup.value || memberSnapshot.value === null) return false;
         return !same(memberPayload(currentSpecGroup.value.spec_types ?? []), memberPayload(memberSnapshot.value ?? []));
     };
+    // 目的: マスタ管理画面のrefresh Inline Dirtyを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const refreshInlineDirty = () => {
         inlineDirty.value = hasMemberChanges();
     };
+    // 目的: マスタ管理画面のsync Member Snapshotを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncMemberSnapshot = (group = currentSpecGroup.value) => {
         memberSnapshot.value = clone(group?.spec_types ?? []);
         refreshInlineDirty();
     };
+    // 目的: マスタ管理画面のdiscard Inline Editsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const discardInlineEdits = () => {
         if (currentSpecGroup.value && memberSnapshot.value !== null) {
             currentSpecGroup.value.spec_types = clone(memberSnapshot.value);
         }
         inlineDirty.value = false;
     };
+    // 目的: マスタ管理画面のmember Display Nameを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const memberDisplayName = (member) => member?.name_ja || member?.name || 'このスペック詳細';
+    // 目的/機能: 候補一覧の局所変更を保存APIへ同期する。入力: 変更関数と成功文言。出力: 保存成否。動作条件: 部品分類選択中かつ保存中でないこと。副作用: 楽観更新、失敗時復元、toast。
     const persistSpecGroupMemberMutation = async (mutate, successMessage) => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return false;
         const before = clone(currentSpecGroup.value.spec_types ?? []);
@@ -1090,6 +509,7 @@ export default function setup() {
         }
         return saved;
     };
+    // 目的: マスタ管理画面のadd Spec Type To Current Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addSpecTypeToCurrentGroup = (specType, overrides = {}) => {
         if (!currentSpecGroup.value || !specType) return false;
         const members = currentSpecGroup.value.spec_types ?? [];
@@ -1133,6 +553,7 @@ export default function setup() {
         common: '未追加の共通スペック詳細はありません',
         tolerance: '未追加の許容差スペック詳細はありません',
     })[candidateAddModal.mode] ?? '追加できる候補がありません');
+    // 目的: マスタ管理画面のopen Candidate Add Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openCandidateAddModal = async (mode) => {
         if (specGroupMemberSaving.value) return;
         if (!currentSpecGroup.value) {
@@ -1144,9 +565,11 @@ export default function setup() {
         if ((mode === 'common' || mode === 'tolerance') && commonSpecTypes.value.length === 0) await fetchCommonSpecTypes();
         candidateAddModal.open = true;
     };
+    // 目的: マスタ管理画面のclose Candidate Add Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeCandidateAddModal = () => {
         candidateAddModal.open = false;
     };
+    // 目的: マスタ管理画面のadd Candidate From Optionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addCandidateFromOption = async (specType) => {
         const saved = await persistSpecGroupMemberMutation(
             () => addSpecTypeToCurrentGroup(specType),
@@ -1154,6 +577,7 @@ export default function setup() {
         );
         if (saved) candidateAddModal.open = false;
     };
+    // 目的: マスタ管理画面のadd Common Spec To Current Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addCommonSpecToCurrentGroup = (specType) => {
         if (!currentSpecGroup.value) {
             toastError('先に部品分類を選択してください');
@@ -1176,6 +600,7 @@ export default function setup() {
         refreshInlineDirty();
         return true;
     };
+    // 目的: マスタ管理画面のremove Spec Group Member By Idを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeSpecGroupMemberById = (specTypeId) => {
         const members = currentSpecGroup.value?.spec_types;
         const index = members?.findIndex((item) => Number(item.id) === Number(specTypeId)) ?? -1;
@@ -1185,6 +610,7 @@ export default function setup() {
         refreshInlineDirty();
         return true;
     };
+    // 目的: マスタ管理画面のconfirm Remove Spec Group Memberを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const confirmRemoveSpecGroupMember = (memberOrIndex) => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return;
         const member = typeof memberOrIndex === 'number'
@@ -1206,6 +632,7 @@ export default function setup() {
             },
         });
     };
+    // 目的: マスタ管理画面のtoggle Common Spec For Current Groupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const toggleCommonSpecForCurrentGroup = async (specType) => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return;
         const wasLinked = isCommonSpecLinked(specType);
@@ -1218,6 +645,7 @@ export default function setup() {
             '候補に入れました',
         );
     };
+    // 目的: マスタ管理画面のopen Candidate Setting Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openCandidateSettingEdit = (member, index) => {
         const form = {
             state: memberState(member),
@@ -1228,7 +656,9 @@ export default function setup() {
         candidateSettingSnapshot.value = clone(form);
         Object.assign(candidateSettingModal, { open: true, index, form });
     };
+    // 目的: マスタ管理画面のclose Candidate Setting Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeCandidateSettingModal = () => closeModalWithConfirm(candidateSettingModal, candidateSettingSnapshot.value);
+    // 目的: マスタ管理画面のsave Candidate Settingを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveCandidateSetting = async () => {
         const index = candidateSettingModal.index;
         const member = currentSpecGroup.value?.spec_types?.[index];
@@ -1256,6 +686,7 @@ export default function setup() {
             modalDirty.value = false;
         }
     };
+    // 目的/機能: 候補スペック詳細の順序/必須/既定値を一括保存する。入力: 成功文言。出力: 保存成否。動作条件: 候補詳細が読込済みで保存中でないこと。副作用: API通信、部品分類詳細更新、関連一覧再取得。
     const syncSpecGroupMembers = async (successMessage = '候補スペック詳細を保存しました') => {
         if (!currentSpecGroup.value || specGroupMemberSaving.value) return false;
         specGroupMemberSaving.value = true;
@@ -1283,6 +714,7 @@ export default function setup() {
             specGroupMemberSaving.value = false;
         }
     };
+    // 目的: マスタ管理画面のtemplate Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: なし。
     const templateItem = (overrides = {}) => ({
         spec_type_id: '',
         spec_type: null,
@@ -1292,6 +724,7 @@ export default function setup() {
         note: '',
         ...overrides,
     });
+    // 目的/機能: 入力テンプレート編集フォームの初期値を作る。入力: 上書き値。出力: 保存用フォーム。動作条件: 選択中部品分類がある場合は初期紐付けする。副作用: なし。
     const templateForm = (overrides = {}) => ({
         spec_group_id: currentSpecGroup.value?.id ?? '',
         name: '',
@@ -1300,6 +733,7 @@ export default function setup() {
         items: [],
         ...overrides,
     });
+    // 目的: マスタ管理画面のopen Template Addを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openTemplateAdd = async () => {
         if (!currentSpecGroup.value) {
             toastError('先に部品分類を選択してください');
@@ -1310,6 +744,7 @@ export default function setup() {
         Object.assign(templateModal, { open: true, isEdit: false, editId: null, form });
         await ensureTemplateSpecGroupDetail();
     };
+    // 目的: マスタ管理画面のopen Template Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openTemplateEdit = async (template) => {
         const form = templateForm({
             spec_group_id: template.spec_group_id ?? currentSpecGroup.value?.id ?? '',
@@ -1329,6 +764,7 @@ export default function setup() {
         Object.assign(templateModal, { open: true, isEdit: true, editId: template.id, form });
         await ensureTemplateSpecGroupDetail();
     };
+    // 目的: マスタ管理画面のopen Template Duplicateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openTemplateDuplicate = async (template) => {
         const form = templateForm({
             spec_group_id: template.spec_group_id ?? currentSpecGroup.value?.id ?? '',
@@ -1347,8 +783,11 @@ export default function setup() {
         Object.assign(templateModal, { open: true, isEdit: false, editId: null, form });
         await ensureTemplateSpecGroupDetail();
     };
+    // 目的: マスタ管理画面のadd Template Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addTemplateItem = () => templateModal.form.items.push(templateItem());
+    // 目的: マスタ管理画面のremove Template Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeTemplateItem = (index) => templateModal.form.items.splice(index, 1);
+    // 目的: マスタ管理画面のmove Template Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const moveTemplateItem = (index, delta) => {
         const target = index + delta;
         const items = templateModal.form.items;
@@ -1368,6 +807,7 @@ export default function setup() {
             items.splice(i, 0, moved);
         },
     };
+    // 目的/機能: 入力テンプレートと項目行を保存する。入力: templateModal.form。出力: なし。動作条件: spec_type_id のある行だけ保存対象。副作用: API通信、部品分類詳細再取得、toast、モーダル終了。
     const saveTemplate = async () => {
         try {
             const payload = {
@@ -1391,7 +831,9 @@ export default function setup() {
             await fetchSpecGroups({ forceDetail: true });
         } catch (e) { toastError(e.message); }
     };
+    // 目的: マスタ管理画面のclose Template Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeTemplateModal = () => closeModalWithConfirm(templateModal, templateSnapshot.value);
+    // 目的: マスタ管理画面のarchive Templateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const archiveTemplate = (template) => openConfirm({
         title: '入力テンプレートをアーカイブしますか？',
         message: `「${template.name}」をアーカイブします。`,
@@ -1401,8 +843,8 @@ export default function setup() {
             catch (e) { toastError(e.message); }
         },
     });
-
-    // ── タブ切り替え時のフェッチ ──────────────────────────
+    // タブ切り替え時のフェッチ
+    // 目的: マスタ管理画面のretry Active Tabを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const retryActiveTab = async () => {
         if (!await confirmDiscardUnsaved()) return;
         if (activeTab.value === 'part-categories') return fetchSpecGroups({ forceDetail: true });
@@ -1419,7 +861,7 @@ export default function setup() {
         }
         return fetchSpecTypes();
     };
-
+    // 目的: マスタ管理画面のclose All Editor Modalsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeAllEditorModals = () => {
         pkgGroupModal.open = false;
         pkgModal.open = false;
@@ -1429,6 +871,7 @@ export default function setup() {
         candidateSettingModal.open = false;
         candidateAddModal.open = false;
     };
+    // 目的: マスタ管理画面のconfirm Discard Unsavedを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: マスタ管理画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const confirmDiscardUnsaved = async () => {
         if (!dirty.value) return true;
         const confirmed = await ask('未保存の変更があります。このまま移動すると編集内容は失われます。移動してもよいですか？');
@@ -1438,6 +881,7 @@ export default function setup() {
         modalDirty.value = false;
         return true;
     };
+    // 目的/機能: 表示タブを切り替え必要データを取得する。入力: タブIDとURL更新指定。出力: なし。動作条件: 未保存変更は破棄確認を通す。副作用: URL履歴、activeTab、API取得、未保存状態更新。
     const switchTab = async (tab, { updateUrl = true, replaceUrl = false } = {}) => {
         const nextTab = normalizeTab(tab);
         const changed = activeTab.value !== nextTab;
@@ -1447,7 +891,6 @@ export default function setup() {
         }
         activeTab.value = nextTab;
         if (updateUrl && (changed || replaceUrl)) syncTabToUrl(nextTab, { replace: replaceUrl });
-
         if (nextTab === 'part-categories' && specGroups.value.length === 0) fetchSpecGroups();
         else if (nextTab === 'package-groups' && packageGroups.value.length === 0) fetchPackageGroups();
         else if (nextTab === 'packages') {
@@ -1464,7 +907,6 @@ export default function setup() {
             fetchSpecGroups();
         }
     };
-
     onMounted(() => {
         // 初期タブのデータだけ取得し、URLにも現在タブを明示する
         switchTab(activeTab.value, { updateUrl: true, replaceUrl: true });
@@ -1473,7 +915,6 @@ export default function setup() {
             switchTab(tabFromUrl(), { updateUrl: false });
         });
     });
-
     watch(() => pkgModal.form, (value) => {
         if (pkgModal.open) modalDirty.value = !same(value, pkgSnapshot.value);
     }, { deep: true });
@@ -1511,55 +952,28 @@ export default function setup() {
     });
     watch(() => currentSpecGroup.value?.spec_types, refreshInlineDirty, { deep: true });
     watch(() => activeTab.value, refreshInlineDirty);
-
     // DnDインスタンスはすべてのrefが揃ったここで生成する
-    const pgDnD  = makeDnD(activePackageGroups, (g) => ({ url: `/package-groups/${g.id}`, body: { name: g.name, description: g.description ?? '' } }), fetchPackageGroups);
-    const pkgDnD = {
-        start: (i) => { dragSrc.value = i; dragTarget.value = i; },
-        over:  (e, i) => { e.preventDefault(); dragTarget.value = i; },
-        end:   () => { dragSrc.value = null; dragTarget.value = null; },
-        drop:  async (i) => {
-            const from = dragSrc.value;
-            dragSrc.value = null; dragTarget.value = null;
-            if (from === null || from === i) return;
-            const items = [...activePackages.value];
-            const [moved] = items.splice(from, 1);
-            items.splice(i, 0, moved);
-            activePackages.value = items;
-            try {
-                await api.put(`/package-groups/${selectedPackageGroupId.value}/packages/reorder`, {
-                    package_ids: items.map((item) => item.id),
-                });
-                toastSuccess('並び順を更新しました');
-                await fetchPackages();
-            } catch (e) { toastError(e.message); await fetchPackages(); }
-        },
-    };
-    const candidateMemberDnD = {
-        start: (i) => { dragSrc.value = i; dragTarget.value = i; },
-        over:  (e, i) => { e.preventDefault(); dragTarget.value = i; },
-        end:   () => { dragSrc.value = null; dragTarget.value = null; },
-        drop:  async (i) => {
-            const from = dragSrc.value;
-            dragSrc.value = null; dragTarget.value = null;
-            if (from === null || from === i || !currentSpecGroup.value) return;
-            const members = [...(currentSpecGroup.value.spec_types ?? [])];
-            const [moved] = members.splice(from, 1);
-            members.splice(i, 0, moved);
-            await persistSpecGroupMemberMutation(() => {
-                currentSpecGroup.value.spec_types = members;
-                return true;
-            }, '並び順を更新しました');
-        },
-    };
-    const sgDnD  = makeDnD(activeSpecGroups,    (g) => ({
-        url: `/spec-groups/${g.id}`,
-        body: {
-            name: g.name,
-            description: g.description ?? '',
-        },
-    }), fetchSpecGroups);
-
+    const pgDnD = createMasterReorderDnd({
+        arr: activePackageGroups, buildPayload: (g) => ({ url: `/package-groups/${g.id}`, body: { name: g.name, description: g.description ?? '' } }),
+        fetchFn: fetchPackageGroups, dragSrc, dragTarget, toastSuccess, toastError,
+    });
+    const pkgDnD = createPackageDnd({ activePackages, selectedPackageGroupId, fetchPackages, dragSrc, dragTarget, toastSuccess, toastError });
+    const candidateMemberDnD = createCandidateMemberDnd({ currentSpecGroup, persistSpecGroupMemberMutation, dragSrc, dragTarget });
+    const sgDnD = createMasterReorderDnd({
+        arr: activeSpecGroups,
+        buildPayload: (g) => ({
+            url: `/spec-groups/${g.id}`,
+            body: {
+                name: g.name,
+                description: g.description ?? '',
+            },
+        }),
+        fetchFn: fetchSpecGroups,
+        dragSrc,
+        dragTarget,
+        toastSuccess,
+        toastError,
+    });
     return {
         toasts, fetchError, activeTab, switchTab, retryActiveTab, canEdit, isAdmin, closePkgGroupModal, closePkgModal, closeStModal,
         confirmModal, doConfirm,

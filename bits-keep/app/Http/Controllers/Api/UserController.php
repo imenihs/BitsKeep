@@ -17,7 +17,14 @@ use Illuminate\Validation\Rule;
  */
 class UserController extends Controller
 {
-    // GET /api/users
+    /**
+     * 目的: ユーザーの一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request)
     {
         // 管理者のみ
@@ -26,12 +33,19 @@ class UserController extends Controller
         }
 
         $users = User::with('authProviders')->orderBy('created_at')->get()
-            ->map(fn ($u) => $this->format($u));
+            ->map( fn ($u) => $this->format($u));
 
         return ApiResponse::success($users);
     }
 
-    // PATCH /api/users/{user}/role
+    /**
+     * 目的: ユーザーのupdateroleを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $user。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateRole(Request $request, User $user)
     {
         if (! $request->user()->isAdmin()) {
@@ -55,7 +69,14 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user));
     }
 
-    // PATCH /api/users/{user}/active
+    /**
+     * 目的: ユーザーのupdateactiveを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $user。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateActive(Request $request, User $user)
     {
         if (! $request->user()->isAdmin()) {
@@ -76,7 +97,14 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user));
     }
 
-    // PATCH /api/users/{user}/name
+    /**
+     * 目的: ユーザーのupdate名称を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $user。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateName(Request $request, User $user)
     {
         if (! $request->user()->isAdmin()) {
@@ -92,7 +120,14 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user));
     }
 
-    // PATCH /api/users/{user}/email
+    /**
+     * 目的: ユーザーのupdateemailを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $user。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateEmail(Request $request, User $user)
     {
         if (! $request->user()->isAdmin()) {
@@ -108,7 +143,14 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user));
     }
 
-    // PATCH /api/users/{user}/password
+    /**
+     * 目的: ユーザーのupdatepasswordを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $user。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updatePassword(Request $request, User $user)
     {
         if (! $request->user()->isAdmin()) {
@@ -124,7 +166,14 @@ class UserController extends Controller
         return ApiResponse::success($this->format($user), 'パスワードをリセットしました');
     }
 
-    // POST /api/users/invite
+    /**
+     * 目的: ユーザーのinviteを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function invite(Request $request)
     {
         if (! $request->user()->isAdmin()) {
@@ -157,7 +206,14 @@ class UserController extends Controller
             'mail_sent' => true,
         ], 'ユーザーを招待しました');
     }
-
+    /**
+     * 目的: ユーザーの整形を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $u。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function format(User $u): array
     {
         return [
@@ -167,7 +223,7 @@ class UserController extends Controller
             'role' => $u->role,
             'is_active' => $u->is_active,
             'auth_providers' => $u->authProviders
-                ->map(fn ($provider) => [
+                ->map( fn ($provider) => [
                     'provider' => $provider->provider,
                     'email' => $provider->provider_email,
                     'linked_at' => $provider->linked_at?->toIso8601String(),

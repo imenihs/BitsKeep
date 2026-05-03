@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\DecoratesComponentResponses;
 use App\Http\Requests\StoreComponentRequest;
 use App\Http\Requests\UpdateComponentSectionRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Component;
-use App\Models\ComponentDatasheet;
-use App\Models\Package;
-use App\Models\SpecGroup;
 use App\Models\SpecType;
 use App\Services\SpecValueNormalizerService;
 use App\Services\TempDatasheetService;
@@ -22,9 +20,15 @@ use RuntimeException;
 
 class ComponentController extends Controller
 {
+    use DecoratesComponentResponses;
+
     /**
-     * GET /api/components
-     * フリーワード・部品分類・入手可否・スペック範囲フィルタ + ページネーション
+     * 目的: 部品の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function index(Request $request)
     {
@@ -229,13 +233,18 @@ class ComponentController extends Controller
         $perPage = min((int) $request->input('per_page', 20), 100);
         $this->applyComponentOrdering($query, (string) $request->input('sort', 'catalog'));
         $result = $query->paginate($perPage);
-        $result->getCollection()->transform(fn (Component $component) => $this->decorateComponent($component));
+        $result->getCollection()->transform( fn (Component $component) => $this->decorateComponent($component));
 
         return ApiResponse::success($result);
     }
 
     /**
-     * POST /api/components
+     * 目的: 部品の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function store(StoreComponentRequest $request)
     {
@@ -288,7 +297,12 @@ class ComponentController extends Controller
     }
 
     /**
-     * GET /api/components/{component}
+     * 目的: 部品の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function show(Component $component)
     {
@@ -312,7 +326,12 @@ class ComponentController extends Controller
     }
 
     /**
-     * PUT /api/components/{component}  — 全項目更新
+     * 目的: 部品の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function update(StoreComponentRequest $request, Component $component)
     {
@@ -348,8 +367,12 @@ class ComponentController extends Controller
     }
 
     /**
-     * PATCH /api/components/{component}/{section}  — セクション別部分更新
-     * section: basic / specs / suppliers
+     * 目的: 部品のupdatesectionを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component, $section。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function updateSection(UpdateComponentSectionRequest $request, Component $component, string $section)
     {
@@ -404,7 +427,7 @@ class ComponentController extends Controller
 
                 case 'suppliers':
                     // 送信された suppliers で全置換
-                    $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());
+                    $component->componentSuppliers()->each( fn ($cs) => $cs->priceBreaks()->delete());
                     $component->componentSuppliers()->delete();
                     $this->syncSuppliers($component, $request->suppliers ?? []);
                     $component->save();
@@ -418,7 +441,12 @@ class ComponentController extends Controller
     }
 
     /**
-     * DELETE /api/components/{component}  — 論理削除
+     * 目的: 部品の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function destroy(Component $component)
     {
@@ -427,8 +455,14 @@ class ComponentController extends Controller
         return ApiResponse::noContent();
     }
 
-    // ── プライベートヘルパー ────────────────────────────────
-
+    /**
+     * 目的: 部品の適用部品orderingを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $query, $sort。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function applyComponentOrdering(Builder $query, string $sort): void
     {
         switch ($sort) {
@@ -461,7 +495,14 @@ class ComponentController extends Controller
                 break;
         }
     }
-
+    /**
+     * 目的: 部品の適用catalogorderingを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $query。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function applyCatalogOrdering(Builder $query): void
     {
         $categoryOrderSql = 'FROM component_spec_group '
@@ -490,7 +531,14 @@ class ComponentController extends Controller
             ->orderBy('components.manufacturer')
             ->orderBy('components.id');
     }
-
+    /**
+     * 目的: 部品の同期関連を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncRelations(Component $component, $request): void
     {
         if ($request->has('category_ids')) {
@@ -500,7 +548,7 @@ class ComponentController extends Controller
             $this->syncSpecs($component, (array) $request->input('specs', []));
         }
         if ($request->has('suppliers')) {
-            $component->componentSuppliers()->each(fn ($cs) => $cs->priceBreaks()->delete());
+            $component->componentSuppliers()->each( fn ($cs) => $cs->priceBreaks()->delete());
             $component->componentSuppliers()->delete();
             $this->syncSuppliers($component, $request->suppliers ?? []);
         }
@@ -522,7 +570,14 @@ class ComponentController extends Controller
             $this->syncAltiumLink($component, (array) $request->input('altium', []));
         }
     }
-
+    /**
+     * 目的: 部品の同期仕入先を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $suppliers。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncSuppliers(Component $component, array $suppliers): void
     {
         foreach ($suppliers as $s) {
@@ -543,7 +598,14 @@ class ComponentController extends Controller
             }
         }
     }
-
+    /**
+     * 目的: 部品の同期スペックを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $specs。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncSpecs(Component $component, array $specs): void
     {
         $component->specs()->delete();
@@ -553,7 +615,7 @@ class ComponentController extends Controller
         }
 
         $specTypeMap = SpecType::with('units')
-            ->whereIn('id', collect($specs)->pluck('spec_type_id')->filter()->map(fn ($id) => (int) $id)->unique()->values())
+            ->whereIn('id', collect($specs)->pluck('spec_type_id')->filter()->map( fn ($id) => (int) $id)->unique()->values())
             ->get()
             ->keyBy('id');
 
@@ -580,7 +642,14 @@ class ComponentController extends Controller
             ]);
         }
     }
-
+    /**
+     * 目的: 部品の同期altiumlinkを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $altium。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncAltiumLink(Component $component, array $altium): void
     {
         $payload = [
@@ -590,7 +659,7 @@ class ComponentController extends Controller
             'pcb_footprint' => $altium['pcb_footprint'] ?? null,
         ];
 
-        $hasAnyValue = collect($payload)->contains(fn ($value) => $value !== null && $value !== '');
+        $hasAnyValue = collect($payload)->contains( fn ($value) => $value !== null && $value !== '');
 
         if (! $hasAnyValue) {
             if ($component->altiumLink) {
@@ -605,7 +674,14 @@ class ComponentController extends Controller
             $payload
         );
     }
-
+    /**
+     * 目的: 部品の同期データシートを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncDatasheets(Component $component, Request $request): void
     {
         $files = [];
@@ -616,8 +692,7 @@ class ComponentController extends Controller
             $files[] = $request->file('datasheet');
         }
 
-        $tempTokens = array_values(array_filter(array_map(
-            fn ($value) => trim((string) $value),
+        $tempTokens = array_values(array_filter(array_map( fn ($value) => trim((string) $value),
             (array) $request->input('temp_datasheet_tokens', [])
         )));
 
@@ -683,7 +758,14 @@ class ComponentController extends Controller
         $component->datasheet_path = $component->datasheets()->orderBy('sort_order')->value('file_path');
         $component->save();
     }
-
+    /**
+     * 目的: 部品の同期既存データシートlabelsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component, $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncExistingDatasheetLabels(Component $component, Request $request): void
     {
         $entries = $request->input('existing_datasheets');
@@ -710,181 +792,18 @@ class ComponentController extends Controller
             }
         }
     }
-
+    /**
+     * 目的: 部品の正規化データシート表示名称を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $value。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function normalizeDatasheetDisplayName(mixed $value): ?string
     {
         $trimmed = trim((string) ($value ?? ''));
 
         return $trimmed === '' ? null : $trimmed;
-    }
-
-    private function decorateComponent(Component $component): Component
-    {
-        if ($component->relationLoaded('package') || $component->relationLoaded('packages')) {
-            $package = $component->relationLoaded('package')
-                ? $component->package
-                : $component->packages->first();
-            $component->setRelation('package', $package);
-            $component->setRelation('packages', $package ? collect([$package]) : collect());
-            $component->package_group = $package?->packageGroup;
-            $component->package_name = $package?->name;
-        }
-
-        if ($component->relationLoaded('customAttributes')) {
-            $component->custom_attributes = $component->customAttributes;
-        }
-
-        if ($component->relationLoaded('specs')) {
-            $this->sortSpecsByMasterOrder($component);
-        }
-
-        if ($component->relationLoaded('componentSeries')) {
-            $component->component_series_name = $component->componentSeries?->name;
-        }
-        if ($component->relationLoaded('componentSeriesValue')) {
-            $component->component_series_value_text = $component->componentSeriesValue?->value_text;
-        }
-
-        if ($component->relationLoaded('inventoryBlocks')) {
-            $stockTypeOrder = ['reel' => 0, 'tape' => 1, 'tray' => 2, 'loose' => 3, 'box' => 4];
-            $conditionOrder = ['new' => 0, 'used' => 1];
-
-            $component->setRelation('inventoryBlocks', $component->inventoryBlocks
-                ->sortBy([
-                    fn ($block) => $block->location->sort_order ?? PHP_INT_MAX,
-                    fn ($block) => $block->location->code ?? 'ZZZ',
-                    fn ($block) => $conditionOrder[$block->condition] ?? 99,
-                    fn ($block) => $stockTypeOrder[$block->stock_type] ?? 99,
-                    fn ($block) => $block->id,
-                ])
-                ->values());
-        }
-
-        $component->image_url = FileStorage::url($component->image_path);
-        $primarySheet = $component->relationLoaded('datasheets')
-            ? $component->datasheets->first()
-            : ($component->datasheet_path ? (object) ['file_path' => $component->datasheet_path, 'original_name' => basename($component->datasheet_path)] : null);
-        $component->datasheet_url = FileStorage::url($primarySheet?->file_path);
-        $component->datasheet_path = $primarySheet?->file_path;
-        if ($component->relationLoaded('datasheets')) {
-            $datasheetCount = $component->datasheets->count();
-            $component->datasheets->transform(function (ComponentDatasheet $sheet, int $index) use ($datasheetCount) {
-                $sheet->url = FileStorage::url($sheet->file_path);
-                $sheet->display_name = $sheet->note
-                    ?: ($sheet->original_name
-                        ?: 'データシート'.($datasheetCount > 1 ? ' '.($index + 1) : ''));
-
-                return $sheet;
-            });
-        }
-        $component->needs_reorder = $component->quantity_new < $component->threshold_new
-            || $component->quantity_used < $component->threshold_used;
-        if ($component->relationLoaded('componentSuppliers')) {
-            $cheapest = $component->componentSuppliers
-                ->filter(fn ($item) => $item->unit_price !== null)
-                ->sortBy('unit_price')
-                ->first();
-            $component->cheapest_unit_price = $cheapest?->unit_price;
-            $component->cheapest_supplier_name = $cheapest?->supplier?->name;
-        }
-
-        return $component;
-    }
-
-    private function sortSpecsByMasterOrder(Component $component): void
-    {
-        $categoryIds = $component->relationLoaded('categories')
-            ? $component->categories->pluck('id')->map(fn ($id) => (int) $id)->all()
-            : $component->categories()->pluck('spec_groups.id')->map(fn ($id) => (int) $id)->all();
-
-        $candidateOrder = [];
-        if ($categoryIds !== []) {
-            $rows = DB::table('spec_group_spec_type')
-                ->join('spec_groups', 'spec_groups.id', '=', 'spec_group_spec_type.spec_group_id')
-                ->whereIn('spec_group_spec_type.spec_group_id', $categoryIds)
-                ->whereNull('spec_groups.deleted_at')
-                ->orderBy('spec_groups.sort_order')
-                ->orderBy('spec_groups.name')
-                ->orderBy('spec_group_spec_type.sort_order')
-                ->orderBy('spec_group_spec_type.spec_type_id')
-                ->get([
-                    'spec_group_spec_type.spec_type_id',
-                    'spec_group_spec_type.sort_order as candidate_sort_order',
-                    'spec_groups.sort_order as group_sort_order',
-                    'spec_groups.name as group_name',
-                ]);
-
-            foreach ($rows as $index => $row) {
-                $specTypeId = (int) $row->spec_type_id;
-                $candidateOrder[$specTypeId] ??= [
-                    'rank' => $index,
-                    'group_sort_order' => (int) $row->group_sort_order,
-                    'group_name' => (string) $row->group_name,
-                    'candidate_sort_order' => (int) $row->candidate_sort_order,
-                ];
-            }
-        }
-
-        $component->setRelation('specs', $component->specs
-            ->sort(function ($left, $right) use ($candidateOrder) {
-                $leftType = $left->specType;
-                $rightType = $right->specType;
-                $leftCandidate = $candidateOrder[(int) $left->spec_type_id] ?? null;
-                $rightCandidate = $candidateOrder[(int) $right->spec_type_id] ?? null;
-
-                return [
-                    $leftCandidate === null ? 1 : 0,
-                    $leftCandidate['rank'] ?? PHP_INT_MAX,
-                    $leftCandidate['candidate_sort_order'] ?? PHP_INT_MAX,
-                    (int) ($leftType?->sort_order ?? PHP_INT_MAX),
-                    (string) ($leftType?->name_ja ?? $leftType?->name ?? ''),
-                    (int) $left->id,
-                ] <=> [
-                    $rightCandidate === null ? 1 : 0,
-                    $rightCandidate['rank'] ?? PHP_INT_MAX,
-                    $rightCandidate['candidate_sort_order'] ?? PHP_INT_MAX,
-                    (int) ($rightType?->sort_order ?? PHP_INT_MAX),
-                    (string) ($rightType?->name_ja ?? $rightType?->name ?? ''),
-                    (int) $right->id,
-                ];
-            })
-            ->values());
-    }
-
-    private function assertPackageSelection(mixed $packageGroupId, mixed $packageId): void
-    {
-        if ($packageGroupId && ! $packageId) {
-            throw ValidationException::withMessages(['package_id' => 'パッケージを選択してください。']);
-        }
-
-        if ($packageId && ! $packageGroupId) {
-            throw ValidationException::withMessages(['package_group_id' => '先にパッケージ分類を選択してください。']);
-        }
-
-        if (! $packageId) {
-            return;
-        }
-
-        $package = Package::find($packageId);
-        if (! $package) {
-            throw ValidationException::withMessages(['package_id' => '選択したパッケージが存在しません。']);
-        }
-
-        if ($packageGroupId && (int) $package->package_group_id !== (int) $packageGroupId) {
-            throw ValidationException::withMessages(['package_id' => 'パッケージが選択中のパッケージ分類に属していません。']);
-        }
-    }
-
-    private function firstCategoryName(array $categoryIds): ?string
-    {
-        if ($categoryIds === []) {
-            return null;
-        }
-
-        return SpecGroup::query()
-            ->whereIn('id', $categoryIds)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->value('name');
     }
 }

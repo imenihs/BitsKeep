@@ -20,7 +20,14 @@ class ComponentSeriesManagementTest extends TestCase
     private User $editor;
 
     private User $viewer;
-
+    /**
+     * 目的: setupの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -28,7 +35,14 @@ class ComponentSeriesManagementTest extends TestCase
         $this->editor = User::factory()->create(['role' => 'editor', 'is_active' => true]);
         $this->viewer = User::factory()->create(['role' => 'viewer', 'is_active' => true]);
     }
-
+    /**
+     * 目的: 「editor can create hybrid series and preview e12 with extra e24 values」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_editor_can_create_hybrid_series_and_preview_e12_with_extra_e24_values(): void
     {
         $fixture = $this->createSeriesFixture();
@@ -51,10 +65,10 @@ class ComponentSeriesManagementTest extends TestCase
             ->assertJsonPath('success', true);
 
         $values = collect($preview->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1Ω' && $row['origin'] === 'primary_generated'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1.1Ω' && $row['origin'] === 'extra_series'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '4.99Ω' && $row['origin'] === 'manual'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1.2Ω' && $row['is_enabled'] === false));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1Ω' && $row['origin'] === 'primary_generated'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1.1Ω' && $row['origin'] === 'extra_series'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '4.99Ω' && $row['origin'] === 'manual'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1.2Ω' && $row['is_enabled'] === false));
 
         $response = $this->actingAs($this->editor)->postJson('/api/component-series', [
             'spec_group_id' => $fixture['group']->id,
@@ -90,7 +104,14 @@ class ComponentSeriesManagementTest extends TestCase
             'origin' => 'extra_series',
         ]);
     }
-
+    /**
+     * 目的: 「custom list series keeps non e values without generated series」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_custom_list_series_keeps_non_e_values_without_generated_series(): void
     {
         $fixture = $this->createSeriesFixture(['group_name' => 'ツェナーダイオード', 'spec_type_name' => 'ツェナー電圧', 'unit' => 'V']);
@@ -117,7 +138,14 @@ class ComponentSeriesManagementTest extends TestCase
             'origin' => 'custom_list',
         ]);
     }
-
+    /**
+     * 目的: 「resistor series can add zero ohm and generate ten giga ohm」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_resistor_series_can_add_zero_ohm_and_generate_ten_giga_ohm(): void
     {
         $preview = $this->actingAs($this->editor)->postJson('/api/component-series/preview', [
@@ -135,10 +163,17 @@ class ComponentSeriesManagementTest extends TestCase
         $preview->assertOk();
 
         $values = collect($preview->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '0Ω' && $row['origin'] === 'manual'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '10GΩ' && $row['origin'] === 'primary_generated'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '0Ω' && $row['origin'] === 'manual'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '10GΩ' && $row['origin'] === 'primary_generated'));
     }
-
+    /**
+     * 目的: 「e series uses engineering start and end values with zero checkbox」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_e_series_uses_engineering_start_and_end_values_with_zero_checkbox(): void
     {
         $preview = $this->actingAs($this->editor)->postJson('/api/component-series/preview', [
@@ -156,13 +191,20 @@ class ComponentSeriesManagementTest extends TestCase
         $preview->assertOk();
 
         $values = collect($preview->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '0Ω' && $row['origin'] === 'included_zero'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '2.2kΩ'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '10kΩ'));
-        $this->assertFalse($values->contains(fn ($row) => $row['value_text'] === '1kΩ'));
-        $this->assertFalse($values->contains(fn ($row) => $row['value_text'] === '12kΩ'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '0Ω' && $row['origin'] === 'included_zero'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '2.2kΩ'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '10kΩ'));
+        $this->assertFalse($values->contains( fn ($row) => $row['value_text'] === '1kΩ'));
+        $this->assertFalse($values->contains( fn ($row) => $row['value_text'] === '12kΩ'));
     }
-
+    /**
+     * 目的: 「capacitor series uses selected spec prefixes for start and end values」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_capacitor_series_uses_selected_spec_prefixes_for_start_and_end_values(): void
     {
         $fixture = $this->createSeriesFixture([
@@ -188,12 +230,12 @@ class ComponentSeriesManagementTest extends TestCase
         $preview->assertOk();
 
         $values = collect($preview->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1fF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1pF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '8.2pF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '10pF'));
-        $this->assertFalse($values->contains(fn ($row) => $row['value_text'] === '0.1fF'));
-        $this->assertFalse($values->contains(fn ($row) => str_contains($row['value_text'], '999999')));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1fF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1pF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '8.2pF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '10pF'));
+        $this->assertFalse($values->contains( fn ($row) => $row['value_text'] === '0.1fF'));
+        $this->assertFalse($values->contains( fn ($row) => str_contains($row['value_text'], '999999')));
 
         $invalid = $this->actingAs($this->editor)->postJson('/api/component-series/preview', [
             'value_spec_type_id' => $fixture['specType']->id,
@@ -210,7 +252,14 @@ class ComponentSeriesManagementTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['policy.range_min', 'policy.range_max']);
     }
-
+    /**
+     * 目的: 「capacitor series preview keeps sub pico to micro range」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_capacitor_series_preview_keeps_sub_pico_to_micro_range(): void
     {
         $fixture = $this->createSeriesFixture([
@@ -237,15 +286,22 @@ class ComponentSeriesManagementTest extends TestCase
         $preview->assertOk();
 
         $values = collect($preview->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '0F' && $row['origin'] === 'included_zero'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '100fF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1pF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '100nF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '100uF'));
-        $firstGenerated = $values->first(fn ($row) => $row['origin'] !== 'included_zero');
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '0F' && $row['origin'] === 'included_zero'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '100fF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1pF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '100nF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '100uF'));
+        $firstGenerated = $values->first( fn ($row) => $row['origin'] !== 'included_zero');
         $this->assertSame('100fF', $firstGenerated['value_text'] ?? null);
     }
-
+    /**
+     * 目的: 「saved capacitor series can be regenerated with smaller start value」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_saved_capacitor_series_can_be_regenerated_with_smaller_start_value(): void
     {
         $fixture = $this->createSeriesFixture([
@@ -304,13 +360,20 @@ class ComponentSeriesManagementTest extends TestCase
         $updated->assertOk();
 
         $values = collect($updated->json('data.values'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '100fF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1pF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '1uF'));
-        $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === '100uF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '100fF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1pF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '1uF'));
+        $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === '100uF'));
         $this->assertSame('100fF', $values->first()['value_text'] ?? null);
     }
-
+    /**
+     * 目的: 「e series preview covers full ui prefix range」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_e_series_preview_covers_full_ui_prefix_range(): void
     {
         $fixture = $this->createSeriesFixture([
@@ -339,12 +402,19 @@ class ComponentSeriesManagementTest extends TestCase
         $this->assertSame('1fF', $values->first()['value_text'] ?? null);
         $this->assertSame('100TF', $values->last()['value_text'] ?? null);
         foreach (['1fF', '1pF', '1nF', '1uF', '1mF', '1F', '1kF', '1MF', '1GF', '1TF', '100TF'] as $label) {
-            $this->assertTrue($values->contains(fn ($row) => $row['value_text'] === $label), "{$label} が生成されていません");
+            $this->assertTrue($values->contains( fn ($row) => $row['value_text'] === $label), "{$label} が生成されていません");
         }
-        $this->assertFalse($values->contains(fn ($row) => $row['value_text'] === '0F'));
-        $this->assertFalse($values->contains(fn ($row) => str_ends_with($row['value_text'], 'PF')));
+        $this->assertFalse($values->contains( fn ($row) => $row['value_text'] === '0F'));
+        $this->assertFalse($values->contains( fn ($row) => str_ends_with($row['value_text'], 'PF')));
     }
-
+    /**
+     * 目的: 「range step accepts engineering notation and reports field specific errors」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_range_step_accepts_engineering_notation_and_reports_field_specific_errors(): void
     {
         $preview = $this->actingAs($this->editor)->postJson('/api/component-series/preview', [
@@ -380,7 +450,14 @@ class ComponentSeriesManagementTest extends TestCase
             $invalid->json('errors')['policy.range_max'][0] ?? null
         );
     }
-
+    /**
+     * 目的: 「selected virtual value can be materialized as real component」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_selected_virtual_value_can_be_materialized_as_real_component(): void
     {
         $fixture = $this->createSeriesFixture();
@@ -433,7 +510,14 @@ class ComponentSeriesManagementTest extends TestCase
         $this->assertTrue($value->is_stocked);
         $this->assertSame($componentId, Component::first()->id);
     }
-
+    /**
+     * 目的: 「viewer cannot write component series」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_viewer_cannot_write_component_series(): void
     {
         $fixture = $this->createSeriesFixture();
@@ -459,6 +543,12 @@ class ComponentSeriesManagementTest extends TestCase
     }
 
     /**
+     * 目的: /。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: $overrides。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
      * @return array<string, mixed>
      */
     private function createSeriesFixture(array $overrides = []): array

@@ -30,15 +30,26 @@ class GeminiService
 
     // PDF最大サイズ: 15MB
     private const MAX_PDF_BYTES = 15 * 1024 * 1024;
-
+    /**
+     * 目的: Geminiサービスの依存オブジェクトを受け取り、後続処理で使える状態にする。
+     * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
+     * 入力: 関数シグネチャで指定された引数。
+     * 出力: 型宣言または呼び出し規約に従う処理結果。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと入力値を渡すこと。
+     * 副作用: 依存オブジェクト、DB、ファイル、外部API、モデル状態のいずれかを更新する場合がある。
+     */
     public function __construct(
         private AppSettingService $settings,
         private DatasheetPromptService $promptService,
     ) {}
 
     /**
-     * 設定UIまたは .env から API キーを取得する。
-     * 設定UIの値が優先される。
+     * 目的: Geminiのgetapikeyを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     public function getApiKey(): ?string
     {
@@ -47,15 +58,26 @@ class GeminiService
 
         return $fromDb ?: $fromEnv ?: null;
     }
-
+    /**
+     * 目的: Geminiのisconfiguredを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function isConfigured(): bool
     {
         return ! empty($this->getApiKey());
     }
 
     /**
-     * ローカルのPDFファイルを Gemini Files API へアップロードし、fileUri を返す。
-     *
+     * 目的: Geminiのuploadfileを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $localPath, $mimeType。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  string  $localPath  サーバ上のPDF絶対パス
      * @return string fileUri（generateContent の parts.fileData.fileUri に使う）
      */
@@ -122,18 +144,14 @@ class GeminiService
     }
 
     /**
-     * アップロード済みPDFから電子部品情報を構造化抽出する。
-     *
+     * 目的: Geminiのanalyzeデータシートを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $fileUri。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  string  $fileUri  uploadFile() が返した URI
      * @return array{
-     *   part_number: ?string,
-     *   manufacturer: ?string,
-     *   common_name: ?string,
-     *   component_types: array<int, string>,
-     *   package_names: array<int, string>,
-     *   description: ?string,
-     *   specs: array<int, array<string, mixed>>
-     * }
      */
     public function analyzeDatasheet(string $fileUri): array
     {
@@ -215,7 +233,12 @@ class GeminiService
     }
 
     /**
-     * 抽出結果を統一フォーマットに正規化する。
+     * 目的: Geminiの正規化resultを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $raw。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      */
     private function normalizeResult(array $raw): array
     {
@@ -260,7 +283,7 @@ class GeminiService
             ->when(empty($raw['component_types']) && ! empty($raw['component_type']), function ($collection) use ($raw) {
                 return $collection->push($raw['component_type']);
             })
-            ->map(fn ($item) => trim((string) $item))
+            ->map( fn ($item) => trim((string) $item))
             ->filter()
             ->unique()
             ->values()
@@ -270,7 +293,7 @@ class GeminiService
             ->when(empty($raw['package_names']) && ! empty($raw['package_name']), function ($collection) use ($raw) {
                 return $collection->push($raw['package_name']);
             })
-            ->map(fn ($item) => trim((string) $item))
+            ->map( fn ($item) => trim((string) $item))
             ->filter()
             ->unique()
             ->values()
@@ -286,7 +309,14 @@ class GeminiService
             'specs' => $specs,
         ];
     }
-
+    /**
+     * 目的: Geminiの正規化profileを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $profile。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeProfile(string $profile): string
     {
         $normalized = strtolower(trim($profile));
@@ -301,6 +331,12 @@ class GeminiService
     }
 
     /**
+     * 目的: Geminiのsplitrangefallbackを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $currentMin, $currentMax。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string}
      */
     private function splitRangeFallback(string $value, string $currentMin, string $currentMax): array
@@ -321,6 +357,12 @@ class GeminiService
     }
 
     /**
+     * 目的: Geminiのsplittriplefallbackを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $currentMin, $currentTyp, $currentMax。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string, 2: string}
      */
     private function splitTripleFallback(string $value, string $currentMin, string $currentTyp, string $currentMax): array
@@ -340,7 +382,14 @@ class GeminiService
             $currentMax !== '' ? $currentMax : trim($parts[2]),
         ];
     }
-
+    /**
+     * 目的: Geminiの生成geminierrormessageを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $status, $action。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function buildGeminiErrorMessage(?int $status, string $action): string
     {
         return match ($status) {

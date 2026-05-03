@@ -18,6 +18,14 @@ use Illuminate\Support\Facades\Hash;
 
 class BitsKeepDemoSeeder extends Seeder
 {
+    /**
+     * 目的: Bits Keep Demoの初期データを登録する。
+     * 機能: 既定マスタを冪等に登録し、既存データへ必要な補完を行う。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DBへマスタデータを書き込む。
+     */
     public function run(): void
     {
         DB::transaction(function () {
@@ -40,7 +48,7 @@ class BitsKeepDemoSeeder extends Seeder
                 ['name' => 'マイコン', 'sort_order' => 50],
                 ['name' => 'トランジスタ', 'sort_order' => 60],
                 ['name' => 'コネクタ', 'sort_order' => 70],
-            ])->mapWithKeys(fn (array $data) => [
+            ])->mapWithKeys( fn (array $data) => [
                 $data['name'] => SpecGroup::query()->updateOrCreate(['name' => $data['name']], $data),
             ]);
 
@@ -51,7 +59,7 @@ class BitsKeepDemoSeeder extends Seeder
                 ['name' => 'QFN系', 'description' => 'QFN/BGA 等', 'sort_order' => 40],
                 ['name' => 'DIP系', 'description' => 'DIP/SIP 等', 'sort_order' => 50],
                 ['name' => 'コネクタ系', 'description' => 'ピンヘッダ等', 'sort_order' => 60],
-            ])->mapWithKeys(fn (array $data) => [
+            ])->mapWithKeys( fn (array $data) => [
                 $data['name'] => PackageGroup::query()->updateOrCreate(['name' => $data['name']], $data),
             ]);
 
@@ -84,7 +92,7 @@ class BitsKeepDemoSeeder extends Seeder
                 ['name' => '電流', 'base_unit' => 'A', 'description' => '出力可能電流', 'sort_order' => 50],
                 ['name' => 'フラッシュ容量', 'base_unit' => 'B', 'description' => '内蔵フラッシュ', 'sort_order' => 60],
                 ['name' => 'チャンネル数', 'base_unit' => 'ch', 'description' => '入出力チャンネル数', 'sort_order' => 70],
-            ])->mapWithKeys(fn (array $data) => [
+            ])->mapWithKeys( fn (array $data) => [
                 $data['name'] => SpecType::query()->updateOrCreate(['name' => $data['name']], $data),
             ]);
 
@@ -92,7 +100,7 @@ class BitsKeepDemoSeeder extends Seeder
                 ['name' => 'DigiKey', 'url' => 'https://www.digikey.jp/', 'color' => '#2563eb', 'lead_days' => 3, 'free_shipping_threshold' => 5500, 'note' => '海外商社'],
                 ['name' => 'Mouser', 'url' => 'https://www.mouser.jp/', 'color' => '#059669', 'lead_days' => 4, 'free_shipping_threshold' => 5500, 'note' => '海外商社'],
                 ['name' => '秋月電子通商', 'url' => 'https://akizukidenshi.com/', 'color' => '#dc2626', 'lead_days' => 2, 'free_shipping_threshold' => 4000, 'note' => '国内即納'],
-            ])->mapWithKeys(fn (array $data) => [
+            ])->mapWithKeys( fn (array $data) => [
                 $data['name'] => Supplier::query()->updateOrCreate(['name' => $data['name']], $data),
             ]);
 
@@ -102,7 +110,7 @@ class BitsKeepDemoSeeder extends Seeder
                 ['code' => 'B-1', 'name' => 'IC棚1', 'group' => 'B棚', 'sort_order' => 30],
                 ['code' => 'B-2', 'name' => 'IC棚2', 'group' => 'B棚', 'sort_order' => 40],
                 ['code' => 'C-1', 'name' => 'コネクタ棚', 'group' => 'C棚', 'sort_order' => 50],
-            ])->mapWithKeys(fn (array $data) => [
+            ])->mapWithKeys( fn (array $data) => [
                 $data['code'] => Location::query()->updateOrCreate(['code' => $data['code']], $data),
             ]);
 
@@ -327,7 +335,7 @@ class BitsKeepDemoSeeder extends Seeder
                 );
 
                 $component->categories()->sync(
-                    collect($data['categories'])->map(fn (string $name) => $categories[$name]->id)->all()
+                    collect($data['categories'])->map( fn (string $name) => $categories[$name]->id)->all()
                 );
 
                 $component->specs()->delete();

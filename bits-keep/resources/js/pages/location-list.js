@@ -4,6 +4,7 @@ import { useToast } from '../composables/useToast.js';
 import { useNavigationConfirm } from '../composables/useNavigationConfirm.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { ask } = useConfirmModal();
@@ -20,9 +21,12 @@ export default function setup() {
 
     const locationModal = reactive({ open: false, isEdit: false, form: { code: '', name: '', group: '', description: '', sort_order: 0 }, editId: null });
     const archiveModal  = reactive({ open: false, loc: null });
+    // 目的: 画面モジュールのcloneを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clone = (value) => JSON.parse(JSON.stringify(value));
+    // 目的: 画面モジュールのsameを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+    // 目的: 画面モジュールのfetch Locationsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchLocations = async () => {
         loading.value = true;
         try { const r = await api.get('/locations?include_archived=1'); locations.value = r.data; }
@@ -49,11 +53,13 @@ export default function setup() {
         if (val) locations.value.forEach(loc => { countInputs[loc.id] = loc.stock_count ?? 0; });
     });
 
+    // 目的: 画面モジュールのget Count Diffを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const getCountDiff = (loc) => {
         const input = countInputs[loc.id];
         return input !== undefined ? input - (loc.stock_count ?? 0) : 0;
     };
 
+    // 目的: 画面モジュールのsave Inventoryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveInventory = async () => {
         const items = locations.value
             .filter(loc => getCountDiff(loc) !== 0)
@@ -69,20 +75,24 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
+    // 目的: 画面モジュールのopen Addを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openAdd = () => {
         const form = { code: '', name: '', group: '', description: '', sort_order: 0 };
         snapshot.value = clone(form);
         Object.assign(locationModal, { open: true, isEdit: false, editId: null, form });
     };
+    // 目的: 画面モジュールのopen Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openEdit = (loc) => {
         const form = { code: loc.code, name: loc.name ?? '', group: loc.group ?? '', description: loc.description ?? '', sort_order: loc.sort_order };
         snapshot.value = clone(form);
         Object.assign(locationModal, { open: true, isEdit: true, editId: loc.id, form });
     };
+    // 目的: 画面モジュールのclose Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeModal = async () => {
         if (locationModal.open && !same(locationModal.form, snapshot.value) && !await ask('未保存の変更があります。閉じてもよいですか？')) return;
         locationModal.open = false;
     };
+    // 目的: 画面モジュールのsave Locationを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveLocation = async () => {
         try {
             if (locationModal.isEdit) await api.put(`/locations/${locationModal.editId}`, locationModal.form);
@@ -94,18 +104,22 @@ export default function setup() {
             await fetchLocations();
         } catch (e) { toastError(e.message); }
     };
+    // 目的: 画面モジュールのarchive Locationを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const archiveLocation = (loc) => { archiveModal.loc = loc; archiveModal.open = true; };
+    // 目的: 画面モジュールのconfirm Archiveを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const confirmArchive = async () => {
         const loc = archiveModal.loc;
         archiveModal.open = false;
         try { await api.delete(`/locations/${loc.id}`); await fetchLocations(); toastSuccess('廃止しました'); }
         catch (e) { toastError(e.message); }
     };
+    // 目的: 画面モジュールのrestore Locationを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const restoreLocation = async (loc) => {
         if (!await ask(`「${loc.code}」を復元しますか？`)) return;
         try { await api.post(`/locations/${loc.id}/restore`); await fetchLocations(); toastSuccess('復元しました'); }
         catch (e) { toastError(e.message); }
     };
+    // 目的: 画面モジュールのforce Delete Locationを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const forceDeleteLocation = async (loc) => {
         if (!await ask(`「${loc.code}」を完全削除しますか？\nこの操作は元に戻せません。`)) return;
         try { await api.delete(`/locations/${loc.id}/force`); await fetchLocations(); toastSuccess('完全削除しました'); }

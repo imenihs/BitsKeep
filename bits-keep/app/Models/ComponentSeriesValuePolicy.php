@@ -38,7 +38,14 @@ class ComponentSeriesValuePolicy extends Model
         'range_step' => 'float',
         'rounding_digits' => 'integer',
     ];
-
+    /**
+     * 目的: ComponentSeriesValuePolicyからcomponent SeriesへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function componentSeries(): BelongsTo
     {
         return $this->belongsTo(ComponentSeries::class);

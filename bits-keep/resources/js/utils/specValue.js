@@ -1,43 +1,14 @@
-const SI_PREFIX_FACTORS = {
-    Y: 1e24,
-    Z: 1e21,
-    E: 1e18,
-    P: 1e15,
-    T: 1e12,
-    G: 1e9,
-    M: 1e6,
-    k: 1e3,
-    '': 1,
-    m: 1e-3,
-    u: 1e-6,
-    'µ': 1e-6,
-    'μ': 1e-6,
-    n: 1e-9,
-    p: 1e-12,
-    f: 1e-15,
-};
+import {
+    BYTE_BIT_PREFIX_ORDER,
+    DECIMAL_PREFIX_ORDER as HUMAN_PREFIX_ORDER,
+    ENGINEERING_VALUE_PREFIX_FACTORS,
+    PREFIX_FACTORS,
+    UNIVERSAL_PREFIX_ORDER,
+    isByteBitUnit,
+    normalizeUnitLabel,
+    parseEngineeringNumberDetail,
+} from './engineeringUnits.js';
 
-const IEC_PREFIX_FACTORS = {
-    Ti: 1099511627776,
-    Gi: 1073741824,
-    Mi: 1048576,
-    Ki: 1024,
-};
-
-const PREFIX_FACTORS = {
-    ...SI_PREFIX_FACTORS,
-    ...IEC_PREFIX_FACTORS,
-};
-
-const ENGINEERING_VALUE_PREFIX_FACTORS = {
-    ...PREFIX_FACTORS,
-    K: 1e3,
-};
-
-const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-const UNIVERSAL_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'Ti', 'Gi', 'Mi', 'Ki', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-const BYTE_BIT_PREFIX_ORDER = ['T', 'G', 'M', 'k', ''];
-const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
 const RANGE_SPLIT_PATTERN = /\s*(?:〜|~|～|to)\s*/iu;
 const TRIPLE_SPLIT_PATTERN = /\s*(?:\/|／|\|)\s*/u;
 const VALID_PROFILES = ['typ', 'range', 'max_only', 'min_only', 'triple'];
@@ -57,6 +28,11 @@ export const SPEC_PROFILE_OPTIONS = [
     { value: 'triple', label: 'MIN/TYP/MAX', controlLabel: 'MIN/TYP/MAX', help: '最小/代表/最大値' },
 ];
 
+/**
+ * スペック入力行の初期値を生成する。
+ * 入力は不要、戻り値は画面編集用の新しい行オブジェクトで、副作用はない。
+ */
+// 目的: 共通ユーティリティのcreate Empty Spec Rowを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const createEmptySpecRow = () => ({
     name: '',
     name_ja: '',
@@ -76,6 +52,11 @@ export const createEmptySpecRow = () => ({
     normalized_unit: '',
 });
 
+/**
+ * スペック値の入力形式を保存で使う内部キーへ正規化する。
+ * 旧別名も受け付け、未指定や不正値はtypへフォールバックし、副作用はない。
+ */
+// 目的: 共通ユーティリティのnormalize Spec Profileを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const normalizeSpecProfile = (profile) => {
     const normalized = String(profile ?? '').trim();
     if (VALID_PROFILES.includes(normalized)) {
@@ -85,18 +66,38 @@ export const normalizeSpecProfile = (profile) => {
     return PROFILE_ALIASES[normalized] ?? 'typ';
 };
 
+/**
+ * 入力形式の短い表示ラベルを返す。
+ * 入力は任意のprofile値、戻り値は画面表示用文字列で、副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Profile Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecProfileLabel = (profile) => (
     SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.label ?? 'typ'
 );
 
+/**
+ * 入力形式切替UIに出すラベルを返す。
+ * 入力は任意のprofile値、戻り値は操作部品用の短い文字列で、副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Profile Control Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecProfileControlLabel = (profile) => (
     SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.controlLabel ?? 'TYP'
 );
 
+/**
+ * 入力形式の補足説明を返す。
+ * 入力は任意のprofile値、戻り値はユーザー向けヘルプ文で、副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Profile Help Textを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecProfileHelpText = (profile) => (
     SPEC_PROFILE_OPTIONS.find((item) => item.value === normalizeSpecProfile(profile))?.help ?? 'typ代表値を1点入力'
 );
 
+/**
+ * typ以外の入力形式を示すバッジ文言を返す。
+ * typでは空文字を返し、画面状態や入力値は変更しない。
+ */
+// 目的: 共通ユーティリティのget Spec Profile Badge Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecProfileBadgeLabel = (profile) => {
     const normalized = normalizeSpecProfile(profile);
     if (normalized === 'typ') return '';
@@ -108,6 +109,11 @@ export const getSpecProfileBadgeLabel = (profile) => {
     return getSpecProfileLabel(normalized);
 };
 
+/**
+ * スペック詳細の表示名を候補情報と行情報から解決する。
+ * 日本語名、通常名、行内名の順に拾い、戻り値は空文字または表示名で副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Display Nameを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecDisplayName = (specOrProfile, specType = null) => {
     const baseName = typeof specType === 'string'
         ? specType
@@ -126,6 +132,11 @@ export const getSpecDisplayName = (specOrProfile, specType = null) => {
     return baseName;
 };
 
+/**
+ * APIのスペック値を編集フォーム用ドラフトへ変換する。
+ * 入力形式を推定し、戻り値は新しいドラフト行で、元レスポンスは変更しない。
+ */
+// 目的: 共通ユーティリティのbuild Spec Draft From Apiを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const buildSpecDraftFromApi = (spec = {}) => {
     const draft = {
         ...createEmptySpecRow(),
@@ -165,6 +176,11 @@ export const buildSpecDraftFromApi = (spec = {}) => {
     return draft;
 };
 
+/**
+ * 編集フォームのスペック行を保存APIのpayloadへ整形する。
+ * 入力形式に応じてvalue/value_typ/value_min/value_maxを埋め、戻り値は新規オブジェクトで副作用はない。
+ */
+// 目的: 共通ユーティリティのbuild Spec Payloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const buildSpecPayload = (spec) => {
     const profile = normalizeSpecProfile(spec?.value_profile);
     const payload = {
@@ -200,6 +216,11 @@ export const buildSpecPayload = (spec) => {
     return payload;
 };
 
+/**
+ * スペック入力行の数値を基準単位へ換算し、保存前プレビュー情報を作る。
+ * specTypeの基準単位・表示接頭語を条件に計算し、戻り値はプレビュー用オブジェクトで副作用はない。
+ */
+// 目的: 共通ユーティリティのnormalize Spec Draftを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const normalizeSpecDraft = (spec, specType) => {
     const payload = buildSpecPayload(spec);
     const baseUnit = normalizeUnitLabel(specType?.base_unit ?? '');
@@ -322,6 +343,11 @@ export const normalizeSpecDraft = (spec, specType) => {
     };
 };
 
+/**
+ * スペック詳細から入力単位の候補を取り出す。
+ * 基準単位がある場合はそれを優先し、戻り値は候補配列で副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Unit Suggestionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecUnitSuggestions = (specType) => {
     if (!specType) return [];
 
@@ -337,10 +363,20 @@ export const getSpecUnitSuggestions = (specType) => {
     )];
 };
 
+/**
+ * スペック詳細の基準単位を解決する。
+ * base_unitが未設定なら最初の単位候補を使い、戻り値は正規化済み単位文字列で副作用はない。
+ */
+// 目的: 共通ユーティリティのget Spec Base Unitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const getSpecBaseUnit = (specType) => (
     normalizeUnitLabel(specType?.base_unit ?? specType?.units?.[0]?.unit ?? '')
 );
 
+/**
+ * 接頭語付きで入力された基準単位を、基準単位と接頭語へ分ける。
+ * 入力は単位文字列、戻り値は `{ unit, prefix }` で、副作用はない。
+ */
+// 目的: 共通ユーティリティのnormalize Base Unit Inputを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const normalizeBaseUnitInput = (unit) => {
     const normalized = normalizeUnitLabel(unit);
     if (!normalized) {
@@ -368,6 +404,11 @@ export const normalizeBaseUnitInput = (unit) => {
     return { unit: normalized, prefix: '' };
 };
 
+/**
+ * 編集中スペック行をスペック詳細の基準単位表記へ寄せる。
+ * specオブジェクトを直接更新して返すため、フォーム状態を同期する副作用がある。
+ */
+// 目的: 共通ユーティリティのnormalize Spec Draft Unit To Baseを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 export const normalizeSpecDraftUnitToBase = (spec, specType) => {
     const baseUnit = getSpecBaseUnit(specType);
     if (!spec || !baseUnit) return spec;
@@ -386,9 +427,11 @@ export const normalizeSpecDraftUnitToBase = (spec, specType) => {
  * `_word` → <sub>word</sub>、`~word` → <sup>word</sup>、`-word` → 通常表示へ戻す。
  * v-html で使うこと。入力は管理者入力のみだが HTML エスケープを先行して行う。
  */
+// 目的: 共通ユーティリティのrender Symbolを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export const renderSymbol = (text) => {
     if (!text) return '';
 
+    // 目的: 共通ユーティリティのescape Htmlを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const escapeHtml = (value) => String(value)
         .replace(/&/gu, '&amp;')
         .replace(/</gu, '&lt;')
@@ -398,6 +441,7 @@ export const renderSymbol = (text) => {
     let mode = 'normal';
     let buffer = '';
     let html = '';
+    // 目的: 共通ユーティリティのflushを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const flush = () => {
         if (!buffer) return;
         const escaped = escapeHtml(buffer);
@@ -420,6 +464,11 @@ export const renderSymbol = (text) => {
     return html;
 };
 
+/**
+ * APIスペック値の保持形から入力形式を推定する。
+ * 明示profileがあれば優先し、値の揃い方や区切り文字を条件に判定して副作用はない。
+ */
+// 目的: 共通ユーティリティのinfer Profileを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const inferProfile = (spec) => {
     const explicit = normalizeSpecProfile(spec?.value_profile ?? spec?.profile ?? spec?.value_mode ?? '');
     if (spec?.value_profile || spec?.profile || spec?.value_mode) {
@@ -443,6 +492,11 @@ const inferProfile = (spec) => {
     return 'typ';
 };
 
+/**
+ * 範囲入力の最小値・最大値をAPI形式または表示文字列から取り出す。
+ * 戻り値は `[min, max]` で、元データは変更しない。
+ */
+// 目的: 共通ユーティリティのresolve Range Valuesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const resolveRangeValues = (spec) => {
     const rawMin = cleanText(spec?.value_min ?? spec?.min);
     const rawMax = cleanText(spec?.value_max ?? spec?.max);
@@ -453,6 +507,11 @@ const resolveRangeValues = (spec) => {
     return splitRangeValue(spec?.value ?? '');
 };
 
+/**
+ * MIN/TYP/MAX入力の3値をAPI形式または表示文字列から取り出す。
+ * 戻り値は `[min, typ, max]` で、元データは変更しない。
+ */
+// 目的: 共通ユーティリティのresolve Triple Valuesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const resolveTripleValues = (spec) => {
     const rawMin = cleanText(spec?.value_min ?? spec?.min);
     const rawTyp = cleanText(spec?.value_typ ?? spec?.typ);
@@ -464,6 +523,11 @@ const resolveTripleValues = (spec) => {
     return splitTripleValue(spec?.value ?? '');
 };
 
+/**
+ * 複数候補キーから最初に空でない入力値を取得する。
+ * 入力は参照元オブジェクトとキー配列、戻り値は文字列で、副作用はない。
+ */
+// 目的: 共通ユーティリティのresolve Input Valueを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const resolveInputValue = (source, keys) => {
     for (const key of keys) {
         const value = cleanText(source?.[key]);
@@ -473,6 +537,11 @@ const resolveInputValue = (source, keys) => {
     return '';
 };
 
+/**
+ * 入力単位から基準単位へ換算する係数を解決する。
+ * specType.unitsの係数を優先し、接頭語付き単位も扱い、副作用はない。
+ */
+// 目的: 共通ユーティリティのresolve Factorを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const resolveFactor = (specType, unit, baseUnit) => {
     const normalizedUnit = normalizeUnitLabel(unit);
     if (!normalizedUnit) return 1;
@@ -496,6 +565,11 @@ const resolveFactor = (specType, unit, baseUnit) => {
     return 1;
 };
 
+/**
+ * 基準単位の単一値を画面で読みやすい接頭語表記へ変換する。
+ * 表示可能な単位だけ接頭語を選び、戻り値は `{ value, unit }` で副作用はない。
+ */
+// 目的: 共通ユーティリティのhumanize Singleを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     if (!canHumanize(normalizedUnit)) {
         return { value: formatDisplayNumber(canonicalValue), unit: fallbackUnit || normalizedUnit };
@@ -510,6 +584,11 @@ const humanizeSingle = (canonicalValue, normalizedUnit, fallbackUnit, displayPre
     };
 };
 
+/**
+ * 基準単位の範囲値を同一接頭語の表示値へ変換する。
+ * min/maxの大きい側を基準に接頭語を選び、戻り値は表示用オブジェクトで副作用はない。
+ */
+// 目的: 共通ユーティリティのhumanize Rangeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     if (!canHumanize(normalizedUnit)) {
         return {
@@ -529,6 +608,11 @@ const humanizeRange = (canonicalMin, canonicalMax, normalizedUnit, fallbackUnit,
     };
 };
 
+/**
+ * MIN/TYP/MAXの基準値を同一接頭語の表示値へ変換する。
+ * 有効な値がない場合は空表示を返し、入力オブジェクトは変更しない。
+ */
+// 目的: 共通ユーティリティのhumanize Valuesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const humanizeValues = (values, normalizedUnit, fallbackUnit, displayPrefixes = null) => {
     const presentValues = Object.values(values).filter((value) => value !== null && Number.isFinite(Number(value)));
     const unit = fallbackUnit || normalizedUnit || '';
@@ -556,6 +640,11 @@ const humanizeValues = (values, normalizedUnit, fallbackUnit, displayPrefixes = 
     };
 };
 
+/**
+ * 表示値が1以上1000未満に収まりやすい接頭語を選ぶ。
+ * displayPrefixesが指定された場合はその範囲内で選び、戻り値は接頭語文字列で副作用はない。
+ */
+// 目的: 共通ユーティリティのchoose Prefixを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const choosePrefix = (value, displayPrefixes = null, normalizedUnit = '') => {
     if (!value) return '';
 
@@ -590,13 +679,25 @@ const choosePrefix = (value, displayPrefixes = null, normalizedUnit = '') => {
     return abs >= 1 ? '' : 'f';
 };
 
+/**
+ * 接頭語付き表示へ変換してよい単位かを判定する。
+ * %, dB, 温度などスケール変換すると意味が崩れる単位はfalseを返し、副作用はない。
+ */
+// 目的: 共通ユーティリティのcan Humanizeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const canHumanize = (unit) => !!unit && !['%', 'dB', '°C', '°F'].includes(unit) && /^[A-Za-zΩΩ]+$/u.test(unit);
 
-const isByteBitUnit = (unit) => BYTE_BIT_BASE_UNITS.includes(normalizeUnitLabel(unit));
-
+/** 範囲区切りを含む値文字列かを判定する。入力は任意値、戻り値は真偽値で副作用はない。 */
+// 目的: 共通ユーティリティのlooks Like Rangeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const looksLikeRange = (value) => RANGE_SPLIT_PATTERN.test(String(value ?? ''));
+/** MIN/TYP/MAX区切りを含む値文字列かを判定する。範囲値は除外し、副作用はない。 */
+// 目的: 共通ユーティリティのlooks Like Tripleを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const looksLikeTriple = (value) => TRIPLE_SPLIT_PATTERN.test(String(value ?? '')) && !looksLikeRange(value);
 
+/**
+ * 範囲表示文字列を最小値・最大値へ分割する。
+ * 区切れない場合は空文字2要素を返し、副作用はない。
+ */
+// 目的: 共通ユーティリティのsplit Range Valueを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const splitRangeValue = (value) => {
     const parts = String(value ?? '').trim().split(RANGE_SPLIT_PATTERN);
     if (parts.length < 2) {
@@ -606,6 +707,11 @@ const splitRangeValue = (value) => {
     return [parts[0]?.trim() ?? '', parts[1]?.trim() ?? ''];
 };
 
+/**
+ * MIN/TYP/MAX表示文字列を3値へ分割する。
+ * 3要素に満たない場合は空文字3要素を返し、副作用はない。
+ */
+// 目的: 共通ユーティリティのsplit Triple Valueを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const splitTripleValue = (value) => {
     const parts = String(value ?? '').trim().split(TRIPLE_SPLIT_PATTERN);
     if (parts.length < 3) {
@@ -619,6 +725,11 @@ const splitTripleValue = (value) => {
     ];
 };
 
+/**
+ * 値欄へ混在した末尾単位を値部分と単位部分へ分ける。
+ * 数値と単位が両方読める場合だけ分離し、戻り値は `{ value, unit }` で副作用はない。
+ */
+// 目的: 共通ユーティリティのextract Inline Unitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const extractInlineUnit = (value) => {
     const trimmed = cleanText(value);
     if (!trimmed) return { value: '', unit: '' };
@@ -635,8 +746,15 @@ const extractInlineUnit = (value) => {
     return { value: trimmed, unit: '' };
 };
 
+/** 正規表現一致を短く書くための薄いラッパー。入力値を変更せず真偽値だけ返す。 */
+// 目的: 共通ユーティリティのpreg Matchを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const pregMatch = (pattern, value) => pattern.test(value);
 
+/**
+ * 値欄の数値を基準単位換算後の入力しやすい接頭語表記へ戻す。
+ * 入力は値文字列・現在単位・基準単位・スペック詳細で、戻り値はフォーム用文字列、副作用はない。
+ */
+// 目的: 共通ユーティリティのnormalize Value Text For Base Unitを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const normalizeValueTextForBaseUnit = (value, unit, baseUnit, specType) => {
     const extracted = extractInlineUnit(value);
     const valueText = extracted.value || cleanText(value);
@@ -660,52 +778,42 @@ const normalizeValueTextForBaseUnit = (value, unit, baseUnit, specType) => {
     return `${formatDisplayNumber(canonical / factor)}${prefix}`;
 };
 
+/**
+ * スペック値欄の接頭語付き数値を数値部と係数へ分ける。
+ * 単位付きや未知接頭語はnullを返し、副作用はない。
+ */
+// 目的: 共通ユーティリティのparse Engineering Numberを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const parseEngineeringNumber = (value) => {
-    const normalized = cleanText(value)
-        .replace(/,/g, '')
-        .replace(/\s+/g, '');
-
-    if (!normalized) return null;
-
-    const matches = normalized.match(/^([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(Ti|Gi|Mi|Ki|[YZEPTGMkKmunpfµμ]?)$/u);
-    if (!matches) {
-        return null;
-    }
-
-    const parsed = Number(matches[1]);
-    if (!Number.isFinite(parsed)) {
-        return null;
-    }
-
-    const rawPrefix = matches[2] || '';
-    const prefix = rawPrefix === 'µ' || rawPrefix === 'μ' ? 'u' : rawPrefix;
-    if (!Object.hasOwn(ENGINEERING_VALUE_PREFIX_FACTORS, prefix)) {
+    const parsed = parseEngineeringNumberDetail(value);
+    if (parsed === null || parsed.hasUnit || !Object.hasOwn(ENGINEERING_VALUE_PREFIX_FACTORS, parsed.prefix)) {
         return null;
     }
 
     return {
-        value: parsed,
-        factor: ENGINEERING_VALUE_PREFIX_FACTORS[prefix],
+        value: parsed.rawValue,
+        factor: parsed.factor,
     };
 };
 
-const normalizeUnitLabel = (value) => {
-    const normalized = cleanText(value)
-        .replaceAll('μ', 'u')
-        .replaceAll('µ', 'u')
-        .replaceAll('Ω', 'Ω')
-        .replace(/\bohms?\b/iu, 'Ω')
-        .replace(/\bohm\b/iu, 'Ω');
-
-    return normalized.replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
-};
-
+/** 保存用の範囲表示文字列を組み立てる。入力値をtrimし、空値を除外して副作用はない。 */
+// 目的: 共通ユーティリティのbuild Range Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const buildRangeLabel = (min, max) => [cleanText(min), cleanText(max)].filter(Boolean).join(' 〜 ');
+/** 保存用のMIN/TYP/MAX表示文字列を組み立てる。入力値をtrimし、空値を除外して副作用はない。 */
+// 目的: 共通ユーティリティのbuild Triple Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const buildTripleLabel = (min, typ, max) => [cleanText(min), cleanText(typ), cleanText(max)].filter(Boolean).join(' / ');
 
+/** 任意値を前後空白なしの文字列へ変換する。null/undefinedは空文字にし、副作用はない。 */
+// 目的: 共通ユーティリティのclean Textを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const cleanText = (value) => String(value ?? '').trim();
+/** 値が空でないかを判定する。入力は任意値、戻り値は真偽値で副作用はない。 */
+// 目的: 共通ユーティリティのhas Valueを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 真偽値。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const hasValue = (value) => cleanText(value) !== '';
 
+/**
+ * プレビュー用の通常数値表記を作る。
+ * 極端に大きい/小さい値は指数表記にし、戻り値は文字列で副作用はない。
+ */
+// 目的: 共通ユーティリティのformat Display Numberを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const formatDisplayNumber = (value) => {
     if (!Number.isFinite(Number(value))) {
         return '';
@@ -724,6 +832,11 @@ const formatDisplayNumber = (value) => {
     }).replace(/(?:\.0+|(\.\d*?)0+)$/, '$1');
 };
 
+/**
+ * 数値を指数表記へ整形する。
+ * 係数と指数の余分な0を除き、戻り値は文字列で副作用はない。
+ */
+// 目的: 共通ユーティリティのformat Scientificを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 共通ユーティリティの初期化後に呼び出す。副作用: なし。
 const formatScientific = (value) => {
     const normalized = Number(value);
     if (!Number.isFinite(normalized)) return '';

@@ -6,26 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSpecTypeRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\SpecType;
+use App\Support\EngineeringUnits;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SpecTypeController extends Controller
 {
-    private const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
-
-    private const BINARY_IEC_PREFIXES = ['Ti', 'Gi', 'Mi', 'Ki'];
-
-    private const DECIMAL_NON_FRACTIONAL_PREFIXES = ['T', 'G', 'M', 'k'];
-
-    private const DECIMAL_FRACTIONAL_PREFIXES = ['m', 'u', 'n', 'p', 'f'];
-
-    private const BYTE_BIT_ALLOWED_PREFIXES = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
-
-    private const UNIT_PREFIXES = ['Ti', 'Gi', 'Mi', 'Ki', 'Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', 'm', 'u', 'n', 'p', 'f'];
-
-    private const BASE_UNIT_SUFFIXES = ['ppm/℃', 'bit', 'bps', 'Ω', 'F', 'A', 'V', 'H', 's', 'Hz', 'W', 'J', 'C', 'B', 'm', 'g', 'K', 'N', 'Pa', 'bar', '%', '℃'];
-
+    /**
+     * 目的: スペック詳細の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request)
     {
         if ($request->boolean('summary')) {
@@ -67,7 +62,14 @@ class SpecTypeController extends Controller
 
         return ApiResponse::success($types);
     }
-
+    /**
+     * 目的: スペック詳細の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(StoreSpecTypeRequest $request)
     {
         return DB::transaction(function () use ($request) {
@@ -96,12 +98,26 @@ class SpecTypeController extends Controller
             return ApiResponse::created($specType->load(['units', 'aliases', 'ownerSpecGroup']));
         });
     }
-
+    /**
+     * 目的: スペック詳細の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(SpecType $specType)
     {
         return ApiResponse::success($specType->load(['units', 'aliases', 'ownerSpecGroup']));
     }
-
+    /**
+     * 目的: スペック詳細の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(StoreSpecTypeRequest $request, SpecType $specType)
     {
         return DB::transaction(function () use ($request, $specType) {
@@ -152,14 +168,28 @@ class SpecTypeController extends Controller
             return ApiResponse::success($specType->load(['units', 'aliases', 'ownerSpecGroup']));
         });
     }
-
+    /**
+     * 目的: スペック詳細の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(SpecType $specType)
     {
         $specType->delete();
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: スペック詳細のアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(int $specType)
     {
         $model = SpecType::withTrashed()->findOrFail($specType);
@@ -167,7 +197,14 @@ class SpecTypeController extends Controller
 
         return ApiResponse::success($model->load(['units', 'aliases', 'ownerSpecGroup']));
     }
-
+    /**
+     * 目的: スペック詳細のforcedestroyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function forceDestroy(int $specType)
     {
         $model = SpecType::withTrashed()->withCount('componentSpecs as usage_count')->findOrFail($specType);
@@ -184,6 +221,12 @@ class SpecTypeController extends Controller
     }
 
     /**
+     * 目的: スペック詳細の正規化payloadを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $payload。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -231,30 +274,26 @@ class SpecTypeController extends Controller
     }
 
     /**
+     * 目的: スペック詳細の正規化baseunit入力を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $unit。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @return array{unit: string, prefix: string}
      */
     private function normalizeBaseUnitInput(string $unit): array
     {
-        $normalized = $this->normalizeUnitLabel($unit);
-        if ($normalized === '') {
-            return ['unit' => '', 'prefix' => ''];
-        }
-
-        foreach (self::BASE_UNIT_SUFFIXES as $baseUnit) {
-            if (! str_ends_with($normalized, $baseUnit) || $normalized === $baseUnit) {
-                continue;
-            }
-
-            $prefix = substr($normalized, 0, -strlen($baseUnit));
-            if (in_array($prefix, self::UNIT_PREFIXES, true)) {
-                return ['unit' => $baseUnit, 'prefix' => $prefix];
-            }
-        }
-
-        return ['unit' => $normalized, 'prefix' => ''];
+        return EngineeringUnits::normalizeBaseUnitInput($unit);
     }
 
     /**
+     * 目的: スペック詳細のappend接頭語topayloadを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $payload, $key, $prefix。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $payload
      */
     private function appendPrefixToPayload(array &$payload, string $key, string $prefix): void
@@ -263,13 +302,18 @@ class SpecTypeController extends Controller
             ? $payload[$key]
             : [];
         $current[] = $prefix;
-        $payload[$key] = array_values(array_unique(array_map(
-            fn ($item) => $this->normalizePrefix($item),
+        $payload[$key] = array_values(array_unique(array_map( fn ($item) => EngineeringUnits::normalizePrefix($item),
             $current
         )));
     }
 
     /**
+     * 目的: スペック詳細の正規化接頭語一覧を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $prefixes, $baseUnit, $field。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @return array<int, string>|null
      */
     private function normalizePrefixList(mixed $prefixes, string $baseUnit, string $field): ?array
@@ -282,27 +326,35 @@ class SpecTypeController extends Controller
             return [];
         }
 
-        $normalized = array_map(
-            fn ($prefix) => $this->normalizePrefix($prefix),
-            $prefixes
-        );
+        $unknown = EngineeringUnits::invalidPrefixes($prefixes);
+        if ($unknown !== []) {
+            throw ValidationException::withMessages([
+                $field => '未対応の接頭語が含まれています: '.implode(', ', $unknown),
+            ]);
+        }
 
-        $normalized = array_values(array_unique($normalized));
-        $hasIec = count(array_intersect($normalized, self::BINARY_IEC_PREFIXES)) > 0;
+        $normalized = EngineeringUnits::normalizePrefixList($prefixes);
+        $hasIec = count(array_intersect($normalized, EngineeringUnits::BINARY_IEC_PREFIXES)) > 0;
 
-        if (! $this->isByteBitUnit($baseUnit)) {
+        if (! EngineeringUnits::isByteBitUnit($baseUnit)) {
             if ($hasIec) {
                 throw ValidationException::withMessages([
                     $field => 'IEC接頭語は B / bit / bps 系のスペック詳細だけで使用できます。',
                 ]);
             }
 
-            return $normalized;
+            $nonSelectable = EngineeringUnits::invalidPrefixes($prefixes, EngineeringUnits::UNIVERSAL_PREFIX_ORDER);
+            if ($nonSelectable !== []) {
+                throw ValidationException::withMessages([
+                    $field => '接頭語候補には SI/IEC の選択可能な接頭語だけを指定できます。',
+                ]);
+            }
+
+            return EngineeringUnits::normalizePrefixList($prefixes, EngineeringUnits::UNIVERSAL_PREFIX_ORDER);
         }
 
         $invalid = array_values(array_filter(
-            $normalized,
-            fn ($prefix) => ! in_array($prefix, self::BYTE_BIT_ALLOWED_PREFIXES, true)
+            $normalized, fn ($prefix) => ! in_array($prefix, EngineeringUnits::BYTE_BIT_ALLOWED_PREFIXES, true)
         ));
         if ($invalid !== []) {
             throw ValidationException::withMessages([
@@ -310,14 +362,14 @@ class SpecTypeController extends Controller
             ]);
         }
 
-        $fractional = array_values(array_intersect($normalized, self::DECIMAL_FRACTIONAL_PREFIXES));
+        $fractional = array_values(array_intersect($normalized, EngineeringUnits::DECIMAL_FRACTIONAL_PREFIXES));
         if ($fractional !== []) {
             throw ValidationException::withMessages([
                 $field => 'B / bit / bps 系では m/u/n/p/f のような小数系接頭語は使用できません。',
             ]);
         }
 
-        $hasDecimal = count(array_intersect($normalized, self::DECIMAL_NON_FRACTIONAL_PREFIXES)) > 0;
+        $hasDecimal = count(array_intersect($normalized, EngineeringUnits::DECIMAL_NON_FRACTIONAL_PREFIXES)) > 0;
         if ($hasIec && $hasDecimal) {
             throw ValidationException::withMessages([
                 $field => 'B / bit / bps 系では 10進接頭語（T/G/M/k）と IEC 接頭語（Ti/Gi/Mi/Ki）を同時に選択できません。',
@@ -326,27 +378,14 @@ class SpecTypeController extends Controller
 
         return $normalized;
     }
-
-    private function normalizePrefix(mixed $prefix): string
-    {
-        $normalized = $prefix === null ? '' : trim((string) $prefix);
-
-        return $normalized === 'K' ? 'k' : $normalized;
-    }
-
-    private function isByteBitUnit(string $unit): bool
-    {
-        return in_array($this->normalizeUnitLabel($unit), self::BYTE_BIT_BASE_UNITS, true);
-    }
-
-    private function normalizeUnitLabel(string $unit): string
-    {
-        $normalized = trim(str_replace(['μ', 'µ', 'Ω'], ['u', 'u', 'Ω'], $unit));
-        $normalized = preg_replace('/\bohms?\b/iu', 'Ω', $normalized) ?? $normalized;
-
-        return preg_replace('/^K(?!i)(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
-    }
-
+    /**
+     * 目的: スペック詳細の適用スペックtypefiltersを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $query, $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function applySpecTypeFilters($query, Request $request): void
     {
         $scope = $request->query('scope');
@@ -365,6 +404,12 @@ class SpecTypeController extends Controller
     }
 
     /**
+     * 目的: スペック詳細の正規化tolerancesettingsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $settings。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @return array<string, mixed>
      */
     private function normalizeToleranceSettings(mixed $settings): array
@@ -372,8 +417,7 @@ class SpecTypeController extends Controller
         $settings = is_array($settings) ? $settings : [];
         $defaultUnit = (string) ($settings['default_unit'] ?? $settings['unit'] ?? '%');
         $defaultMode = (string) ($settings['default_mode'] ?? $settings['mode'] ?? $settings['input_format'] ?? 'symmetric');
-        $allowedUnits = array_values(array_unique(array_filter(array_map(
-            fn ($unit) => trim((string) $unit),
+        $allowedUnits = array_values(array_unique(array_filter(array_map( fn ($unit) => trim((string) $unit),
             (array) ($settings['allowed_units'] ?? [$defaultUnit])
         ), fn ($unit) => $unit !== '')));
         $fallbackAllowedUnit = $defaultUnit !== '' ? $defaultUnit : '%';
@@ -412,7 +456,14 @@ class SpecTypeController extends Controller
             'grade_options' => $gradeOptions,
         ];
     }
-
+    /**
+     * 目的: スペック詳細のattachownergroupを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function attachOwnerGroup(SpecType $specType): void
     {
         if ($specType->spec_scope !== SpecType::SCOPE_GROUP_LOCAL || ! $specType->owner_spec_group_id) {
@@ -445,6 +496,12 @@ class SpecTypeController extends Controller
     }
 
     /**
+     * 目的: スペック詳細の同期aliasesを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $specType, $aliases。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>|string>  $aliases
      */
     private function syncAliases(SpecType $specType, array $aliases): void

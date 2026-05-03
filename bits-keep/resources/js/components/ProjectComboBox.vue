@@ -165,6 +165,7 @@ export default {
       if (val) query.value = formatLabel(val);
     }, { immediate: true });
 
+    // 目的: 画面モジュールのformat Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const formatLabel = (item) => {
       if (!item) return '';
       const code = item.external_code ? item.external_code + '_' : '';
@@ -176,6 +177,7 @@ export default {
       candidates.value.some(c => c.name === query.value)
     );
 
+    // 目的: 画面モジュールのsearchを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const search = async () => {
       if (!query.value.trim()) { candidates.value = []; return; }
       loading.value = true;
@@ -186,6 +188,7 @@ export default {
       finally { loading.value = false; }
     };
 
+    // 目的: 画面モジュールのon Inputを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onInput = () => {
       selected.value = null;
       emit('update:modelValue', null);
@@ -195,6 +198,7 @@ export default {
       debounceTimer = setTimeout(search, 300);
     };
 
+    // 目的: 画面モジュールのon Focusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onFocus = async () => {
       open.value = true;
       if (!query.value && candidates.value.length === 0) {
@@ -202,6 +206,7 @@ export default {
       }
     };
 
+    // 目的: 画面モジュールのon Key Downを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onKeyDown = (e) => {
       const total = candidates.value.length + (props.allowNew && query.value && !exactMatch.value ? 1 : 0);
       if (e.key === 'ArrowDown') {
@@ -222,6 +227,7 @@ export default {
       }
     };
 
+    // 目的: 画面モジュールのselect Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectItem = (item) => {
       selected.value = item;
       query.value    = formatLabel(item);
@@ -229,6 +235,7 @@ export default {
       emit('update:modelValue', item);
     };
 
+    // 目的: 画面モジュールのclearを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clear = () => {
       selected.value = null;
       query.value    = '';
@@ -240,6 +247,7 @@ export default {
     // ── 新規案件モーダル ───────────────────────────
     const newModal = ref({ open: false, name: '', businessCode: '', description: '', saving: false });
 
+    // 目的: 画面モジュールのopen New Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openNewModal = async () => {
       newModal.value = { open: true, name: query.value, businessCode: '', description: '', saving: false };
       open.value = false;
@@ -250,6 +258,7 @@ export default {
       }
     };
 
+    // 目的: 画面モジュールのcreate New Projectを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 画面モジュールの初期化後に呼び出す。副作用: なし。
     const createNewProject = async () => {
       if (!newModal.value.name) return;
       newModal.value.saving = true;
@@ -270,6 +279,7 @@ export default {
     };
 
     // クリック外で閉じる
+    // 目的: 画面モジュールのon Click Outsideを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onClickOutside = (e) => {
       if (wrapRef.value && !wrapRef.value.contains(e.target)) {
         open.value = false;

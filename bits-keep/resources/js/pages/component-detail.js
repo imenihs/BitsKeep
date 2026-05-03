@@ -4,23 +4,15 @@ import { useToast } from '../composables/useToast.js';
 import { useFavoriteComponents } from '../composables/useFavoriteComponents.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
-import {
-    buildSpecDraftFromApi,
-    buildSpecPayload,
-    createEmptySpecRow,
-    getSpecDisplayName,
-    getSpecProfileControlLabel,
-    getSpecProfileHelpText,
-    getSpecProfileBadgeLabel,
-    getSpecBaseUnit,
-    getSpecUnitSuggestions,
-    normalizeBaseUnitInput,
-    normalizeSpecDraft,
-    normalizeSpecDraftUnitToBase,
-    normalizeSpecProfile,
-    SPEC_PROFILE_OPTIONS,
-} from '../utils/specValue.js';
+import { buildSpecDraftFromApi, buildSpecPayload } from '../utils/specValue.js';
+import { useComponentDetailSpecs } from './component-detail/specs.js';
 
+/**
+ * 部品詳細画面の公開setup。
+ * 入力はBladeのdata-idで、戻り値は表示データ、編集モーダル、在庫操作、スペック編集操作をVueテンプレートへ公開する。
+ * 動作条件は部品詳細APIが参照可能なことで、部品取得、セクション保存、入出庫、お気に入り更新、トースト表示の副作用を持つ。
+ */
+// 目的: 部品詳細画面のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency } = useFormatter();
@@ -60,89 +52,6 @@ export default function setup() {
     const basicDatasheetLabels = ref([]);
     const editModalSnapshot = ref('');
     const packageFilterQuery = ref('');
-    const specProfileOptions = SPEC_PROFILE_OPTIONS;
-    const createInlineSpecTypeForm = () => ({
-        name_ja: '',
-        name_en: '',
-        symbol: '',
-        description: '',
-        value_type: 'numeric',
-        unit: '',
-        suggest_prefixes: [],
-        display_prefixes: [],
-        aliases_text: '',
-    });
-    const inlineSpecTypeModal = reactive({
-        open: false,
-        saving: false,
-        targetSpec: null,
-        form: createInlineSpecTypeForm(),
-    });
-    const normalizeInlinePrefixes = (prefixes) => Array.isArray(prefixes)
-        ? prefixes.map((prefix) => prefix == null ? '' : String(prefix))
-        : [];
-    const decimalInlinePrefixOptions = ['T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-    const byteBitInlinePrefixOptions = ['T', 'G', 'M', 'k', '', 'Ti', 'Gi', 'Mi', 'Ki'];
-    const binaryInlineIecPrefixes = new Set(['Ti', 'Gi', 'Mi', 'Ki']);
-    const decimalInlineNonFractionalPrefixes = new Set(['T', 'G', 'M', 'k']);
-    const decimalInlineFractionalPrefixes = new Set(['m', 'u', 'n', 'p', 'f']);
-    const byteBitInlineUnits = new Set(['B', 'bit', 'bps']);
-    const normalizeInlineUnitForPrefixPolicy = (unit = '') => String(unit ?? '')
-        .trim()
-        .replaceAll('μ', 'u')
-        .replaceAll('µ', 'u')
-        .replaceAll('Ω', 'Ω')
-        .replace(/\bohms?\b/iu, 'Ω')
-        .replace(/^K(?!i)(?=[A-Za-zΩ])/u, 'k');
-    const isInlineByteBitPrefixUnit = (unit = inlineSpecTypeModal.form.unit) => byteBitInlineUnits.has(normalizeInlineUnitForPrefixPolicy(unit));
-    const normalizeInlinePrefixToken = (prefix) => {
-        const normalized = prefix == null ? '' : String(prefix).trim();
-        return normalized === 'K' ? 'k' : normalized;
-    };
-    const sanitizeInlinePrefixesForUnit = (prefixes = [], unit = inlineSpecTypeModal.form.unit) => {
-        const normalized = normalizeInlinePrefixes(prefixes)
-            .map(normalizeInlinePrefixToken)
-            .filter((prefix) => prefix === '' || decimalInlinePrefixOptions.includes(prefix) || binaryInlineIecPrefixes.has(prefix));
-        const unique = [...new Set(normalized)];
-        if (!isInlineByteBitPrefixUnit(unit)) {
-            return unique.filter((prefix) => !binaryInlineIecPrefixes.has(prefix));
-        }
-
-        const withoutFractional = unique.filter((prefix) => !decimalInlineFractionalPrefixes.has(prefix));
-        const hasBinary = withoutFractional.some((prefix) => binaryInlineIecPrefixes.has(prefix));
-        if (hasBinary) {
-            return withoutFractional.filter((prefix) => prefix === '' || binaryInlineIecPrefixes.has(prefix));
-        }
-
-        return withoutFractional.filter((prefix) => prefix === '' || decimalInlineNonFractionalPrefixes.has(prefix));
-    };
-    const inlinePrefixOptionsFor = () => {
-        const isByteBit = isInlineByteBitPrefixUnit();
-        return (isByteBit ? byteBitInlinePrefixOptions : decimalInlinePrefixOptions)
-            .map((prefix) => ({
-                value: prefix,
-                label: prefix === '' ? '（無印）' : prefix,
-                disabled: !isByteBit && binaryInlineIecPrefixes.has(prefix),
-            }));
-    };
-    const inlinePrefixPolicyHelp = computed(() => (
-        isInlineByteBitPrefixUnit()
-            ? 'B / bit / bps 系は 10進（T G M k）または IEC（Ti Gi Mi Ki）のどちらか一方を使います。無印は共通で使えます。'
-            : '値入力時の候補接頭辞です。未選択なら汎用候補（T G M k 無印 m u n p f）を使います。'
-    ));
-    const syncInlinePrefixList = (field, changedPrefix = null) => {
-        let prefixes = normalizeInlinePrefixes(inlineSpecTypeModal.form[field]).map(normalizeInlinePrefixToken);
-        const changed = normalizeInlinePrefixToken(changedPrefix);
-        if (isInlineByteBitPrefixUnit() && prefixes.includes(changed)) {
-            if (binaryInlineIecPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !decimalInlineNonFractionalPrefixes.has(prefix) && !decimalInlineFractionalPrefixes.has(prefix));
-            } else if (decimalInlineNonFractionalPrefixes.has(changed)) {
-                prefixes = prefixes.filter((prefix) => !binaryInlineIecPrefixes.has(prefix) && !decimalInlineFractionalPrefixes.has(prefix));
-            }
-        }
-        inlineSpecTypeModal.form[field] = sanitizeInlinePrefixesForUnit(prefixes);
-    };
-
     // 編集モーダル
     const editModal  = ref({ open: false, section: '', title: '', form: {} });
     // 出庫モーダル
@@ -157,6 +66,7 @@ export default function setup() {
     ];
     const stockConditionLabel = { new: '新品', used: '中古' };
 
+    // 目的: 部品詳細画面のcreate Datasheet Draftを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: なし。
     const createDatasheetDraft = (sheet = {}) => ({
         id: sheet.id ?? '',
         original_name: sheet.original_name ?? '',
@@ -164,6 +74,7 @@ export default function setup() {
         url: sheet.url ?? '',
     });
 
+    // 目的: 部品詳細画面のfetch Partを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchPart = async () => {
         loading.value = true;
         loadError.value = '';
@@ -180,6 +91,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品詳細画面のfetch Mastersを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchMasters = async () => {
         if (mastersLoaded.value) return Promise.resolve();
         if (masterLoadPromise) return masterLoadPromise;
@@ -212,6 +124,7 @@ export default function setup() {
 
         return masterLoadPromise;
     };
+    // 目的: 部品詳細画面のensure Masters Loadedを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const ensureMastersLoaded = () => fetchMasters();
     const editMasterDataLoading = computed(() =>
         editModal.value.open
@@ -219,6 +132,7 @@ export default function setup() {
         && mastersLoading.value
         && !mastersLoaded.value
     );
+    // 目的: 部品詳細画面のdefault Spec Group Id For Partを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: なし。
     const defaultSpecGroupIdForPart = () => {
         const category = (part.value?.categories ?? [])
             .find((item) => Number(item?.id) > 0);
@@ -227,6 +141,7 @@ export default function setup() {
     };
 
     // セクション別編集モーダルを開く
+    // 目的: 部品詳細画面のopen Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openEdit = (section) => {
         const p = part.value;
         if (!p) return;
@@ -300,6 +215,7 @@ export default function setup() {
         editModalSnapshot.value = JSON.stringify(editModal.value.form);
     };
 
+    // 目的: 部品詳細画面のclose Edit Modalを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const closeEditModal = async () => {
         if (!editModal.value.open) return;
 
@@ -320,12 +236,18 @@ export default function setup() {
         editModalSnapshot.value = '';
     };
 
+    // 目的: 部品詳細画面のon Basic Datasheets Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onBasicDatasheetsChange = (event) => {
         basicDatasheetFiles.value = Array.from(event.target.files ?? []);
         basicDatasheetLabels.value = basicDatasheetFiles.value.map((_, index) => basicDatasheetLabels.value[index] ?? '');
     };
 
-    // セクション保存（PATCH / ファイルありの場合は multipart POST + _method=PATCH）
+    /**
+     * 編集モーダルの対象セクションを保存する。
+     * 入力はeditModal.formと選択ファイルで、出力は保存後に再取得されたpart状態。
+     * basicはmultipart更新、specsはスペックpayloadへ変換し、API送信、モーダル終了、ファイル選択破棄、トースト表示の副作用を持つ。
+     */
+    // 目的: 部品詳細画面のsave Sectionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveSection = async () => {
         try {
             const form = editModal.value.form;
@@ -376,9 +298,11 @@ export default function setup() {
     };
 
     // 出庫
+    // 目的: 部品詳細画面のopen Stock Outを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openStockOut = (block) => {
         stockOutModal.value = { open: true, blockId: block.id, maxQty: block.quantity, qty: 1, projectId: '', note: '' };
     };
+    // 目的: 部品詳細画面のsubmit Stock Outを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const submitStockOut = async () => {
         try {
             await api.post(`/components/${componentId}/stock-out`, {
@@ -396,11 +320,13 @@ export default function setup() {
     };
 
     // 入庫
+    // 目的: 部品詳細画面のopen Stock Inを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openStockIn = async () => {
         await ensureMastersLoaded();
         stockInModal.value.form.location_id = part.value?.primary_location_id || '';
         stockInModal.value.open = true;
     };
+    // 目的: 部品詳細画面のsubmit Stock Inを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const submitStockIn = async () => {
         try {
             await api.post(`/components/${componentId}/stock-in`, stockInModal.value.form);
@@ -416,6 +342,7 @@ export default function setup() {
     const similarParts = ref([]);
     const similarLoading = ref(false);
     const similarError = ref('');
+    // 目的: 部品詳細画面のfetch Similarを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSimilar = async () => {
         if (similarLoading.value) return;
         similarLoading.value = true;
@@ -431,6 +358,7 @@ export default function setup() {
     };
 
     // ページURLをクリップボードにコピー
+    // 目的: 部品詳細画面のcopy Linkを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: なし。
     const copyLink = () => {
         const url = location.href;
         if (navigator.clipboard) {
@@ -447,6 +375,7 @@ export default function setup() {
     };
 
     // 論理削除
+    // 目的: 部品詳細画面のdelete Partを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const deletePart = async () => {
         if (!confirm('この部品を削除しますか？')) return;
         try {
@@ -458,6 +387,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 部品詳細画面のhandle Toggle Favoriteを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleToggleFavorite = async () => {
         try {
             const wasFavorite = isFavorite(componentId);
@@ -500,6 +430,7 @@ export default function setup() {
     const hasMoreTransactions = computed(() => allTransactions.value.length > 5);
     const outgoingTransactions = computed(() => allTransactions.value.filter((tx) => tx.type === 'out'));
     const incomingTransactions = computed(() => allTransactions.value.filter((tx) => tx.type === 'in'));
+    // 目的: 部品詳細画面のformat Transaction Timestampを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: なし。
     const formatTransactionTimestamp = (value) => {
         if (!value) return '—';
         return String(value).replace('T', ' ').substring(0, 19).replaceAll('-', '/');
@@ -538,11 +469,13 @@ export default function setup() {
         if (!q) return categories.value;
         return categories.value.filter((item) => item.name.toLowerCase().includes(q));
     });
+    // 目的: 部品詳細画面のdetail Category Nameを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const detailCategoryName = (categoryId) =>
         categories.value.find((item) => Number(item.id) === Number(categoryId))?.name
         ?? (part.value?.categories ?? []).find((item) => Number(item.id) === Number(categoryId))?.name
         ?? '部品分類';
 
+    // 目的: 部品詳細画面のtoggle Detail Categoryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: なし。
     const toggleDetailCategory = (categoryId) => {
         const ids = editModal.value.form?.category_ids ?? [];
         editModal.value.form.category_ids = ids.includes(categoryId)
@@ -550,6 +483,7 @@ export default function setup() {
             : [...ids, categoryId];
     };
 
+    // 目的: 部品詳細画面のhandle Package Group Changeを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品詳細画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handlePackageGroupChange = () => {
         const groupId = editModal.value.form?.package_group_id;
         packageFilterQuery.value = '';
@@ -564,730 +498,27 @@ export default function setup() {
         }
     };
 
-    const getSpecTypeById = (specTypeId) =>
-        specTypes.value.find((item) => Number(item.id) === Number(specTypeId)) ?? null;
 
-    const isToleranceSpecType = (specType) => (specType?.spec_kind ?? 'normal') === 'tolerance';
-    const defaultToleranceSettings = (fallbackUnit = '%') => ({
-        default_mode: 'symmetric',
-        default_unit: fallbackUnit || '%',
-        allowed_units: [fallbackUnit || '%'],
-        grade_options: [],
+    const componentSpecs = useComponentDetailSpecs({
+        part, editModal, categories, specTypes, specGroups, specSuggestionTypes, specTemplates,
+        selectedSpecGroupId, selectedSpecTypeId, selectedSpecTemplateId, specTypeSearchQuery,
+        specSuggestionLoading, canCreateSpecType, defaultSpecGroupIdForPart, toastSuccess, toastError,
     });
-    const normalizeToleranceSettings = (settings = {}, fallbackUnit = '%') => {
-        const source = settings && typeof settings === 'object' ? settings : {};
-        const defaultUnit = String(source.default_unit ?? source.unit ?? fallbackUnit ?? '%').trim() || '%';
-        const allowedUnits = Array.isArray(source.allowed_units)
-            ? [...new Set(source.allowed_units.map((unit) => String(unit ?? '').trim()).filter(Boolean))]
-            : [defaultUnit];
+    const {
+        specProfileOptions, inlineSpecTypeModal, inlinePrefixOptionsFor, inlinePrefixPolicyHelp, syncInlinePrefixList,
+        createEmptySpecRow, mergeSpecGroupDetails, fetchSpecGroupCatalog, ensureSpecGroupDetail,
+        fetchSpecSuggestionsForCurrentPart, prepareSpecDraftForEdit, handleSpecTypeSelection,
+        resolveSpecTypesBeforeSave, validateSpecsBeforeSave, specGroupOptions, selectedSpecGroupLabel,
+        scopedSpecTypes, specTypePickerOptionLabel, filteredSpecTypesForPicker, visibleSpecTemplates,
+        selectedSpecTemplate, masterSpecGroupUrl, specTemplateLabel, specTemplatePreviewItems,
+        addSelectedSpecType, applySelectedSpecTemplate, openInlineSpecTypeModal, closeInlineSpecTypeModal,
+        saveInlineSpecType, changeSpecProfile, getUnitSuggestions, hasSpecBaseUnit, specPreview,
+        specDisplayName, specProfileBadge, specProfileControlLabel, specProfileHelpText, specTypeOptionLabel,
+        isToleranceSpecRow, toleranceUnitOptionsFor, toleranceValuePlaceholder, toleranceGradeOptionsFor,
+        toleranceGradeOptionLabel, isToleranceGradeMenuOpen, toggleToleranceGradeMenu, closeToleranceGradeMenu,
+        selectToleranceGradeOption, handleSpecGroupPickerChange,
+    } = componentSpecs;
 
-        return {
-            ...defaultToleranceSettings(defaultUnit),
-            default_mode: source.default_mode ?? source.mode ?? source.input_format ?? 'symmetric',
-            default_unit: defaultUnit,
-            allowed_units: allowedUnits.length ? allowedUnits : [defaultUnit],
-            grade_options: Array.isArray(source.grade_options) ? source.grade_options : [],
-        };
-    };
-    const toleranceSettingsForSpecType = (specType) =>
-        normalizeToleranceSettings(specType?.tolerance_settings, specType?.base_unit ?? specType?.units?.[0]?.unit ?? '%');
-    const specTypeForSpec = (spec) => getSpecTypeById(spec?.spec_type_id);
-    const isToleranceSpecRow = (spec) => isToleranceSpecType(specTypeForSpec(spec));
-    const toleranceSettingsForSpec = (spec) => toleranceSettingsForSpecType(specTypeForSpec(spec));
-    const toleranceUnitOptionsFor = (spec) => toleranceSettingsForSpec(spec).allowed_units;
-    const toleranceValuePlaceholder = (spec) => {
-        const mode = toleranceSettingsForSpec(spec).default_mode;
-        if (mode === 'grade') return '例: J / 5 / +80/-20';
-        if (mode === 'asymmetric') return '例: +80/-20';
-
-        return '例: 5 / ±5';
-    };
-    const toleranceGradeOptionsFor = (spec) => toleranceSettingsForSpec(spec).grade_options;
-    const toleranceGradeOptionLabel = (option) => {
-        const label = String(option?.label ?? option?.rank ?? '').trim();
-        const unit = String(option?.unit ?? '').trim();
-        if (option?.plus !== undefined || option?.minus !== undefined) {
-            return `${label} +${option?.plus ?? ''}/-${option?.minus ?? ''}${unit}`;
-        }
-        if (option?.value !== undefined) return `${label} ±${option.value}${unit}`;
-        return label;
-    };
-    const toleranceGradeOptionValue = (option) => {
-        if (option?.text) return String(option.text);
-        if (option?.plus !== undefined || option?.minus !== undefined) {
-            return `+${option?.plus ?? ''}/-${option?.minus ?? ''}`;
-        }
-        if (option?.value !== undefined) return String(option.value);
-
-        return String(option?.label ?? option?.rank ?? '');
-    };
-    const applyToleranceDefaults = (spec, specType = specTypeForSpec(spec)) => {
-        if (!isToleranceSpecType(specType)) return spec;
-        const settings = toleranceSettingsForSpecType(specType);
-        spec.value_profile = 'typ';
-        if (!String(spec.unit ?? '').trim()) {
-            spec.unit = settings.default_unit || specType?.base_unit || '%';
-        }
-        if (!String(spec.value_typ ?? '').trim()) {
-            const rangeValue = [spec.value_min, spec.value_max].filter(Boolean).join('〜');
-            spec.value_typ = rangeValue || spec.value || '';
-        }
-        return spec;
-    };
-    const applyToleranceGradeOption = (spec, option) => {
-        spec.value_profile = 'typ';
-        spec.value_typ = toleranceGradeOptionValue(option);
-        spec.unit = String(option?.unit ?? '').trim() || toleranceSettingsForSpec(spec).default_unit || spec.unit || '%';
-    };
-    const activeToleranceGradeMenu = ref('');
-    const toleranceGradeMenuKey = (scope, index) => `${scope}-${index}`;
-    const isToleranceGradeMenuOpen = (scope, index) => activeToleranceGradeMenu.value === toleranceGradeMenuKey(scope, index);
-    const closeToleranceGradeMenu = () => {
-        activeToleranceGradeMenu.value = '';
-    };
-    const toggleToleranceGradeMenu = (scope, index, spec) => {
-        if (!toleranceGradeOptionsFor(spec).length) {
-            closeToleranceGradeMenu();
-            return;
-        }
-
-        const key = toleranceGradeMenuKey(scope, index);
-        activeToleranceGradeMenu.value = activeToleranceGradeMenu.value === key ? '' : key;
-    };
-    const selectToleranceGradeOption = (spec, option) => {
-        applyToleranceGradeOption(spec, option);
-        closeToleranceGradeMenu();
-    };
-    const specBaseUnit = (spec) => isToleranceSpecRow(spec) ? '' : getSpecBaseUnit(specTypeForSpec(spec));
-    const hasSpecBaseUnit = (spec) => !!specBaseUnit(spec);
-    const syncNormalSpecUnitToBase = (spec, specType = specTypeForSpec(spec)) => {
-        if (!spec || !specType || isToleranceSpecType(specType)) return spec;
-
-        return normalizeSpecDraftUnitToBase(spec, specType);
-    };
-    const prepareSpecDraftForEdit = (spec, specType = specTypeForSpec(spec)) =>
-        syncNormalSpecUnitToBase(applyToleranceDefaults(spec, specType), specType);
-
-    const specTypeOptionLabel = (specType) => {
-        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
-        const symbol = String(specType?.symbol ?? '').trim();
-        const english = String(specType?.name_en ?? '').trim();
-        const suffix = [symbol, english].filter(Boolean).join(' / ');
-
-        return suffix ? `${primary} (${suffix})` : primary;
-    };
-    const specTypeShortLabel = (specType) => {
-        const primary = String(specType?.name_ja ?? specType?.name ?? '').trim();
-        const symbol = String(specType?.symbol ?? '').trim();
-
-        return [primary, symbol].filter(Boolean).join(' ');
-    };
-    const normalizeName = (value) => String(value ?? '').toLowerCase().replace(/[\s()\[\]_.-]/gu, '');
-    const specTypeSearchText = (item) => [
-        item?.name,
-        item?.name_ja,
-        item?.name_en,
-        item?.symbol,
-        ...(item?.aliases ?? []).map((alias) => alias.alias),
-    ].filter(Boolean).join(' ');
-    const matchSpecTypeByName = (name) => {
-        const normalized = normalizeName(name);
-        if (!normalized) return null;
-
-        let matched = specTypes.value.find((item) => normalizeName(specTypeSearchText(item)) === normalized);
-        if (matched) return matched;
-
-        matched = specTypes.value.find((item) => {
-            const itemName = normalizeName(specTypeSearchText(item));
-            return itemName && (normalized.includes(itemName) || itemName.includes(normalized));
-        });
-
-        return matched ?? null;
-    };
-    const handleSpecTypeSelection = (spec) => {
-        const selected = getSpecTypeById(spec?.spec_type_id);
-        if (selected) {
-            spec.spec_type_name = selected.name_ja ?? selected.name ?? '';
-            applyToleranceDefaults(spec, selected);
-            syncNormalSpecUnitToBase(spec, selected);
-        } else {
-            spec.spec_type_name = '';
-        }
-    };
-    const buildSpecTypeAliases = (aliasesText, extraAliases = [], excludedValues = []) => {
-        const excluded = new Set(excludedValues.map((value) => normalizeName(value)).filter(Boolean));
-        const seen = new Set;
-
-        return [
-            ...String(aliasesText ?? '').split(/\r?\n/u),
-            ...extraAliases,
-        ].map((value) => String(value ?? '').trim())
-            .filter((value) => {
-                const key = normalizeName(value);
-                if (!key || excluded.has(key) || seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-            .map((alias) => ({ alias }));
-    };
-    const sortSpecTypes = (items) => [...items].sort((a, b) => {
-        const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
-        return sortOrder || String(a.name_ja ?? a.name ?? '').localeCompare(String(b.name_ja ?? b.name ?? ''), 'ja');
-    });
-    const normalizeSpecGroupId = (value) => {
-        if (value === '' || value === null || value === undefined) return '';
-        return String(value);
-    };
-    const groupSpecTypes = (group) => group?.spec_types ?? group?.specTypes ?? [];
-    const specGroupOptions = computed(() => categories.value ?? []);
-    const groupTemplates = (group) => group?.templates ?? [];
-    const allSpecTemplates = computed(() =>
-        specGroupOptions.value.flatMap((group) =>
-            groupTemplates(group).map((template) => ({
-                ...template,
-                spec_group_id: template.spec_group_id ?? group.id,
-            }))
-        )
-    );
-    const mergeSpecGroupDetails = (groups = []) => {
-        if (!Array.isArray(groups) || !groups.length) return;
-        const byId = new Map(categories.value.map((group) => [Number(group.id), group]));
-        groups.forEach((group) => {
-            byId.set(Number(group.id), {
-                ...(byId.get(Number(group.id)) ?? {}),
-                ...group,
-                _detail_loaded: true,
-            });
-        });
-        categories.value = [...byId.values()]
-            .filter((group) => group?.id)
-            .sort((a, b) => {
-                const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
-                return sortOrder || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ja');
-            });
-    };
-    const fetchSpecGroupCatalog = async () => {
-        try {
-            const res = await api.get('/spec-groups?with_spec_types=1&with_templates=1');
-            mergeSpecGroupDetails(res.data ?? []);
-        } catch {
-            // 基本の部品分類一覧は維持する。候補詳細は選択時に再取得する。
-        }
-    };
-    const ensureSpecGroupDetail = async (groupId) => {
-        if (!groupId || groupId === 'all') return null;
-        const current = categories.value.find((group) => Number(group.id) === Number(groupId));
-        if (current?._detail_loaded) return current;
-
-        try {
-            const res = await api.get(`/spec-groups/${groupId}`);
-            mergeSpecGroupDetails([res.data]);
-            return categories.value.find((group) => Number(group.id) === Number(groupId)) ?? res.data ?? null;
-        } catch {
-            toastError('部品分類の候補詳細を取得できませんでした');
-            return null;
-        }
-    };
-    const fetchSpecSuggestionsForCurrentPart = async () => {
-        if (!part.value) return;
-        const categoryIds = (part.value.categories ?? []).map((category) => Number(category.id)).filter(Boolean);
-        if (!categoryIds.length) {
-            specSuggestionTypes.value = [];
-            selectedSpecGroupId.value = 'all';
-            selectedSpecTypeId.value = '';
-            selectedSpecTemplateId.value = '';
-            specSuggestionLoading.value = false;
-            return;
-        }
-
-        specSuggestionLoading.value = true;
-        try {
-            const params = new URLSearchParams();
-            categoryIds.forEach((categoryId) => params.append('category_ids[]', categoryId));
-            const res = await api.get(`/spec-suggestions?${params.toString()}`);
-            specGroups.value = res.data?.groups ?? [];
-            specSuggestionTypes.value = res.data?.spec_types ?? [];
-            specTemplates.value = res.data?.templates ?? [];
-
-            const currentId = normalizeSpecGroupId(selectedSpecGroupId.value);
-            const currentStillAvailable = currentId === 'all'
-                || specGroupOptions.value.some((group) => String(group.id) === currentId);
-            if (!currentStillAvailable) {
-                selectedSpecGroupId.value = 'all';
-            }
-            syncSpecPickerSelections();
-        } catch {
-            specSuggestionTypes.value = [];
-            selectedSpecTypeId.value = '';
-            selectedSpecTemplateId.value = '';
-            toastError('部品分類候補の取得に失敗しました。必要なら全スペック詳細から選択してください');
-        } finally {
-            specSuggestionLoading.value = false;
-        }
-    };
-    const selectedSpecGroup = computed(() => {
-        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (!groupId || groupId === 'all') return null;
-        return specGroupOptions.value.find((group) => String(group.id) === groupId) ?? null;
-    });
-    const isAllSpecTypesSelected = computed(() => normalizeSpecGroupId(selectedSpecGroupId.value) === 'all');
-    const partSpecCategoryIds = computed(() =>
-        (part.value?.categories ?? []).map((category) => Number(category.id)).filter(Boolean)
-    );
-    const hasPartSpecCategories = computed(() => partSpecCategoryIds.value.length > 0);
-    const selectedSpecGroupLabel = computed(() => {
-        if (isAllSpecTypesSelected.value) return 'フィルタしない';
-        if (selectedSpecGroup.value) return selectedSpecGroup.value.name;
-        return hasPartSpecCategories.value ? '候補スペック詳細なし' : '部品分類未選択';
-    });
-    const recommendedSpecTypeIds = computed(() => new Set(specSuggestionTypes.value.map((item) => Number(item.id))));
-    const scopedSpecTypes = computed(() => {
-        const group = selectedSpecGroup.value;
-        if (group) return groupSpecTypes(group);
-        if (isAllSpecTypesSelected.value) return specTypes.value;
-        if (specSuggestionTypes.value.length) return specSuggestionTypes.value;
-        return [];
-    });
-    const resolveInlineSpecOwnerGroup = () => {
-        const selectedGroupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        if (selectedGroupId && selectedGroupId !== 'all') {
-            const group = specGroupOptions.value.find((item) => String(item.id) === selectedGroupId)
-                ?? categories.value.find((item) => Number(item.id) === Number(selectedGroupId));
-            if (group) {
-                return { id: Number(group.id), name: group.name };
-            }
-        }
-
-        const suggestedGroups = specGroups.value.filter((group) => group.is_suggested);
-        if (suggestedGroups.length === 1) {
-            const [group] = suggestedGroups;
-            return { id: Number(group.id), name: group.name };
-        }
-
-        if (partSpecCategoryIds.value.length === 1) {
-            const categoryId = partSpecCategoryIds.value[0];
-            const category = categories.value.find((item) => Number(item.id) === Number(categoryId));
-            return { id: categoryId, name: category?.name ?? '' };
-        }
-
-        return null;
-    };
-    const attachSpecTypeToOwnerGroup = (specType, ownerSpecGroupId) => {
-        const group = specGroupOptions.value.find((item) => Number(item.id) === Number(ownerSpecGroupId));
-        if (!group || !specType?.id) return;
-
-        const currentTypes = groupSpecTypes(group);
-        if (!currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
-            group.spec_types = sortSpecTypes([...currentTypes, specType]);
-        }
-        if (group.is_suggested && !specSuggestionTypes.value.some((item) => Number(item.id) === Number(specType.id))) {
-            specSuggestionTypes.value = sortSpecTypes([...specSuggestionTypes.value, specType]);
-        }
-    };
-    const specGroupCandidatePayload = (specType, index = 0) => ({
-        spec_type_id: Number(specType.id),
-        sort_order: Number(specType?.pivot?.sort_order ?? specType?.sort_order ?? ((index + 1) * 10)),
-        is_required: Boolean(specType?.pivot?.is_required ?? false),
-        is_recommended: Boolean(specType?.pivot?.is_recommended ?? true),
-        default_profile: specType?.pivot?.default_profile ?? 'typ',
-        default_unit: specType?.pivot?.default_unit ?? specType?.base_unit ?? specType?.units?.[0]?.unit ?? null,
-        note: specType?.pivot?.note ?? null,
-    });
-    const ensureSpecTypeLinkedToOwnerGroup = async (specType, ownerGroup) => {
-        if (!specType?.id || !ownerGroup?.id) return false;
-
-        const loadedGroup = await ensureSpecGroupDetail(ownerGroup.id);
-        if (!loadedGroup) return false;
-        const group = specGroupOptions.value.find((item) => Number(item.id) === Number(ownerGroup.id));
-        const currentTypes = groupSpecTypes(group);
-        if (currentTypes.some((item) => Number(item.id) === Number(specType.id))) {
-            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
-            return true;
-        }
-
-        const items = currentTypes.map((item, index) => specGroupCandidatePayload(item, index));
-        const nextSortOrder = Math.max(0, ...items.map((item) => Number(item.sort_order ?? 0))) + 10;
-        items.push({
-            ...specGroupCandidatePayload(specType, items.length),
-            sort_order: nextSortOrder,
-            is_required: false,
-            is_recommended: true,
-        });
-
-        try {
-            const res = await api.put(`/spec-groups/${ownerGroup.id}/spec-types`, { items });
-            mergeSpecGroupDetails([res.data]);
-            attachSpecTypeToOwnerGroup(specType, ownerGroup.id);
-            return true;
-        } catch (e) {
-            toastError(e.message || '既存スペック詳細を部品分類の候補に追加できませんでした');
-            return false;
-        }
-    };
-    const specTypePickerOptionLabel = (specType) => {
-        const label = specTypeOptionLabel(specType);
-        return isAllSpecTypesSelected.value && recommendedSpecTypeIds.value.has(Number(specType?.id))
-            ? `${label}（推奨）`
-            : label;
-    };
-    const filteredSpecTypesForPicker = (spec = null) => {
-        const query = normalizeName(specTypeSearchQuery.value);
-        const selected = getSpecTypeById(spec?.spec_type_id);
-        const candidates = [...scopedSpecTypes.value];
-        if (selected && !candidates.some((item) => Number(item.id) === Number(selected.id))) {
-            candidates.unshift(selected);
-        }
-
-        const seen = new Set;
-        return sortSpecTypes(candidates)
-            .filter((item) => {
-                const key = Number(item.id);
-                if (seen.has(key)) return false;
-                seen.add(key);
-                if (!query) return true;
-                return normalizeName(specTypeSearchText(item)).includes(query);
-            })
-            .sort((a, b) => {
-                if (!isAllSpecTypesSelected.value) return 0;
-                const aRecommended = recommendedSpecTypeIds.value.has(Number(a.id));
-                const bRecommended = recommendedSpecTypeIds.value.has(Number(b.id));
-                return Number(bRecommended) - Number(aRecommended);
-            });
-    };
-    const visibleSpecTemplates = computed(() => {
-        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-
-        if (groupId && groupId !== 'all') {
-            return groupTemplates(selectedSpecGroup.value);
-        }
-
-        return allSpecTemplates.value;
-    });
-    const selectedSpecTypeCandidate = computed(() =>
-        filteredSpecTypesForPicker().find((item) => String(item.id) === String(selectedSpecTypeId.value)) ?? null
-    );
-    const selectedSpecTemplate = computed(() =>
-        visibleSpecTemplates.value.find((template) => String(template.id) === String(selectedSpecTemplateId.value)) ?? null
-    );
-    const masterSpecGroupUrl = (tab) => {
-        const params = new URLSearchParams({ tab });
-        const groupId = normalizeSpecGroupId(selectedSpecGroupId.value);
-        const fallbackGroupId = defaultSpecGroupIdForPart();
-        const targetGroupId = groupId && groupId !== 'all' ? groupId : fallbackGroupId;
-        if (targetGroupId && targetGroupId !== 'all') {
-            params.set('group_id', targetGroupId);
-        }
-
-        return `/master?${params.toString()}`;
-    };
-    const specTemplateGroup = (template) =>
-        specGroupOptions.value.find((group) => Number(group.id) === Number(template?.spec_group_id)) ?? null;
-    const specTemplateLabel = (template) => {
-        const groupName = specTemplateGroup(template)?.name;
-        return groupName ? `${template.name} / ${groupName}` : template.name;
-    };
-    const templateItemSpecType = (item) => item?.spec_type ?? item?.specType ?? getSpecTypeById(item?.spec_type_id);
-    const templateItemProfile = (item) => normalizeSpecProfile(item?.value_profile ?? item?.default_profile ?? 'typ');
-    const templateItemUnit = (item, specType = null) => {
-        const baseUnit = !isToleranceSpecType(specType) ? getSpecBaseUnit(specType) : '';
-
-        return String(baseUnit || item?.unit || item?.default_unit || specType?.base_unit || specType?.units?.[0]?.unit || '').trim();
-    };
-    const specTemplatePreviewItems = computed(() =>
-        (selectedSpecTemplate.value?.items ?? []).map((item) => {
-            const specType = templateItemSpecType(item);
-            return {
-                id: item?.id ?? `${item?.spec_type_id ?? specType?.id ?? 'no-type'}-${templateItemProfile(item)}`,
-                label: specTypeShortLabel(specType) || String(item?.name ?? item?.name_ja ?? 'スペック詳細未設定').trim(),
-            };
-        })
-    );
-    const hasSpecTypeRow = (specTypeId, rows = editModal.value.form?.specs ?? []) =>
-        rows.some((spec) => Number(spec.spec_type_id) === Number(specTypeId));
-    const buildSpecRowFromSpecType = (specType) => prepareSpecDraftForEdit({
-        ...createEmptySpecRow(),
-        spec_type_id: specType?.id ?? '',
-        spec_type_name: specType?.name_ja ?? specType?.name ?? '',
-        value_profile: normalizeSpecProfile('typ'),
-        unit: String(isToleranceSpecType(specType)
-            ? toleranceSettingsForSpecType(specType).default_unit
-            : (specType?.base_unit ?? specType?.units?.[0]?.unit ?? '')).trim(),
-    }, specType);
-    const buildSpecRowFromTemplateItem = (item) => {
-        const specType = templateItemSpecType(item);
-
-        return prepareSpecDraftForEdit({
-            ...createEmptySpecRow(),
-            spec_type_id: item?.spec_type_id ?? specType?.id ?? '',
-            spec_type_name: specType?.name_ja ?? specType?.name ?? '',
-            value_profile: templateItemProfile(item),
-            unit: templateItemUnit(item, specType),
-        }, specType);
-    };
-    const syncSpecPickerSelections = () => {
-        if (selectedSpecTypeId.value && !filteredSpecTypesForPicker().some((item) => String(item.id) === String(selectedSpecTypeId.value))) {
-            selectedSpecTypeId.value = '';
-        }
-        if (selectedSpecTemplateId.value && !visibleSpecTemplates.value.some((item) => String(item.id) === String(selectedSpecTemplateId.value))) {
-            selectedSpecTemplateId.value = '';
-        }
-    };
-    const handleSpecGroupPickerChange = () => {
-        specTypeSearchQuery.value = '';
-        selectedSpecTypeId.value = '';
-        selectedSpecTemplateId.value = '';
-        void ensureSpecGroupDetail(selectedSpecGroupId.value);
-        syncSpecPickerSelections();
-    };
-    const addSelectedSpecType = () => {
-        const specType = selectedSpecTypeCandidate.value;
-        if (!specType?.id) {
-            toastError('追加するスペック候補を選択してください');
-            return;
-        }
-
-        if (hasSpecTypeRow(specType.id)) {
-            toastError('既に同じスペック詳細の行があります');
-            return;
-        }
-
-        editModal.value.form.specs.push(buildSpecRowFromSpecType(specType));
-        selectedSpecTypeId.value = '';
-    };
-    const addInlineCreatedSpecType = (specType) => {
-        if (!specType?.id) return;
-
-        const ownerGroup = resolveInlineSpecOwnerGroup();
-        if (ownerGroup?.id) {
-            selectedSpecGroupId.value = String(ownerGroup.id);
-        }
-        selectedSpecTypeId.value = String(specType.id);
-
-        if (hasSpecTypeRow(specType.id)) {
-            toastError('既に同じスペック詳細の行があります');
-            return;
-        }
-
-        editModal.value.form.specs.push(buildSpecRowFromSpecType(specType));
-        selectedSpecTypeId.value = '';
-    };
-    const applySelectedSpecTemplate = () => {
-        const template = selectedSpecTemplate.value;
-        const rows = Array.isArray(template?.items) ? template.items : [];
-        if (!template) {
-            toastError('入力テンプレートを選択してください');
-            return;
-        }
-        if (!rows.length) {
-            toastError('この入力テンプレートにはスペック行がありません');
-            return;
-        }
-
-        let added = 0;
-        let skipped = 0;
-        rows.forEach((item) => {
-            const specTypeId = Number(item?.spec_type_id ?? templateItemSpecType(item)?.id ?? 0);
-            if (!specTypeId || hasSpecTypeRow(specTypeId)) {
-                skipped++;
-                return;
-            }
-
-            editModal.value.form.specs.push(buildSpecRowFromTemplateItem(item));
-            added++;
-        });
-
-        if (added > 0) {
-            toastSuccess(skipped > 0
-                ? `${template.name} を適用しました（追加 ${added} 件 / 既存 ${skipped} 件）`
-                : `${template.name} を適用しました（追加 ${added} 件）`);
-            return;
-        }
-
-        toastError('既に同じスペック詳細の行があります');
-    };
-    const openInlineSpecTypeModal = (spec = null) => {
-        if (!canCreateSpecType.value) return;
-        if (!resolveInlineSpecOwnerGroup()) {
-            toastError('スペック詳細を追加する部品分類を1つ選んでください');
-            return;
-        }
-
-        const selected = getSpecTypeById(spec?.spec_type_id);
-        const rawName = String(spec?.name ?? '').trim();
-        const nameJa = String(spec?.name_ja ?? '').trim()
-            || (selected ? '' : String(spec?.spec_type_name ?? '').trim())
-            || rawName;
-        const aliases = [rawName].filter((value) => value && normalizeName(value) !== normalizeName(nameJa));
-        const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
-        const unit = unitDraft.unit;
-        const suggestedPrefixes = unitDraft.prefix
-            ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix]
-            : (spec?.suggest_prefixes ?? []);
-        const displayPrefixes = unitDraft.prefix
-            ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix]
-            : (spec?.display_prefixes ?? []);
-
-        inlineSpecTypeModal.targetSpec = spec;
-        inlineSpecTypeModal.form = {
-            name_ja: nameJa,
-            name_en: String(spec?.name_en ?? '').trim(),
-            symbol: String(spec?.symbol ?? '').trim(),
-            description: String(spec?.description ?? '').trim(),
-            value_type: spec?.value_type ?? 'numeric',
-            unit,
-            suggest_prefixes: sanitizeInlinePrefixesForUnit(suggestedPrefixes, unit),
-            display_prefixes: sanitizeInlinePrefixesForUnit(displayPrefixes, unit),
-            aliases_text: aliases.join('\n'),
-        };
-        inlineSpecTypeModal.open = true;
-    };
-    const closeInlineSpecTypeModal = (force = false) => {
-        if (inlineSpecTypeModal.saving && force !== true) return;
-        inlineSpecTypeModal.open = false;
-        inlineSpecTypeModal.targetSpec = null;
-        inlineSpecTypeModal.form = createInlineSpecTypeForm();
-    };
-    const fetchSpecTypes = async () => {
-        try {
-            const res = await api.get('/spec-types');
-            specTypes.value = res.data ?? [];
-        } catch {
-            // 保存処理側で必要なエラーを出す。
-        }
-    };
-    const createSpecTypeFromDraft = async (spec) => {
-        const nameJa = String(spec?.name_ja ?? spec?.spec_type_name ?? spec?.name ?? '').trim();
-        const name = nameJa || String(spec?.name ?? '').trim();
-        if (!name) return null;
-
-        const ownerGroup = resolveInlineSpecOwnerGroup();
-        if (!ownerGroup) {
-            toastError('スペック詳細を追加する部品分類を1つ選んでください');
-            return null;
-        }
-
-        const existing = matchSpecTypeByName(name);
-        if (existing) {
-            const linked = await ensureSpecTypeLinkedToOwnerGroup(existing, ownerGroup);
-            if (!linked) return null;
-            toastSuccess(`既存のスペック詳細を候補に追加しました: ${name}`);
-            return existing;
-        }
-
-        try {
-            const unitDraft = normalizeBaseUnitInput(spec?.unit ?? '');
-            const unit = unitDraft.unit;
-            const suggestPrefixes = sanitizeInlinePrefixesForUnit(
-                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.suggest_prefixes ?? []), unitDraft.prefix] : (spec?.suggest_prefixes ?? []),
-                unit
-            );
-            const displayPrefixes = sanitizeInlinePrefixesForUnit(
-                unitDraft.prefix ? [...normalizeInlinePrefixes(spec?.display_prefixes ?? []), unitDraft.prefix] : (spec?.display_prefixes ?? []),
-                unit
-            );
-            const res = await api.post('/spec-types', {
-                name,
-                name_ja: nameJa || name,
-                name_en: String(spec?.name_en ?? '').trim(),
-                symbol: String(spec?.symbol ?? '').trim(),
-                description: String(spec?.description ?? '').trim() || null,
-                value_type: spec?.value_type ?? 'numeric',
-                unit,
-                suggest_prefixes: suggestPrefixes.length > 0 ? suggestPrefixes : null,
-                display_prefixes: displayPrefixes.length > 0 ? displayPrefixes : null,
-                spec_scope: 'group_local',
-                owner_spec_group_id: ownerGroup.id,
-                aliases: buildSpecTypeAliases(
-                    spec?.aliases_text ?? '',
-                    [spec?.name],
-                    [name, nameJa, spec?.name_en, spec?.symbol]
-                ),
-                sort_order: (specTypes.value.at(-1)?.sort_order ?? 0) + 10,
-            });
-            specTypes.value = sortSpecTypes([...specTypes.value, res.data]);
-            attachSpecTypeToOwnerGroup(res.data, ownerGroup.id);
-            toastSuccess(`スペック詳細を追加しました: ${name}`);
-            return res.data;
-        } catch (e) {
-            await fetchSpecTypes();
-            const matchedAfterReload = matchSpecTypeByName(name);
-            if (matchedAfterReload) return matchedAfterReload;
-            toastError(e.message);
-            return null;
-        }
-    };
-    const saveInlineSpecType = async () => {
-        if (inlineSpecTypeModal.saving) return;
-
-        const nameJa = String(inlineSpecTypeModal.form.name_ja ?? '').trim();
-        if (!nameJa) {
-            toastError('スペック詳細の日本語名を入力してください');
-            return;
-        }
-
-        inlineSpecTypeModal.saving = true;
-        try {
-            const created = await createSpecTypeFromDraft(inlineSpecTypeModal.form);
-            if (!created) return;
-
-            const targetSpec = inlineSpecTypeModal.targetSpec;
-            if (targetSpec) {
-                targetSpec.spec_type_id = created.id;
-                targetSpec.spec_type_name = created.name_ja ?? created.name ?? '';
-            } else {
-                addInlineCreatedSpecType(created);
-            }
-            closeInlineSpecTypeModal(true);
-        } finally {
-            inlineSpecTypeModal.saving = false;
-        }
-    };
-    const resolveSpecTypesBeforeSave = async () => {
-        for (const spec of editModal.value.form?.specs ?? []) {
-            handleSpecTypeSelection(spec);
-        }
-    };
-    const validateSpecsBeforeSave = () => {
-        const missingRows = (editModal.value.form?.specs ?? [])
-            .map((spec, index) => ({ spec, index }))
-            .filter(({ spec }) => !spec.spec_type_id);
-        if (!missingRows.length) return true;
-
-        const labels = missingRows
-            .slice(0, 4)
-            .map(({ spec, index }) => `${index + 1}行目${spec.spec_type_name || spec.name_ja || spec.name ? `「${spec.spec_type_name || spec.name_ja || spec.name}」` : ''}`);
-        const suffix = missingRows.length > labels.length ? ` ほか${missingRows.length - labels.length}件` : '';
-        toastError(`スペック詳細が未選択です: ${labels.join('、')}${suffix}`);
-        return false;
-    };
-    const changeSpecProfile = (spec, profile) => {
-        const previous = normalizeSpecProfile(spec?.value_profile);
-        const next = normalizeSpecProfile(profile);
-        const typ = String(spec.value_typ ?? '').trim();
-        const min = String(spec.value_min ?? '').trim();
-        const max = String(spec.value_max ?? '').trim();
-        const fallback = typ || max || min;
-
-        if (next === 'typ' && !typ) {
-            spec.value_typ = fallback;
-        } else if (next === 'max_only' && !max) {
-            spec.value_max = previous === 'typ' && typ ? typ : fallback;
-        } else if (next === 'min_only' && !min) {
-            spec.value_min = previous === 'typ' && typ ? typ : fallback;
-        } else if ((next === 'range' || next === 'triple') && !typ && previous === 'max_only' && max) {
-            spec.value_typ = max;
-        } else if (next === 'triple' && !typ && previous === 'min_only' && min) {
-            spec.value_typ = min;
-        }
-
-        spec.value_profile = next;
-    };
-    const getUnitSuggestions = (specTypeId) => getSpecUnitSuggestions(getSpecTypeById(specTypeId));
-    const specPreview = (spec) => normalizeSpecDraft(spec, getSpecTypeById(spec.spec_type_id));
-    const specDisplayName = (spec) => getSpecDisplayName(spec, getSpecTypeById(spec?.spec_type_id));
-    const specProfileBadge = (spec) => getSpecProfileBadgeLabel(spec?.value_profile);
-    const specProfileControlLabel = (profile) => getSpecProfileControlLabel(profile);
-    const specProfileHelpText = (profile) => getSpecProfileHelpText(profile);
 
     return {
         toasts, part, loading, loadError, componentId,

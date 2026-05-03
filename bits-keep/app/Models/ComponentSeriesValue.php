@@ -28,12 +28,26 @@ class ComponentSeriesValue extends Model
         'is_stocked' => 'boolean',
         'sort_order' => 'integer',
     ];
-
+    /**
+     * 目的: ComponentSeriesValueからcomponent SeriesへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function componentSeries(): BelongsTo
     {
         return $this->belongsTo(ComponentSeries::class);
     }
-
+    /**
+     * 目的: ComponentSeriesValueからmaterialized ComponentへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function materializedComponent(): BelongsTo
     {
         return $this->belongsTo(Component::class, 'materialized_component_id');

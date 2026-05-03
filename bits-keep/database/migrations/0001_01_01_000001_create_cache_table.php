@@ -7,7 +7,12 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 目的: Run the migrations。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
      */
     public function up(): void
     {
@@ -25,7 +30,12 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * 目的: Reverse the migrations。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
      */
     public function down(): void
     {

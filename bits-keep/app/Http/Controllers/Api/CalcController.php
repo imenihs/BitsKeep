@@ -18,32 +18,12 @@ class CalcController extends Controller
     private const MAX_CUSTOM_VALUES = 256;
 
     /**
-     * POST /api/calc/networks/search
-     * 抵抗/容量ネットワーク探索（FNC-022）
-     *
-     * Request:
-     *   target        float   目標値（Ω/F/分圧比）
-     *   input_voltage float   分圧の入力電圧。指定時は output_voltage / input_voltage を target として扱う
-     *   output_voltage float  分圧の出力電圧。指定時は output_voltage / input_voltage を target として扱う
-     *   tolerance_pct float   探索許容誤差 % (default: 5.0)
-     *   element_tolerance_pct float 採用素子許容差 %。候補表示時の最悪範囲見積もりに使用
-     *   part_type     string  'R' | 'C' | 'divider' (default: 'R')
-     *   series        string  'E6'|'E12'|'E24'|'E48'|'E96'|'custom' (default: 'E24')
-     *   custom_values float[] series='custom' の時の値リスト (max: 256)
-     *   min_elements  int     素子数下限 (default: 1)
-     *   max_elements  int     素子数上限 (default: 3, max: 4)
-     *   inventory_only bool   在庫限定フラグ (default: false)
-     *   circuit_types string[] 探索回路種別 (default: ['series','parallel'])
-     *   total_res_min float  分圧総抵抗下限
-     *   total_res_max float  分圧総抵抗上限
-     *   load_type     string 分圧負荷 'resistance' | 'current'
-     *   load_resistance float|null 抵抗負荷。null と load_resistance_infinite=true は無負荷
-     *   load_current  float 電流負荷。0 は無負荷
-     *   divider_upper_tolerance_pct float 分圧R1上側の許容差 %
-     *   divider_lower_tolerance_pct float 分圧R2下側の許容差 %
-     *
-     * Response:
-     *   { candidates: [...], elapsed_ms: int, truncated: bool }
+     * 目的: 計算APIのnetworksearchを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function networkSearch(Request $request): JsonResponse
     {

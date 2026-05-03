@@ -3,48 +3,10 @@
 namespace App\Services;
 
 use App\Models\SpecType;
+use App\Support\EngineeringUnits;
 
 class SpecValueNormalizerService
 {
-    private const SI_PREFIX_FACTORS = [
-        'Y' => 1e24,
-        'Z' => 1e21,
-        'E' => 1e18,
-        'P' => 1e15,
-        'T' => 1e12,
-        'G' => 1e9,
-        'M' => 1e6,
-        'k' => 1e3,
-        '' => 1.0,
-        'm' => 1e-3,
-        'u' => 1e-6,
-        'µ' => 1e-6,
-        'μ' => 1e-6,
-        'n' => 1e-9,
-        'p' => 1e-12,
-        'f' => 1e-15,
-    ];
-
-    private const IEC_PREFIX_FACTORS = [
-        'Ti' => 1099511627776,
-        'Gi' => 1073741824,
-        'Mi' => 1048576,
-        'Ki' => 1024,
-    ];
-
-    private const PREFIX_FACTORS = self::SI_PREFIX_FACTORS + self::IEC_PREFIX_FACTORS;
-
-    // PREFIX_FACTORS に大文字 K (非標準だが実務頻出) を追加した値パーサ専用テーブル
-    private const ENGINEERING_VALUE_PREFIX_FACTORS = self::PREFIX_FACTORS + ['K' => 1e3];
-
-    private const HUMAN_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-
-    private const UNIVERSAL_PREFIX_ORDER = ['Y', 'Z', 'E', 'P', 'Ti', 'Gi', 'Mi', 'Ki', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-
-    private const BYTE_BIT_PREFIX_ORDER = ['T', 'G', 'M', 'k', ''];
-
-    private const BYTE_BIT_BASE_UNITS = ['B', 'bit', 'bps'];
-
     private const RANGE_SPLIT_PATTERN = '/\s*(?:〜|~|～|to)\s*/iu';
 
     private const TRIPLE_SPLIT_PATTERN = '/\s*(?:\/|／|\|)\s*/u';
@@ -60,6 +22,12 @@ class SpecValueNormalizerService
     ];
 
     /**
+     * 目的: Spec Value Normalizerの正規化スペックpayloadを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $specType, $payload。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -110,7 +78,14 @@ class SpecValueNormalizerService
             default => $this->normalizeSinglePayload('typ', $rawTyp, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes),
         };
     }
-
+    /**
+     * 目的: Spec Value Normalizerの正規化searchboundを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $specType, $value, $unit。
+     * 出力: ?floatで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     public function normalizeSearchBound(?SpecType $specType, mixed $value, ?string $unit): ?float
     {
         $parsedValue = $this->parseEngineeringNumber($value);
@@ -126,6 +101,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのinferprofileを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $payload。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $payload
      */
     private function inferProfile(array $payload): string
@@ -165,7 +146,14 @@ class SpecValueNormalizerService
 
         return 'typ';
     }
-
+    /**
+     * 目的: Spec Value Normalizerの正規化singlepayloadを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $profile, $rawValue, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeSinglePayload(string $profile, string $rawValue, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $parsed = $this->parseEngineeringNumber($rawValue);
@@ -198,7 +186,14 @@ class SpecValueNormalizerService
             'normalized_unit' => $normalizedUnit,
         ];
     }
-
+    /**
+     * 目的: Spec Value Normalizerの正規化rangepayloadを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $rawMin, $rawMax, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeRangePayload(string $rawMin, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $min = $this->parseEngineeringNumber($rawMin);
@@ -238,7 +233,14 @@ class SpecValueNormalizerService
             'normalized_unit' => $normalizedUnit,
         ];
     }
-
+    /**
+     * 目的: Spec Value Normalizerの正規化triplepayloadを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $rawMin, $rawTyp, $rawMax, $resolvedUnit, $normalizedUnit, $factor, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeTriplePayload(string $rawMin, string $rawTyp, string $rawMax, string $resolvedUnit, ?string $normalizedUnit, float $factor, ?array $displayPrefixes): array
     {
         $min = $this->parseEngineeringNumber($rawMin);
@@ -285,6 +287,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのextractinlineunitsを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $profile, $rawTyp, $rawMin, $rawMax, $rawUnit。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string, 2: string, 3: string}
      */
     private function extractInlineUnits(string $profile, string $rawTyp, string $rawMin, string $rawMax, string $rawUnit): array
@@ -320,7 +328,14 @@ class SpecValueNormalizerService
 
         return [$rawTyp, $rawMin, $rawMax, $resolvedUnit];
     }
-
+    /**
+     * 目的: Spec Value Normalizerの解決factorを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $specType, $unit, $baseUnit。
+     * 出力: floatで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function resolveFactor(?SpecType $specType, string $unit, string $baseUnit): float
     {
         if ($unit === '') {
@@ -333,7 +348,7 @@ class SpecValueNormalizerService
                 ? $specType->units
                 : $specType->units()->get();
         }
-        $exact = $units?->first(fn ($item) => $this->normalizeUnitLabel((string) $item->unit) === $unit);
+        $exact = $units?->first( fn ($item) => $this->normalizeUnitLabel((string) $item->unit) === $unit);
         if ($exact && is_numeric($exact->factor)) {
             return (float) $exact->factor;
         }
@@ -344,8 +359,8 @@ class SpecValueNormalizerService
 
         if ($baseUnit !== '' && str_ends_with($unit, $baseUnit)) {
             $prefix = substr($unit, 0, strlen($unit) - strlen($baseUnit));
-            if (array_key_exists($prefix, self::PREFIX_FACTORS)) {
-                return self::PREFIX_FACTORS[$prefix];
+            if (array_key_exists($prefix, EngineeringUnits::PREFIX_FACTORS)) {
+                return EngineeringUnits::PREFIX_FACTORS[$prefix];
             }
         }
 
@@ -353,6 +368,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのhumanizesingleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $canonicalValue, $normalizedUnit, $fallbackUnit, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string}
      */
     private function humanizeSingle(float $canonicalValue, ?string $normalizedUnit, string $fallbackUnit, ?array $displayPrefixes): array
@@ -362,12 +383,18 @@ class SpecValueNormalizerService
         }
 
         $prefix = $this->choosePrefix($canonicalValue, $normalizedUnit, $displayPrefixes);
-        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+        $factor = EngineeringUnits::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [$this->formatDisplayNumber($canonicalValue / $factor), $prefix.$normalizedUnit];
     }
 
     /**
+     * 目的: Spec Value Normalizerのhumanizerangeを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $canonicalMin, $canonicalMax, $normalizedUnit, $fallbackUnit, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string, 2: string}
      */
     private function humanizeRange(float $canonicalMin, float $canonicalMax, ?string $normalizedUnit, string $fallbackUnit, ?array $displayPrefixes): array
@@ -382,7 +409,7 @@ class SpecValueNormalizerService
 
         $target = max(abs($canonicalMin), abs($canonicalMax));
         $prefix = $this->choosePrefix($target, $normalizedUnit, $displayPrefixes);
-        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+        $factor = EngineeringUnits::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [
             $this->formatDisplayNumber($canonicalMin / $factor),
@@ -392,6 +419,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのhumanize値を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $values, $normalizedUnit, $fallbackUnit, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array{min: ?float, typ: ?float, max: ?float}  $values
      * @return array{min: string, typ: string, max: string, unit: string}
      */
@@ -413,9 +446,9 @@ class SpecValueNormalizerService
             ];
         }
 
-        $target = max(array_map(fn ($value) => abs($value), $presentValues));
+        $target = max(array_map( fn ($value) => abs($value), $presentValues));
         $prefix = $this->choosePrefix($target, $normalizedUnit, $displayPrefixes);
-        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+        $factor = EngineeringUnits::PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return [
             'min' => $values['min'] === null ? '' : $this->formatDisplayNumber($values['min'] / $factor),
@@ -424,7 +457,14 @@ class SpecValueNormalizerService
             'unit' => $prefix.$normalizedUnit,
         ];
     }
-
+    /**
+     * 目的: Spec Value Normalizerのchoose接頭語を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $normalizedUnit, $displayPrefixes。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function choosePrefix(float $value, ?string $normalizedUnit, ?array $displayPrefixes): string
     {
         if ($value == 0.0) {
@@ -434,7 +474,7 @@ class SpecValueNormalizerService
         $abs = abs($value);
         $order = $this->prefixOrder($normalizedUnit, $displayPrefixes);
         foreach ($order as $prefix) {
-            $factor = self::PREFIX_FACTORS[$prefix];
+            $factor = EngineeringUnits::PREFIX_FACTORS[$prefix];
             $scaled = $abs / $factor;
             if ($scaled >= 1 && $scaled < 1000) {
                 return $prefix;
@@ -444,7 +484,7 @@ class SpecValueNormalizerService
         $best = $order[0] ?? '';
         $bestDistance = INF;
         foreach ($order as $prefix) {
-            $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+            $factor = EngineeringUnits::PREFIX_FACTORS[$prefix] ?? 1.0;
             $distance = abs(log10($abs / $factor));
             if ($distance < $bestDistance) {
                 $bestDistance = $distance;
@@ -456,6 +496,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerの接頭語orderを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $normalizedUnit, $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, string>|null  $displayPrefixes
      * @return array<int, string>
      */
@@ -463,16 +509,22 @@ class SpecValueNormalizerService
     {
         if ($displayPrefixes !== null && $displayPrefixes !== []) {
             return array_values(array_filter(
-                self::UNIVERSAL_PREFIX_ORDER,
-                fn ($prefix) => in_array($prefix, $displayPrefixes, true)
+                EngineeringUnits::UNIVERSAL_PREFIX_ORDER, fn ($prefix) => in_array($prefix, $displayPrefixes, true)
             ));
         }
 
-        return in_array((string) $normalizedUnit, self::BYTE_BIT_BASE_UNITS, true)
-            ? self::BYTE_BIT_PREFIX_ORDER
-            : self::HUMAN_PREFIX_ORDER;
+        return in_array((string) $normalizedUnit, EngineeringUnits::BYTE_BIT_BASE_UNITS, true)
+            ? EngineeringUnits::BYTE_BIT_PREFIX_ORDER
+            : EngineeringUnits::HUMAN_PREFIX_ORDER;
     }
-
+    /**
+     * 目的: Spec Value Normalizerのcanhumanizeを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $normalizedUnit。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function canHumanize(?string $normalizedUnit): bool
     {
         if (! $normalizedUnit) {
@@ -482,18 +534,38 @@ class SpecValueNormalizerService
         return ! in_array($normalizedUnit, ['%', 'dB', '°C', '°F'], true)
             && preg_match('/^[A-Za-zΩΩ]+$/u', $normalizedUnit) === 1;
     }
-
+    /**
+     * 目的: Spec Value Normalizerのlookslikerangeを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function looksLikeRange(string $value): bool
     {
         return preg_match(self::RANGE_SPLIT_PATTERN, $value) === 1;
     }
-
+    /**
+     * 目的: Spec Value Normalizerのlooksliketripleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function looksLikeTriple(string $value): bool
     {
         return preg_match(self::TRIPLE_SPLIT_PATTERN, $value) === 1 && ! $this->looksLikeRange($value);
     }
 
     /**
+     * 目的: Spec Value Normalizerのsplitrangeを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string}
      */
     private function splitRange(string $value): array
@@ -507,6 +579,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのsplittripleを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string, 2: string}
      */
     private function splitTriple(string $value): array
@@ -520,6 +598,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerのextractinlineunitを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array{0: string, 1: string}
      */
     private function extractInlineUnit(string $value): array
@@ -539,7 +623,14 @@ class SpecValueNormalizerService
 
         return [$trimmed, ''];
     }
-
+    /**
+     * 目的: Spec Value Normalizerの解析番号を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: ?floatで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function parseNumber(mixed $value): ?float
     {
         $normalized = trim((string) $value);
@@ -560,6 +651,12 @@ class SpecValueNormalizerService
     }
 
     /**
+     * 目的: Spec Value Normalizerの解析engineering番号を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @return array{value: float, factor: float}|null
      */
     private function parseEngineeringNumber(mixed $value): ?array
@@ -572,7 +669,7 @@ class SpecValueNormalizerService
         $normalized = str_replace(['，', ',', '−', '–', '—'], ['', '', '-', '-', '-'], $normalized);
         $normalized = preg_replace('/\s+/u', '', $normalized) ?? $normalized;
 
-        if (preg_match('/^([+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?)(Ti|Gi|Mi|Ki|[YZEPTGMkKmunpfµμ]?)$/u', $normalized, $matches) !== 1) {
+        if (preg_match('/^([+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[+-]?\d+)?)(Ti|Gi|Mi|Ki|MEG|Meg|meg|[YZEPTGMkKmunpfµμ]?)$/u', $normalized, $matches) !== 1) {
             return null;
         }
 
@@ -581,26 +678,36 @@ class SpecValueNormalizerService
             return null;
         }
 
-        $prefix = (string) ($matches[2] ?? '');
-        if (! array_key_exists($prefix, self::ENGINEERING_VALUE_PREFIX_FACTORS)) {
+        $prefix = EngineeringUnits::normalizePrefix($matches[2] ?? '');
+        if (! array_key_exists($prefix, EngineeringUnits::ENGINEERING_VALUE_PREFIX_FACTORS)) {
             return null;
         }
 
         return [
             'value' => $parsed,
-            'factor' => self::ENGINEERING_VALUE_PREFIX_FACTORS[$prefix],
+            'factor' => EngineeringUnits::ENGINEERING_VALUE_PREFIX_FACTORS[$prefix],
         ];
     }
-
+    /**
+     * 目的: Spec Value Normalizerの正規化unitlabelを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $unit。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeUnitLabel(string $unit): string
     {
-        $normalized = trim(str_replace(['μ', 'µ', 'Ω'], ['u', 'u', 'Ω'], $unit));
-        $normalized = preg_replace('/\bohms?\b/iu', 'Ω', $normalized) ?? $normalized;
-
-        return preg_replace('/^K(?!i)(?=[A-Za-zΩ])/u', 'k', $normalized) ?? $normalized;
+        return EngineeringUnits::normalizeUnitLabel($unit);
     }
 
     /**
+     * 目的: Spec Value Normalizerの正規化表示prefixesを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $prefixes。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @return array<int, string>|null
      */
     private function normalizeDisplayPrefixes(mixed $prefixes): ?array
@@ -609,14 +716,18 @@ class SpecValueNormalizerService
             return null;
         }
 
-        $normalized = array_values(array_unique(array_map(
-            fn ($prefix) => $prefix === null ? '' : trim((string) $prefix),
-            $prefixes
-        )));
+        $normalized = EngineeringUnits::normalizePrefixList($prefixes, EngineeringUnits::UNIVERSAL_PREFIX_ORDER);
 
         return $normalized === [] ? null : $normalized;
     }
-
+    /**
+     * 目的: Spec Value Normalizerの整形decimalを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $scale。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function formatDecimal(float $value, int $scale): string
     {
         $formatted = number_format($value, $scale, '.', '');
@@ -624,7 +735,14 @@ class SpecValueNormalizerService
 
         return $formatted === '-0' ? '0' : $formatted;
     }
-
+    /**
+     * 目的: Spec Value Normalizerの整形表示番号を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function formatDisplayNumber(float $value): string
     {
         if ($value == 0.0) {
@@ -643,7 +761,14 @@ class SpecValueNormalizerService
 
         return $this->formatDecimal($value, 6);
     }
-
+    /**
+     * 目的: Spec Value Normalizerの生成rangelabelを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $min, $max。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function buildRangeLabel(string $min, string $max): string
     {
         $left = trim($min);
@@ -661,7 +786,14 @@ class SpecValueNormalizerService
 
         return "{$left} 〜 {$right}";
     }
-
+    /**
+     * 目的: Spec Value Normalizerの生成triplelabelを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $min, $typ, $max。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function buildTripleLabel(string $min, string $typ, string $max): string
     {
         return implode(' / ', array_values(array_filter([trim($min), trim($typ), trim($max)], fn ($value) => $value !== '')));

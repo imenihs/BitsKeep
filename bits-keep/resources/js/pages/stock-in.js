@@ -2,6 +2,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api } from '../api.js';
 import { useToast } from '../composables/useToast.js';
 
+// 目的: 在庫/発注管理のcreate Entryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: なし。
 function createEntry(part) {
     return {
         key: `${part.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -18,6 +19,7 @@ function createEntry(part) {
     };
 }
 
+// 目的: 在庫/発注管理のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const query = ref('');
@@ -43,6 +45,7 @@ export default function setup() {
     const searchSelectionCount = computed(() => selectedSearchIds.value.length);
     const selectedSearchResults = computed(() => parts.value.filter((part) => selectedSearchIds.value.includes(part.id)));
 
+    // 目的: 在庫/発注管理のsearchを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const search = async () => {
         if (!query.value.trim()) {
             parts.value = [];
@@ -67,6 +70,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のload Mastersを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const loadMasters = async () => {
         try {
             const [locationRes, alertRes] = await Promise.all([
@@ -80,11 +84,13 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のload Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const loadComponent = async (partId) => {
         const res = await api.get(`/components/${partId}`);
         return res.data;
     };
 
+    // 目的: 在庫/発注管理のqueue Partを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const queuePart = async (partLike) => {
         if (selectedEntries.value.some((entry) => entry.part.id === partLike.id)) {
             toastError('すでに入庫対象に追加されています');
@@ -99,6 +105,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のadd Selected Resultsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addSelectedResults = async () => {
         for (const part of selectedSearchResults.value) {
             // eslint-disable-next-line no-await-in-loop
@@ -107,6 +114,7 @@ export default function setup() {
         selectedSearchIds.value = [];
     };
 
+    // 目的: 在庫/発注管理のtoggle Search Selectionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: なし。
     const toggleSearchSelection = (partId) => {
         if (selectedSearchIds.value.includes(partId)) {
             selectedSearchIds.value = selectedSearchIds.value.filter((id) => id !== partId);
@@ -115,10 +123,12 @@ export default function setup() {
         selectedSearchIds.value = [...selectedSearchIds.value, partId];
     };
 
+    // 目的: 在庫/発注管理のremove Entryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeEntry = (entryKey) => {
         selectedEntries.value = selectedEntries.value.filter((entry) => entry.key !== entryKey);
     };
 
+    // 目的: 在庫/発注管理のmatching Blocksを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const matchingBlocks = (entry) => {
         if (!entry?.part) return [];
         return (entry.part.inventory_blocks ?? []).filter((block) =>
@@ -130,6 +140,7 @@ export default function setup() {
         );
     };
 
+    // 目的: 在庫/発注管理のsubmit Allを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const submitAll = async () => {
         if (!selectedEntries.value.length) return;
 

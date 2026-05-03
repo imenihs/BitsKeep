@@ -1,0 +1,22 @@
+import { test, expect } from '@playwright/test';
+
+test('battery runtime renders', async ({ page }) => {
+  const logs = [];
+  page.on('console', msg => logs.push(`[${msg.type()}] ${msg.text()}`));
+  page.on('pageerror', err => logs.push(`[pageerror] ${err}`));
+
+  await page.goto('http://127.0.0.1:8000/login');
+  await page.fill('input[name="email"]', 'imenihs@gmail.com');
+  await page.fill('input[name="password"]', 'lA4sdBnnJuV2qBwJ');
+  await Promise.all([
+    page.waitForURL('**/dashboard', { timeout: 15000 }),
+    page.click('button[type="submit"]'),
+  ]);
+
+  await page.goto('http://127.0.0.1:8000/tools/design?tool=battery-runtime', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: 'battery-runtime-debug.png', fullPage: true });
+  const h2 = page.locator('h2:has-text("バッテリー稼働")');
+  await expect(h2.first()).toBeVisible({ timeout: 15000 });
+  console.log('LOGS:\n' + logs.join('\n'));
+});

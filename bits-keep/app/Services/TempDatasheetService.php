@@ -14,7 +14,14 @@ class TempDatasheetService
     private const DIRECTORY = 'component-helper-temp';
 
     private const TTL_HOURS = 2;
-
+    /**
+     * 目的: Temp Datasheetのcreatemanyを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $files, $displayNames。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function createMany(array $files, array $displayNames = []): array
     {
         $this->purgeExpired();
@@ -62,7 +69,14 @@ class TempDatasheetService
 
         return $created;
     }
-
+    /**
+     * 目的: Temp Datasheetのgetactivemetaを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function getActiveMeta(string $token): array
     {
         $this->purgeExpired();
@@ -84,7 +98,14 @@ class TempDatasheetService
 
         return $meta;
     }
-
+    /**
+     * 目的: Temp Datasheetのclaimmanyを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $tokens, $displayNames, $parts。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function claimMany(array $tokens, array $displayNames = [], array $parts = []): array
     {
         $this->purgeExpired();
@@ -107,7 +128,14 @@ class TempDatasheetService
 
         return $claimed;
     }
-
+    /**
+     * 目的: Temp Datasheetのdeletetokenを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function deleteToken(string $token): bool
     {
         $deleted = false;
@@ -125,7 +153,14 @@ class TempDatasheetService
 
         return $deleted;
     }
-
+    /**
+     * 目的: Temp Datasheetのpurgeexpiredを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: intで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function purgeExpired(): int
     {
         $purged = 0;
@@ -145,7 +180,14 @@ class TempDatasheetService
 
         return $purged;
     }
-
+    /**
+     * 目的: Temp Datasheetのreadmetaを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function readMeta(string $token): ?array
     {
         $path = $this->metaPath($token);
@@ -158,7 +200,14 @@ class TempDatasheetService
 
         return is_array($decoded) ? $decoded : null;
     }
-
+    /**
+     * 目的: Temp Datasheetのwritemetaを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token, $meta。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function writeMeta(string $token, array $meta): void
     {
         $written = Storage::disk('local')->put($this->metaPath($token), json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -167,19 +216,40 @@ class TempDatasheetService
             throw new RuntimeException('一時PDFメタデータの保存に失敗しました。');
         }
     }
-
+    /**
+     * 目的: Temp Datasheetのmetapathを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function metaPath(string $token): string
     {
         return self::DIRECTORY.'/'.$token.'.json';
     }
-
+    /**
+     * 目的: Temp Datasheetのisexpiredを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $meta。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function isExpired(array $meta): bool
     {
         $expiresAt = Carbon::parse($meta['expires_at'] ?? now()->subSecond()->toIso8601String());
 
         return $expiresAt->isPast();
     }
-
+    /**
+     * 目的: Temp Datasheetの正規化表示名称を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeDisplayName(mixed $value): ?string
     {
         $trimmed = trim((string) ($value ?? ''));

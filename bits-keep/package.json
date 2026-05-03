@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test:engineering-units": "node tests/engineering-units.test.mjs",
         "test:design-tools": "node tests/design-tools.test.mjs",
         "test:engineering-calc": "node tests/engineering-calc.test.mjs",
         "test:resistance-calc": "node tests/resistance-calc.test.mjs"

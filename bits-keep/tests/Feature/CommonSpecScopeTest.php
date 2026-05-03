@@ -11,7 +11,14 @@ use Tests\TestCase;
 class CommonSpecScopeTest extends TestCase
 {
     private const COMMON_SCOPE_MIGRATION = '2026_04_28_141300_split_common_spec_types_from_spec_groups.php';
-
+    /**
+     * 目的: 「common scope migration converts legacy common group members and removes group」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_common_scope_migration_converts_legacy_common_group_members_and_removes_group(): void
     {
         $this->migrateUntilBeforeCommonScopeMigration();
@@ -132,7 +139,14 @@ class CommonSpecScopeTest extends TestCase
             'spec_group_id' => null,
         ]);
     }
-
+    /**
+     * 目的: 「spec group and suggestion apis hide common group」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_spec_group_and_suggestion_apis_hide_common_group(): void
     {
         $this->migrateFresh();
@@ -185,7 +199,14 @@ class CommonSpecScopeTest extends TestCase
         $this->assertFalse($suggestedGroupNames->contains('共通'));
         $this->assertSame([$localGroup->id], $suggestionsResponse->json('data.recommended_group_ids'));
     }
-
+    /**
+     * 目的: 「spec type api keeps common scope ownerless and filters group local specs by owner」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_spec_type_api_keeps_common_scope_ownerless_and_filters_group_local_specs_by_owner(): void
     {
         $this->migrateFresh();
@@ -248,16 +269,30 @@ class CommonSpecScopeTest extends TestCase
         $this->assertContains($localSpecId, collect($localList)->pluck('id'));
         $this->assertNotContains($commonSpecId, collect($localList)->pluck('id'));
     }
-
+    /**
+     * 目的: migratefreshの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function migrateFresh(): void
     {
         $this->artisan('migrate:fresh')->assertSuccessful();
     }
-
+    /**
+     * 目的: migrateuntilbeforecommonscopemigrationの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function migrateUntilBeforeCommonScopeMigration(): void
     {
         $paths = collect(glob(database_path('migrations/*.php')) ?: [])
-            ->filter(fn (string $path) => basename($path) < self::COMMON_SCOPE_MIGRATION)
+            ->filter( fn (string $path) => basename($path) < self::COMMON_SCOPE_MIGRATION)
             ->values()
             ->all();
 
@@ -266,7 +301,14 @@ class CommonSpecScopeTest extends TestCase
             '--realpath' => true,
         ])->assertSuccessful();
     }
-
+    /**
+     * 目的: runcommonscopemigrationの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function runCommonScopeMigration(): void
     {
         $this->artisan('migrate', [
@@ -274,7 +316,14 @@ class CommonSpecScopeTest extends TestCase
             '--realpath' => true,
         ])->assertSuccessful();
     }
-
+    /**
+     * 目的: createadminuserの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function createAdminUser(): User
     {
         return User::factory()->create([

@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Component;
+use App\Services\NetworkSearch\BuildsNetworkValuePools;
+use App\Services\NetworkSearch\FormatsNetworkValues;
 
 class NetworkSearchService
 {
+    use BuildsNetworkValuePools;
+    use FormatsNetworkValues;
+
     private const RETURN_LIMIT = 80;
 
     private const POOL_LIMIT = 32;
@@ -26,6 +30,14 @@ class NetworkSearchService
 
     private const DECADES_C = [1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3];
 
+    /**
+     * 目的: 回路設計で目標値に近い抵抗/容量ネットワーク候補を返す。
+     * 機能: 入力条件から値候補を作り、直列/並列/混在/分圧を評価して誤差順に整列する。
+     * 入力: part_type、target、許容差、素子数、回路種別、在庫限定などの検索条件配列。
+     * 出力: 表示値、候補件数、打ち切り状態、候補一覧を含むAPI返却用配列。
+     * 動作条件: target は正の数値で、分圧時は target が出力比率として渡される前提。
+     * 副作用: 在庫限定時のみ部品・在庫・スペックをDBから参照し、DB内容は変更しない。
+     */
     public function search(array $params): array
     {
         $started = microtime(true);
@@ -106,6 +118,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 1つの素子組み合わせを、許可された回路トポロジごとに評価する。
+     * 機能: 直列/並列/混在パターンを生成し、目標誤差と素子許容差情報を候補payloadへ変換する。
+     * 入力: 値候補combo、目標値、部品種別、許可トポロジ、目標許容差、素子許容差、評価数参照。
+     * 出力: 目標許容差内に入った候補payload配列。
+     * 動作条件: combo の各要素は value と label を持ち、target は0より大きい。
+     * 副作用: 評価数と評価打ち切りフラグを参照渡しで更新する。
+     */
     private function evaluateCombo(array $combo, float $target, string $partType, array $allowed, float $tolPct, float $elementTolPct, int &$evaluationCount, bool &$evaluationLimited): array
     {
         $count = count($combo);
@@ -114,17 +134,13 @@ class NetworkSearchService
         if (in_array('series', $allowed, true)) {
             $patterns[] = $this->pattern(
                 'series',
-                $partType === 'C' ? '容量直列' : '抵抗直列',
-                fn ($v) => $this->seriesEquivalent($v, $partType),
-                fn ($v) => implode(' + ', array_map(fn ($i) => $i['label'], $v))
+                $partType === 'C' ? '容量直列' : '抵抗直列', fn ($v) => $this->seriesEquivalent($v, $partType), fn ($v) => implode(' + ', array_map(fn ($i) => $i['label'], $v))
             );
         }
         if (in_array('parallel', $allowed, true)) {
             $patterns[] = $this->pattern(
                 'parallel',
-                $partType === 'C' ? '容量並列' : '抵抗並列',
-                fn ($v) => $this->parallelEquivalent($v, $partType),
-                fn ($v) => implode(' ∥ ', array_map(fn ($i) => $i['label'], $v))
+                $partType === 'C' ? '容量並列' : '抵抗並列', fn ($v) => $this->parallelEquivalent($v, $partType), fn ($v) => implode(' ∥ ', array_map(fn ($i) => $i['label'], $v))
             );
         }
         if (in_array('mixed', $allowed, true) && $count >= 3) {
@@ -153,6 +169,14 @@ class NetworkSearchService
         return $results;
     }
 
+    /**
+     * 目的: 3素子/4素子の混在回路パターンを列挙する。
+     * 機能: 直列枝と並列枝を入れ替えた評価式と表示式を作り、探索漏れを抑える。
+     * 入力: 値候補comboと、抵抗/容量の直並列規則を切り替える部品種別。
+     * 出力: pattern() で作った評価式定義の配列。
+     * 動作条件: combo は3個または4個の候補を想定し、それ以外では空配列を返す。
+     * 副作用: なし。
+     */
     private function mixedPatterns(array $combo, string $partType): array
     {
         $p = [];
@@ -161,15 +185,11 @@ class NetworkSearchService
             foreach ([[0, 1, 2], [0, 2, 1], [1, 2, 0]] as [$a, $b, $c]) {
                 $p[] = $this->pattern(
                     'mixed',
-                    '直列枝を並列',
-                    fn ($v) => $this->parallelEquivalent([$this->node($this->seriesEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType),
-                    fn ($v) => "({$v[$a]['label']} + {$v[$b]['label']}) ∥ {$v[$c]['label']}"
+                    '直列枝を並列', fn ($v) => $this->parallelEquivalent([$this->node($this->seriesEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType), fn ($v) => "({$v[$a]['label']} + {$v[$b]['label']}) ∥ {$v[$c]['label']}"
                 );
                 $p[] = $this->pattern(
                     'mixed',
-                    '並列枝を直列',
-                    fn ($v) => $this->seriesEquivalent([$this->node($this->parallelEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType),
-                    fn ($v) => "({$v[$a]['label']} ∥ {$v[$b]['label']}) + {$v[$c]['label']}"
+                    '並列枝を直列', fn ($v) => $this->seriesEquivalent([$this->node($this->parallelEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType), fn ($v) => "({$v[$a]['label']} ∥ {$v[$b]['label']}) + {$v[$c]['label']}"
                 );
             }
         }
@@ -178,41 +198,33 @@ class NetworkSearchService
             foreach ([[0, 1, 2, 3], [0, 2, 1, 3], [0, 3, 1, 2]] as [$a, $b, $c, $d]) {
                 $p[] = $this->pattern(
                     'mixed',
-                    '直列2枝を並列',
-                    fn ($v) => $this->parallelEquivalent([
+                    '直列2枝を並列', fn ($v) => $this->parallelEquivalent([
                         $this->node($this->seriesEquivalent([$v[$a], $v[$b]], $partType)),
                         $this->node($this->seriesEquivalent([$v[$c], $v[$d]], $partType)),
-                    ], $partType),
-                    fn ($v) => "({$v[$a]['label']} + {$v[$b]['label']}) ∥ ({$v[$c]['label']} + {$v[$d]['label']})"
+                    ], $partType), fn ($v) => "({$v[$a]['label']} + {$v[$b]['label']}) ∥ ({$v[$c]['label']} + {$v[$d]['label']})"
                 );
                 $p[] = $this->pattern(
                     'mixed',
-                    '並列2枝を直列',
-                    fn ($v) => $this->seriesEquivalent([
+                    '並列2枝を直列', fn ($v) => $this->seriesEquivalent([
                         $this->node($this->parallelEquivalent([$v[$a], $v[$b]], $partType)),
                         $this->node($this->parallelEquivalent([$v[$c], $v[$d]], $partType)),
-                    ], $partType),
-                    fn ($v) => "({$v[$a]['label']} ∥ {$v[$b]['label']}) + ({$v[$c]['label']} ∥ {$v[$d]['label']})"
+                    ], $partType), fn ($v) => "({$v[$a]['label']} ∥ {$v[$b]['label']}) + ({$v[$c]['label']} ∥ {$v[$d]['label']})"
                 );
             }
             foreach ([[0, 1, 2, 3], [0, 2, 1, 3], [1, 2, 0, 3], [0, 3, 1, 2]] as [$a, $b, $c, $d]) {
                 $p[] = $this->pattern(
                     'mixed',
-                    '直列枝と単体の並列を直列',
-                    fn ($v) => $this->seriesEquivalent([
+                    '直列枝と単体の並列を直列', fn ($v) => $this->seriesEquivalent([
                         $this->node($this->parallelEquivalent([$this->node($this->seriesEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType)),
                         $v[$d],
-                    ], $partType),
-                    fn ($v) => '(('.$v[$a]['label'].' + '.$v[$b]['label'].') ∥ '.$v[$c]['label'].') + '.$v[$d]['label']
+                    ], $partType), fn ($v) => '(('.$v[$a]['label'].' + '.$v[$b]['label'].') ∥ '.$v[$c]['label'].') + '.$v[$d]['label']
                 );
                 $p[] = $this->pattern(
                     'mixed',
-                    '並列枝と単体の直列を並列',
-                    fn ($v) => $this->parallelEquivalent([
+                    '並列枝と単体の直列を並列', fn ($v) => $this->parallelEquivalent([
                         $this->node($this->seriesEquivalent([$this->node($this->parallelEquivalent([$v[$a], $v[$b]], $partType)), $v[$c]], $partType)),
                         $v[$d],
-                    ], $partType),
-                    fn ($v) => '(('.$v[$a]['label'].' ∥ '.$v[$b]['label'].') + '.$v[$c]['label'].') ∥ '.$v[$d]['label']
+                    ], $partType), fn ($v) => '(('.$v[$a]['label'].' ∥ '.$v[$b]['label'].') + '.$v[$c]['label'].') ∥ '.$v[$d]['label']
                 );
             }
         }
@@ -220,6 +232,14 @@ class NetworkSearchService
         return $p;
     }
 
+    /**
+     * 目的: 分圧専用条件でR1/R2候補を探索する。
+     * 機能: 総抵抗、負荷条件、出力比率、入力電圧時の誤差を評価して候補へ追加する。
+     * 入力: 抵抗値候補、分圧検索条件、候補配列参照、評価数参照、打ち切りフラグ参照。
+     * 出力: 戻り値なし。条件を満たす候補を candidates へ追加する。
+     * 動作条件: values は抵抗値候補で、params target は Vout/Vin の比率。
+     * 副作用: candidates、evaluationCount、evaluationLimited を参照渡しで更新する。
+     */
     private function searchDivider(array $values, array $params, array &$candidates, int &$evaluationCount, bool &$evaluationLimited): void
     {
         $ratio = (float) $params['target'];
@@ -237,6 +257,7 @@ class NetworkSearchService
                 }
                 if ($evaluationCount >= self::MAX_EVALUATIONS) {
                     $evaluationLimited = true;
+
                     return;
                 }
                 $evaluationCount++;
@@ -299,319 +320,14 @@ class NetworkSearchService
         }
     }
 
-    private function buildValueSet(string $series, array $custom, string $partType, bool $inventoryOnly): array
-    {
-        $values = $inventoryOnly
-            ? $this->buildInventoryValueSet($partType)
-            : ($series === 'custom' && $custom !== []
-                ? array_map(fn ($value) => ['value' => (float) $value, 'label' => $this->formatValue((float) $value, $partType), 'source' => 'custom'], $custom)
-                : ($series === 'custom' ? [] : $this->buildESeriesValueSet($series, $partType)));
-
-        return collect($values)
-            ->filter(fn ($item) => is_finite((float) ($item['value'] ?? 0)) && (float) ($item['value'] ?? 0) > 0)
-            ->map(fn ($item) => [
-                ...$item,
-                'value' => (float) $item['value'],
-                'label' => $item['label'] ?? $this->formatValue((float) $item['value'], $partType),
-            ])
-            ->unique(fn ($item) => $this->valueKey($item['value']).'|'.($item['component_id'] ?? '').'|'.($item['label'] ?? ''))
-            ->sortBy('value')
-            ->values()
-            ->all();
-    }
-
-    private function buildESeriesValueSet(string $series, string $partType): array
-    {
-        $values = [];
-        $multipliers = self::E_SERIES[$series] ?? self::E_SERIES['E24'];
-        $decades = $partType === 'C' ? self::DECADES_C : self::DECADES_R;
-        foreach ($decades as $decade) {
-            foreach ($multipliers as $multiplier) {
-                $value = round($multiplier * $decade, 15);
-                $values[] = [
-                    'value' => $value,
-                    'label' => $this->formatValue($value, $partType),
-                    'source' => $series,
-                ];
-            }
-        }
-
-        return $values;
-    }
-
-    private function buildInventoryValueSet(string $partType): array
-    {
-        if ($partType === 'divider') {
-            $partType = 'R';
-        }
-        $categoryKeyword = $partType === 'C' ? 'コンデンサ' : '抵抗';
-
-        return Component::query()
-            ->whereHas('categories', fn ($q) => $q->where('name', 'like', "%{$categoryKeyword}%"))
-            ->whereHas('inventoryBlocks', fn ($q) => $q->where('quantity', '>', 0))
-            ->with(['specs.specType', 'inventoryBlocks'])
-            ->get()
-            ->flatMap(function (Component $component) use ($partType) {
-                $spec = $this->findValueSpec($component, $partType);
-                $value = (float) ($spec?->value_numeric_typ ?? $spec?->value_numeric ?? 0);
-                if ($value <= 0) {
-                    return [];
-                }
-                $stock = (int) $component->inventoryBlocks->sum('quantity');
-                $name = $component->common_name ?: $component->part_number;
-
-                return [[
-                    'value' => $value,
-                    'label' => "{$name} ({$this->formatValue($value, $partType)})",
-                    'component_id' => $component->id,
-                    'stock_quantity' => $stock,
-                    'source' => 'inventory',
-                ]];
-            })
-            ->values()
-            ->all();
-    }
-
-    private function findValueSpec(Component $component, string $partType)
-    {
-        $unitNeedles = $partType === 'C'
-            ? ['f']
-            : ['ω', 'ohm'];
-        $nameNeedles = $partType === 'C'
-            ? ['容量', '静電容量', 'capacitance', 'cap']
-            : ['抵抗', '抵抗値', 'resistance'];
-
-        $scored = $component->specs
-            ->filter(fn ($spec) => ($spec->value_numeric_typ ?? $spec->value_numeric ?? null) !== null)
-            ->map(function ($spec) use ($unitNeedles, $nameNeedles) {
-                $unit = strtolower(str_replace(['Ω', 'Ω'], ['ω', 'ω'], (string) ($spec->normalized_unit ?? $spec->unit ?? $spec->specType?->base_unit ?? '')));
-                $name = strtolower((string) ($spec->display_name ?? $spec->specType?->name_ja ?? $spec->specType?->name ?? ''));
-                $unitMatched = false;
-                $nameMatched = false;
-                $score = 0;
-                foreach ($unitNeedles as $needle) {
-                    if (str_contains($unit, $needle)) {
-                        $score += 10;
-                        $unitMatched = true;
-                    }
-                }
-                foreach ($nameNeedles as $needle) {
-                    if (str_contains($name, strtolower($needle))) {
-                        $score += 5;
-                        $nameMatched = true;
-                    }
-                }
-                if (! $unitMatched && preg_match('/温度|temperature|tcr|係数|ppm|許容|tolerance/u', $name.$unit)) {
-                    $score = 0;
-                    $nameMatched = false;
-                }
-
-                return ['spec' => $spec, 'score' => $score, 'unitMatched' => $unitMatched, 'nameMatched' => $nameMatched];
-            })
-            ->sortByDesc('score')
-            ->first();
-
-        return ($scored && $scored['score'] > 0 && ($scored['unitMatched'] || $scored['nameMatched'])) ? $scored['spec'] : null;
-    }
-
-    private function valuesForElementCount(array $values, float $target, string $partType, int $count): array
-    {
-        if ($count <= 2 || count($values) <= self::POOL_LIMIT) {
-            return $values;
-        }
-
-        return $this->limitPool($values, $target, $partType, $count >= 4 ? self::COUNT4_POOL_LIMIT : self::POOL_LIMIT, $count);
-    }
-
-    private function limitPool(array $values, float $target, string $partType, int $limit, int $maxElements): array
-    {
-        if (count($values) <= $limit) {
-            return $values;
-        }
-
-        $anchors = [$target];
-        for ($i = 2; $i <= max(2, $maxElements); $i++) {
-            $anchors[] = $target / $i;
-            $anchors[] = $target * $i;
-        }
-        if ($partType === 'R') {
-            $anchors[] = $target * 10;
-            $anchors[] = $target / 10;
-        }
-
-        usort($values, fn ($a, $b) => $this->distanceToAnchors((float) $a['value'], $anchors) <=> $this->distanceToAnchors((float) $b['value'], $anchors));
-        $limited = array_slice($values, 0, $limit);
-        usort($limited, fn ($a, $b) => $a['value'] <=> $b['value']);
-
-        return $limited;
-    }
-
-    private function distanceToAnchors(float $value, array $anchors): float
-    {
-        $distances = array_map(function ($anchor) use ($value) {
-            if ($anchor <= 0 || $value <= 0) {
-                return INF;
-            }
-
-            return abs(log10($value) - log10((float) $anchor));
-        }, $anchors);
-
-        return min($distances);
-    }
-
-    private function combinationsWithReplacement(array $values, int $length, int $start = 0): iterable
-    {
-        if ($length === 0) {
-            yield [];
-
-            return;
-        }
-        for ($i = $start; $i < count($values); $i++) {
-            foreach ($this->combinationsWithReplacement($values, $length - 1, $i) as $suffix) {
-                yield array_merge([$values[$i]], $suffix);
-            }
-        }
-    }
-
-    private function comboSource(array $values, float $target, string $partType, int $count, array $circuitTypes): iterable
-    {
-        if ($count === 2 && $this->shouldUseTargetedPairSearch($values, $circuitTypes)) {
-            yield from $this->targetedTwoElementCombos($values, $target, $partType, $circuitTypes);
-
-            return;
-        }
-
-        if (in_array('series', $circuitTypes, true) && count($circuitTypes) === 1) {
-            yield from $this->targetedSeriesCombos($values, $target, $partType, $count);
-
-            return;
-        }
-
-        yield from $this->combinationsWithReplacement($values, $count);
-    }
-
-    private function shouldUseTargetedPairSearch(array $values, array $circuitTypes): bool
-    {
-        return count($values) > self::POOL_LIMIT * 10
-            && array_intersect($circuitTypes, ['series', 'parallel']) !== [];
-    }
-
-    private function targetedTwoElementCombos(array $values, float $target, string $partType, array $circuitTypes): iterable
-    {
-        $allowed = array_values(array_intersect($circuitTypes, ['series', 'parallel']));
-        if ($allowed === []) {
-            yield from $this->combinationsWithReplacement($values, 2);
-
-            return;
-        }
-
-        $seen = [];
-        $count = count($values);
-        for ($i = 0; $i < $count; $i++) {
-            $first = (float) $values[$i]['value'];
-            foreach ($allowed as $circuitType) {
-                $needed = $this->neededSecondValue($first, $target, $partType, $circuitType);
-                if ($needed === null) {
-                    continue;
-                }
-                foreach ($this->nearestValueWindow($values, $needed, $i) as $second) {
-                    $key = $this->valueKey((float) $values[$i]['value']).'|'.$this->valueKey((float) $second['value']);
-                    if (isset($seen[$key])) {
-                        continue;
-                    }
-                    $seen[$key] = true;
-                    yield [$values[$i], $second];
-                }
-            }
-        }
-    }
-
-    private function neededSecondValue(float $first, float $target, string $partType, string $circuitType): ?float
-    {
-        $usesSum = ($partType !== 'C' && $circuitType === 'series')
-            || ($partType === 'C' && $circuitType === 'parallel');
-
-        if ($usesSum) {
-            $needed = $target - $first;
-
-            return $needed > 0 ? $needed : null;
-        }
-
-        if ($first <= $target) {
-            return null;
-        }
-
-        $denominator = (1 / $target) - (1 / $first);
-
-        return $denominator > 0 ? 1 / $denominator : null;
-    }
-
-    private function nearestValueWindow(array $values, float $target, int $minIndex = 0, int $radius = 2): array
-    {
-        if ($target <= 0 || ! is_finite($target)) {
-            return [];
-        }
-
-        $bestIndex = null;
-        $bestDistance = INF;
-        for ($i = $minIndex; $i < count($values); $i++) {
-            $distance = abs((float) $values[$i]['value'] - $target);
-            if ($distance < $bestDistance) {
-                $bestDistance = $distance;
-                $bestIndex = $i;
-            }
-        }
-        if ($bestIndex === null) {
-            return [];
-        }
-
-        return array_slice($values, max($minIndex, $bestIndex - $radius), $radius * 2 + 1);
-    }
-
-    private function targetedSeriesCombos(array $values, float $target, string $partType, int $length): iterable
-    {
-        if ($partType !== 'R' || $length < 3 || $length > 4) {
-            yield from $this->combinationsWithReplacement($values, $length);
-
-            return;
-        }
-
-        if ($length === 3) {
-            $count = count($values);
-            for ($i = 0; $i < $count; $i++) {
-                for ($j = $i; $j < $count; $j++) {
-                    $needed = $target - (float) $values[$i]['value'] - (float) $values[$j]['value'];
-                    if ($needed < (float) $values[$j]['value']) {
-                        continue;
-                    }
-                    $match = $this->nearestValue($values, $needed, $j);
-                    if ($match !== null) {
-                        yield [$values[$i], $values[$j], $match];
-                    }
-                }
-            }
-
-            return;
-        }
-
-        yield from $this->combinationsWithReplacement($values, $length);
-    }
-
-    private function nearestValue(array $values, float $target, int $minIndex = 0): ?array
-    {
-        $best = null;
-        $bestDistance = INF;
-        for ($i = $minIndex; $i < count($values); $i++) {
-            $distance = abs((float) $values[$i]['value'] - $target);
-            if ($distance < $bestDistance) {
-                $bestDistance = $distance;
-                $best = $values[$i];
-            }
-        }
-
-        return $best;
-    }
-
+    /**
+     * 目的: 評価済みの回路1件をAPIで扱う候補形式へ整形する。
+     * 機能: 回路式、誤差、表示値、採用部品、在庫由来フラグ、許容差レンジをまとめる。
+     * 入力: 素子combo、実効値、目標値、誤差率、部品種別、評価パターン、素子許容差。
+     * 出力: 候補1件分の連想配列。
+     * 動作条件: pattern は eval/expr/type/label を持つ。
+     * 副作用: なし。
+     */
     private function candidatePayload(array $combo, float $actual, float $target, float $errPct, string $partType, array $pattern, float $elementTolPct): array
     {
         $payload = [
@@ -641,6 +357,14 @@ class NetworkSearchService
         return $payload;
     }
 
+    /**
+     * 目的: 全素子が同じ許容差を持つ前提で、最悪方向の等価値範囲を示す。
+     * 機能: 素子値を一括で下限/上限へ振り、目標値からの最大偏差を表示用に計算する。
+     * 入力: 素子combo、実効値、目標値、部品種別、評価パターン、素子許容差[%]。
+     * 出力: コーナー範囲とRSS目安を含む候補追加フィールド。
+     * 動作条件: pattern の eval が下限/上限comboで有限値を返す。
+     * 副作用: なし。
+     */
     private function elementTolerancePayload(array $combo, float $actual, float $target, string $partType, array $pattern, float $elementTolPct): array
     {
         $factor = $elementTolPct / 100;
@@ -685,6 +409,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 素子誤差が独立してばらつく場合のRSS目安を候補へ付与する。
+     * 機能: 各素子の正規化感度を数値微分で求め、二乗和平方根から等価値範囲を推定する。
+     * 入力: 素子combo、実効値、目標値、部品種別、評価パターン、素子許容差[%]。
+     * 出力: RSS低側/高側/最大偏差の表示用フィールド。計算不能時は空配列。
+     * 動作条件: actual は正の有限値で、pattern eval が微小変化に対して有限値を返す。
+     * 副作用: なし。
+     */
     private function rssTolerancePayload(array $combo, float $actual, float $target, string $partType, array $pattern, float $elementTolPct): array
     {
         if ($actual <= 0 || ! is_finite($actual)) {
@@ -730,6 +462,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 1素子の値変化が回路全体の等価値へ与える相対感度を求める。
+     * 機能: 対象素子を微小に上下へ振り、中心差分で正規化感度を計算する。
+     * 入力: 素子combo、対象index、元の実効値、評価パターン。
+     * 出力: 正規化感度。無効条件では NAN。
+     * 動作条件: 対象素子値と actual が正であること。
+     * 副作用: なし。
+     */
     private function normalizedSensitivity(array $combo, int $index, float $actual, array $pattern): float
     {
         $value = (float) ($combo[$index]['value'] ?? 0);
@@ -754,6 +494,14 @@ class NetworkSearchService
         return ($derivative * $value) / $actual;
     }
 
+    /**
+     * 目的: 候補組み合わせを指定倍率でスケールする。
+     * 機能: 各候補のvalueだけを倍率適用し、ラベルやsourceは維持する。
+     * 入力: 候補組み合わせと倍率。
+     * 出力: スケール後の候補組み合わせ。
+     * 動作条件: factorが有限数であること。
+     * 副作用: なし。
+     */
     private function scaledCombo(array $combo, float $factor): array
     {
         return array_map(fn ($item) => [
@@ -762,6 +510,14 @@ class NetworkSearchService
         ], $combo);
     }
 
+    /**
+     * 目的: 分圧回路のR1/R2個別許容差による出力比率範囲を返す。
+     * 機能: RSS目安と全コーナーの両方を計算し、比率表示と電圧表示へ変換する。
+     * 入力: 上側抵抗、下側抵抗、目標比率、分圧条件、実比率。
+     * 出力: 分圧許容差フィールド。許容差未指定または計算不能時は空配列。
+     * 動作条件: params に divider_upper_tolerance_pct / divider_lower_tolerance_pct が任意で入る。
+     * 副作用: なし。
+     */
     private function dividerTolerancePayload(float $upper, float $lower, float $targetRatio, array $params, float $actualRatio): array
     {
         $upperTol = max(0.0, min(100.0, (float) ($params['divider_upper_tolerance_pct'] ?? 0.0)));
@@ -807,6 +563,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 任意の評価式に対して、独立誤差のRSS範囲を数値的に求める。
+     * 機能: 各入力値の微小変化から感度を推定し、許容差幅を二乗和で合成する。
+     * 入力: 元値配列、許容差[%]配列、現在の評価値、評価関数。
+     * 出力: low/high/spread を持つ配列。計算不能時は null。
+     * 動作条件: evaluate は values と同じ順序の配列を受けて有限値を返す。
+     * 副作用: なし。
+     */
     private function numericToleranceRange(array $values, array $tolerances, float $actual, callable $evaluate): ?array
     {
         if (! is_finite($actual)) {
@@ -845,6 +609,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 指定許容差の全コーナーを評価し、最悪範囲を求める。
+     * 機能: 各入力の下限/上限組み合わせを全列挙し、評価値の最小/最大を返す。
+     * 入力: 元値配列、許容差[%]配列、評価関数。
+     * 出力: low/high を持つ配列。有限値が得られない場合は null。
+     * 動作条件: 評価対象が少数で、全コーナー列挙が現実的であること。
+     * 副作用: なし。
+     */
     private function cornerToleranceRange(array $values, array $tolerances, callable $evaluate): ?array
     {
         $corners = [[]];
@@ -879,6 +651,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 候補組み合わせが在庫数を超えていないか判定する。
+     * 機能: 同一component_idの使用回数を数え、stock_quantityと比較する。
+     * 入力: 候補組み合わせ。
+     * 出力: 在庫充足の真偽値。
+     * 動作条件: 在庫候補にcomponent_id/stock_quantityが含まれること。
+     * 副作用: なし。
+     */
     private function hasSufficientInventory(array $parts): bool
     {
         $needs = [];
@@ -896,6 +676,14 @@ class NetworkSearchService
         return true;
     }
 
+    /**
+     * 目的: 探索候補の素子1個をAPI出力形式へ変換する。
+     * 機能: 値、表示名、在庫由来情報をフロントが扱うキーへ詰め替える。
+     * 入力: 候補素子。
+     * 出力: 素子payload配列。
+     * 動作条件: 候補にvalueが含まれること。
+     * 副作用: なし。
+     */
     private function partPayload(array $item, string $role): array
     {
         return [
@@ -909,6 +697,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 探索候補から重複回路を除外する。
+     * 機能: 値・トポロジ・誤差のキーで重複を潰し、上位候補だけを残す。
+     * 入力: 候補配列。
+     * 出力: 重複除去済み候補配列。
+     * 動作条件: 候補が配列であること。
+     * 副作用: なし。
+     */
     private function uniqueCandidates(array $candidates): array
     {
         $unique = [];
@@ -925,6 +721,14 @@ class NetworkSearchService
         return $unique;
     }
 
+    /**
+     * 目的: 直列接続の合成値を計算する。
+     * 機能: 候補valueを合計する。
+     * 入力: 候補組み合わせ。
+     * 出力: 合成値。
+     * 動作条件: 各候補valueが数値であること。
+     * 副作用: なし。
+     */
     private function seriesEquivalent(array $values, string $partType): float
     {
         if ($partType === 'C') {
@@ -934,6 +738,14 @@ class NetworkSearchService
         return $this->sumEquivalent($values);
     }
 
+    /**
+     * 目的: 並列接続の合成値を計算する。
+     * 機能: 逆数和から合成抵抗/容量を返す。
+     * 入力: 候補組み合わせ。
+     * 出力: 合成値。
+     * 動作条件: 各候補valueが正であること。
+     * 副作用: なし。
+     */
     private function parallelEquivalent(array $values, string $partType): float
     {
         if ($partType === 'C') {
@@ -943,6 +755,14 @@ class NetworkSearchService
         return $this->reciprocalEquivalent($values);
     }
 
+    /**
+     * 目的: 負荷を含む分圧出力比率を計算する。
+     * 機能: 下側抵抗と負荷の並列値から出力比率を求める。
+     * 入力: 上側抵抗、下側抵抗、負荷条件。
+     * 出力: 出力比率。
+     * 動作条件: 抵抗値が正であること。
+     * 副作用: なし。
+     */
     private function dividerLoadedResult(float $upper, float $lower, array $params): array
     {
         $loadType = $params['load_type'] ?? 'resistance';
@@ -993,6 +813,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 分圧回路の電流と消費電力を計算する。
+     * 機能: 入力電圧と負荷条件から各抵抗/負荷の電気量を求める。
+     * 入力: 上側抵抗、下側抵抗、分圧条件。
+     * 出力: 電流/電力metrics配列。
+     * 動作条件: 入力電圧が正の場合に有効値を返す。
+     * 副作用: なし。
+     */
     private function dividerElectricalMetrics(float $inputVoltage, float $upper, float $lower, float $outputVoltage, float $loadCurrent): array
     {
         $sourceCurrent = $upper > 0 ? ($inputVoltage - $outputVoltage) / $upper : NAN;
@@ -1023,6 +851,14 @@ class NetworkSearchService
         ];
     }
 
+    /**
+     * 目的: 分圧候補へ電気量表示フィールドを付与する。
+     * 機能: dividerElectricalMetricsの結果を候補payload用キーへ整形する。
+     * 入力: 上側抵抗、下側抵抗、分圧条件。
+     * 出力: 候補追加フィールド配列。
+     * 動作条件: 入力電圧と抵抗値が計算可能であること。
+     * 副作用: なし。
+     */
     private function dividerElectricalCandidateFields(array $loaded): array
     {
         $keys = [
@@ -1047,6 +883,14 @@ class NetworkSearchService
         return array_intersect_key($loaded, array_flip($keys));
     }
 
+    /**
+     * 目的: 分圧負荷条件から等価抵抗を決定する。
+     * 機能: 抵抗負荷、電流負荷、無限大指定を正規化する。
+     * 入力: 分圧条件と出力電圧。
+     * 出力: 等価負荷抵抗またはnull。
+     * 動作条件: paramsにload_typeが任意で入ること。
+     * 副作用: なし。
+     */
     private function loadResistance(array $params): float
     {
         if (! empty($params['load_resistance_infinite']) || ! array_key_exists('load_resistance', $params) || $params['load_resistance'] === null) {
@@ -1056,6 +900,14 @@ class NetworkSearchService
         return max(0.0, (float) $params['load_resistance']);
     }
 
+    /**
+     * 目的: 2つの抵抗値の並列合成を計算する。
+     * 機能: 無限大負荷を含む組み合わせを安全に処理する。
+     * 入力: 2つの抵抗値。
+     * 出力: 並列合成値。
+     * 動作条件: 少なくとも一方が正または無限大であること。
+     * 副作用: なし。
+     */
     private function parallelPair(float $a, float $b): float
     {
         if ($a <= 0 || $b <= 0) {
@@ -1071,11 +923,27 @@ class NetworkSearchService
         return 1 / ((1 / $a) + (1 / $b));
     }
 
+    /**
+     * 目的: 候補ノードの直列相当値を計算する。
+     * 機能: ノード配列または値を合計する。
+     * 入力: ノード配列。
+     * 出力: 直列相当値。
+     * 動作条件: 各ノードが値または子ノードを持つこと。
+     * 副作用: なし。
+     */
     private function sumEquivalent(array $values): float
     {
         return array_sum(array_map(fn ($item) => (float) $item['value'], $values));
     }
 
+    /**
+     * 目的: 候補ノードの並列相当値を計算する。
+     * 機能: ノード配列の逆数和から合成値を返す。
+     * 入力: ノード配列。
+     * 出力: 並列相当値。
+     * 動作条件: 各ノード値が正であること。
+     * 副作用: なし。
+     */
     private function reciprocalEquivalent(array $values): float
     {
         $sum = 0.0;
@@ -1089,184 +957,29 @@ class NetworkSearchService
         return $sum > 0 ? 1 / $sum : 0;
     }
 
+    /**
+     * 目的: 回路木ノードを生成する。
+     * 機能: 値、式、構成要素をまとめて探索候補の中間表現にする。
+     * 入力: 値、式、子ノード。
+     * 出力: 回路ノード配列。
+     * 動作条件: valueが有限数であること。
+     * 副作用: なし。
+     */
     private function node(float $value): array
     {
         return ['value' => $value, 'label' => $this->valueKey($value)];
     }
 
+    /**
+     * 目的: 混在回路探索のパターン定義を生成する。
+     * 機能: ラベル、評価関数、式生成関数をまとめる。
+     * 入力: ラベル、評価関数、式生成関数。
+     * 出力: パターン配列。
+     * 動作条件: 評価関数が候補組み合わせを受け取れること。
+     * 副作用: なし。
+     */
     private function pattern(string $type, string $label, callable $eval, callable $expr): array
     {
         return compact('type', 'label', 'eval', 'expr');
-    }
-
-    private function formatValue(float $value, string $partType): string
-    {
-        if ($value <= 0 || ! is_finite($value)) {
-            return '0';
-        }
-        if ($partType === 'C') {
-            if ($value < 1e-9) {
-                return $this->trimNumber($value * 1e12).'pF';
-            }
-            if ($value < 1e-6) {
-                return $this->trimNumber($value * 1e9).'nF';
-            }
-            if ($value < 1e-3) {
-                return $this->trimNumber($value * 1e6).'μF';
-            }
-
-            return $this->trimNumber($value * 1e3).'mF';
-        }
-        if ($value < 1) {
-            return $this->trimNumber($value * 1000).'mΩ';
-        }
-        if ($value < 1e3) {
-            return $this->trimNumber($value).'Ω';
-        }
-        if ($value < 1e6) {
-            return $this->trimNumber($value / 1e3).'kΩ';
-        }
-
-        return $this->trimNumber($value / 1e6).'MΩ';
-    }
-
-    private function formatRatio(float $ratio): string
-    {
-        return $this->trimNumber($ratio * 100, 4).'%';
-    }
-
-    private function dividerTargetDisplay(float $ratio, array $params): string
-    {
-        if (isset($params['input_voltage'], $params['output_voltage'])) {
-            return $this->formatVoltage((float) $params['output_voltage'])
-                .' / '
-                .$this->formatVoltage((float) $params['input_voltage'])
-                .' = '
-                .$this->formatRatio($ratio);
-        }
-
-        return $this->formatRatio($ratio);
-    }
-
-    private function formatDividerOutput(float $ratio, array $params): string
-    {
-        if (isset($params['input_voltage']) && (float) $params['input_voltage'] > 0) {
-            return $this->formatVoltage($ratio * (float) $params['input_voltage']);
-        }
-
-        return $this->formatRatio($ratio);
-    }
-
-    private function formatDividerOutputDelta(float $ratioDelta, array $params): string
-    {
-        if (isset($params['input_voltage']) && (float) $params['input_voltage'] > 0) {
-            return $this->formatVoltage(abs($ratioDelta) * (float) $params['input_voltage']);
-        }
-
-        return $this->formatRatio(abs($ratioDelta));
-    }
-
-    private function formatVoltage(float $value): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-        $abs = abs($value);
-        if ($abs > 0 && $abs < 1) {
-            return $this->trimNumber($value * 1000).'mV';
-        }
-        if ($abs >= 1000) {
-            return $this->trimNumber($value / 1000).'kV';
-        }
-
-        return $this->trimNumber($value).'V';
-    }
-
-    private function formatSignedValue(float $value, string $partType): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-
-        return ($value >= 0 ? '+' : '-').$this->formatValue(abs($value), $partType);
-    }
-
-    private function formatSignedVoltage(float $value): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-
-        return ($value >= 0 ? '+' : '-').$this->formatVoltage(abs($value));
-    }
-
-    private function formatCurrent(float $value): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-        $abs = abs($value);
-        if ($abs == 0.0) {
-            return '0A';
-        }
-        if ($abs < 1e-6) {
-            return $this->trimNumber($value * 1e9).'nA';
-        }
-        if ($abs < 1e-3) {
-            return $this->trimNumber($value * 1e6).'μA';
-        }
-        if ($abs < 1) {
-            return $this->trimNumber($value * 1000).'mA';
-        }
-
-        return $this->trimNumber($value).'A';
-    }
-
-    private function formatPower(float $value): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-        $abs = abs($value);
-        if ($abs == 0.0) {
-            return '0W';
-        }
-        if ($abs < 1e-6) {
-            return $this->trimNumber($value * 1e9).'nW';
-        }
-        if ($abs < 1e-3) {
-            return $this->trimNumber($value * 1e6).'μW';
-        }
-        if ($abs < 1) {
-            return $this->trimNumber($value * 1000).'mW';
-        }
-
-        return $this->trimNumber($value).'W';
-    }
-
-    private function formatPercent(float $value): string
-    {
-        return $this->trimNumber($value, 4).'%';
-    }
-
-    private function formatSignedPercent(float $value): string
-    {
-        if (! is_finite($value)) {
-            return '-';
-        }
-
-        return ($value >= 0 ? '+' : '-').$this->formatPercent(abs($value));
-    }
-
-    private function trimNumber(float $value, int $decimals = 6): string
-    {
-        $text = number_format($value, $decimals, '.', '');
-
-        return rtrim(rtrim($text, '0'), '.');
-    }
-
-    private function valueKey(float $value): string
-    {
-        return sprintf('%.12g', $value);
     }
 }

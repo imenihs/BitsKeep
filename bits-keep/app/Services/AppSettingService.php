@@ -6,11 +6,26 @@ use App\Models\AppSetting;
 
 class AppSettingService
 {
+    /**
+     * 目的: App Settingのgetを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $key, $default。
+     * 出力: mixedで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function get(string $key, mixed $default = null): mixed
     {
         return AppSetting::where('key', $key)->value('value') ?? $default;
     }
-
+    /**
+     * 目的: App Settingのsetを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $key, $value。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function set(string $key, mixed $value): void
     {
         AppSetting::updateOrCreate(
@@ -18,12 +33,26 @@ class AppSettingService
             ['value' => $value]
         );
     }
-
+    /**
+     * 目的: App Settingのdeleteを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $key。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function delete(string $key): void
     {
         AppSetting::where('key', $key)->delete();
     }
-
+    /**
+     * 目的: App Settingのgetnotionconfigを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function getNotionConfig(): array
     {
         $token = $this->get('notion.api_token', config('services.notion.token'));
@@ -51,7 +80,14 @@ class AppSettingService
             ])),
         ];
     }
-
+    /**
+     * 目的: App Settingのupdatenotionconfigを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $token, $rootPageUrl, $clearToken, $clearRootPageUrl。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function updateNotionConfig(?string $token, ?string $rootPageUrl, bool $clearToken = false, bool $clearRootPageUrl = false): array
     {
         $token = $token !== null ? trim($token) : null;
@@ -78,7 +114,14 @@ class AppSettingService
 
         return $this->getNotionConfig();
     }
-
+    /**
+     * 目的: App Settingの解析notionpageidを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     public function parseNotionPageId(?string $value): ?string
     {
         if (! $value) {
@@ -104,7 +147,14 @@ class AppSettingService
 
         return null;
     }
-
+    /**
+     * 目的: App Settingのgetgeminiconfigを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function getGeminiConfig(): array
     {
         $key = $this->get('gemini.api_key', env('GEMINI_API_KEY'));
@@ -115,7 +165,14 @@ class AppSettingService
             'key_preview'  => $this->maskSecret($key),
         ];
     }
-
+    /**
+     * 目的: App Settingのupdategeminiconfigを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $apiKey, $clearKey。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function updateGeminiConfig(?string $apiKey, bool $clearKey = false): array
     {
         if ($clearKey) {
@@ -126,7 +183,14 @@ class AppSettingService
 
         return $this->getGeminiConfig();
     }
-
+    /**
+     * 目的: App Settingのmasksecretを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function maskSecret(?string $value): ?string
     {
         if (! $value) {

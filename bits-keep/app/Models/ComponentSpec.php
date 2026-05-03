@@ -28,12 +28,26 @@ class ComponentSpec extends Model
         'value_numeric_min' => 'float',
         'value_numeric_max' => 'float',
     ];
-
+    /**
+     * 目的: ComponentSpecからcomponentへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function component(): BelongsTo
     {
         return $this->belongsTo(Component::class);
     }
-
+    /**
+     * 目的: ComponentSpecからspec TypeへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function specType(): BelongsTo
     {
         return $this->belongsTo(SpecType::class);

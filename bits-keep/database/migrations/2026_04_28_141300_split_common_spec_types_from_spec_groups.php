@@ -9,7 +9,14 @@ return new class extends Migration
 {
     /** @var array<int, string> */
     private array $commonSpecNames = ['動作温度', '保存温度', '端子数', '端子ピッチ'];
-
+    /**
+     * 目的: 対象テーブルまたは列を追加してスキーマを進める。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     public function up(): void
     {
         Schema::table('spec_types', function (Blueprint $table) {
@@ -22,7 +29,14 @@ return new class extends Migration
         $this->assignOwnerGroups();
         $this->removeLegacyCommonGroup();
     }
-
+    /**
+     * 目的: 追加したテーブルまたは列を戻してスキーマを巻き戻す。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     public function down(): void
     {
         $commonGroupId = $this->restoreLegacyCommonGroup();
@@ -58,7 +72,14 @@ return new class extends Migration
             $table->dropColumn('spec_scope');
         });
     }
-
+    /**
+     * 目的: 追加したテーブルまたは列を戻してスキーマを巻き戻す。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     private function markCommonSpecTypes(): void
     {
         $legacyCommonSpecTypeIds = DB::table('spec_group_spec_type')
@@ -84,7 +105,14 @@ return new class extends Migration
                 'updated_at' => now(),
             ]);
     }
-
+    /**
+     * 目的: 追加したテーブルまたは列を戻してスキーマを巻き戻す。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     private function assignOwnerGroups(): void
     {
         $ownerRows = DB::table('spec_group_spec_type')
@@ -106,7 +134,14 @@ return new class extends Migration
                 ]);
         }
     }
-
+    /**
+     * 目的: 追加したテーブルまたは列を戻してスキーマを巻き戻す。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     private function removeLegacyCommonGroup(): void
     {
         $commonGroupIds = DB::table('spec_groups')
@@ -131,7 +166,14 @@ return new class extends Migration
                 ->delete();
         }
     }
-
+    /**
+     * 目的: 追加したテーブルまたは列を戻してスキーマを巻き戻す。
+     * 機能: Laravel Schema APIでDB構造を定義する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: DB接続先と既存スキーマ状態がLaravel migration順序と一致していること。
+     * 副作用: スキーマを変更する。
+     */
     private function restoreLegacyCommonGroup(): ?int
     {
         $existing = DB::table('spec_groups')->where('name', '共通')->first();

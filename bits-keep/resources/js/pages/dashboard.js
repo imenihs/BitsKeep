@@ -30,12 +30,15 @@ const QUICK_ACTIONS_PREF_KEY = 'home_quick_actions';
 const DEFAULT_QUICK_ACTION_KEYS = ['components', 'create', 'projects', 'design-tools', 'stock-in', 'stock-alert', 'component-series'];
 const RESULT_TYPE_LABELS = { component: '部品', project: '案件', function: '機能' };
 
+// 目的: 画面モジュールのcomponent Titleを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const componentTitle = (part) => part?.part_number || part?.common_name || part?.name || '型番未設定';
+// 目的: 画面モジュールのcomponent Metaを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 const componentMeta = (part, extra = '') => {
     const values = [part?.common_name, part?.manufacturer, extra].filter((value) => String(value ?? '').trim());
     return values.length ? values.join(' / ') : '通称未設定';
 };
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { favoriteIds, loadFavorites } = useFavoriteComponents();
     const userName  = document.getElementById('app')?.dataset?.userName ?? 'ユーザー';
@@ -58,8 +61,10 @@ export default function setup() {
     const searchError   = ref('');
     let searchTimer     = null;
 
+    // 目的: 画面モジュールのset Focusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const setFocus = (mode) => { activeFocus.value = mode; };
 
+    // 目的: 画面モジュールのdo Searchを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const doSearch = async () => {
         if (!searchQuery.value.trim()) {
             searchResults.value = [];
@@ -113,7 +118,9 @@ export default function setup() {
         finally { searching.value = false; }
     };
 
+    // 目的: 画面モジュールのon Search Inputを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const onSearchInput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 300); };
+    // 目的: 画面モジュールのnavigateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const navigate = (url) => { location.href = url; };
 
     // ── 今日の確認事項 ──────────────────────────────────────
@@ -123,6 +130,7 @@ export default function setup() {
     const projectCount = ref(0);
     const summaryError = ref('');
 
+    // 目的: 画面モジュールのfetch Summaryを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSummary = async () => {
         summaryError.value = '';
         try {
@@ -144,6 +152,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのfetch Favorite Partsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchFavoriteParts = async () => {
         if (!favoriteIds.value.length) {
             favoriteParts.value = [];
@@ -259,6 +268,7 @@ export default function setup() {
     });
 
     // ユーザー設定から並び順を取得
+    // 目的: 画面モジュールのload Orderを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const loadOrder = async () => {
         try {
             const res = await api.get(`/preferences/${QUICK_ACTIONS_PREF_KEY}`);
@@ -270,7 +280,9 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのopen Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openItem = (item) => navigate(item.url || item.href);
+    // 目的: 画面モジュールのopen First Resultを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openFirstResult = () => {
         const first = launcherResults.value[0];
         if (first) openItem(first);

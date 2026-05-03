@@ -12,6 +12,14 @@ use Illuminate\Support\Facades\DB;
 
 class PackageGroupController extends Controller
 {
+    /**
+     * 目的: パッケージ分類の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request)
     {
         $query = PackageGroup::query()->withCount('packages as usage_count');
@@ -27,36 +35,78 @@ class PackageGroupController extends Controller
 
         return ApiResponse::success($groups);
     }
-
+    /**
+     * 目的: パッケージ分類の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(StorePackageGroupRequest $request)
     {
         return ApiResponse::created(PackageGroup::create($request->validated()));
     }
-
+    /**
+     * 目的: パッケージ分類の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(PackageGroup $packageGroup)
     {
         return ApiResponse::success($packageGroup);
     }
-
+    /**
+     * 目的: パッケージ分類の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(StorePackageGroupRequest $request, PackageGroup $packageGroup)
     {
         $packageGroup->update($request->validated());
         return ApiResponse::success($packageGroup);
     }
-
+    /**
+     * 目的: パッケージ分類の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(PackageGroup $packageGroup)
     {
         $packageGroup->delete();
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: パッケージ分類のアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(int $packageGroup)
     {
         $model = PackageGroup::withTrashed()->findOrFail($packageGroup);
         $model->restore();
         return ApiResponse::success($model);
     }
-
+    /**
+     * 目的: パッケージ分類のforcedestroyを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function forceDestroy(int $packageGroup)
     {
         $model = PackageGroup::withTrashed()->withCount('packages as usage_count')->findOrFail($packageGroup);
@@ -70,7 +120,14 @@ class PackageGroupController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: パッケージ分類のreorderpackagesを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $packageGroup。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function reorderPackages(Request $request, PackageGroup $packageGroup)
     {
         if (!$request->user()?->isEditor()) {

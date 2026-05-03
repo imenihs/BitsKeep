@@ -13,7 +13,14 @@ use Tests\TestCase;
 class ComponentHelperChatGptJobTest extends TestCase
 {
     use RefreshDatabase;
-
+    /**
+     * 目的: 「chatgpt job creates temp pdf and returns signed download url」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_chatgpt_job_creates_temp_pdf_and_returns_signed_download_url(): void
     {
         Storage::fake('local');
@@ -44,7 +51,14 @@ class ComponentHelperChatGptJobTest extends TestCase
         $downloadResponse = $this->get($payload['target_datasheet']['signed_download_url']);
         $downloadResponse->assertOk();
     }
-
+    /**
+     * 目的: 「component store can claim temp datasheet tokens and finalize pdf」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_component_store_can_claim_temp_datasheet_tokens_and_finalize_pdf(): void
     {
         Storage::fake('local');

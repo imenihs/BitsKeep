@@ -19,6 +19,7 @@ const ACTION_DEFS = [
 ];
 const DEFAULT_QUICK_ACTION_KEYS = ['components', 'create', 'stock-alert', 'projects', 'design-tools'];
 
+// 目的: 画面モジュールのsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const appEl = document.getElementById('app');
     const userRole = appEl?.dataset?.role ?? 'viewer';
@@ -48,6 +49,7 @@ export default function setup() {
         availableActions.value.filter((action) => !visibleKeys.value.includes(action.key))
     );
 
+    // 目的: 画面モジュールのload Quick Actionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const loadQuickActions = async () => {
         actionsError.value = '';
         try {
@@ -59,6 +61,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのpersist Quick Actionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const persistQuickActions = async () => {
         if (visibleActions.value.length === 0) {
             actionsMessage.value = '';
@@ -83,6 +86,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 画面モジュールのreset Quick Actionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const resetQuickActions = () => {
         quickActionKeys.value = DEFAULT_QUICK_ACTION_KEYS.filter((key) =>
             availableActions.value.some((action) => action.key === key)
@@ -92,14 +96,17 @@ export default function setup() {
         actionsError.value = '';
     };
 
+    // 目的: 画面モジュールのstart Dragを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const startDrag = (list, index) => {
         dragPayload.value = { list, index };
     };
 
+    // 目的: 画面モジュールのallow Dropを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const allowDrop = (e) => {
         e.preventDefault();
     };
 
+    // 目的: 画面モジュールのmove Actionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 画面モジュールの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const moveAction = (toList, toIndex = null) => {
         if (!dragPayload.value) return;
 

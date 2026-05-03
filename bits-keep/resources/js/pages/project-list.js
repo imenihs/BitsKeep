@@ -8,6 +8,7 @@ import { useToast } from '../composables/useToast.js';
 import { useFormatter } from '../composables/useFormatter.js';
 import { useConfirmModal } from '../composables/useConfirmModal.js';
 
+// 目的: 案件管理のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { formatCurrency, formatDate } = useFormatter();
@@ -28,6 +29,7 @@ export default function setup() {
     });
 
     // ビジネス選択用の関数
+    // 目的: 案件管理のget Business Nameを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 案件管理の初期化後に呼び出す。副作用: なし。
     const getBusinessName = (code) => {
         return businesses.value.find(b => b.business_code === code)?.business_name || code;
     };
@@ -41,14 +43,17 @@ export default function setup() {
     const syncConfig  = ref({ configured: false, token_configured: false, root_page_configured: false, missing: [] });
     const supportError = ref('');
     const detailError = ref('');
+    // 目的: 案件管理のsync Config Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncConfigLabel = (key) => ({
         api_token: 'Notion APIトークン',
         notion_api_token: 'Notion APIトークン',
         root_page_url: '同期元ページURL',
         business_database_id: '事業データベースID',
     }[key] ?? key);
+    // 目的: 案件管理のmissing Sync Labelsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const missingSyncLabels = () => (syncConfig.value.missing ?? []).map(syncConfigLabel);
 
+    // 目的: 案件管理のfetch Projectsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchProjects = async () => {
         loading.value = true;
         try {
@@ -60,6 +65,7 @@ export default function setup() {
         finally { loading.value = false; }
     };
 
+    // 目的: 案件管理のfetch Businessesを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchBusinesses = async () => {
         try {
             const r = await api.get('/project-businesses');
@@ -69,6 +75,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 案件管理のfetch Last Sync Runを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchLastSyncRun = async () => {
         try {
             const r = await api.get('/projects/sync-runs');
@@ -79,6 +86,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 案件管理のfetch Sync Statusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSyncStatus = async () => {
         try {
             const r = await api.get('/projects/sync/status');
@@ -88,6 +96,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 案件管理のopen Detailを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openDetail = async (proj) => {
         detailProject.value = null; costSummary.value = null; detailError.value = '';
         try {
@@ -100,10 +109,12 @@ export default function setup() {
         }
     };
 
+    // 目的: 案件管理のopen Addを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openAdd = () => Object.assign(modal, {
         open: true, isEdit: false, editId: null,
         form: { name: '', description: '', status: 'active', color: '#2563eb', business_code: '' }
     });
+    // 目的: 案件管理のopen Editを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openEdit = (p) => {
         // Notion由来は編集不可
         if (!p.is_editable) { toastError('Notion由来の案件は編集できません'); return; }
@@ -112,6 +123,7 @@ export default function setup() {
                     color: p.color ?? '#2563eb', business_code: p.business_code ?? '' } });
     };
 
+    // 目的: 案件管理のsaveを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const save = async () => {
         try {
             if (modal.isEdit) await api.put(`/projects/${modal.editId}`, modal.form);
@@ -121,6 +133,7 @@ export default function setup() {
         } catch (e) { toastError(e.response?.data?.message ?? e.message); }
     };
 
+    // 目的: 案件管理のdelete Projectを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const deleteProject = async (p) => {
         if (!p.is_editable) { toastError('Notion由来の案件は削除できません'); return; }
         if (!await ask(`「${p.name}」を削除しますか？`)) return;
@@ -129,6 +142,7 @@ export default function setup() {
     };
 
     // Notion同期
+    // 目的: 案件管理のsync Notionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const syncNotion = async () => {
         if (!syncConfig.value.configured) {
             toastError(`Notion同期は未設定です: ${missingSyncLabels().join(', ')}`);
@@ -149,6 +163,7 @@ export default function setup() {
     };
 
     // 部品検索（インライン）
+    // 目的: 案件管理のsearch Componentsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const searchComponents = async () => {
         if (!addCompForm.keyword) return;
         addCompForm.searching = true;
@@ -159,12 +174,14 @@ export default function setup() {
         finally { addCompForm.searching = false; }
     };
 
+    // 目的: 案件管理のselect Compを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectComp = (c) => {
         addCompForm.component_id = c.id;
         addCompForm.keyword = c.part_number || c.common_name;
         addCompForm.searchResults = [];
     };
 
+    // 目的: 案件管理のadd Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const addComponent = async () => {
         if (!detailProject.value || !addCompForm.component_id) return;
         try {
@@ -178,6 +195,7 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
+    // 目的: 案件管理のremove Componentを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeComponent = async (comp) => {
         if (!detailProject.value) return;
         try {
@@ -187,11 +205,16 @@ export default function setup() {
         } catch (e) { toastError(e.message); }
     };
 
+    // 目的: 案件管理のstatus Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const statusLabel = (s) => ({ active: '進行中', archived: 'アーカイブ' }[s] ?? s);
+    // 目的: 案件管理のstatus Classを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const statusClass = (s) => s === 'active' ? 'tag-ok' : 'opacity-50';
+    // 目的: 案件管理のsource Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const sourceLabel = (p) => p.source_type === 'notion' ? '[Notion]' : '[Local]';
+    // 目的: 案件管理のsource Classを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const sourceClass = (p) => p.source_type === 'notion' ? 'text-blue-600' : 'text-green-600';
 
+    // 目的: 案件管理のapply Filterを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const applyFilter = () => { filters.page = 1; fetchProjects(); };
 
     const syncPanel = computed(() => {
@@ -287,6 +310,7 @@ export default function setup() {
         };
     });
 
+    // 目的: 案件管理のreload Support Dataを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 案件管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const reloadSupportData = () => {
         supportError.value = '';
         fetchBusinesses();

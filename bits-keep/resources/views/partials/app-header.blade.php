@@ -1,4 +1,7 @@
 @php
+    // 目的: 共通ヘッダで現在画面名、ログインユーザー、権限バッジの表示情報を組み立てる。
+    // 入力: 呼び出し元の $current と認証ユーザー。出力: ヘッダ表示用の $current/$user/$roleMeta。
+    // 動作条件: 認証済み画面または閲覧者扱いで表示できる画面。副作用: なし。
     $current = $current ?? 'BitsKeep';
     $user = auth()->user();
     $roleMeta = match($user?->role) {

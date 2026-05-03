@@ -8,7 +8,12 @@ use App\Models\UserPreference;
 class PreferenceService
 {
     /**
-     * ユーザー設定値を取得する。キーが存在しない場合はデフォルト値を返す。
+     * 目的: ユーザー設定のgetを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $user, $key, $default。
+     * 出力: mixedで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     public function get(User $user, string $key, mixed $default = null): mixed
     {
@@ -20,7 +25,12 @@ class PreferenceService
     }
 
     /**
-     * ユーザー設定値を保存する（upsert）。
+     * 目的: ユーザー設定のsetを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $user, $key, $value。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     public function set(User $user, string $key, mixed $value): void
     {
@@ -31,7 +41,12 @@ class PreferenceService
     }
 
     /**
-     * ユーザー設定値を削除する。
+     * 目的: ユーザー設定のdeleteを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $user, $key。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      */
     public function delete(User $user, string $key): void
     {

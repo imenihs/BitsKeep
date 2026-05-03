@@ -26,6 +26,14 @@ class DesignAnalysisResponse
      * @param  string[]     $nextActions 次に取るべき推奨アクション
      * @param  array|null   $chartModel  フロントエンドのグラフ描画用データ
      */
+    /**
+     * 目的: 設計解析ツールの判定・指摘・次アクションを成功レスポンスへ整形する。
+     * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
+     * 入力: 関数シグネチャで指定された引数。
+     * 出力: 型宣言または呼び出し規約に従う処理結果。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと入力値を渡すこと。
+     * 副作用: なし。
+     */
     public static function success(
         mixed $result,
         string $summary = '',
@@ -52,8 +60,12 @@ class DesignAnalysisResponse
     }
 
     /**
-     * 入力値が計算不能な場合のレスポンスを生成する。
-     *
+     * 目的: Design Analysis Responseのinvalidを担う。
+     * 機能: 呼び出し元の入力を検証・整形し、担当するアプリ処理へ渡す。
+     * 入力: $reason, $nextActions。
+     * 出力: JsonResponseで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: 状態変更を伴う場合がある。
      * @param  string    $reason   計算不能の理由
      * @param  string[]  $nextActions 入力修正の案内
      */

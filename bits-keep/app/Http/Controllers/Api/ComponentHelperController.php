@@ -23,6 +23,14 @@ use Illuminate\Support\Str;
  */
 class ComponentHelperController extends Controller
 {
+    /**
+     * 目的: データシートPDFを一時保存し、ChatGPT連携用の解析ジョブを作成する。
+     * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
+     * 入力: 関数シグネチャで指定された引数。
+     * 出力: 型宣言または呼び出し規約に従う処理結果。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと入力値を渡すこと。
+     * 副作用: 依存オブジェクト、DB、ファイル、外部API、モデル状態のいずれかを更新する場合がある。
+     */
     public function createChatGptJob(
         Request $request,
         DatasheetPromptService $promptService,
@@ -100,7 +108,14 @@ class ComponentHelperController extends Controller
             'expires_at' => $expiresAt->toIso8601String(),
         ], 'ChatGPT解析ジョブを作成しました');
     }
-
+    /**
+     * 目的: 部品登録補助のdestroychatgptjobを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $token, $tempDatasheets。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroyChatGptJob(string $token, TempDatasheetService $tempDatasheets): JsonResponse
     {
         $deleted = $tempDatasheets->deleteToken($token);
@@ -110,7 +125,14 @@ class ComponentHelperController extends Controller
 
         return ApiResponse::success(null, '一時PDFを破棄しました');
     }
-
+    /**
+     * 目的: 部品登録補助のdownloadtempデータシートを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $token, $tempDatasheets。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function downloadTempDatasheet(string $token, TempDatasheetService $tempDatasheets)
     {
         try {
@@ -126,7 +148,14 @@ class ComponentHelperController extends Controller
             abort(404, $e->getMessage());
         }
     }
-
+    /**
+     * 目的: 部品登録補助のanalyzeデータシートを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $gemini, $matcher。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function analyzeDatasheet(Request $request, GeminiService $gemini, SpecTypeMatchingService $matcher): JsonResponse
     {
         // APIキー未設定チェック（DB or .env）
@@ -175,6 +204,12 @@ class ComponentHelperController extends Controller
     }
 
     /**
+     * 目的: 部品登録補助のappend分類スペックrecommendationsを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $result。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $result
      * @return array<string, mixed>
      */
@@ -184,7 +219,7 @@ class ComponentHelperController extends Controller
         $categoryIds = collect($categoryCandidates)
             ->pluck('category_id')
             ->filter()
-            ->map(fn ($id) => (int) $id)
+            ->map( fn ($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -223,6 +258,12 @@ class ComponentHelperController extends Controller
     }
 
     /**
+     * 目的: 部品登録補助のextract分類名称を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $result。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $result
      * @return array<int, string>
      */
@@ -252,7 +293,7 @@ class ComponentHelperController extends Controller
         }
 
         return $names
-            ->map(fn ($value) => trim((string) $value))
+            ->map( fn ($value) => trim((string) $value))
             ->filter()
             ->unique()
             ->values()
@@ -260,6 +301,12 @@ class ComponentHelperController extends Controller
     }
 
     /**
+     * 目的: 部品登録補助の解決分類候補を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $names。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<int, string>  $names
      * @return array<int, array<string, mixed>>
      */
@@ -285,7 +332,14 @@ class ComponentHelperController extends Controller
             ->values()
             ->all();
     }
-
+    /**
+     * 目的: 部品登録補助のmatch分類by名称を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $name, $categories。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function matchCategoryByName(string $name, $categories): ?SpecGroup
     {
         $normalized = $this->normalizeMatchText($name);
@@ -293,7 +347,7 @@ class ComponentHelperController extends Controller
             return null;
         }
 
-        $matched = $categories->first(fn (SpecGroup $category) => $this->normalizeMatchText($category->name) === $normalized);
+        $matched = $categories->first( fn (SpecGroup $category) => $this->normalizeMatchText($category->name) === $normalized);
         if ($matched) {
             return $matched;
         }
@@ -304,7 +358,14 @@ class ComponentHelperController extends Controller
             return $categoryName !== '' && (str_contains($normalized, $categoryName) || str_contains($categoryName, $normalized));
         });
     }
-
+    /**
+     * 目的: 部品登録補助の正規化matchtextを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $value。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function normalizeMatchText(?string $value): string
     {
         return mb_strtolower(preg_replace('/[\s()\[\]_.-]+/u', '', (string) $value) ?? '');

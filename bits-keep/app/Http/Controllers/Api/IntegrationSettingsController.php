@@ -10,6 +10,14 @@ use Illuminate\Http\Request;
 
 class IntegrationSettingsController extends Controller
 {
+    /**
+     * 目的: 外部連携設定のshownotionを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $settings, $notion。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function showNotion(AppSettingService $settings, NotionSyncService $notion)
     {
         $config = $settings->getNotionConfig();
@@ -17,7 +25,14 @@ class IntegrationSettingsController extends Controller
 
         return ApiResponse::success($config);
     }
-
+    /**
+     * 目的: 外部連携設定のupdatenotionを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $settings, $notion。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateNotion(Request $request, AppSettingService $settings, NotionSyncService $notion)
     {
         if (! $request->user()->isEditor()) {
@@ -48,12 +63,26 @@ class IntegrationSettingsController extends Controller
 
         return ApiResponse::success($config, '連携設定を保存しました');
     }
-
+    /**
+     * 目的: 外部連携設定のshowgeminiを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $settings。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function showGemini(AppSettingService $settings): \Illuminate\Http\JsonResponse
     {
         return ApiResponse::success($settings->getGeminiConfig());
     }
-
+    /**
+     * 目的: 外部連携設定のupdategeminiを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $settings。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateGemini(Request $request, AppSettingService $settings): \Illuminate\Http\JsonResponse
     {
         if (! $request->user()->isEditor()) {

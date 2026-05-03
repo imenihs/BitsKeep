@@ -658,9 +658,11 @@
             </div>
             <div class="spec-card-field">
               <label class="spec-card-label">値種別</label>
-              <div v-if="isToleranceSpecRow(spec)" class="inline-flex h-8 items-center rounded border border-[var(--color-border)] bg-[var(--color-card-odd)] px-3 text-xs font-semibold">
-                許容差
-              </div>
+              <select v-if="isToleranceSpecRow(spec)" :value="'tolerance'"
+                class="input-text spec-card-control spec-card-profile-select w-full"
+                aria-label="値種別: 許容差">
+                <option value="tolerance">許容差</option>
+              </select>
               <div v-else class="spec-card-profile-select-wrap">
                 <select :value="spec.value_profile" @change="changeSpecProfile(spec, $event.target.value)"
                   class="input-text spec-card-control spec-card-profile-select w-full"

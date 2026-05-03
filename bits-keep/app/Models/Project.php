@@ -25,26 +25,54 @@ class Project extends Model
         'last_synced_at' => 'datetime',
     ];
 
-    /** Notion由来など編集不可案件を除くスコープ */
+    /**
+     * 目的: 案件のscopeeditableを担う。
+     * 機能: モデル属性、関連、スコープ、保存時補完をEloquentへ提供する。
+     * 入力: $query。
+     * 出力: 処理結果またはなし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: 状態変更を伴う場合がある。
+     */
     public function scopeEditable($query)
     {
         return $query->where('is_editable', true);
     }
 
-    /** source_type + source_key で一意のレコードを取得 */
+    /**
+     * 目的: 案件のfindbysourceを担う。
+     * 機能: モデル属性、関連、スコープ、保存時補完をEloquentへ提供する。
+     * 入力: $sourceType, $sourceKey。
+     * 出力: ?staticで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: 状態変更を伴う場合がある。
+     */
     public static function findBySource(string $sourceType, string $sourceKey): ?static
     {
         return static::where('source_type', $sourceType)
                      ->where('source_key', $sourceKey)
                      ->first();
     }
-
+    /**
+     * 目的: ProjectからcomponentsへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsToMany リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function components(): BelongsToMany
     {
         return $this->belongsToMany(Component::class, 'component_project')
                     ->withPivot('required_qty');
     }
-
+    /**
+     * 目的: ProjectからcreatorへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

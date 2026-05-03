@@ -2,21 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\AltiumLibrary;
-use App\Models\AnalysisSession;
-use App\Models\AuditLog;
 use App\Models\Component;
-use App\Models\ComponentSeries;
-use App\Models\ComponentSupplier;
-use App\Models\Location;
 use App\Models\Package;
 use App\Models\PackageGroup;
-use App\Models\Project;
-use App\Models\ProjectSyncRun;
 use App\Models\SpecGroup;
 use App\Models\SpecType;
-use App\Models\StockOrder;
-use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -25,9 +15,19 @@ use Tests\TestCase;
 class UiApiSurfaceSmokeTest extends TestCase
 {
     use RefreshDatabase;
+    use UiApiSurfaceSmoke\ChecksDesignToolsSurface;
+    use UiApiSurfaceSmoke\CreatesUiApiSurfaceFixtures;
 
     private User $admin;
 
+    /**
+     * 目的: UI/APIスモークテストを管理者ログイン状態で実行できるようにする。
+     * 機能: 各テストごとに管理者ユーザーを作成し、Laravelの認証セッションへ設定する。
+     * 入力: なし。PHPUnitのsetUpライフサイクルから呼ばれる。
+     * 出力: なし。
+     * 動作条件: RefreshDatabase によりテストDBが初期化されていること。
+     * 副作用: users テーブルへ管理者ユーザーを1件作成し、テストクライアントの認証状態を変更する。
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,6 +39,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->actingAs($this->admin);
     }
 
+    /**
+     * 目的: 主要UIが依存するAPI群の基本レスポンス形状を固定する。
+     * 機能: 部品、マスタ、案件、解析保存、発注、Altium連携の読取APIを横断して200応答と代表フィールドを確認する。
+     * 入力: createUiFixture で作成した部品・案件・解析セッションなどのテストデータ。
+     * 出力: アサーション結果。
+     * 動作条件: 管理者として認証済みで、テスト用DBにフィクスチャが作成できること。
+     * 副作用: テストDBへ部品関連データを作成し、HTTP GET/POSTリクエストを発行する。
+     */
     public function test_ui_backing_api_endpoints_return_renderable_data_shapes(): void
     {
         $fixture = $this->createUiFixture();
@@ -151,6 +159,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ]);
     }
 
+    /**
+     * 目的: ネットワーク探索画面に採用素子許容差と範囲表示が残っていることを固定する。
+     * 機能: /tools/network のHTMLから許容差入力と結果表示ラベルを確認する。
+     * 入力: なし。
+     * 出力: アサーション結果。
+     * 動作条件: 管理者として認証済みで画面が描画できること。
+     * 副作用: テスト用HTTP GETを1回発行する。
+     */
     public function test_resistance_calc_ui_exposes_adopted_element_tolerance_controls_and_range_surface(): void
     {
         $this->get('/tools/network')
@@ -169,6 +185,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertSee('素子誤差範囲', false);
     }
 
+    /**
+     * 目的: スペック詳細の接頭辞候補で空文字の基準単位選択が消えないことを固定する。
+     * 機能: 作成、詳細取得、更新後の suggest/display prefixes をDB値まで確認する。
+     * 入力: 空文字を含む接頭辞配列。
+     * 出力: アサーション結果。
+     * 動作条件: spec-types API が管理者権限で利用可能であること。
+     * 副作用: spec_types と関連単位データをテストDBへ作成/更新する。
+     */
     public function test_spec_type_prefixes_preserve_blank_prefix(): void
     {
         $createResponse = $this->postJson('/api/spec-types', [
@@ -215,6 +239,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertSame(['k', ''], $specType->display_prefixes);
     }
 
+    /**
+     * 目的: 部品分類ローカルのスペック詳細作成でもマスタ相当の項目が保存されることを固定する。
+     * 機能: 名称、英語名、記号、説明、単位、接頭辞、別名、分類紐付けを確認する。
+     * 入力: owner_spec_group_id 付きの spec-types 作成payload。
+     * 出力: アサーション結果。
+     * 動作条件: 対象の部品分類が事前に作成済みであること。
+     * 副作用: spec_groups、spec_types、aliases、units、中間テーブルへ検証用レコードを作成する。
+     */
     public function test_group_local_spec_type_create_stores_master_equivalent_fields(): void
     {
         $group = SpecGroup::create([
@@ -262,6 +294,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertTrue($specType->specGroups->contains('id', $group->id));
     }
 
+    /**
+     * 目的: 接頭辞付き単位でスペック詳細を作っても基準単位へ正規化されることを固定する。
+     * 機能: μF 入力から base_unit、候補接頭辞、表示接頭辞、保存単位を確認する。
+     * 入力: unit=μF の spec-types 作成payload。
+     * 出力: アサーション結果。
+     * 動作条件: 単位正規化サービスがAPI保存処理で呼ばれること。
+     * 副作用: spec_types と spec_type_units をテストDBへ作成する。
+     */
     public function test_spec_type_create_normalizes_prefixed_unit_to_base_unit(): void
     {
         $response = $this->postJson('/api/spec-types', [
@@ -280,6 +320,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.units.0.unit', 'F');
     }
 
+    /**
+     * 目的: Byte/bit系スペックの接頭辞がIEC系と10進系で混在しないことを固定する。
+     * 機能: 許可例と不許可例をAPIバリデーションで確認する。
+     * 入力: B/bit/V 単位と複数の接頭辞配列。
+     * 出力: アサーション結果。
+     * 動作条件: spec-types API の接頭辞バリデーションが有効であること。
+     * 副作用: 許可ケースのみ spec_types をテストDBへ作成する。
+     */
     public function test_byte_bit_spec_type_prefixes_enforce_decimal_or_iec_group(): void
     {
         $iecResponse = $this->postJson('/api/spec-types', [
@@ -337,6 +385,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonValidationErrors('suggest_prefixes');
     }
 
+    /**
+     * 目的: 同じ表示名でも記号が異なるスペック詳細を別物として登録できることを固定する。
+     * 機能: VDD と VCC の電源電圧を作成し、2件保存されることを確認する。
+     * 入力: 同じ name/name_ja と異なる symbol を持つ作成payload。
+     * 出力: アサーション結果。
+     * 動作条件: 一意制約が表示名単独で閉じていないこと。
+     * 副作用: spec_types を2件テストDBへ作成する。
+     */
     public function test_spec_type_allows_same_display_name_with_different_symbols(): void
     {
         $first = $this->postJson('/api/spec-types', [
@@ -366,6 +422,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         );
     }
 
+    /**
+     * 目的: 許容差スペック詳細の設定保存とkindフィルタを固定する。
+     * 機能: normal/tolerance の作成、設定JSON、一覧フィルタの出し分けを確認する。
+     * 入力: 通常スペックと tolerance_settings 付きスペックの作成payload。
+     * 出力: アサーション結果。
+     * 動作条件: spec_kind と tolerance_settings がモデルで永続化されること。
+     * 副作用: spec_types をテストDBへ作成する。
+     */
     public function test_spec_types_preserve_tolerance_kind_settings_and_kind_filters(): void
     {
         $normalResponse = $this->postJson('/api/spec-types', [
@@ -450,6 +514,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertNotContains($normalId, collect($toleranceList)->pluck('id')->all());
     }
 
+    /**
+     * 目的: 認証後に主要画面がバックエンド例外なしで描画できることを固定する。
+     * 機能: Vueページと静的ページを巡回し、画面モジュール欠落や未定義変数を検出する。
+     * 入力: createUiFixture で作った詳細画面用部品。
+     * 出力: アサーション結果。
+     * 動作条件: 管理者として認証済みでルート定義が存在すること。
+     * 副作用: テストDBへフィクスチャを作成し、複数のHTTP GETを発行する。
+     */
     public function test_authenticated_pages_render_without_backend_errors(): void
     {
         $fixture = $this->createUiFixture();
@@ -505,81 +577,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         }
     }
 
-    public function test_design_tools_page_exposes_network_hub_temperature_logic_ic_and_connector_surfaces(): void
-    {
-        $response = $this->get('/tools/design')
-            ->assertOk()
-            ->assertSee('data-page="design-tools"', false)
-            ->assertSee('受動部品ネットワーク/分圧', false)
-            ->assertSee('サブモードを選んで同じ画面で計算', false)
-            ->assertSee('R/C探索条件', false)
-            ->assertDontSee('正本ツール', false)
-            ->assertDontSee('href="'.route('tools.network').'"', false)
-            ->assertSee('NTC/PTC温度変換', false)
-            ->assertSee('この画面ではサーミスタの温度変換、温度スイープ、ADCコード表、線形化係数だけを扱います。', false)
-            ->assertDontSee('センサ分圧', false);
-
-        $html = $response->getContent();
-        $blade = file_get_contents(resource_path('views/app/design-tools.blade.php'));
-        $script = file_get_contents(resource_path('js/pages/design-tools.js'));
-        $surface = $html.$blade.$script;
-
-        $this->assertStringContainsString("label: '受動部品ネットワーク/分圧'", $script);
-        $this->assertStringContainsString("import setupPassiveNetworkTool from './resistance-calc.js';", $script);
-        $this->assertStringContainsString("if (activeToolId.value === 'passive-network')", $script);
-        $this->assertStringNotContainsString("url: '/tools/network'", $script);
-        $this->assertStringNotContainsString("network/divider/VR -> candidates -> margin", $script);
-        $this->assertStringContainsString("{ id: 'logic-ic',   label: 'ロジックIC参照'", $script);
-        $this->assertStringContainsString("if (activeToolId.value === 'logic-ic')", $script);
-        $this->assertStringContainsString("model: 'logic-ic'", $script);
-        $this->assertStringNotContainsString('v-model="divider.mode"', $blade);
-        $this->assertDoesNotMatchRegularExpression("/id:\\s*'divider'\\s*,\\s*label:\\s*'分圧'/u", $script);
-        $this->assertMatchesRegularExpression(
-            "/<\\/div>\\s*<section v-if=\"activeToolId === 'connector'\"/u",
-            $blade,
-            'Connector pin-map and registration surface must be a top-level section, not nested under the ADC-only block.'
-        );
-
-        foreach ([
-            'ロジックIC参照',
-            '候補ファミリ',
-            '機能',
-            '入力数の目安',
-            'ピン数(0=不問)',
-            '使用Vcc(V)',
-            '出力形式',
-            '送信側シリーズ',
-            '受信側シリーズ',
-            '候補一覧',
-            'VOH(min)送信',
-            'VIH(min)受信',
-            '伝搬遅延/最大周波数',
-            'パッケージピン配置',
-        ] as $label) {
-            $this->assertStringContainsString($label, $surface);
-        }
-
-        $this->assertStringContainsString('コネクタ設計/ピン配置', $surface);
-        $this->assertTrue(
-            str_contains($surface, 'USB Type-C') || str_contains($surface, '標準/ユーザーコネクタ'),
-            'Design tools must expose a standard connector template label such as USB Type-C or 標準/ユーザーコネクタ.'
-        );
-        foreach ([
-            'ピン割付',
-            '写真URL',
-            'ピン配置図URL',
-            'データシートURL',
-            'BOM注記',
-            'シルク/組立注記',
-            'ユーザーコネクタを登録',
-            '登録写真URL',
-            '登録ピン配置図URL',
-            '登録データシートURL',
-        ] as $label) {
-            $this->assertStringContainsString($label, $surface);
-        }
-    }
-
+    /**
+     * 目的: ネットワーク探索専用画面の設計入力・評価表示が欠落しないことを固定する。
+     * 機能: /tools/network の主要ラベルと、統合済み旧導線が出ないことを確認する。
+     * 入力: なし。
+     * 出力: アサーション結果。
+     * 動作条件: Bladeがネットワーク探索ページを描画できること。
+     * 副作用: テスト用HTTP GETを1回発行する。
+     */
     public function test_network_tool_page_exposes_updated_design_surface(): void
     {
         $this->get('/tools/network')
@@ -598,6 +603,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertSee('直列・並列・混在・分圧・在庫値・可変抵抗', false);
     }
 
+    /**
+     * 目的: 分圧がトップレベルタブとして扱われ、不要な負荷切替ボタンが出ないことを固定する。
+     * 機能: 通常分圧、VR分圧、負荷条件、許容差表示のラベルを確認する。
+     * 入力: なし。
+     * 出力: アサーション結果。
+     * 動作条件: /tools/network が最新UI構成で描画されること。
+     * 副作用: テスト用HTTP GETを1回発行する。
+     */
     public function test_network_tool_exposes_divider_as_top_level_tab_with_submodes_and_no_load_buttons(): void
     {
         $response = $this->get('/tools/network')
@@ -607,21 +620,22 @@ class UiApiSurfaceSmokeTest extends TestCase
         $html = $response->getContent();
         $blade = file_get_contents(resource_path('views/app/resistance-calc.blade.php'));
         $script = file_get_contents(resource_path('js/pages/resistance-calc.js'));
+        $coreScript = file_get_contents(resource_path('js/pages/resistance-calc/core.js'));
 
-        $this->assertMatchesRegularExpression("/value:\\s*'network'\\s*,\\s*label:\\s*'ネットワーク探索'/u", $script);
-        $this->assertMatchesRegularExpression("/value:\\s*'divider'\\s*,\\s*label:\\s*'分圧'/u", $script);
-        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'可変抵抗'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'network'\\s*,\\s*label:\\s*'ネットワーク探索'/u", $coreScript);
+        $this->assertMatchesRegularExpression("/value:\\s*'divider'\\s*,\\s*label:\\s*'分圧'/u", $coreScript);
+        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'可変抵抗'/u", $coreScript);
         $this->assertStringContainsString("activeMode === 'divider'", $blade);
-        $this->assertStringNotContainsString('分圧VR', $html.$blade.$script);
-        $this->assertStringNotContainsString('divider-variable', $html.$blade.$script);
+        $this->assertStringNotContainsString('分圧VR', $html.$blade.$script.$coreScript);
+        $this->assertStringNotContainsString('divider-variable', $html.$blade.$script.$coreScript);
         $this->assertStringNotContainsString("activeMode === 'divider-variable'", $blade);
         $this->assertStringNotContainsString("activeMode === 'network' && isDividerVariableMode", $blade);
 
-        $this->assertMatchesRegularExpression("/value:\\s*'fixed'\\s*,\\s*label:\\s*'VR調整なし'/u", $script);
-        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'VR調整あり'/u", $script);
+        $this->assertMatchesRegularExpression("/value:\\s*'fixed'\\s*,\\s*label:\\s*'VR調整なし'/u", $coreScript);
+        $this->assertMatchesRegularExpression("/value:\\s*'variable'\\s*,\\s*label:\\s*'VR調整あり'/u", $coreScript);
         $this->assertStringContainsString('output_low_ratio_raw', $script);
         $this->assertStringContainsString('total_res_min_raw', $script);
-        $this->assertStringContainsString("output_mode: form.divider_target_mode", $script);
+        $this->assertStringContainsString('output_mode: form.divider_target_mode', $script);
         $this->assertStringContainsString('sourceCurrentDisplay', $script);
         $this->assertStringContainsString('candidate.source_current_display', $blade);
         $this->assertStringContainsString('topPowerDisplay', $script);
@@ -644,6 +658,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertGreaterThanOrEqual(2, substr_count($blade, 'setLoadCurrentZero('));
     }
 
+    /**
+     * 目的: 許容差スペック値入力が自由入力だけでなく候補選択UIを持つことを固定する。
+     * 機能: 部品登録画面に候補リスト、コード、単位、カスタム入力の表示があることを確認する。
+     * 入力: なし。
+     * 出力: アサーション結果。
+     * 動作条件: component-create Blade が描画できること。
+     * 副作用: テスト用HTTP GETを1回発行する。
+     */
     public function test_tolerance_spec_value_candidates_use_combobox_surface(): void
     {
         $fixture = $this->createUiFixture();
@@ -663,6 +685,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertDontSee('mt-2 flex flex-wrap gap-1', false);
     }
 
+    /**
+     * 目的: スペック詳細の新規追加入口が候補追加操作と混ざらない位置にあることを固定する。
+     * 機能: 登録/詳細画面のセパレータと新規追加導線の表示語を確認する。
+     * 入力: 詳細画面用の部品フィクスチャ。
+     * 出力: アサーション結果。
+     * 動作条件: createUiFixture が部品を作成できること。
+     * 副作用: テストDBへ部品関連データを作成し、画面GETを発行する。
+     */
     public function test_spec_detail_creation_entrypoint_lives_below_separator(): void
     {
         $fixture = $this->createUiFixture();
@@ -686,6 +716,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         }
     }
 
+    /**
+     * 目的: 部品一覧の既定順が更新日時ではなく型番のカタログ文脈に沿うことを固定する。
+     * 機能: 更新日時を逆転させた部品を作り、自然順の並びをAPIで確認する。
+     * 入力: 型番とupdated_atが異なる部品群。
+     * 出力: アサーション結果。
+     * 動作条件: components API の既定orderが有効であること。
+     * 副作用: components をテストDBへ作成する。
+     */
     public function test_components_default_order_uses_catalog_context_not_recent_update(): void
     {
         $fixture = $this->createUiFixture();
@@ -726,6 +764,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.data.0.part_number', $recentComponent->part_number);
     }
 
+    /**
+     * 目的: 型番ソートで数値部分が文字列順ではなく自然順になることを固定する。
+     * 機能: R1/R2/R10を作り、昇順指定時のAPI返却順を確認する。
+     * 入力: 数値違いの型番を持つ部品群。
+     * 出力: アサーション結果。
+     * 動作条件: components API の sort=part_number が指定できること。
+     * 副作用: components をテストDBへ作成する。
+     */
     public function test_components_part_number_sort_uses_natural_numeric_order(): void
     {
         $fixture = $this->createUiFixture();
@@ -760,6 +806,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.data.1.part_number', '2SC1815');
     }
 
+    /**
+     * 目的: スペック候補が選択中の部品分類にだけ絞られることを固定する。
+     * 機能: 分類ごとに別スペックを紐付け、APIのgroup指定結果を確認する。
+     * 入力: 2つの部品分類とそれぞれの候補スペック。
+     * 出力: アサーション結果。
+     * 動作条件: spec-groups と spec-types の候補紐付けが利用可能であること。
+     * 副作用: spec_groups、spec_types、中間テーブルをテストDBへ作成する。
+     */
     public function test_spec_suggestions_are_scoped_to_selected_spec_groups(): void
     {
         $fixture = $this->createUiFixture();
@@ -797,6 +851,14 @@ class UiApiSurfaceSmokeTest extends TestCase
         $this->assertNotContains($manualSpecType->id, $topLevelSpecTypeIds);
     }
 
+    /**
+     * 目的: 部品分類一覧がサイドバー表示に必要な件数情報を返すことを固定する。
+     * 機能: 部品、候補スペック、テンプレートの件数を作成し、APIレスポンスで確認する。
+     * 入力: 件数確認用の分類、部品、スペック、テンプレート。
+     * 出力: アサーション結果。
+     * 動作条件: 関連テーブルが存在すること。存在しない場合のフォールバックは別テストで確認する。
+     * 副作用: 複数マスタと中間テーブルをテストDBへ作成する。
+     */
     public function test_spec_group_index_returns_context_counts_for_sidebar(): void
     {
         $group = SpecGroup::create([
@@ -884,6 +946,14 @@ class UiApiSurfaceSmokeTest extends TestCase
             ->assertJsonPath('data.template_count', 1);
     }
 
+    /**
+     * 目的: 部品シリーズ系テーブルが未作成の段階でも部品分類一覧APIが壊れないことを固定する。
+     * 機能: Schema::hasTable を一時的に差し替え、未移行環境相当でAPI応答を確認する。
+     * 入力: component_series 系テーブルなしを模擬するSchemaモック。
+     * 出力: アサーション結果。
+     * 動作条件: LaravelのFacadeモックがテスト内で有効であること。
+     * 副作用: Schema Facade の挙動をテスト中だけ差し替え、HTTP GETを1回発行する。
+     */
     public function test_spec_groups_remain_available_before_component_series_tables_exist(): void
     {
         SpecGroup::create([
@@ -912,271 +982,4 @@ class UiApiSurfaceSmokeTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function createUiFixture(): array
-    {
-        $category = SpecGroup::create([
-            'name' => 'UI確認カテゴリ',
-            'description' => 'UI smoke',
-            'sort_order' => 10,
-        ]);
-        $packageGroup = PackageGroup::create([
-            'name' => 'UI確認パッケージ分類',
-            'description' => 'UI smoke',
-            'sort_order' => 10,
-        ]);
-        $package = Package::create([
-            'package_group_id' => $packageGroup->id,
-            'name' => 'UI-SOT-23',
-            'description' => 'UI smoke package',
-            'sort_order' => 10,
-        ]);
-        $specType = SpecType::create([
-            'name' => '抵抗値',
-            'name_ja' => '抵抗値',
-            'name_en' => 'Resistance',
-            'symbol' => 'R',
-            'base_unit' => 'Ω',
-            'suggest_prefixes' => ['k', '', 'm'],
-            'display_prefixes' => ['k', '', 'm'],
-            'description' => 'UI smoke spec type',
-            'sort_order' => 10,
-        ]);
-        $specType->units()->createMany([
-            ['unit' => 'kΩ', 'factor' => 1000, 'sort_order' => 10],
-            ['unit' => 'Ω', 'factor' => 1, 'sort_order' => 20],
-            ['unit' => 'mΩ', 'factor' => 0.001, 'sort_order' => 30],
-        ]);
-        $specType->aliases()->createMany([
-            ['alias' => 'resistance', 'locale' => 'en', 'kind' => 'name', 'sort_order' => 10],
-            ['alias' => 'R', 'locale' => null, 'kind' => 'symbol', 'sort_order' => 20],
-        ]);
-
-        $supplier = Supplier::create([
-            'name' => 'UI確認商社',
-            'url' => 'https://example.test/supplier',
-            'color' => '#22c55e',
-            'lead_days' => 3,
-            'free_shipping_threshold' => 3000,
-            'note' => 'UI smoke supplier',
-        ]);
-        $location = Location::create([
-            'code' => 'UI-A-1',
-            'name' => 'UI確認棚',
-            'group' => 'UI棚',
-            'sort_order' => 10,
-        ]);
-        $schLibrary = AltiumLibrary::create([
-            'name' => 'UI SchLib',
-            'type' => 'SchLib',
-            'path' => 'C:/ui/parts.SchLib',
-            'component_count' => 1,
-            'note' => 'UI smoke',
-        ]);
-        $pcbLibrary = AltiumLibrary::create([
-            'name' => 'UI PcbLib',
-            'type' => 'PcbLib',
-            'path' => 'C:/ui/parts.PcbLib',
-            'component_count' => 1,
-            'note' => 'UI smoke',
-        ]);
-
-        $component = $this->createComponentFixture(
-            $category,
-            $package,
-            $specType,
-            $supplier,
-            $location,
-            'UI-SMOKE-RES-4K7',
-            4700
-        );
-        $comparisonComponent = $this->createComponentFixture(
-            $category,
-            $package,
-            $specType,
-            $supplier,
-            $location,
-            'UI-SMOKE-RES-5K1',
-            5100
-        );
-
-        $component->altiumLink()->create([
-            'sch_library_id' => $schLibrary->id,
-            'sch_symbol' => 'R',
-            'pcb_library_id' => $pcbLibrary->id,
-            'pcb_footprint' => 'R_0603',
-        ]);
-
-        $componentSeries = ComponentSeries::create([
-            'spec_group_id' => $category->id,
-            'value_spec_type_id' => $specType->id,
-            'package_id' => $package->id,
-            'manufacturer' => 'Codex Test',
-            'name' => 'UI確認抵抗シリーズ',
-            'status' => 'active',
-            'created_by' => $this->admin->id,
-            'updated_by' => $this->admin->id,
-        ]);
-        $componentSeries->policy()->create([
-            'value_set_type' => 'hybrid_series',
-            'primary_series' => 'E12',
-            'extra_series' => ['E24'],
-            'extra_values' => ['4.99'],
-            'excluded_values' => [],
-            'unit' => 'Ω',
-            'decade_min' => 0,
-            'decade_max' => 0,
-        ]);
-        $componentSeries->values()->create([
-            'value_text' => '4.7kΩ',
-            'value_key' => 'ω|4700',
-            'value_numeric' => 4700,
-            'unit' => 'Ω',
-            'origin' => 'manual',
-            'is_enabled' => true,
-            'is_stocked' => true,
-            'materialized_component_id' => $component->id,
-        ]);
-        $component->forceFill([
-            'component_series_id' => $componentSeries->id,
-            'component_series_value_id' => $componentSeries->values()->first()->id,
-        ])->save();
-
-        StockOrder::create([
-            'component_id' => $component->id,
-            'supplier_id' => $supplier->id,
-            'quantity' => 50,
-            'status' => 'pending',
-            'order_date' => now()->toDateString(),
-            'expected_date' => now()->addDays(3)->toDateString(),
-            'created_by' => $this->admin->id,
-        ]);
-
-        $project = Project::create([
-            'name' => 'UI確認案件',
-            'description' => 'UI smoke project',
-            'status' => 'active',
-            'color' => '#3b82f6',
-            'business_code' => '010',
-            'business_name' => 'UI事業',
-            'source_type' => 'local',
-            'source_key' => 'ui-smoke-project',
-            'is_editable' => true,
-            'created_by' => $this->admin->id,
-        ]);
-        $project->components()->attach($component->id, ['required_qty' => 3]);
-
-        $analysisSession = AnalysisSession::create([
-            'tool_id' => 'power',
-            'title' => 'UI確認 電源余裕',
-            'verdict' => 'PASS',
-            'summary' => 'UI smoke analysis session',
-            'input_payload' => ['supply_w' => 10],
-            'result_payload' => ['margin_w' => 3],
-            'candidate_links' => [['label' => $component->part_number, 'component_id' => $component->id]],
-            'project_id' => $project->id,
-            'component_id' => $component->id,
-            'bom_line_key' => 'ui-smoke-line',
-            'created_by' => $this->admin->id,
-            'updated_by' => $this->admin->id,
-        ]);
-
-        ProjectSyncRun::create([
-            'triggered_by' => $this->admin->id,
-            'status' => 'success',
-            'synced_count' => 1,
-            'error_count' => 0,
-            'business_results' => [['business_code' => '010', 'status' => 'success']],
-            'started_at' => now()->subMinute(),
-            'finished_at' => now(),
-        ]);
-
-        AuditLog::create([
-            'user_id' => $this->admin->id,
-            'action' => 'created',
-            'resource_type' => 'component',
-            'resource_id' => $component->id,
-            'diff' => ['part_number' => $component->part_number],
-            'ip_address' => '127.0.0.1',
-            'user_agent' => 'ui-api-smoke',
-            'created_at' => now(),
-        ]);
-
-        return compact(
-            'category',
-            'packageGroup',
-            'package',
-            'specType',
-            'supplier',
-            'location',
-            'component',
-            'comparisonComponent',
-            'project',
-            'componentSeries',
-            'analysisSession'
-        );
-    }
-
-    private function createComponentFixture(
-        SpecGroup $category,
-        Package $package,
-        SpecType $specType,
-        Supplier $supplier,
-        Location $location,
-        string $partNumber,
-        float $resistanceValue
-    ): Component {
-        $component = Component::create([
-            'part_number' => $partNumber,
-            'manufacturer' => 'Codex Test',
-            'common_name' => "{$resistanceValue}Ω UI確認抵抗",
-            'description' => 'UI smoke component',
-            'procurement_status' => 'active',
-            'quantity_new' => 2,
-            'quantity_used' => 0,
-            'threshold_new' => 10,
-            'threshold_used' => 0,
-            'primary_location_id' => $location->id,
-            'package_id' => $package->id,
-            'created_by' => $this->admin->id,
-            'updated_by' => $this->admin->id,
-        ]);
-        $component->categories()->sync([$category->id]);
-        $component->locations()->sync([$location->id]);
-        $component->specs()->create([
-            'spec_type_id' => $specType->id,
-            'display_name' => '抵抗値',
-            'value' => (string) $resistanceValue,
-            'unit' => 'Ω',
-            'value_profile' => 'typ',
-            'value_mode' => 'single',
-            'value_numeric' => $resistanceValue,
-            'value_numeric_typ' => $resistanceValue,
-            'normalized_unit' => 'Ω',
-        ]);
-
-        $componentSupplier = ComponentSupplier::create([
-            'component_id' => $component->id,
-            'supplier_id' => $supplier->id,
-            'supplier_part_number' => $partNumber.'-DK',
-            'product_url' => 'https://example.test/parts/'.$partNumber,
-            'purchase_unit' => 'tape',
-            'unit_price' => 1.25,
-            'price_updated_at' => now(),
-            'is_preferred' => true,
-        ]);
-        $componentSupplier->priceBreaks()->createMany([
-            ['min_qty' => 1, 'unit_price' => 1.25],
-            ['min_qty' => 100, 'unit_price' => 0.9],
-        ]);
-
-        $component->inventoryBlocks()->create([
-            'location_id' => $location->id,
-            'stock_type' => 'tape',
-            'condition' => 'new',
-            'quantity' => 2,
-            'lot_number' => 'UI-LOT',
-        ]);
-
-        return $component;
-    }
 }

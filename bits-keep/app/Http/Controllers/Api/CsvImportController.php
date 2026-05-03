@@ -23,8 +23,14 @@ use Illuminate\Support\Facades\Validator;
  */
 class CsvImportController extends Controller
 {
-    // POST /api/import/csv/preview
-    // multipart/form-data: file=CSV
+    /**
+     * 目的: CSV取込の保存前プレビューを生成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function preview(Request $request)
     {
         if (! $request->user()->isEditor()) {
@@ -46,8 +52,14 @@ class CsvImportController extends Controller
         ]);
     }
 
-    // POST /api/import/csv/commit
-    // JSON: { rows: [...] } 確定済みの行データ
+    /**
+     * 目的: CSV取込のcommitを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function commit(Request $request)
     {
         if (! $request->user()->isEditor()) {
@@ -105,8 +117,14 @@ class CsvImportController extends Controller
         return ApiResponse::success($results, "{$results['created']} 件インポートしました");
     }
 
-    // ── CSVパーサ ────────────────────────────────────────
-
+    /**
+     * 目的: CSV取込の解析csvを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $path。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function parseCsv(string $path): array
     {
         // BOM除去
@@ -120,7 +138,7 @@ class CsvImportController extends Controller
 
         $headers = str_getcsv(array_shift($lines));
         // ヘッダーを正規化（トリム・小文字）
-        $headers = array_map(fn($h) => strtolower(trim($h)), $headers);
+        $headers = array_map( fn($h) => strtolower(trim($h)), $headers);
 
         $requiredCols = ['part_number'];
         $missingCols  = array_diff($requiredCols, $headers);

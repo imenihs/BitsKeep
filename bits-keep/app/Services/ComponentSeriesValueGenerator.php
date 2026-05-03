@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ComponentSeriesValuePolicy;
+use App\Support\EngineeringUnits;
 
 class ComponentSeriesValueGenerator
 {
@@ -14,48 +15,13 @@ class ComponentSeriesValueGenerator
         'E96' => [1.00, 1.02, 1.05, 1.07, 1.10, 1.13, 1.15, 1.18, 1.21, 1.24, 1.27, 1.30, 1.33, 1.37, 1.40, 1.43, 1.47, 1.50, 1.54, 1.58, 1.62, 1.65, 1.69, 1.74, 1.78, 1.82, 1.87, 1.91, 1.96, 2.00, 2.05, 2.10, 2.15, 2.21, 2.26, 2.32, 2.37, 2.43, 2.49, 2.55, 2.61, 2.67, 2.74, 2.80, 2.87, 2.94, 3.01, 3.09, 3.16, 3.24, 3.32, 3.40, 3.48, 3.57, 3.65, 3.74, 3.83, 3.92, 4.02, 4.12, 4.22, 4.32, 4.42, 4.53, 4.64, 4.75, 4.87, 4.99, 5.11, 5.23, 5.36, 5.49, 5.62, 5.76, 5.90, 6.04, 6.19, 6.34, 6.49, 6.65, 6.81, 6.98, 7.15, 7.32, 7.50, 7.68, 7.87, 8.06, 8.25, 8.45, 8.66, 8.87, 9.09, 9.31, 9.53, 9.76],
     ];
 
-    private const PREFIX_FACTORS = [
-        'Y' => 1e24,
-        'Z' => 1e21,
-        'E' => 1e18,
-        'P' => 1e15,
-        'Ti' => 1099511627776,
-        'Gi' => 1073741824,
-        'Mi' => 1048576,
-        'Ki' => 1024,
-        'T' => 1e12,
-        'G' => 1e9,
-        'M' => 1e6,
-        'k' => 1e3,
-        'K' => 1e3,
-        '' => 1.0,
-        'm' => 1e-3,
-        'u' => 1e-6,
-        'µ' => 1e-6,
-        'μ' => 1e-6,
-        'n' => 1e-9,
-        'p' => 1e-12,
-        'f' => 1e-15,
-    ];
-
-    private const DISPLAY_PREFIXES = [
-        ['prefix' => 'Y', 'factor' => 1e24],
-        ['prefix' => 'Z', 'factor' => 1e21],
-        ['prefix' => 'E', 'factor' => 1e18],
-        ['prefix' => 'P', 'factor' => 1e15],
-        ['prefix' => 'T', 'factor' => 1e12],
-        ['prefix' => 'G', 'factor' => 1e9],
-        ['prefix' => 'M', 'factor' => 1e6],
-        ['prefix' => 'k', 'factor' => 1e3],
-        ['prefix' => '', 'factor' => 1.0],
-        ['prefix' => 'm', 'factor' => 1e-3],
-        ['prefix' => 'u', 'factor' => 1e-6],
-        ['prefix' => 'n', 'factor' => 1e-9],
-        ['prefix' => 'p', 'factor' => 1e-12],
-        ['prefix' => 'f', 'factor' => 1e-15],
-    ];
-
     /**
+     * 目的: Component Series Value Generatorのgenerateを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $policy。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  ComponentSeriesValuePolicy|array<string, mixed>  $policy
      * @return array<int, array<string, mixed>>
      */
@@ -104,7 +70,14 @@ class ComponentSeriesValueGenerator
             return $item;
         }, $items, array_keys($items)));
     }
-
+    /**
+     * 目的: Component Series Value Generatorの値keyを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $unit, $roundingDigits。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function valueKey(float|string|null $value, ?string $unit = '', int $roundingDigits = 15): string
     {
         $numeric = is_numeric($value) ? (float) $value : $this->parseEngineeringNumber($value, null, (string) $unit);
@@ -116,6 +89,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorのappendeseriesを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $items, $seriesName, $policy, $unit, $origin, $roundingDigits, $inputPrefixes, $displayPrefixes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      * @param  array<string, mixed>  $policy
      */
@@ -158,6 +137,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorのappend値を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $items, $values, $unit, $origin, $sourceSeries, $roundingDigits, $inputPrefixes, $displayPrefixes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      */
     private function appendValues(array &$items, mixed $values, string $unit, string $origin, ?string $sourceSeries, int $roundingDigits, ?array $inputPrefixes, ?array $displayPrefixes): void
@@ -172,6 +157,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorのappendrangeを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $items, $policy, $unit, $roundingDigits, $inputPrefixes, $displayPrefixes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      * @param  array<string, mixed>  $policy
      */
@@ -198,6 +189,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorのappendnumericを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $items, $value, $unit, $origin, $sourceSeries, $roundingDigits, $displayPrefixes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      */
     private function appendNumeric(array &$items, float $value, string $unit, string $origin, ?string $sourceSeries, int $roundingDigits, ?array $displayPrefixes = null): void
@@ -227,6 +224,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの適用exclusionsを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $items, $excludedValues, $unit, $roundingDigits, $inputPrefixes。
+     * 出力: なし。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<int, array<string, mixed>>  $items
      */
     private function applyExclusions(array &$items, mixed $excludedValues, string $unit, int $roundingDigits, ?array $inputPrefixes): void
@@ -245,17 +248,28 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの正規化string一覧を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $values。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @return array<int, string>
      */
     private function normalizeStringList(mixed $values): array
     {
-        return array_values(array_filter(array_map(
-            fn ($value) => trim((string) $value),
+        return array_values(array_filter(array_map( fn ($value) => trim((string) $value),
             is_array($values) ? $values : preg_split('/[\s,]+/', (string) $values)
         )));
     }
 
     /**
+     * 目的: Component Series Value Generatorの正規化値一覧を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $values。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @return array<int, mixed>
      */
     private function normalizeValueList(mixed $values): array
@@ -264,12 +278,18 @@ class ComponentSeriesValueGenerator
             return array_values($values);
         }
 
-        return array_values(array_filter(array_map(
-            fn ($value) => trim((string) $value),
+        return array_values(array_filter(array_map( fn ($value) => trim((string) $value),
             preg_split('/[\s,;]+/', (string) $values)
         ), fn ($value) => $value !== ''));
     }
-
+    /**
+     * 目的: Component Series Value Generatorの解析engineering番号を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $allowedPrefixes, $unit。
+     * 出力: ?floatで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     public function parseEngineeringNumber(mixed $value, ?array $allowedPrefixes = null, string $unit = ''): ?float
     {
         if (is_numeric($value)) {
@@ -290,12 +310,18 @@ class ComponentSeriesValueGenerator
         if ($prefix === null) {
             return null;
         }
-        $factor = self::PREFIX_FACTORS[$prefix] ?? 1.0;
+        $factor = EngineeringUnits::ENGINEERING_VALUE_PREFIX_FACTORS[$prefix] ?? 1.0;
 
         return (float) $matches[1] * $factor;
     }
 
     /**
+     * 目的: Component Series Value Generatorのincludezeroを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $payload。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $payload
      */
     private function includeZero(array $payload): bool
@@ -308,7 +334,14 @@ class ComponentSeriesValueGenerator
 
         return is_array($settings) && filter_var($settings['include_zero'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
-
+    /**
+     * 目的: Component Series Value Generatorの整形値textを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $unit, $displayPrefixes。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function formatValueText(float $value, string $unit, ?array $displayPrefixes = null): string
     {
         if ($unit === '') {
@@ -332,7 +365,14 @@ class ComponentSeriesValueGenerator
 
         return $this->normalizeDecimal($value).$unit;
     }
-
+    /**
+     * 目的: Component Series Value Generatorの正規化decimalを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeDecimal(float $value): string
     {
         if (abs($value) >= 0.001) {
@@ -357,6 +397,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの接頭語一覧fromポリシーを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $policy, $key。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $policy
      * @return array<int, string>|null
      */
@@ -372,6 +418,12 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの正規化接頭語一覧を担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $prefixes。
+     * 出力: ?arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
      * @return array<int, string>|null
      */
     private function normalizePrefixList(mixed $prefixes): ?array
@@ -383,27 +435,33 @@ class ComponentSeriesValueGenerator
         $normalized = [];
         foreach ($prefixes as $prefix) {
             $token = $this->normalizePrefixToken($prefix);
-            if (array_key_exists($token, self::PREFIX_FACTORS) && ! in_array($token, $normalized, true)) {
+            if (array_key_exists($token, EngineeringUnits::ENGINEERING_VALUE_PREFIX_FACTORS) && ! in_array($token, $normalized, true)) {
                 $normalized[] = $token;
             }
         }
 
         return $normalized === [] ? null : $normalized;
     }
-
+    /**
+     * 目的: Component Series Value Generatorの正規化接頭語tokenを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $prefix。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizePrefixToken(mixed $prefix): string
     {
-        $token = trim((string) ($prefix ?? ''));
-        if ($token === 'K') {
-            return 'k';
-        }
-        if ($token === 'µ' || $token === 'μ') {
-            return 'u';
-        }
-
-        return $token;
+        return EngineeringUnits::normalizePrefix($prefix);
     }
-
+    /**
+     * 目的: Component Series Value Generatorの正規化engineeringtextを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $value, $unit。
+     * 出力: stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: なし。
+     */
     private function normalizeEngineeringText(mixed $value, string $unit = ''): string
     {
         $text = str_replace([',', ' ', '　'], '', trim((string) $value));
@@ -418,12 +476,18 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの解決接頭語fromsuffixを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $suffix, $allowedPrefixes, $allowTrailingUnit。
+     * 出力: ?stringで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return string|null
      */
     private function resolvePrefixFromSuffix(string $suffix, ?array $allowedPrefixes, bool $allowTrailingUnit = false): ?string
     {
         $allowed = $this->normalizePrefixList($allowedPrefixes);
-        $candidates = $allowed ?? array_keys(self::PREFIX_FACTORS);
+        $candidates = $allowed ?? array_keys(EngineeringUnits::ENGINEERING_VALUE_PREFIX_FACTORS);
         usort($candidates, fn (string $a, string $b) => strlen($b) <=> strlen($a));
 
         foreach ($candidates as $prefix) {
@@ -443,20 +507,25 @@ class ComponentSeriesValueGenerator
     }
 
     /**
+     * 目的: Component Series Value Generatorの表示接頭語rowsを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $displayPrefixes。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
      * @return array<int, array{prefix: string, factor: float|int}>
      */
     private function displayPrefixRows(?array $displayPrefixes): array
     {
         $prefixes = $this->normalizePrefixList($displayPrefixes);
         if ($prefixes === null) {
-            return self::DISPLAY_PREFIXES;
+            return EngineeringUnits::DISPLAY_PREFIXES;
         }
 
         $rows = array_values(array_filter(
-            self::DISPLAY_PREFIXES,
-            fn (array $row) => in_array($row['prefix'], $prefixes, true)
+            EngineeringUnits::DISPLAY_PREFIXES, fn (array $row) => in_array($row['prefix'], $prefixes, true)
         ));
 
-        return $rows !== [] ? $rows : self::DISPLAY_PREFIXES;
+        return $rows !== [] ? $rows : EngineeringUnits::DISPLAY_PREFIXES;
     }
 }

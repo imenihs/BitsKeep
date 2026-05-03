@@ -1,10 +1,12 @@
 import { onBeforeUnmount, watch } from 'vue';
 import { useConfirmModal } from './useConfirmModal.js';
 
+// 目的: Vue共通composableのNavigation Confirmを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export function useNavigationConfirm(activeRef, confirmMessage) {
     let enabled = false;
     const { ask } = useConfirmModal();
 
+    // 目的: Vue共通composableのhandle Before Unloadを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleBeforeUnload = (event) => {
         if (!enabled) return;
         // beforeunload はブラウザネイティブのダイアログが必須。カスタムモーダル不可。
@@ -12,6 +14,7 @@ export function useNavigationConfirm(activeRef, confirmMessage) {
         event.returnValue = confirmMessage;
     };
 
+    // 目的: Vue共通composableのhandle Document Clickを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handleDocumentClick = async (event) => {
         if (!enabled) return;
 
@@ -34,6 +37,7 @@ export function useNavigationConfirm(activeRef, confirmMessage) {
         }
     };
 
+    // 目的: Vue共通composableのhandle Pop Stateを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const handlePopState = async () => {
         if (!enabled) return;
         // ブラウザバックを一旦打ち消し、自前モーダルで確認
@@ -45,6 +49,7 @@ export function useNavigationConfirm(activeRef, confirmMessage) {
         }
     };
 
+    // 目的: Vue共通composableのenableを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const enable = () => {
         if (enabled) return;
         enabled = true;
@@ -53,6 +58,7 @@ export function useNavigationConfirm(activeRef, confirmMessage) {
         window.addEventListener('popstate', handlePopState);
     };
 
+    // 目的: Vue共通composableのdisableを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: Vue共通composableの初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const disable = () => {
         if (!enabled) return;
         enabled = false;

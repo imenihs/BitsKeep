@@ -11,6 +11,7 @@ use App\Models\ComponentSeriesValuePolicy;
 use App\Models\SpecType;
 use App\Services\ComponentSeriesValueGenerator;
 use App\Services\SpecValueNormalizerService;
+use App\Support\EngineeringUnits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +20,25 @@ use Illuminate\Validation\ValidationException;
 
 class ComponentSeriesController extends Controller
 {
-    private const ENGINEERING_PREFIXES = ['Y', 'Z', 'E', 'P', 'Ti', 'Gi', 'Mi', 'Ki', 'T', 'G', 'M', 'k', '', 'm', 'u', 'n', 'p', 'f'];
-
+    /**
+     * 目的: ComponentSeriesAPIの依存オブジェクトを受け取り、後続処理で使える状態にする。
+     * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
+     * 入力: 関数シグネチャで指定された引数。
+     * 出力: 型宣言または呼び出し規約に従う処理結果。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと入力値を渡すこと。
+     * 副作用: 依存オブジェクト、DB、ファイル、外部API、モデル状態のいずれかを更新する場合がある。
+     */
     public function __construct(
         private readonly ComponentSeriesValueGenerator $generator,
     ) {}
-
+    /**
+     * 目的: 部品系列の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function index(Request $request): JsonResponse
     {
         $query = ComponentSeries::query()
@@ -51,7 +65,14 @@ class ComponentSeriesController extends Controller
 
         return ApiResponse::success($query->orderBy('sort_order')->orderBy('name')->get());
     }
-
+    /**
+     * 目的: 部品系列の検証済み入力から新規作成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function store(Request $request): JsonResponse
     {
         if (! $request->user()?->isEditor()) {
@@ -70,12 +91,26 @@ class ComponentSeriesController extends Controller
             return ApiResponse::created($this->loadSeries($series));
         });
     }
-
+    /**
+     * 目的: 部品系列の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(ComponentSeries $componentSeries): JsonResponse
     {
         return ApiResponse::success($this->loadSeries($componentSeries));
     }
-
+    /**
+     * 目的: 部品系列の検証済み入力で更新する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function update(Request $request, ComponentSeries $componentSeries): JsonResponse
     {
         if (! $request->user()?->isEditor()) {
@@ -96,7 +131,14 @@ class ComponentSeriesController extends Controller
             return ApiResponse::success($this->loadSeries($componentSeries));
         });
     }
-
+    /**
+     * 目的: 部品系列の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Request $request, ComponentSeries $componentSeries): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -107,7 +149,14 @@ class ComponentSeriesController extends Controller
 
         return ApiResponse::noContent();
     }
-
+    /**
+     * 目的: 部品系列のアーカイブ済みデータを復元する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function restore(Request $request, int $componentSeries): JsonResponse
     {
         if (! $request->user()?->isAdmin()) {
@@ -119,7 +168,14 @@ class ComponentSeriesController extends Controller
 
         return ApiResponse::success($this->loadSeries($series));
     }
-
+    /**
+     * 目的: 部品系列の保存前プレビューを生成する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function preview(Request $request): JsonResponse
     {
         if (! $request->user()?->isEditor()) {
@@ -132,7 +188,14 @@ class ComponentSeriesController extends Controller
             'values' => $this->generator->generate($policy),
         ]);
     }
-
+    /**
+     * 目的: 部品系列の同期値を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function syncValues(Request $request, ComponentSeries $componentSeries): JsonResponse
     {
         if (! $request->user()?->isEditor()) {
@@ -181,7 +244,14 @@ class ComponentSeriesController extends Controller
 
         return ApiResponse::success($this->loadSeries($componentSeries));
     }
-
+    /**
+     * 目的: 部品系列のmaterializeを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $componentSeries。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function materialize(Request $request, ComponentSeries $componentSeries): JsonResponse
     {
         if (! $request->user()?->isEditor()) {
@@ -288,6 +358,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列のvalidated系列を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $series。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @return array<string, mixed>
      */
     private function validatedSeries(Request $request, ?ComponentSeries $series = null): array
@@ -302,7 +378,7 @@ class ComponentSeriesController extends Controller
                 'string',
                 'max:200',
                 Rule::unique('component_series', 'name')
-                    ->where(fn ($q) => $q->where('manufacturer', $request->input('manufacturer')))
+                    ->where( fn ($q) => $q->where('manufacturer', $request->input('manufacturer')))
                     ->ignore($series?->id),
             ],
             'description' => ['nullable', 'string', 'max:2000'],
@@ -323,6 +399,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列のvalidatedポリシーを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $valueSpecTypeId。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @return array<string, mixed>
      */
     private function validatedPolicy(Request $request, ?int $valueSpecTypeId = null): array
@@ -395,6 +477,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列の適用スペックtype接頭語ポリシーを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $policy, $valueSpecTypeId。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $policy
      * @return array<string, mixed>
      */
@@ -423,6 +511,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列の入力prefixesfromポリシーを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $policy。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      * @param  array<string, mixed>  $policy
      * @return array<int, string>|null
      */
@@ -434,6 +528,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列の正規化接頭語一覧を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $prefixes。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @return array<int, string>|null
      */
     private function normalizePrefixList(mixed $prefixes): ?array
@@ -442,31 +542,25 @@ class ComponentSeriesController extends Controller
             return null;
         }
 
-        $normalized = [];
-        foreach ($prefixes as $prefix) {
-            $token = $this->normalizePrefixToken($prefix);
-            if (in_array($token, self::ENGINEERING_PREFIXES, true) && ! in_array($token, $normalized, true)) {
-                $normalized[] = $token;
-            }
+        $invalid = EngineeringUnits::invalidPrefixes($prefixes, EngineeringUnits::UNIVERSAL_PREFIX_ORDER);
+        if ($invalid !== []) {
+            throw ValidationException::withMessages([
+                'generation_settings' => '値生成の接頭語候補に未対応の接頭語が含まれています: '.implode(', ', $invalid),
+            ]);
         }
+
+        $normalized = EngineeringUnits::normalizePrefixList($prefixes, EngineeringUnits::UNIVERSAL_PREFIX_ORDER);
 
         return $normalized === [] ? null : $normalized;
     }
 
-    private function normalizePrefixToken(mixed $prefix): string
-    {
-        $token = trim((string) ($prefix ?? ''));
-        if ($token === 'K') {
-            return 'k';
-        }
-        if ($token === 'µ' || $token === 'μ') {
-            return 'u';
-        }
-
-        return $token;
-    }
-
     /**
+     * 目的: 部品系列の正規化ポリシーforstorageを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $policy。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @param  array<string, mixed>  $policy
      * @return array<string, mixed>
      */
@@ -584,7 +678,14 @@ class ComponentSeriesController extends Controller
 
         return $policy;
     }
-
+    /**
+     * 目的: 部品系列の解析ポリシー番号を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $value, $allowedPrefixes, $unit。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
+     */
     private function parsePolicyNumber(mixed $value, ?array $allowedPrefixes = null, string $unit = ''): ?float
     {
         if (! is_scalar($value)) {
@@ -595,6 +696,12 @@ class ComponentSeriesController extends Controller
     }
 
     /**
+     * 目的: 部品系列の正規化JSON一覧を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $values。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: なし。
      * @return array<int, mixed>
      */
     private function normalizeJsonList(mixed $values): array
@@ -604,11 +711,17 @@ class ComponentSeriesController extends Controller
         }
 
         return array_values(array_filter(
-            array_map(fn ($value) => trim((string) $value), preg_split('/[\s,;]+/', (string) $values)),
-            fn ($value) => $value !== ''
+            array_map( fn ($value) => trim((string) $value), preg_split('/[\s,;]+/', (string) $values)), fn ($value) => $value !== ''
         ));
     }
-
+    /**
+     * 目的: 部品系列の同期generated値を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $series, $policy。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function syncGeneratedValues(ComponentSeries $series, ComponentSeriesValuePolicy $policy): void
     {
         $generated = $this->generator->generate($policy);
@@ -627,7 +740,14 @@ class ComponentSeriesController extends Controller
         }
         $query->delete();
     }
-
+    /**
+     * 目的: 部品系列のrenderテンプレートを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $template, $series, $value。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function renderTemplate(string $template, ComponentSeries $series, ComponentSeriesValue $value): string
     {
         $text = strtr($template, [
@@ -639,7 +759,14 @@ class ComponentSeriesController extends Controller
 
         return trim(preg_replace('/\s+/', ' ', $text) ?: $series->name.'-'.$value->value_text);
     }
-
+    /**
+     * 目的: 部品系列の読込系列を処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $series。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     private function loadSeries(ComponentSeries $series): ComponentSeries
     {
         return $series->load([

@@ -17,13 +17,27 @@ use Tests\TestCase;
 class ComponentDetailRouteSmokeTest extends TestCase
 {
     use RefreshDatabase;
-
+    /**
+     * 目的: setupの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     protected function setUp(): void
     {
         parent::setUp();
         $this->withoutMiddleware(ValidateCsrfToken::class);
     }
-
+    /**
+     * 目的: 「basic detail route stores image and datasheet」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_basic_detail_route_stores_image_and_datasheet(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
@@ -103,7 +117,14 @@ class ComponentDetailRouteSmokeTest extends TestCase
             $category->forceDelete();
         }
     }
-
+    /**
+     * 目的: 「attributes route adds custom field」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_attributes_route_adds_custom_field(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
@@ -133,7 +154,14 @@ class ComponentDetailRouteSmokeTest extends TestCase
         $component->customAttributes()->delete();
         $component->forceDelete();
     }
-
+    /**
+     * 目的: 「specs route accepts tolerance value and returns master order」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_specs_route_accepts_tolerance_value_and_returns_master_order(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
@@ -215,5 +243,28 @@ class ComponentDetailRouteSmokeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.specs.0.spec_type_id', $capacitance->id)
             ->assertJsonPath('data.specs.1.spec_type_id', $tolerance->id);
+    }
+    /**
+     * 目的: 「component detail tolerance value kind uses select surface」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
+    public function test_component_detail_tolerance_value_kind_uses_select_surface(): void
+    {
+        $detailBlade = file_get_contents(resource_path('views/app/component-detail.blade.php'));
+        $createBlade = file_get_contents(resource_path('views/app/component-create.blade.php'));
+
+        foreach ([$detailBlade, $createBlade] as $blade) {
+            $this->assertStringContainsString('<select v-if="isToleranceSpecRow(spec)"', $blade);
+            $this->assertStringContainsString('aria-label="値種別: 許容差"', $blade);
+            $this->assertStringContainsString('<option value="tolerance">許容差</option>', $blade);
+        }
+        $this->assertStringNotContainsString(
+            '<div v-if="isToleranceSpecRow(spec)" class="inline-flex',
+            $detailBlade.$createBlade
+        );
     }
 }

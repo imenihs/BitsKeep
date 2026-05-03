@@ -13,7 +13,12 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * 目的: このリクエストを実行できるか判定する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: 認可可否の真偽値。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: なし。
      */
     public function authorize(): bool
     {
@@ -21,8 +26,12 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
+     * 目的: 入力検証ルールを定義する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: Laravelバリデーションルール配列。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: なし。
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
@@ -34,8 +43,12 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
-     *
+     * 目的: Loginのauthenticateを定義する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: 状態変更を伴う場合がある。
      * @throws ValidationException
      */
     public function authenticate(): void
@@ -54,8 +67,12 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Ensure the login request is not rate limited.
-     *
+     * 目的: Loginのensureisnotratelimitedを定義する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: 状態変更を伴う場合がある。
      * @throws ValidationException
      */
     public function ensureIsNotRateLimited(): void
@@ -77,7 +94,12 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Get the rate limiting throttle key for the request.
+     * 目的: Loginのthrottlekeyを定義する。
+     * 機能: 画面/API入力の許可条件とバリデーション仕様をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: stringで表される値。
+     * 動作条件: 対象フォーム/APIからLaravel FormRequestとして呼び出されること。
+     * 副作用: 状態変更を伴う場合がある。
      */
     public function throttleKey(): string
     {

@@ -12,6 +12,7 @@ const purchaseUnitOptions = [
     { value: 'box', label: '箱' },
 ];
 
+// 目的: 在庫/発注管理のsetupを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
 export default function setup() {
     const { toasts, toastSuccess, toastError } = useToast();
     const { orderDraft, removeOrderItem, clearOrderDraft, replaceOrderDraft } = useStockOrderDraft();
@@ -22,6 +23,7 @@ export default function setup() {
     const trackError = ref('');
     const trackLoading = ref(false);
 
+    // 目的: 在庫/発注管理のfetch Tracked Ordersを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchTrackedOrders = async () => {
         trackLoading.value = true;
         trackError.value = '';
@@ -35,6 +37,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のupdate Order Statusを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const updateOrderStatus = async (order, status) => {
         const labels = { received: '受取済みにしました', cancelled: 'キャンセルしました' };
         try {
@@ -47,6 +50,7 @@ export default function setup() {
     };
 
     // 発注ドラフトをDBに保存して追跡へ移す
+    // 目的: 在庫/発注管理のcommit To Trackingを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const commitToTracking = async () => {
         const exportable = orderDraft.value.filter((item) => item.supplierId && Number(item.orderQty) > 0);
         if (!exportable.length) {
@@ -69,6 +73,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のpurchase Unit Labelを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const purchaseUnitLabel = (value) => purchaseUnitOptions.find((option) => option.value === value)?.label ?? '未設定';
 
     const exportGroups = computed(() => {
@@ -88,8 +93,10 @@ export default function setup() {
         sum + (Number(item.price || 0) * Number(item.orderQty || 0))
     ), 0));
 
+    // 目的: 在庫/発注管理のsave Draftを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const saveDraft = () => replaceOrderDraft([...orderDraft.value]);
 
+    // 目的: 在庫/発注管理のhydrate Draft Optionsを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const hydrateDraftOptions = async () => {
         if (!orderDraft.value.length) return;
         try {
@@ -113,6 +120,7 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のselect Supplierを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const selectSupplier = (item) => {
         const selected = (item.supplierOptions ?? []).find((option) => String(option.supplier_id) === String(item.supplierId)) ?? null;
         item.supplierName = selected?.name ?? '';
@@ -124,6 +132,7 @@ export default function setup() {
         saveDraft();
     };
 
+    // 目的: 在庫/発注管理のexport Supplier Csvを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const exportSupplierCsv = (supplierName, group) => {
         const exportableItems = group.items.filter((item) => Number(item.orderQty || 0) > 0);
         const excludedCount = group.items.length - exportableItems.length;
@@ -152,6 +161,7 @@ export default function setup() {
         toastSuccess(`${supplierName} のCSVを出力しました`);
     };
 
+    // 目的: 在庫/発注管理のexport Supplier Notionを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const exportSupplierNotion = async (supplierName, group) => {
         const exportableItems = group.items.filter((item) => Number(item.orderQty || 0) > 0);
         if (!exportableItems.length) {
@@ -186,7 +196,9 @@ export default function setup() {
         }
     };
 
+    // 目的: 在庫/発注管理のremove Itemを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeItem = (itemId) => removeOrderItem(itemId);
+    // 目的: 在庫/発注管理のclear Allを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 在庫/発注管理の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const clearAll = () => {
         clearOrderDraft();
         toastSuccess('発注候補をクリアしました');

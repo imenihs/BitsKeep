@@ -15,8 +15,12 @@ use Illuminate\Support\Facades\DB;
 class TransactionController extends Controller
 {
     /**
-     * GET /api/components/{component}/transactions
-     * 部品の入出庫履歴
+     * 目的: 入出庫の一覧を検索条件付きで返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function index(Request $request, Component $component)
     {
@@ -28,8 +32,12 @@ class TransactionController extends Controller
     }
 
     /**
-     * POST /api/components/{component}/stock-in
-     * 入庫: inventory_block を新規作成 or 既存ブロックに加算
+     * 目的: 入出庫のstockinを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function stockIn(StockInRequest $request, Component $component)
     {
@@ -75,8 +83,12 @@ class TransactionController extends Controller
     }
 
     /**
-     * POST /api/components/{component}/stock-out
-     * 出庫: 指定 inventory_block から減算
+     * 目的: 入出庫のstockoutを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
     public function stockOut(StockOutRequest $request, Component $component)
     {

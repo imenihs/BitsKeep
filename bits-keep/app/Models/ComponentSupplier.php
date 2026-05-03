@@ -14,17 +14,38 @@ class ComponentSupplier extends Model
     ];
 
     protected $casts = ['is_preferred' => 'boolean', 'price_updated_at' => 'date'];
-
+    /**
+     * 目的: ComponentSupplierからcomponentへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function component(): BelongsTo
     {
         return $this->belongsTo(Component::class);
     }
-
+    /**
+     * 目的: ComponentSupplierからsupplierへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: BelongsTo リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
     }
-
+    /**
+     * 目的: ComponentSupplierからprice BreaksへのEloquentリレーションを返す。
+     * 機能: 関連モデル取得用のクエリ定義をLaravelへ渡す。
+     * 入力: なし。
+     * 出力: HasMany リレーション。
+     * 動作条件: 対象モデルインスタンスまたはEloquentクエリ上で呼び出すこと。
+     * 副作用: なし。
+     */
     public function priceBreaks(): HasMany
     {
         return $this->hasMany(SupplierPriceBreak::class)->orderBy('min_qty');

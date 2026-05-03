@@ -17,14 +17,28 @@ class AltiumLinkController extends Controller
 {
     // ── ライブラリ管理 ────────────────────────────────────
 
-    // GET /api/altium/libraries
+    /**
+     * 目的: Altium連携のlibrariesを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: なし。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function libraries()
     {
         $libs = AltiumLibrary::orderBy('type')->orderBy('name')->get();
         return ApiResponse::success($libs);
     }
 
-    // POST /api/altium/libraries
+    /**
+     * 目的: Altium連携のstorelibraryを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function storeLibrary(Request $request)
     {
         if (! $request->user()->isEditor()) {
@@ -42,7 +56,14 @@ class AltiumLinkController extends Controller
         return ApiResponse::created($lib);
     }
 
-    // PUT /api/altium/libraries/{library}
+    /**
+     * 目的: Altium連携のupdatelibraryを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $library。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function updateLibrary(Request $request, AltiumLibrary $library)
     {
         if (! $request->user()->isEditor()) {
@@ -60,7 +81,14 @@ class AltiumLinkController extends Controller
         return ApiResponse::success($library);
     }
 
-    // DELETE /api/altium/libraries/{library}
+    /**
+     * 目的: Altium連携のdestroylibraryを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $library。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroyLibrary(Request $request, AltiumLibrary $library)
     {
         if (! $request->user()->isEditor()) {
@@ -74,14 +102,28 @@ class AltiumLinkController extends Controller
 
     // ── 部品リンク ─────────────────────────────────────────
 
-    // GET /api/components/{component}/altium-link
+    /**
+     * 目的: Altium連携の詳細を返す。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function show(Component $component)
     {
         $link = $component->altiumLink?->load(['schLibrary', 'pcbLibrary']);
         return ApiResponse::success($link);
     }
 
-    // PUT /api/components/{component}/altium-link
+    /**
+     * 目的: Altium連携のupsertを処理する。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function upsert(Request $request, Component $component)
     {
         if (! $request->user()->isEditor()) {
@@ -103,7 +145,14 @@ class AltiumLinkController extends Controller
         return ApiResponse::success($link->load(['schLibrary', 'pcbLibrary']));
     }
 
-    // DELETE /api/components/{component}/altium-link
+    /**
+     * 目的: Altium連携の削除またはアーカイブする。
+     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
+     * 入力: $request, $component。
+     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
+     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
+     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
+     */
     public function destroy(Request $request, Component $component)
     {
         if (! $request->user()->isEditor()) {

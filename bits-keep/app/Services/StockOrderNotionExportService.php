@@ -10,14 +10,28 @@ class StockOrderNotionExportService
     private const NOTION_API_BASE = 'https://api.notion.com/v1';
 
     private const NOTION_VERSION = '2022-06-28';
-
+    /**
+     * 目的: Stock Order Notion Exportのisconfiguredを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: なし。
+     * 出力: boolで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function isConfigured(): bool
     {
         $config = app(AppSettingService::class)->getNotionConfig();
 
         return ! empty($config['token']) && ! empty($config['root_page_id']);
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのexport仕入先orderを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $supplierName, $items, $operatorName。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     public function exportSupplierOrder(string $supplierName, array $items, string $operatorName): array
     {
         $config = app(AppSettingService::class)->getNotionConfig();
@@ -29,7 +43,7 @@ class StockOrderNotionExportService
         }
 
         $title = sprintf('発注リスト_%s_%s', $supplierName, now()->format('Y-m-d_H-i'));
-        $total = collect($items)->sum(fn ($item) => (float) ($item['subtotal'] ?? 0));
+        $total = collect($items)->sum( fn ($item) => (float) ($item['subtotal'] ?? 0));
 
         $children = [
             $this->paragraphBlock(sprintf('作成日時: %s', now()->format('Y-m-d H:i'))),
@@ -74,7 +88,14 @@ class StockOrderNotionExportService
             'title' => $title,
         ];
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのnotionrequestを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $method, $path, $payload, $token。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function notionRequest(string $method, string $path, array $payload, string $token): array
     {
         $response = Http::withToken($token)
@@ -91,7 +112,14 @@ class StockOrderNotionExportService
 
         return $response->json();
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのheadingblockを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $text。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function headingBlock(string $text): array
     {
         return [
@@ -102,7 +130,14 @@ class StockOrderNotionExportService
             ],
         ];
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのparagraphblockを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $text。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function paragraphBlock(string $text): array
     {
         return [
@@ -113,7 +148,14 @@ class StockOrderNotionExportService
             ],
         ];
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのbulletblockを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $text。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function bulletBlock(string $text): array
     {
         return [
@@ -124,7 +166,14 @@ class StockOrderNotionExportService
             ],
         ];
     }
-
+    /**
+     * 目的: Stock Order Notion Exportのrichtextを担う。
+     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
+     * 入力: $text。
+     * 出力: arrayで表される値。
+     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     */
     private function richText(string $text): array
     {
         return [

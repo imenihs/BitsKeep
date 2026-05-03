@@ -16,7 +16,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
-
+    /**
+     * 目的: setupの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,7 +34,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
         ]);
         $this->actingAs($this->user);
     }
-
+    /**
+     * 目的: 「spec suggestions return category recommended spec groups and template candidates」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_spec_suggestions_return_category_recommended_spec_groups_and_template_candidates(): void
     {
         $collectorCurrent = $this->createSpecType('コレクタ電流', 'IC', 'A', 10);
@@ -54,7 +68,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
         $this->assertTrue($templatesById[$bjtTemplate->id]['is_suggested']);
         $this->assertFalse($templatesById->has($resistorTemplate->id));
     }
-
+    /**
+     * 目的: 「common spec details are returned as candidates without common spec group」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_common_spec_details_are_returned_as_candidates_without_common_spec_group(): void
     {
         $commonGroup = SpecGroup::create([
@@ -90,7 +111,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
         $this->assertTrue($specTypeIds->contains($commonSpec->id));
         $this->assertTrue($specTypeIds->contains($gainBandwidth->id));
     }
-
+    /**
+     * 目的: 「datasheet analysis returns spec group and template recommendations from category candidates」の仕様を検証する。
+     * 機能: 入力、APIレスポンス、永続化結果をアサーションで固定する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabaseまたはテスト用設定で実行されること。
+     * 副作用: テストDB、HTTPセッション、モック状態を利用する。
+     */
     public function test_datasheet_analysis_returns_spec_group_and_template_recommendations_from_category_candidates(): void
     {
         $collectorCurrent = $this->createSpecType('コレクタ電流', 'IC', 'A', 10);
@@ -136,7 +164,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
         $this->assertSame($bjtTemplate->id, $response->json('data.template_candidates.0.id'));
         $this->assertSame([$bjtTemplate->id], $response->json('data.recommended_template_ids'));
     }
-
+    /**
+     * 目的: createスペックtypeの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: $name, $symbol, $baseUnit, $sortOrder。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function createSpecType(string $name, string $symbol, string $baseUnit, int $sortOrder): SpecType
     {
         return SpecType::create([
@@ -148,7 +183,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
             'sort_order' => $sortOrder,
         ]);
     }
-
+    /**
+     * 目的: createスペックgroupの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: $name, $sortOrder, $specType。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function createSpecGroup(string $name, int $sortOrder, SpecType $specType): SpecGroup
     {
         $group = SpecGroup::create([
@@ -166,7 +208,14 @@ class SpecSuggestionClassificationTemplateTest extends TestCase
 
         return $group;
     }
-
+    /**
+     * 目的: createテンプレートの仕様を検証する。
+     * 機能: HTTP/API/画面構造/DB状態をアサーションで固定する。
+     * 入力: $group, $name, $specType。
+     * 出力: なし。
+     * 動作条件: テスト用DBと認証/権限fixtureが準備されていること。
+     * 副作用: テストDB、HTTPセッション、モック、アサーション状態を利用する。
+     */
     private function createTemplate(SpecGroup $group, string $name, SpecType $specType): SpecTemplate
     {
         $template = SpecTemplate::create([
