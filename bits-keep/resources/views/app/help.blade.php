@@ -21,10 +21,16 @@
     .help-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     .help-table th, .help-table td { padding: 6px 10px; border-bottom: 1px solid var(--color-border); text-align: left; }
     .help-table th { opacity: 0.6; font-weight: 600; }
+    /* 画面スナップショット */
+    .help-figure { margin: 1rem 0 1.5rem; }
+    .help-shot { display: block; width: 100%; height: auto; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); box-shadow: 0 12px 28px rgb(15 23 42 / 0.08); }
+    .help-shot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin: 1rem 0 1.5rem; }
+    .help-figcaption { margin-top: 0.45rem; font-size: 0.75rem; line-height: 1.5; opacity: 0.68; }
   </style>
 </head>
 <body class="bg-[var(--color-bg)] text-[var(--color-text)]">
 @include('partials.app-header', ['current' => '使い方ガイド'])
+@php($guideShot = fn (string $file) => route('help.screenshot', ['filename' => $file]))
 <div class="px-4 py-4 sm:px-6 sm:py-6 max-w-5xl mx-auto">
   @include('partials.app-breadcrumbs', ['items' => [['label' => '使い方ガイド', 'current' => true]]])
 
@@ -89,12 +95,26 @@
           <li class="flex gap-3"><span class="step-badge mt-0.5">4</span><span class="opacity-80"><strong>商社を登録する</strong> — 「商社管理」で仕入先を追加します。リードタイムや送料無料閾値も登録できます。</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">5</span><span class="opacity-80"><strong>保管棚を登録する</strong> — 「保管棚管理」で棚を追加します。グループ（例: メインラック）でまとめて管理できます。</span></li>
         </ol>
+        <div class="help-shot-grid">
+          <figure class="help-figure">
+            <img class="help-shot" src="{{ $guideShot('dashboard-overview.png') }}" alt="ダッシュボード全体画面" width="1440" height="1000" loading="lazy" decoding="async">
+            <figcaption class="help-figcaption">ログイン直後はここが起点です。検索、確認事項、業務別ショートカットから各機能へ移動します。</figcaption>
+          </figure>
+          <figure class="help-figure">
+            <img class="help-shot" src="{{ $guideShot('master-management-overview.png') }}" alt="マスタ管理全体画面" width="1440" height="1000" loading="lazy" decoding="async">
+            <figcaption class="help-figcaption">最初に部品分類、パッケージ、スペック詳細を整えると、部品登録画面の候補が使える状態になります。</figcaption>
+          </figure>
+        </div>
       </section>
 
       <!-- ダッシュボード -->
       <section id="dashboard">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">ダッシュボード</h2>
         <p class="mb-4 opacity-80">ログイン直後に表示される起点画面です。日常業務の確認事項とショートカットが集まっています。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('dashboard-overview.png') }}" alt="検索、確認事項、業務別ショートカットを表示したダッシュボード" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">左側が検索とショートカット、右側が今日の確認事項です。よく使う画面はここから始めます。</figcaption>
+        </figure>
 
         <h3 class="font-semibold mb-2">今日の確認事項</h3>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
@@ -104,6 +124,10 @@
 
         <h3 class="font-semibold mb-2">グローバル検索（Ctrl+K）</h3>
         <p class="mb-2 opacity-80"><kbd class="help-code">Ctrl+K</kbd>（Mac は <kbd class="help-code">Cmd+K</kbd>）でどのページからでも検索ランチャーを起動できます。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('dashboard-search-zoom.png') }}" alt="ダッシュボード検索欄と検索結果の拡大画面" width="1272" height="500" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">型番、通称、案件、機能名を同じ検索欄で探します。候補をクリックするか Enter で先頭候補へ移動します。</figcaption>
+        </figure>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
           <li>型番・通称でインクリメンタル検索（入力しながらリアルタイムで候補が絞り込まれる）</li>
           <li><kbd class="help-code">Enter</kbd> で先頭候補の詳細ページへ移動</li>
@@ -124,9 +148,23 @@
       <!-- 部品管理 -->
       <section id="parts">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">部品管理</h2>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('components-list-overview.png') }}" alt="部品一覧の検索条件と部品カード" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">部品一覧は検索条件が上、結果カードが下です。右上の新規登録、各カードの詳細、比較追加を使い分けます。</figcaption>
+        </figure>
 
         <h3 class="font-semibold mb-3">部品を新規登録する</h3>
         <p class="mb-3 opacity-80">「部品一覧」→ 右上「+ 新規登録」から登録画面を開きます。</p>
+        <div class="help-shot-grid">
+          <figure class="help-figure">
+            <img class="help-shot" src="{{ $guideShot('component-create-specs-zoom.png') }}" alt="部品登録画面のスペック入力欄" width="1016" height="611" loading="lazy" decoding="async">
+            <figcaption class="help-figcaption">スペックは部品分類、候補、テンプレートから行を追加し、登録済みスペックで値と単位を編集します。</figcaption>
+          </figure>
+          <figure class="help-figure">
+            <img class="help-shot" src="{{ $guideShot('component-create-ai-zoom.png') }}" alt="部品登録画面のデータシート解析補助欄" width="1016" height="402" loading="lazy" decoding="async">
+            <figcaption class="help-figcaption">PDFを選ぶと、ChatGPT貼り付け、ChatGPT自動入力、Gemini解析の補助導線を使えます。</figcaption>
+          </figure>
+        </div>
         <table class="help-table mb-4">
           <thead><tr><th>項目</th><th>必須</th><th>説明</th></tr></thead>
           <tbody>
@@ -210,6 +248,10 @@
 
         <h4 class="font-medium mb-1 opacity-80">詳細フィルタ</h4>
         <p class="mb-2 opacity-80">「詳細条件」を開くと以下の条件で絞り込めます。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('components-filter-zoom.png') }}" alt="部品一覧の詳細条件を開いた画面" width="1288" height="680" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">詳細条件を開くと、メーカー、パッケージ、スペック範囲、在庫状態などで台帳を絞り込めます。</figcaption>
+        </figure>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li>部品分類（複数選択可）</li>
           <li>入手可否（量産中 / EOL / 在庫限り / 非推奨）</li>
@@ -225,6 +267,10 @@
         <p class="mb-5 opacity-80">既定は部品分類、パッケージ分類、パッケージ、型番の順に並ぶ台帳向け表示です。型番内の数字は自然順で扱うため、2SC945 は 2SC1815 より前に並びます。必要に応じて更新順、通称順、型番順へ切り替えできます。</p>
 
         <h3 class="font-semibold mb-3">部品を比較する</h3>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('component-compare-overview.png') }}" alt="部品比較画面" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">比較画面では複数部品のスペック、価格、在庫を横並びにして、差分行だけを確認できます。</figcaption>
+        </figure>
         <ol class="space-y-2 mb-3">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80">部品一覧でカード左上のチェックボックスを選択（最大5件）</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80">画面下部に表示される「比較」ボタンをクリック</span></li>
@@ -238,6 +284,10 @@
 
         <h3 class="font-semibold mb-3">部品詳細ページ</h3>
         <p class="mb-2 opacity-80">部品カードをクリックすると詳細ページが開きます。確認できる情報と操作は以下の通りです。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('component-detail-overview.png') }}" alt="部品詳細画面" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">部品詳細では基本情報、在庫、スペック、仕入先、データシート、履歴を1画面で確認します。</figcaption>
+        </figure>
         <ul class="list-disc list-inside space-y-1 mb-5 opacity-80">
           <li>基本情報・スペック・仕入先（最安値商社も表示）・画像・データシート（PDF を直接開けます）</li>
           <li>棚別在庫合計（新品 / 中古 別）</li>
@@ -255,6 +305,10 @@
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">在庫管理</h2>
 
         <h3 class="font-semibold mb-3">入庫する — 部品詳細から</h3>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('component-stock-modal-zoom.png') }}" alt="部品詳細の入庫モーダル" width="520" height="586" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">入庫モーダルでは在庫区分、新品/中古、数量、入庫先棚、ロット番号、備考をその場で入力します。</figcaption>
+        </figure>
         <ol class="space-y-2 mb-3">
           <li class="flex gap-3"><span class="step-badge mt-0.5">1</span><span class="opacity-80">部品詳細ページ → 右上「入庫」ボタン</span></li>
           <li class="flex gap-3"><span class="step-badge mt-0.5">2</span><span class="opacity-80">以下の項目を入力して「確定」</span></li>
@@ -431,6 +485,10 @@
       <section id="master">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">マスタ管理</h2>
         <p class="mb-4 opacity-80">部品登録時に選択する「部品分類」「パッケージ詳細」「スペック詳細」と、スペック候補設定・入力テンプレートを管理します。全機能一覧 →「マスタ管理」から操作します。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('master-management-overview.png') }}" alt="マスタ管理のタブと部品分類ペイン" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">左で部品分類を選び、右でスペック詳細、候補設定、共通項目、許容差、入力テンプレートを編集します。</figcaption>
+        </figure>
         <p class="mb-4 opacity-80">スペック系のタブは <strong>部品分類</strong>、<strong>スペック詳細</strong>、<strong>スペック候補設定</strong>、<strong>共通スペック詳細</strong>、<strong>許容差スペック詳細</strong>、<strong>入力テンプレート</strong> に責務を分け、入力テンプレートは一番右に置いています。</p>
         <p class="mb-4 opacity-80">スペック系タブの左ペインは部品分類を選ぶための領域に限定し、分類名の横にそのタブで扱う登録数を小さく「登録:4個」のように表示します。選択後の右ペインヘッダでは、個別、入力候補、共通、許容差、テンプレート、行、採用中、未追加のような短いバッジで内訳を確認します。</p>
 
@@ -549,6 +607,10 @@
       <section id="tools">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">設計ツール</h2>
         <p class="mb-4 opacity-80">全機能一覧 →「設計ツール」から使えます。電子回路の設計補助ツール群です。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('design-tools-overview.png') }}" alt="設計解析ツールのタブと入力フォーム" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">設計ツールは目的別のタブで切り替えます。入力条件、結果、次アクションを同じ画面で確認します。</figcaption>
+        </figure>
 
         <h3 class="font-semibold mb-3">抵抗/容量ネットワーク探索</h3>
         <p class="mb-2 opacity-80">抵抗/容量ネットワーク、分圧、可変抵抗の計算を同じ画面で扱います。設計解析ツールではネットワーク探索、分圧、可変抵抗をメインタブとして扱い、別ページへ移動せずに候補を確認できます。</p>
@@ -654,6 +716,10 @@
       <section id="backup">
         <h2 class="text-lg font-bold mb-5 pb-2 border-b border-[var(--color-border)]">データのバックアップ</h2>
         <p class="mb-4 opacity-80">全機能一覧 →「データのバックアップ」から操作します。管理者のみが使える機能です。</p>
+        <figure class="help-figure">
+          <img class="help-shot" src="{{ $guideShot('backup-overview.png') }}" alt="データのバックアップ画面" width="1440" height="1000" loading="lazy" decoding="async">
+          <figcaption class="help-figcaption">バックアップは取得と復元が同じ画面にあります。復元は現在データを上書きするため、直前バックアップを取ってから実行します。</figcaption>
+        </figure>
 
         <h3 class="font-semibold mb-3">バックアップを取得する</h3>
         <ol class="space-y-2 mb-3">

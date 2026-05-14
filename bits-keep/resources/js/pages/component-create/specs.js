@@ -36,6 +36,40 @@ export function useComponentCreateSpecs(ctx) {
         specTypeSearchQuery, specSuggestionLoading, helperSpecGroups,
         toastSuccess, toastError, canCreateSpecType,
     } = ctx;
+    // 値種別の選択肢は共通定義を画面へ公開し、登録・詳細・解析レビューで表示揺れを出さない。
+    const specProfileOptions = SPEC_PROFILE_OPTIONS;
+    // 目的: 部品登録画面のインラインスペック詳細フォーム初期値を作る。入力はなし。出力はフォーム用オブジェクト。副作用はない。
+    const createInlineSpecTypeForm = () => ({
+        name_ja: '',
+        name_en: '',
+        symbol: '',
+        description: '',
+        value_type: 'numeric',
+        unit: '',
+        suggest_prefixes: [],
+        display_prefixes: [],
+        aliases_text: '',
+    });
+    const inlineSpecTypeModal = reactive({
+        open: false,
+        saving: false,
+        targetSpec: null,
+        form: createInlineSpecTypeForm(),
+    });
+    // 目的: インライン追加フォームの単位がB/bit/bps系かを判定する。入力は単位文字列。出力は真偽値。副作用はない。
+    const isInlineByteBitPrefixUnit = (unit = inlineSpecTypeModal.form.unit) => isByteBitUnit(unit);
+    const normalizeInlinePrefixes = normalizePrefixList;
+    // 目的: インライン追加フォームの接頭語候補を単位ポリシーに合わせて絞る。入力は接頭語配列と単位。出力は接頭語配列。副作用はない。
+    const sanitizeInlinePrefixesForUnit = (prefixes = [], unit = inlineSpecTypeModal.form.unit) => sanitizeEngineeringPrefixesForUnit(prefixes, unit);
+    // 目的: インライン追加フォームの単位に応じた接頭語選択肢を作る。入力はなし。出力はUI候補配列。副作用はない。
+    const inlinePrefixOptionsFor = () => prefixOptionsForUnit(inlineSpecTypeModal.form.unit);
+    const inlinePrefixPolicyHelp = computed(() => (
+        prefixPolicyHelpForUnit(inlineSpecTypeModal.form.unit, '値入力時')
+    ));
+    // 目的: 接頭語チェック状態を単位ポリシーと同期する。入力は対象フィールド名と変更接頭語。出力はなし。副作用としてフォーム値を更新する。
+    const syncInlinePrefixList = (field, changedPrefix = null) => {
+        inlineSpecTypeModal.form[field] = syncPrefixSelectionForUnit(inlineSpecTypeModal.form[field], inlineSpecTypeModal.form.unit, changedPrefix);
+    };
     // スペック操作
     // 目的: 部品登録画面のremove Specを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const removeSpec = (i) => form.specs.splice(i, 1);
@@ -408,6 +442,49 @@ export function useComponentCreateSpecs(ctx) {
             }))
         )
     );
+    // 目的: 部品分類の詳細候補を既存一覧へ統合する。入力は部品分類配列。出力はなし。副作用としてcategoriesを更新する。
+    const mergeSpecGroupDetails = (groups = []) => {
+        if (!Array.isArray(groups) || !groups.length) return;
+        const byId = new Map(categories.value.map((group) => [Number(group.id), group]));
+        groups.forEach((group) => {
+            byId.set(Number(group.id), {
+                ...(byId.get(Number(group.id)) ?? {}),
+                ...group,
+                _detail_loaded: true,
+            });
+        });
+        categories.value = [...byId.values()]
+            .filter((group) => group?.id)
+            .sort((a, b) => {
+                const sortOrder = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+                return sortOrder || String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ja');
+            });
+    };
+    // 目的: 部品分類ごとの候補スペック詳細とテンプレートを取得する。入力はなし。出力はなし。副作用としてcategoriesを補完する。
+    const fetchSpecGroupCatalog = async () => {
+        try {
+            const res = await api.get('/spec-groups?with_spec_types=1&with_templates=1');
+            mergeSpecGroupDetails(res.data ?? []);
+        } catch {
+            // 基本の部品分類一覧は維持する。候補詳細は選択時に再取得する。
+        }
+    };
+    // 目的: 選択された部品分類の詳細を必要時だけ取得する。入力は部品分類ID。出力は詳細付き部品分類またはnull。
+    // 動作条件は認証済みでspec-groups APIが参照できること。副作用としてcategoriesを補完し、失敗時は通知する。
+    const ensureSpecGroupDetail = async (groupId) => {
+        if (!groupId || groupId === 'all') return null;
+        const current = categories.value.find((group) => Number(group.id) === Number(groupId));
+        if (current?._detail_loaded) return current;
+
+        try {
+            const res = await api.get(`/spec-groups/${groupId}`);
+            mergeSpecGroupDetails([res.data]);
+            return categories.value.find((group) => Number(group.id) === Number(groupId)) ?? res.data ?? null;
+        } catch {
+            toastError('部品分類の候補詳細を取得できませんでした');
+            return null;
+        }
+    };
     // 目的: 部品登録画面のfetch Spec Suggestions For Formを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const fetchSpecSuggestionsForForm = async () => {
         const categoryIds = form.category_ids.map((id) => Number(id)).filter(Boolean);

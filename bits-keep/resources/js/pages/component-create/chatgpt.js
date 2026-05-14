@@ -25,6 +25,7 @@ export function useComponentCreateChatGpt(ctx) {
     let chatGptWindowRef = null;
     let lastSyncedChatGptStatusAt = '';
     let lastSyncedChatGptResultAt = '';
+    let lastChatGptHelperLogSignature = '';
     let chatGptHelperPromptShown = false;
     // ChatGPT 貼り付けモーダル
     const selectedDatasheetFile = computed(() => datasheetFiles.value[datasheetTargetIndex.value] ?? null);
@@ -32,6 +33,31 @@ export function useComponentCreateChatGpt(ctx) {
     const showChatGPTPaste = ref(false);
     const chatGPTPasteText = ref('');
     const chatGPTPasteTextarea = ref(null);
+    const showChatGptRunModal = ref(false);
+    const showChatGptHelperUpdateModal = ref(false);
+    const chatGptHelperCheckStatus = ref('idle');
+    const chatGptHelperCheckMessage = ref('');
+    const chatGptWorkerHeartbeat = ref(null);
+    const chatGptGuideReason = ref('');
+    const chatGptTempDatasheets = ref([]);
+    const chatGptUiLockSuppressed = ref(false);
+    const chatGptJob = reactive({
+        jobId: '',
+        state: 'idle',
+        detail: '',
+        error: '',
+        updatedAt: '',
+        connected: false,
+        helperVersion: '',
+    });
+    const datasheetTargetLabel = computed(() => {
+        const file = selectedDatasheetFile.value;
+        if (file) return file.name;
+        const current = currentDatasheets.value[datasheetTargetIndex.value];
+        return current?.display_name || current?.original_name || '未選択';
+    });
+    const canDismissChatGptRun = computed(() => ['idle', 'review', 'failed', 'login_required'].includes(chatGptJob.state));
+    const isChatGptJobBusy = computed(() => ['preparing', 'opening', 'waiting', 'login_required'].includes(chatGptJob.state));
     const navigationGuardActive = computed(() => (
         dirty.value
         || showHelperResultModal.value
@@ -41,6 +67,13 @@ export function useComponentCreateChatGpt(ctx) {
         || !!String(chatGPTPasteText.value ?? '').trim()
         || showDatasheetManagerModal.value
         || showChatGptRunModal.value
+    ));
+    const anyModalOpen = computed(() => (
+        showHelperResultModal.value
+        || showDatasheetManagerModal.value
+        || showChatGPTPaste.value
+        || showChatGptRunModal.value
+        || showChatGptHelperUpdateModal.value
     ));
     useNavigationConfirm(navigationGuardActive, '未保存の入力があります。このまま画面を離れてもよいですか？');
     const chatGptStatusLabel = computed(() => {
@@ -960,7 +993,7 @@ export function useComponentCreateChatGpt(ctx) {
         chatGptStatusLabel, chatGptStatusChips, chatGptStepStates, canStartChatGptAutoFill, chatGptHelperIssue, showChatGptRunHint,
         isChatGptHelperVersionCompatible, syncTampermonkeyConnection, syncStoredChatGptBridgeState, syncChatGptWorkerHeartbeat,
         openChatGptHelperUpdateModal, closeChatGptHelperUpdateModal, reloadForChatGptHelperUpdate, handleChatGptHelperReloadRecheck,
-        hardResetChatGptJob, clearChatGptTempDatasheets, beginAiAction, confirmDatasheetTargetSelection, openChatGptRun, closeChatGptRun,
+        hardResetChatGptJob, clearChatGptTempDatasheets, resetChatGptJobState, beginAiAction, confirmDatasheetTargetSelection, openChatGptRun, closeChatGptRun,
         openChatGPTPaste, parseChatGPTResult, dismissChatGPTPaste, openPasteFallbackFromGuide, copyChatGptFallbackText,
         startChatGPTAutoFill, chatGptGuideReason, chatGptJob, chatGptStatusChips, chatGptStepStates, canDismissChatGptRun,
         isChatGptJobBusy, anyModalOpen, showChatGptRunModal, showChatGptHelperUpdateModal, chatGptHelperCheckStatus, chatGptHelperCheckMessage,

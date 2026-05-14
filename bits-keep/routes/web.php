@@ -17,6 +17,17 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', fn () => view('app.dashboard'))->name('dashboard');
     Route::get('/help', fn () => view('app.help'))->name('help.index');
+    Route::get('/help-guide/screenshots/{filename}', function (string $filename) {
+        abort_unless(preg_match('/\A[a-z0-9-]+\.png\z/', $filename) === 1, 404);
+
+        $path = resource_path("help/screenshots/{$filename}");
+        abort_unless(is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
+    })->name('help.screenshot');
 
     // 部品管理
     Route::get('/components', fn () => view('app.components-list'))->name('components.index');

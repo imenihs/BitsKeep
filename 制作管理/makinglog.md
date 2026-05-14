@@ -8197,3 +8197,34 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 着手: `CLAUDE.md` を再確認し、未追跡ファイルを含む全差分を `git add -A` でステージングしてローカルコミットする。
 - DB変更: なし。コミット操作のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
 - 曹長(コード分隊)の心の声: ここで部分コミットにすると後工程で差分の出所が崩れる。指示どおり全ファイルを対象にして、検証済み状態を一つの履歴へ固定する。
+
+### [大将] 2026-05-13 15:07 JST
+- [ユーザ] BitsKeep 使い方ガイドが文字のみで分かりにくいため、サイトをヘッドレスで動かして全体・部分拡大のスナップショットを撮り、画像付きのガイドへ仕上げるよう指示。
+- 着手: `CLAUDE.md`、README、仕様書、進捗チェックリスト、makinglog を確認し、既存の利用者向け説明とアプリ内ヘルプの実体、画面起動方法、スクリーンショット配置先を調査する。
+- 方針: DB変更は行わない。既存画面を Headless Chrome で確認して、利用者が操作の入口と結果を見て分かる画像付きガイドへ整理する。README とアプリ内ヘルプの同期、必要な仕様・進捗ログ更新、ビルド/表示確認まで完了条件にする。
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 大将の心の声: 文字だけの説明は、使える人ほど読まないし、慣れていない人には入口すら見えない。画面の全体像とクリックすべき場所を画像で示し、説明は判断補助に絞る。
+
+### [曹長(テスト分隊)] 2026-05-13 16:04 JST
+- 対応: 使い方ガイドへ実画面スナップショット14箇所を追加し、撮影スクリプト、認証付き画像配信、README、仕様書、進捗チェックリストを同期した。撮影中に発見した部品登録画面の分割漏れによる空白化も修正した。
+- ✓ `npm run capture:guide`（`CHROME_BIN=/usr/bin/google-chrome`、撮影用環境変数指定）
+- ✓ `/help` が 200、ガイド画像14件が認証後にすべて 200 image/png
+- ✓ 未認証の `/help-guide/screenshots/dashboard-overview.png` は `/login` へリダイレクト
+- ✓ `/components/create` が 200、フォームコントロール52件、console error なし
+- ✓ `node --check scripts/capture-guide-screenshots.mjs resources/js/pages/component-create.js resources/js/pages/component-create/specs.js resources/js/pages/component-create/ai.js resources/js/pages/component-create/chatgpt.js`
+- ✓ `php -l routes/web.php`
+- ✓ `php artisan test --filter=UiApiSurfaceSmokeTest`
+- ✓ `npm run build`
+- ✓ `git diff --check`
+- ✓ `public/hot` なし
+- DB変更: なし。マイグレーション、seed、migrate、db:wipe、truncate、drop は実行していない。
+- 曹長(テスト分隊)の心の声: ガイド画像は便利だが、公開場所と撮影データを間違えると情報漏えいになる。画像は認証付きに寄せ、撮影環境変数と実データ撮影フラグを明示させて事故の入口を塞いだ。
+
+### [ユーザ] 2026-05-14 10:14 JST
+- 指示: 全ファイルをコミットすること。
+- ユーザの心の声: 作業済みの変更を漏れなくローカル履歴へ固定してほしい。
+
+### [曹長(コード分隊)] 2026-05-14 10:14 JST
+- 着手: `CLAUDE.md` を確認し、未追跡ファイルを含む全差分を `git add -A` でステージングしてローカルコミットする。
+- DB変更: なし。コミット操作のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
+- 曹長(コード分隊)の心の声: 今回は実装変更ではなく履歴固定が目的。対象を限定せず、作業ツリー全体を一つのローカルコミットへまとめる。

@@ -217,9 +217,10 @@ export default function setup() {
         toleranceGradeOptionLabel, isToleranceGradeMenuOpen, closeToleranceGradeMenu, toggleToleranceGradeMenu,
         selectToleranceGradeOption, hasSpecBaseUnit, syncNormalSpecUnitToBase, prepareSpecDraftForEdit,
         handleSpecTypeSelection, sortSpecTypes, openInlineSpecTypeModal, closeInlineSpecTypeModal,
-        changeSpecProfile, normalizeHelperText, matchByName, specTypeSearchText, findCategoryById,
+        saveInlineSpecType, changeSpecProfile, normalizeHelperText, matchByName, specTypeSearchText, findCategoryById,
         findPackageById, findSpecTypeById, specPreview, fetchSpecSuggestionsForForm, selectedSpecGroupLabel,
         scopedSpecTypes, specTypePickerOptionLabel, filteredSpecTypesForPicker, showRecommendedSpecTypes,
+        isAllSpecTypesSelected,
         showAllSpecTypes, visibleSpecTemplates, selectedSpecTemplate, selectedSpecTemplateItems,
         templateItemPreviewLabel, handleSpecGroupPickerChange, addSelectedSpecCandidate, applySpecTemplate,
         applySelectedSpecTemplate, createSpecTypeFromDraft, fetchSpecGroupCatalog, ensureSpecGroupDetail,
@@ -418,6 +419,7 @@ export default function setup() {
         parseChatGPTResult, dismissChatGPTPaste, chatGptGuideReason, openPasteFallbackFromGuide,
         copyChatGptFallbackText, hardResetChatGptJob, chatGptStatusChips, chatGptStepStates,
         canStartChatGptAutoFill, showChatGptRunHint, chatGptJob, clearChatGptTempDatasheets,
+        resetChatGptJobState,
         initializeChatGptBridge, cleanupChatGptBridge,
     } = ai;
 

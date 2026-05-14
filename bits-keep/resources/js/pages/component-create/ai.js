@@ -20,6 +20,37 @@ export function useComponentCreateAi(ctx) {
         applyToleranceDefaults, syncNormalSpecUnitToBase,
         chatGptConfig, logChatGptFlow, getChatGptRuntime, setChatGptRuntime,
     } = ctx;
+    const analyzing = ref(false);
+    const helperResult = ref(null);
+    const showDatasheetManagerModal = ref(false);
+    const showHelperResultModal = ref(false);
+    const pendingAiAction = ref('');
+
+    // 目的: AI補助系モーダル表示中の背景スクロールを制御する。入力は表示状態。出力はなし。副作用としてhtml/bodyのclassを更新する。
+    const syncScrollLock = (isOpen) => {
+        document.documentElement.classList.toggle('modal-open', Boolean(isOpen));
+        document.body.classList.toggle('modal-open', Boolean(isOpen));
+    };
+    // 目的: 主要モーダルが閉じた後にスクロールロックを解除する。入力と出力はなし。副作用としてhtml/bodyのclassを更新する。
+    const releaseScrollLockIfNoModal = () => {
+        const stillOpen = inlineSpecTypeModal.open
+            || showDatasheetManagerModal.value
+            || showHelperResultModal.value;
+        if (!stillOpen) {
+            syncScrollLock(false);
+        }
+    };
+    const helperResultSummary = computed(() => ({
+        basicCount: [
+            helperResult.value?.part_number,
+            helperResult.value?.manufacturer,
+            helperResult.value?.common_name,
+            helperResult.value?.description,
+        ].filter((field) => field?.apply && String(field?.value ?? '').trim()).length,
+        categoryCount: (helperResult.value?.categories ?? []).filter((item) => item.apply).length,
+        packageCount: helperResult.value?.package_apply ? 1 : 0,
+        specCount: (helperResult.value?.specs ?? []).filter((item) => item.apply).length,
+    }));
 
     // 目的: 部品登録画面のcreate Helper Basic Fieldを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 表示値、配列、オブジェクト、数値のいずれか。動作条件: 部品登録画面の初期化後に呼び出す。副作用: なし。
     const createHelperBasicField = (value = '') => ({
@@ -445,6 +476,86 @@ export function useComponentCreateAi(ctx) {
         return scopedPackages.filter((item) => item.name.toLowerCase().includes(query));
     };
 
+    // 目的: 解析レビューで採用対象にした候補を登録フォームへ反映する。入力はなし。出力はなし。
+    // 動作条件はhelperResultが存在すること。副作用としてform、メーカー候補、dirty、モーダル状態を更新する。
+    const applyHelperResult = () => {
+        const result = helperResult.value;
+        if (!result) return;
+
+        if (result.part_number?.apply) form.part_number = result.part_number.value;
+        if (result.manufacturer?.apply) {
+            form.manufacturer = result.manufacturer.value;
+            manufacturerQuery.value = result.manufacturer.value;
+            ensureManufacturerOption(result.manufacturer.value);
+        }
+        if (result.common_name?.apply) form.common_name = result.common_name.value;
+        if (result.description?.apply) form.description = result.description.value;
+
+        (result.categories ?? [])
+            .filter((category) => category.apply && category.category_id)
+            .forEach((category) => {
+                const categoryId = Number(category.category_id);
+                if (!form.category_ids.includes(categoryId)) {
+                    form.category_ids.push(categoryId);
+                }
+            });
+
+        if (result.package_apply) {
+            const selectedPackage = result.packages?.[Number(result.selected_package_index ?? 0)] ?? null;
+            if (selectedPackage?.package_group_id) form.package_group_id = selectedPackage.package_group_id;
+            if (selectedPackage?.package_id) form.package_id = selectedPackage.package_id;
+        }
+
+        (result.specs ?? [])
+            .filter((spec) => spec.apply && spec.spec_type_id)
+            .forEach((spec) => {
+                if (hasSpecTypeRow(spec.spec_type_id)) return;
+                const specType = findSpecTypeById(spec.spec_type_id);
+                form.specs.push(prepareSpecDraftForEdit({
+                    ...spec,
+                    spec_type_name: specType?.name_ja ?? specType?.name ?? spec.spec_type_name ?? spec.name_ja ?? spec.name ?? '',
+                }, specType));
+            });
+
+        dirty.value = true;
+        showHelperResultModal.value = false;
+        toastSuccess('解析候補をフォームへ反映しました');
+        nextTick(() => {
+            releaseScrollLockIfNoModal();
+        });
+    };
+
+    // 目的: 選択中PDFをGemini解析へ渡し、レビュー候補を作る。入力は自動実行時のフラグ。出力はなし。
+    // 動作条件はPDFが選択済みで解析APIが利用できること。副作用としてHTTP通信、helperResult、モーダル状態、通知を更新する。
+    const analyzeDatasheet = async () => {
+        const targetFile = selectedDatasheetFile.value;
+        if (!targetFile) {
+            toastError('先にデータシートPDFを選択してください');
+            return;
+        }
+
+        analyzing.value = true;
+        try {
+            const fd = new FormData();
+            fd.append('pdf', targetFile);
+            const res = await api.upload('/component-helper/analyze-datasheet', fd);
+            const result = buildHelperResult(res.data ?? res);
+            if (!hasHelperCandidates(result)) {
+                toastError('解析候補を取得できませんでした');
+                return;
+            }
+            helperResult.value = result;
+            showHelperResultModal.value = true;
+            showDatasheetManagerModal.value = false;
+            pendingAiAction.value = '';
+            toastSuccess('解析候補を取得しました。内容を確認してください');
+        } catch (e) {
+            toastError(e.message ?? 'データシート解析に失敗しました');
+        } finally {
+            analyzing.value = false;
+        }
+    };
+
     // 目的: 部品登録画面のopen Datasheet Managerを扱う。機能: 入力値を検証・整形し、画面または計算処理へ渡す。入力: 関数シグネチャの値。出力: 処理結果またはなし。動作条件: 部品登録画面の初期化後に呼び出す。副作用: Vue状態、localStorage、DOM、HTTP通信のいずれかを更新する場合がある。
     const openDatasheetManager = () => {
         if (chatGpt.isChatGptJobBusy.value) return;
@@ -473,7 +584,7 @@ export function useComponentCreateAi(ctx) {
         chatGptStatusLabel, chatGptStatusChips, chatGptStepStates, canStartChatGptAutoFill, chatGptHelperIssue, showChatGptRunHint,
         isChatGptHelperVersionCompatible, syncTampermonkeyConnection, syncStoredChatGptBridgeState, syncChatGptWorkerHeartbeat,
         openChatGptHelperUpdateModal, closeChatGptHelperUpdateModal, reloadForChatGptHelperUpdate, handleChatGptHelperReloadRecheck,
-        hardResetChatGptJob, clearChatGptTempDatasheets, beginAiAction, confirmDatasheetTargetSelection, openChatGptRun, closeChatGptRun,
+        hardResetChatGptJob, clearChatGptTempDatasheets, resetChatGptJobState, beginAiAction, confirmDatasheetTargetSelection, openChatGptRun, closeChatGptRun,
         openChatGPTPaste, parseChatGPTResult, dismissChatGPTPaste, openPasteFallbackFromGuide, copyChatGptFallbackText,
         startChatGPTAutoFill, chatGptGuideReason, chatGptJob, canDismissChatGptRun, isChatGptJobBusy,
         showChatGptRunModal, showChatGptHelperUpdateModal, chatGptHelperCheckStatus, chatGptHelperCheckMessage,
@@ -528,7 +639,7 @@ export function useComponentCreateAi(ctx) {
         syncTampermonkeyConnection, syncStoredChatGptBridgeState, syncChatGptWorkerHeartbeat,
         openChatGptHelperUpdateModal, closeChatGptHelperUpdateModal,
         reloadForChatGptHelperUpdate, handleChatGptHelperReloadRecheck,
-        hardResetChatGptJob, clearChatGptTempDatasheets,
+        hardResetChatGptJob, clearChatGptTempDatasheets, resetChatGptJobState,
         openDatasheetManager, closeDatasheetManager, beginAiAction,
         confirmDatasheetTargetSelection, openChatGptRun, closeChatGptRun,
         openChatGPTPaste, parseChatGPTResult, dismissChatGPTPaste,

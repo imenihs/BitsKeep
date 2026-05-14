@@ -37,6 +37,10 @@ BitsKeep は個人事業・小規模法人向けの電子部品管理システ�
 
 **アクセス URL:** https://bits-keep.rwc.0t0.jp/
 
+画像付きの操作手順は、ログイン後のヘッダ「使い方」または `/help` のアプリ内ガイドを参照してください。実画面の全体スナップショットと操作箇所の拡大画像で、部品一覧、部品登録、在庫、マスタ管理、設計ツール、バックアップの導線を確認できます。
+
+ガイド画像を更新する場合は、公開してよいデモ/検証データの環境で `BITSKEEP_URL`、`BITSKEEP_GUIDE_EMAIL`、`BITSKEEP_GUIDE_PASSWORD` を設定し、`bits-keep/` で `npm run capture:guide` を実行します。共有環境の実データを撮る場合は `BITSKEEP_GUIDE_ALLOW_REAL_DATA=1` を明示し、撮影後に個人情報や業務上公開できない情報が写っていないことを確認してください。画像実体は `resources/help/screenshots/` に保存し、認証付きの `/help-guide/screenshots/{filename}` から配信します。
+
 ---
 
 ## 機能一覧
