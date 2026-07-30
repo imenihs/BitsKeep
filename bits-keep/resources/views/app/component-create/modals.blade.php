@@ -3,19 +3,21 @@
   入力は親Vue setupが公開する解析状態・ChatGPT状態・スペック詳細フォームで、出力はフォーム候補への反映操作。
   表示中はスクロールロック、外部helper連携、一時PDF削除、スペック詳細作成などの副作用を伴う。
 --}}
+  {{-- 解析中の表示は1種類に統一する。どの解析方式で動いているかは利用者の判断材料ではないため、
+       表題に解析エンジン名を出さない。画面を占有するのは「待つしかない旧方式」のときだけ --}}
   <div v-if="analyzing" class="modal-overlay" style="z-index:8500" role="alertdialog" aria-modal="true" aria-busy="true">
     <div class="modal-window modal-sm p-6 text-center" @click.stop>
       <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
-      <h3 class="mt-4 text-lg font-bold">Geminiで解析中</h3>
+      <h3 class="mt-4 text-lg font-bold">データシートを解析中</h3>
       <p class="mt-2 text-sm opacity-70">データシートPDFを解析しています。完了までこのままお待ちください。</p>
-      <p class="mt-1 text-[11px] opacity-50">処理中は画面操作を受け付けません。</p>
+      <p class="mt-1 text-[11px] opacity-50">この方式は画面を開いたままにする必要があります。</p>
     </div>
   </div>
   <div v-if="isChatGptJobBusy && !showChatGptRunModal" class="modal-overlay" style="z-index:8450" role="alertdialog" aria-modal="true" aria-busy="true">
     <div class="modal-window modal-sm p-6 text-center" @click.stop>
       <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]"></div>
-      <h3 class="mt-4 text-lg font-bold">ChatGPTで解析中</h3>
-      <p class="mt-2 text-sm opacity-70">ChatGPT タブでデータシートを解析しています。完了までこの画面は操作できません。</p>
+      <h3 class="mt-4 text-lg font-bold">データシートを解析中</h3>
+      <p class="mt-2 text-sm opacity-70">ブラウザのタブでデータシートを解析しています。完了までこの画面は操作できません。</p>
       <p class="mt-2 text-xs opacity-60">@{{ chatGptJob.detail || '処理状況を確認しています。' }}</p>
       <p class="mt-1 text-[11px] opacity-50">解析完了後は候補確認モーダルを表示します。</p>
       <button type="button" @click="hardResetChatGptJob" class="mt-4 inline-flex min-h-11 items-center justify-center rounded border border-[var(--color-tag-eol)] px-4 py-2 text-sm font-medium text-[var(--color-tag-eol)]">

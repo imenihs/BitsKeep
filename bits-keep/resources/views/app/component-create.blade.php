@@ -413,31 +413,83 @@
       <div>
         <label class="block text-xs font-semibold mb-1">データシート（PDF・複数可）</label>
         <input type="file" multiple accept=".pdf,application/pdf" class="input-text w-full text-xs" @change="onDatasheetChange" />
-        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <button type="button" @click="beginAiAction('chatgpt')"
-            :disabled="!hasDatasheetForAi"
-            :title="hasDatasheetForAi ? '' : '先にデータシートPDFを選択してください'"
+        {{-- 解析の入口は1つに保つ。どの解析方式で動くかは連携設定で決まる運用設定であり、
+             利用者に毎回選ばせない --}}
+        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button type="button" @click="startServerAnalysis"
+            :disabled="!hasDatasheetForAi || isServerAnalyzing"
+            :title="hasDatasheetForAi ? 'データシートPDFを読み取って入力候補を作ります' : '先にデータシートPDFを選択してください'"
             class="flex w-full min-w-0 items-center justify-center gap-1 rounded border px-2 py-2 text-[11px] leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             :class="hasDatasheetForAi
               ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:opacity-90'
               : 'border-[var(--color-border)] bg-[var(--color-card-even)] text-[var(--color-text)]'">
-            🤖 ChatGPTで自動入力
+            <span v-if="isServerAnalyzing">⏳ 解析中...</span>
+            <span v-else>✨ データシートから自動入力</span>
           </button>
           <button type="button" @click="openChatGPTPaste"
             class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-border)] px-2 py-2 text-[11px] leading-tight transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-            📋 ChatGPTから貼り付け
-          </button>
-          <button type="button" @click="beginAiAction('gemini')"
-            :disabled="!hasDatasheetForAi || analyzing"
-            :title="hasDatasheetForAi ? '' : '先にデータシートPDFを選択してください'"
-            class="flex w-full min-w-0 items-center justify-center gap-1 rounded border px-2 py-2 text-[11px] leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            :class="hasDatasheetForAi
-              ? 'border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
-              : 'border-[var(--color-border)] text-[var(--color-text)]'">
-            <span v-if="analyzing">⏳ 解析中...</span>
-            <span v-else>✨ Geminiで自動入力</span>
+            📋 解析結果を貼り付け
           </button>
         </div>
+
+        {{-- 解析中はページを離れても解析が続く。待つ以外の操作は中止だけに絞る --}}
+        <div v-if="isServerAnalyzing" class="mt-3 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-3">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold">⏳ @{{ serverAnalysisProgressLabel }}</p>
+              <p class="mt-1 text-[11px] opacity-60">この画面を閉じても解析は続きます。戻ると続きから表示します。</p>
+            </div>
+            <button type="button" @click="cancelServerAnalysis"
+              class="shrink-0 rounded border border-[var(--color-border)] px-3 py-1.5 text-[11px] hover:border-[var(--color-tag-eol)] hover:text-[var(--color-tag-eol)]">
+              中止する
+            </button>
+          </div>
+        </div>
+
+        {{-- 失敗理由ごとに次の一手を変える。再実行が無意味な失敗で再実行を勧めない --}}
+        <div v-else-if="serverAnalysisState === 'failed'" class="mt-3 rounded-2xl border border-[var(--color-tag-warning)] bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))] p-3">
+          <p class="text-xs font-semibold text-[var(--color-tag-warning)]">解析できませんでした</p>
+          <p class="mt-1 text-[11px] opacity-80">@{{ serverAnalysisFailureMessage }}</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button v-if="serverAnalysisRetryable" type="button" @click="startServerAnalysis"
+              class="rounded border border-[var(--color-primary)] px-3 py-1.5 text-[11px] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10">
+              もう一度実行
+            </button>
+            <a v-if="serverAnalysisNeedsSetup" href="/settings/integrations"
+              class="rounded border border-[var(--color-primary)] px-3 py-1.5 text-[11px] text-[var(--color-primary)] no-underline hover:bg-[var(--color-primary)]/10">
+              連携設定を開く
+            </a>
+            <button v-if="serverAnalysisSuggestPaste" type="button" @click="openChatGPTPaste"
+              class="rounded border border-[var(--color-border)] px-3 py-1.5 text-[11px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+              貼り付けで入力
+            </button>
+            <button type="button" @click="dismissServerAnalysisFailure"
+              class="rounded border border-[var(--color-border)] px-3 py-1.5 text-[11px] opacity-70">
+              閉じる
+            </button>
+          </div>
+        </div>
+
+        {{-- 旧方式。既定の導線から外し、主導線が使えないときの退避先として残す --}}
+        <details class="mt-3 rounded-2xl border border-[var(--color-border)] px-3 py-2">
+          <summary class="cursor-pointer text-[11px] opacity-60">別の解析方法を使う（旧方式）</summary>
+          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button type="button" @click="beginAiAction('chatgpt')"
+              :disabled="!hasDatasheetForAi"
+              :title="hasDatasheetForAi ? 'ブラウザのChatGPTタブを使って解析します' : '先にデータシートPDFを選択してください'"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-border)] px-2 py-2 text-[11px] leading-tight transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-40">
+              🤖 ChatGPTタブで解析
+            </button>
+            <button type="button" @click="beginAiAction('gemini')"
+              :disabled="!hasDatasheetForAi || analyzing"
+              :title="hasDatasheetForAi ? 'この画面を開いたまま待つ解析です' : '先にデータシートPDFを選択してください'"
+              class="flex w-full min-w-0 items-center justify-center gap-1 rounded border border-[var(--color-border)] px-2 py-2 text-[11px] leading-tight transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-40">
+              <span v-if="analyzing">⏳ 解析中...</span>
+              <span v-else>✨ この画面で待つ解析</span>
+            </button>
+          </div>
+          <p class="mt-2 text-[11px] opacity-50">旧方式はこの画面またはブラウザのタブを開いたままにする必要があります。</p>
+        </details>
 
         <div v-if="helperResult && helperResultSummary" class="mt-4 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 p-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

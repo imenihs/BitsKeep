@@ -122,6 +122,59 @@
     </div>
   </section>
 
+  <!-- データシート解析の実行方式 -->
+  <section class="rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-card-odd)] shadow-sm mt-6">
+    <div class="flex items-center gap-3 mb-5">
+      <p class="text-xs uppercase tracking-[0.2em] opacity-50">データシート解析</p>
+      <h2 class="text-xl font-bold">解析の実行方式</h2>
+      <span class="tag" :class="datasheetEngine.available ? 'tag-ok' : 'tag-warning'">
+        @{{ datasheetEngine.available ? '利用可能' : '要設定' }}
+      </span>
+    </div>
+
+    <p class="text-sm opacity-70 mb-5">
+      部品登録画面の「データシートから自動入力」がどこで解析するかを決めます。<br>
+      利用者は解析方式を選ばずに使えるため、ここでの選択がそのまま全員の解析方式になります。
+    </p>
+
+    <div class="space-y-4">
+      {{-- 利用できない場合は理由と対処をここで示す。部品登録画面で待たせた末に失敗させない --}}
+      <div v-if="!datasheetEngine.available && datasheetEngine.message"
+        class="rounded-2xl border border-[var(--color-tag-warning)] p-4 bg-[color-mix(in_srgb,var(--color-tag-warning)_10%,var(--color-bg))]">
+        <div class="font-semibold text-[var(--color-tag-warning)]">現在の方式は使えません</div>
+        <div class="mt-1 text-sm opacity-80">@{{ datasheetEngine.message }}</div>
+      </div>
+
+      <div v-if="datasheetEngineError" class="text-sm text-[var(--color-tag-eol)] font-semibold">@{{ datasheetEngineError }}</div>
+      <div v-if="datasheetEngineMessage" class="text-sm text-[var(--color-tag-ok)] font-semibold">@{{ datasheetEngineMessage }}</div>
+
+      {{-- 方式ごとの利用可否をその場で見せる。選んだ後に使えないと分かる状態を作らない --}}
+      <div class="grid gap-3 md:grid-cols-2">
+        <button v-for="option in datasheetEngine.options" :key="option.key" type="button"
+          @click="saveDatasheetEngine(option.key)"
+          :disabled="!canEdit || datasheetEngineSaving"
+          :title="!canEdit ? '編集者以上の権限が必要です' : ''"
+          class="rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+          :class="option.active
+            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+            : 'border-[var(--color-border)] bg-[var(--color-card-even)] hover:border-[var(--color-primary)]'">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold">@{{ option.label }}</span>
+            <span v-if="option.active" class="tag tag-ok">採用中</span>
+            <span v-if="!option.available" class="tag tag-warning">要設定</span>
+          </div>
+          <div v-if="option.message" class="mt-2 text-xs opacity-70">@{{ option.message }}</div>
+        </button>
+      </div>
+
+      <div class="rounded-2xl border border-[var(--color-border)] p-4 bg-[var(--color-card-even)] text-xs opacity-70">
+        <p class="font-semibold opacity-80">サーバ内解析について</p>
+        <p class="mt-1">解析はサーバ側で動くため、部品登録画面を閉じても解析は続きます。戻ると続きから表示します。</p>
+        <p class="mt-1">ログインが切れた場合はこの画面に理由が出ます。サーバ上で再ログインしてください。</p>
+      </div>
+    </div>
+  </section>
+
   <!-- Gemini AI 設定 -->
   <section class="rounded-3xl border border-[var(--color-border)] p-6 bg-[var(--color-card-odd)] shadow-sm mt-6">
     <div class="flex items-center gap-3 mb-5">

@@ -1,6 +1,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { api } from '../../api.js';
 import { useComponentCreateChatGpt } from './chatgpt.js';
+import { useServerDatasheetAnalysis } from './serverAnalysis.js';
 import { buildSpecDraftFromApi, getSpecBaseUnit } from '../../utils/specValue.js';
 
 /**
@@ -578,6 +579,9 @@ export function useComponentCreateAi(ctx) {
         buildHelperResult, hasHelperCandidates, releaseScrollLockIfNoModal, toastSuccess, toastError,
         logChatGptFlow, chatGptConfig, getChatGptRuntime, setChatGptRuntime,
         pendingAiAction, getAnalyzeDatasheet: () => analyzeDatasheet,
+        // 解析対象PDFの選択後にサーバ側解析へ戻るための入口。
+        // serverAnalysis はこの後で組み立てるため、遅延評価で受け渡す
+        getServerAnalysisStart: () => serverAnalysis.startAnalysis,
     });
     const {
         selectedDatasheetFile, datasheetTargetLabel, hasDatasheetForAi, showChatGPTPaste, chatGPTPasteText, chatGPTPasteTextarea, navigationGuardActive,
@@ -591,6 +595,37 @@ export function useComponentCreateAi(ctx) {
         initializeChatGptBridge, cleanupChatGptBridge, chatGptWorkerHeartbeat,
     } = chatGpt;
 
+    // サーバ側で完結する解析。ブラウザのタブを閉じても解析が続くため、
+    // 解析中の進行表示と復帰はこの composable が持つ
+    const serverAnalysis = useServerDatasheetAnalysis({
+        selectedDatasheetFile, helperResult, showHelperResultModal, showDatasheetManagerModal,
+        buildHelperResult, hasHelperCandidates, toastSuccess, toastError,
+    });
+
+    /**
+     * 目的: データシートから自動入力を開始する。
+     * 機能: 複数PDFを選んでいる場合は解析対象の選択を挟み、1件ならそのまま解析を開始する。
+     * 入力: なし。選択中PDFは画面の状態から取る。
+     * 出力: なし。
+     * 動作条件: データシートPDFが1件以上選択済みであること。
+     * 副作用: モーダル状態、HTTP通信、解析状態を更新する。
+     */
+    const startServerAnalysis = async () => {
+        if (!datasheetFiles.value.length) {
+            toastError('先にデータシートPDFを選択してください。');
+            return;
+        }
+
+        // 複数PDFのうちどれを解析するかは利用者が決める。勝手に1件目を解析しない
+        if (datasheetFiles.value.length > 1) {
+            pendingAiAction.value = 'server';
+            openDatasheetManager();
+            return;
+        }
+
+        pendingAiAction.value = '';
+        await serverAnalysis.startAnalysis();
+    };
 
     watch(chatGpt.anyModalOpen, (isOpen) => {
         syncScrollLock(isOpen);
@@ -627,6 +662,19 @@ export function useComponentCreateAi(ctx) {
     });
 
     return {
+        // サーバ側解析（主導線）
+        startServerAnalysis,
+        serverAnalysisState: serverAnalysis.analysisState,
+        serverAnalysisFailureMessage: serverAnalysis.failureMessage,
+        serverAnalysisRetryable: serverAnalysis.retryable,
+        serverAnalysisNeedsSetup: serverAnalysis.needsEngineSetup,
+        serverAnalysisSuggestPaste: serverAnalysis.suggestPasteFallback,
+        isServerAnalyzing: serverAnalysis.isAnalyzing,
+        serverAnalysisProgressLabel: serverAnalysis.progressLabel,
+        cancelServerAnalysis: serverAnalysis.cancelAnalysis,
+        resumeServerAnalysis: serverAnalysis.resumeAnalysis,
+        dismissServerAnalysisFailure: serverAnalysis.resetAnalysis,
+
         analyzing, helperResult, showDatasheetManagerModal, showChatGptRunModal,
         showHelperResultModal, showChatGptHelperUpdateModal, chatGptHelperCheckStatus,
         chatGptHelperCheckMessage, chatGptGuideReason, pendingAiAction,

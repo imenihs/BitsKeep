@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
-use App\Models\SpecGroup;
+use App\Services\Datasheet\DatasheetRecommendationDecorator;
 use App\Services\DatasheetPromptService;
 use App\Services\GeminiService;
 use App\Services\SpecTypeMatchingService;
@@ -65,6 +65,7 @@ class ComponentHelperController extends Controller
                 'message' => $e->getMessage(),
                 'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),
             ]);
+
             return ApiResponse::validationError(['datasheets' => [$e->getMessage()]]);
         } catch (\RuntimeException $e) {
             Log::error('ComponentHelper createChatGptJob failed', ['message' => $e->getMessage()]);
@@ -108,6 +109,7 @@ class ComponentHelperController extends Controller
             'expires_at' => $expiresAt->toIso8601String(),
         ], 'ChatGPT解析ジョブを作成しました');
     }
+
     /**
      * 目的: 部品登録補助のdestroychatgptjobを処理する。
      * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
@@ -125,6 +127,7 @@ class ComponentHelperController extends Controller
 
         return ApiResponse::success(null, '一時PDFを破棄しました');
     }
+
     /**
      * 目的: 部品登録補助のdownloadtempデータシートを処理する。
      * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
@@ -148,6 +151,7 @@ class ComponentHelperController extends Controller
             abort(404, $e->getMessage());
         }
     }
+
     /**
      * 目的: 部品登録補助のanalyzeデータシートを処理する。
      * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
@@ -156,8 +160,12 @@ class ComponentHelperController extends Controller
      * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
      * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
      */
-    public function analyzeDatasheet(Request $request, GeminiService $gemini, SpecTypeMatchingService $matcher): JsonResponse
-    {
+    public function analyzeDatasheet(
+        Request $request,
+        GeminiService $gemini,
+        SpecTypeMatchingService $matcher,
+        DatasheetRecommendationDecorator $decorator
+    ): JsonResponse {
         // APIキー未設定チェック（DB or .env）
         if (! $gemini->isConfigured()) {
             return ApiResponse::error(
@@ -183,7 +191,7 @@ class ComponentHelperController extends Controller
 
             // spec_type とのマッチング
             $result['specs'] = $matcher->match($result['specs']);
-            $result = $this->appendCategorySpecRecommendations($result);
+            $result = $decorator->decorate($result);
 
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::validationError(['pdf' => [$e->getMessage()]]);
@@ -201,173 +209,5 @@ class ComponentHelperController extends Controller
         }
 
         return ApiResponse::success($result, '解析が完了しました');
-    }
-
-    /**
-     * 目的: 部品登録補助のappend分類スペックrecommendationsを処理する。
-     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
-     * 入力: $result。
-     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
-     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
-     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
-     * @param  array<string, mixed>  $result
-     * @return array<string, mixed>
-     */
-    private function appendCategorySpecRecommendations(array $result): array
-    {
-        $categoryCandidates = $this->resolveCategoryCandidates($this->extractCategoryNames($result));
-        $categoryIds = collect($categoryCandidates)
-            ->pluck('category_id')
-            ->filter()
-            ->map( fn ($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        $groups = $categoryIds->isEmpty()
-            ? collect()
-            : SpecGroup::query()
-                ->where('name', '!=', '共通')
-                ->whereIn('id', $categoryIds)
-                ->with([
-                    'specTypes' => fn ($query) => $query->with(['units', 'aliases']),
-                    'templates' => fn ($query) => $query->with(['items.specType.units', 'items.specType.aliases']),
-                ])
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get();
-
-        $groups->each(function (SpecGroup $group) {
-            $group->is_suggested = true;
-        });
-
-        $templates = $groups
-            ->flatMap(function (SpecGroup $group) {
-                return $group->templates->each(function ($template) {
-                    $template->is_suggested = true;
-                });
-            })
-            ->values();
-
-        $result['category_candidates'] = $categoryCandidates;
-        $result['recommended_spec_groups'] = $groups->values();
-        $result['template_candidates'] = $templates;
-        $result['recommended_group_ids'] = $groups->pluck('id')->values();
-        $result['recommended_template_ids'] = $templates->pluck('id')->values();
-
-        return $result;
-    }
-
-    /**
-     * 目的: 部品登録補助のextract分類名称を処理する。
-     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
-     * 入力: $result。
-     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
-     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
-     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
-     * @param  array<string, mixed>  $result
-     * @return array<int, string>
-     */
-    private function extractCategoryNames(array $result): array
-    {
-        $names = collect();
-
-        foreach (['component_types', 'category_names', 'categories'] as $key) {
-            $values = $result[$key] ?? [];
-            if (! is_array($values)) {
-                continue;
-            }
-
-            foreach ($values as $value) {
-                if (is_string($value)) {
-                    $names->push($value);
-                } elseif (is_array($value)) {
-                    $names->push($value['name'] ?? $value['category_name'] ?? '');
-                }
-            }
-        }
-
-        foreach (['component_type', 'category_name'] as $key) {
-            if (is_string($result[$key] ?? null)) {
-                $names->push($result[$key]);
-            }
-        }
-
-        return $names
-            ->map( fn ($value) => trim((string) $value))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * 目的: 部品登録補助の解決分類候補を処理する。
-     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
-     * 入力: $names。
-     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
-     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
-     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
-     * @param  array<int, string>  $names
-     * @return array<int, array<string, mixed>>
-     */
-    private function resolveCategoryCandidates(array $names): array
-    {
-        $categories = SpecGroup::query()
-            ->where('name', '!=', '共通')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
-
-        return collect($names)
-            ->map(function (string $name) use ($categories) {
-                $matched = $this->matchCategoryByName($name, $categories);
-
-                return [
-                    'name' => $name,
-                    'category_id' => $matched?->id,
-                    'category' => $matched,
-                    'matched' => (bool) $matched,
-                ];
-            })
-            ->values()
-            ->all();
-    }
-    /**
-     * 目的: 部品登録補助のmatch分類by名称を処理する。
-     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
-     * 入力: $name, $categories。
-     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
-     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
-     * 副作用: DB、ファイルストレージ、外部サービス、HTTPレスポンスのいずれかを操作する場合がある。
-     */
-    private function matchCategoryByName(string $name, $categories): ?SpecGroup
-    {
-        $normalized = $this->normalizeMatchText($name);
-        if ($normalized === '') {
-            return null;
-        }
-
-        $matched = $categories->first( fn (SpecGroup $category) => $this->normalizeMatchText($category->name) === $normalized);
-        if ($matched) {
-            return $matched;
-        }
-
-        return $categories->first(function (SpecGroup $category) use ($normalized) {
-            $categoryName = $this->normalizeMatchText($category->name);
-
-            return $categoryName !== '' && (str_contains($normalized, $categoryName) || str_contains($categoryName, $normalized));
-        });
-    }
-    /**
-     * 目的: 部品登録補助の正規化matchtextを処理する。
-     * 機能: HTTP入力を検証し、Eloquent操作またはサービス処理を行い、JSONレスポンスへ包む。
-     * 入力: $value。
-     * 出力: HTTP JSONレスポンス、ファイルレスポンス、またはnoContentレスポンス。
-     * 動作条件: 認証済みユーザー、権限、バリデーション済み入力を前提にする。
-     * 副作用: なし。
-     */
-    private function normalizeMatchText(?string $value): string
-    {
-        return mb_strtolower(preg_replace('/[\s()\[\]_.-]+/u', '', (string) $value) ?? '');
     }
 }

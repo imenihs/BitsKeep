@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ComponentController;
 use App\Http\Controllers\Api\ComponentHelperController;
 use App\Http\Controllers\Api\ComponentSeriesController;
 use App\Http\Controllers\Api\CsvImportController;
+use App\Http\Controllers\Api\DatasheetAnalysisController;
 use App\Http\Controllers\Api\IntegrationSettingsController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PackageController;
@@ -136,9 +137,16 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::put('settings/integrations/notion', [IntegrationSettingsController::class, 'updateNotion']);
     Route::get('settings/integrations/gemini', [IntegrationSettingsController::class, 'showGemini']);
     Route::put('settings/integrations/gemini', [IntegrationSettingsController::class, 'updateGemini']);
+    Route::get('settings/integrations/datasheet-engine', [IntegrationSettingsController::class, 'showDatasheetEngine']);
+    Route::put('settings/integrations/datasheet-engine', [IntegrationSettingsController::class, 'updateDatasheetEngine']);
     Route::post('component-helper/chatgpt-jobs', [ComponentHelperController::class, 'createChatGptJob']);
     Route::delete('component-helper/chatgpt-jobs/{token}', [ComponentHelperController::class, 'destroyChatGptJob']);
     Route::post('component-helper/analyze-datasheet', [ComponentHelperController::class, 'analyzeDatasheet']);
+
+    // ── データシート解析（サーバ側非同期実行） ──────────────
+    Route::post('datasheet-analyses', [DatasheetAnalysisController::class, 'store']);
+    Route::get('datasheet-analyses/{publicId}', [DatasheetAnalysisController::class, 'show']);
+    Route::delete('datasheet-analyses/{publicId}', [DatasheetAnalysisController::class, 'destroy']);
     Route::get('preferences/{key}', [PreferenceController::class, 'show']);
     Route::put('preferences/{key}', [PreferenceController::class, 'update']);
     Route::delete('preferences/{key}', [PreferenceController::class, 'destroy']);

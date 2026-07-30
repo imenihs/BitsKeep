@@ -14,6 +14,7 @@ export function useComponentCreateChatGpt(ctx) {
         showDatasheetManagerModal, buildHelperResult, hasHelperCandidates, releaseScrollLockIfNoModal,
         toastSuccess, toastError, logChatGptFlow, chatGptConfig, getChatGptRuntime, setChatGptRuntime,
         getAnalyzeDatasheet,
+        getServerAnalysisStart,
     } = ctx;
     const {
         CHATGPT_HELPER_MIN_VERSION, CHATGPT_WINDOW_NAME, BITSKEEP_WINDOW_NAME,
@@ -633,6 +634,11 @@ export function useComponentCreateChatGpt(ctx) {
             selectedName: selectedDatasheetFile.value?.name || '',
         });
         closeDatasheetManager();
+        // 主導線のサーバ側解析。解析対象を選び終えたらそのまま解析を開始する
+        if (action === 'server') {
+            await getServerAnalysisStart?.()?.();
+            return;
+        }
         if (action === 'gemini') {
             await getAnalyzeDatasheet()?.(true);
             return;

@@ -194,13 +194,15 @@
         <p class="mb-5 opacity-80">候補やテンプレート自体を整える場合は、スペック編集内のマスタ導線から、選択中の部品分類を引き継いで <strong>スペック詳細</strong>、<strong>スペック候補設定</strong>、<strong>共通スペック詳細</strong>、<strong>許容差スペック詳細</strong>、<strong>入力テンプレート</strong> を開けます。候補にない個別スペック詳細は、スペック追加カード下段の <strong>スペックを新規で追加</strong> から追加します。</p>
 
         <h3 class="font-semibold mb-3">データシート解析補助</h3>
-        <p class="mb-2 opacity-80">現状の部品登録では、データシートからの補助入力に次の 3 系統があります。</p>
+        <p class="mb-2 opacity-80">部品登録画面の主導線は <strong>データシートから自動入力</strong> の 1 本です。PDF を選んでこのボタンを押すと、解析結果のレビュー画面まで進みます。どこで解析するかは <strong>連携設定 &gt; 解析の実行方式</strong> で決める運用設定であり、利用者が解析ごとに選ぶ必要はありません。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
-          <li><strong>ChatGPTで自動入力</strong> — Tampermonkey userscript 経由で <code>PDF選択 → 一時アップロード → ChatGPT Web 解析 → レビュー</code> まで自動化します</li>
-          <li><strong>ChatGPTから貼り付け</strong> — ChatGPT で PDF を読ませた結果 JSON を貼り付けてレビューします</li>
-          <li><strong>Geminiで解析</strong> — 外部サービス利用を許容する環境だけの任意導線です</li>
+          <li><strong>データシートから自動入力</strong> — 主導線。サーバ側で解析し、完了したらレビュー画面を開きます</li>
+          <li><strong>解析結果を貼り付け</strong> — 解析結果 JSON を貼り付けてレビューする退避導線です</li>
         </ul>
-        <p class="mb-2 opacity-80">どちらの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・部品分類候補・入力テンプレート候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
+        <p class="mb-2 opacity-80">主導線の解析はサーバ側で動くため、<strong>部品登録画面を閉じてもブラウザを再読込しても解析は続きます</strong>。画面へ戻ると進行中の解析の続きを表示します。解析中は進行状態と <strong>中止する</strong> だけを表示します。</p>
+        <p class="mb-2 opacity-80">解析が失敗したときは、理由に応じた次の一手だけを出します。ログイン切れや実行環境の不備なら <strong>連携設定を開く</strong>、制限時間超過や利用枠の上限到達なら <strong>もう一度実行</strong>、文字もページ画像も取り出せないPDFなら <strong>貼り付けで入力</strong> を表示します。</p>
+        <p class="mb-2 opacity-80">旧方式の <strong>ChatGPTタブで解析</strong> と <strong>この画面で待つ解析</strong> は <strong>別の解析方法を使う（旧方式）</strong> の中に残しています。どちらも画面またはブラウザのタブを開いたままにする必要があるため、既定の導線からは外しています。</p>
+        <p class="mb-2 opacity-80">どの導線でも、解析後はいったんレビュー用モーダルが開きます。ここで基本情報・部品分類候補・入力テンプレート候補・パッケージ候補・スペック候補を確認し、必要なら修正してからフォームへ適用します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
           <li><strong>部品分類候補</strong> — データシートから読み取った複数候補を既存部品分類へ紐付けて選択</li>
           <li><strong>パッケージ候補</strong> — データシートから読み取った候補の中から、既存の <code>パッケージ分類 / パッケージ詳細</code> へ紐付けた 1 件を選択</li>
@@ -210,8 +212,9 @@
         <p class="mb-3 opacity-80"><strong>ChatGPTで自動入力</strong> は <strong>Tampermonkey</strong> userscript を前提に、<strong>PDF選択 → BitsKeepへ一時アップロード → ChatGPT Web 解析 → 結果レビュー → 保存</strong> を自動化します。自動化が失敗した場合は、その場で <strong>ChatGPTから貼り付け</strong> へ切り替えられます。</p>
         <p class="mb-3 opacity-80">Tampermonkey helper が未接続でも、部品登録画面を開いただけでは案内モーダルを自動表示しません。<strong>ChatGPTで自動入力</strong> などの解析操作を押した時だけ、導入・更新・手動貼り付けへの切替案内を表示します。</p>
         <ul class="list-disc list-inside space-y-1 mb-3 opacity-80">
-          <li>一時PDFは署名付き URL で ChatGPT タブへ渡されます</li>
+          <li>一時PDFは旧方式の ChatGPT タブへ署名付き URL で渡されます</li>
           <li>一時PDFの有効期限は 2 時間です</li>
+          <li>サーバ内解析では、PDFから取り出した文字やページ画像は解析ごとの作業領域へ置き、成否によらず終了時に削除します</li>
           <li>保存成功後は正式なデータシートとして登録され、一時リンクは再利用できません</li>
           <li>JSON 抽出失敗時は、取得済み応答テキストをコピーして手動貼り付けへ退避できます</li>
         </ul>

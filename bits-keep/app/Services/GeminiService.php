@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Datasheet\DatasheetResultNormalizer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -30,6 +31,7 @@ class GeminiService
 
     // PDF最大サイズ: 15MB
     private const MAX_PDF_BYTES = 15 * 1024 * 1024;
+
     /**
      * 目的: Geminiサービスの依存オブジェクトを受け取り、後続処理で使える状態にする。
      * 機能: 呼び出し元から受けた値を検証または整形し、対象処理へ渡す。
@@ -41,6 +43,7 @@ class GeminiService
     public function __construct(
         private AppSettingService $settings,
         private DatasheetPromptService $promptService,
+        private DatasheetResultNormalizer $normalizer,
     ) {}
 
     /**
@@ -58,6 +61,7 @@ class GeminiService
 
         return $fromDb ?: $fromEnv ?: null;
     }
+
     /**
      * 目的: Geminiのisconfiguredを担う。
      * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
@@ -78,6 +82,7 @@ class GeminiService
      * 出力: stringで表される値。
      * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
      * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     *
      * @param  string  $localPath  サーバ上のPDF絶対パス
      * @return string fileUri（generateContent の parts.fileData.fileUri に使う）
      */
@@ -150,6 +155,7 @@ class GeminiService
      * 出力: arrayで表される値。
      * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
      * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
+     *
      * @param  string  $fileUri  uploadFile() が返した URI
      * @return array{
      */
@@ -233,155 +239,22 @@ class GeminiService
     }
 
     /**
-     * 目的: Geminiの正規化resultを担う。
-     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
-     * 入力: $raw。
-     * 出力: arrayで表される値。
-     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
+     * 目的: Gemini が返した生JSONを正規化済み解析結果へ変換する。
+     * 機能: 共通の正規化処理へ委譲する。
+     * 入力: $raw は Gemini の応答をデコードした配列。
+     * 出力: 正規化済み解析結果。
+     * 動作条件: $raw がデコード済みの配列であること。
      * 副作用: なし。
+     *
+     * @param  array<string, mixed>  $raw
+     * @return array<string, mixed>
      */
     private function normalizeResult(array $raw): array
     {
-        $specs = [];
-        foreach ($raw['specs'] ?? [] as $item) {
-            if (empty($item['name']) && empty($item['name_ja']) && empty($item['name_en']) && empty($item['symbol'])) {
-                continue;
-            }
-            $profile = $this->normalizeProfile((string) ($item['value_profile'] ?? $item['profile'] ?? $item['value_mode'] ?? ''));
-            $valueTyp = trim((string) ($item['value_typ'] ?? $item['typ'] ?? ''));
-            $valueMin = trim((string) ($item['value_min'] ?? $item['min'] ?? ''));
-            $valueMax = trim((string) ($item['value_max'] ?? $item['max'] ?? ''));
-            $value = trim((string) ($item['value'] ?? ''));
-
-            if ($profile === 'typ' && $valueTyp === '') {
-                $valueTyp = $value;
-            } elseif ($profile === 'range' && ($valueMin === '' || $valueMax === '')) {
-                [$valueMin, $valueMax] = $this->splitRangeFallback($value, $valueMin, $valueMax);
-            } elseif ($profile === 'max_only' && $valueMax === '') {
-                $valueMax = $value;
-            } elseif ($profile === 'min_only' && $valueMin === '') {
-                $valueMin = $value;
-            } elseif ($profile === 'triple' && ($valueMin === '' || $valueTyp === '' || $valueMax === '')) {
-                [$valueMin, $valueTyp, $valueMax] = $this->splitTripleFallback($value, $valueMin, $valueTyp, $valueMax);
-            }
-
-            $specs[] = [
-                'name' => (string) ($item['name'] ?? $item['name_ja'] ?? ''),
-                'name_ja' => (string) ($item['name_ja'] ?? $item['name'] ?? ''),
-                'name_en' => (string) ($item['name_en'] ?? ''),
-                'symbol' => (string) ($item['symbol'] ?? ''),
-                'value_profile' => $profile,
-                'value' => $value,
-                'value_typ' => $valueTyp,
-                'value_min' => $valueMin,
-                'value_max' => $valueMax,
-                'unit' => (string) ($item['unit'] ?? ''),
-            ];
-        }
-
-        $componentTypes = collect($raw['component_types'] ?? [])
-            ->when(empty($raw['component_types']) && ! empty($raw['component_type']), function ($collection) use ($raw) {
-                return $collection->push($raw['component_type']);
-            })
-            ->map( fn ($item) => trim((string) $item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $packageNames = collect($raw['package_names'] ?? [])
-            ->when(empty($raw['package_names']) && ! empty($raw['package_name']), function ($collection) use ($raw) {
-                return $collection->push($raw['package_name']);
-            })
-            ->map( fn ($item) => trim((string) $item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        return [
-            'part_number' => ! empty($raw['part_number']) ? trim((string) $raw['part_number']) : null,
-            'manufacturer' => ! empty($raw['manufacturer']) ? trim((string) $raw['manufacturer']) : null,
-            'common_name' => ! empty($raw['common_name']) ? trim((string) $raw['common_name']) : null,
-            'component_types' => $componentTypes,
-            'package_names' => $packageNames,
-            'description' => ! empty($raw['description']) ? trim((string) $raw['description']) : null,
-            'specs' => $specs,
-        ];
-    }
-    /**
-     * 目的: Geminiの正規化profileを担う。
-     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
-     * 入力: $profile。
-     * 出力: stringで表される値。
-     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
-     * 副作用: なし。
-     */
-    private function normalizeProfile(string $profile): string
-    {
-        $normalized = strtolower(trim($profile));
-
-        return match ($normalized) {
-            'range' => 'range',
-            'max', 'max_only' => 'max_only',
-            'min', 'min_only' => 'min_only',
-            'triple' => 'triple',
-            default => 'typ',
-        };
+        // 正規化は解析エンジン間で同一でなければならないため、共通処理へ寄せる
+        return $this->normalizer->normalize($raw);
     }
 
-    /**
-     * 目的: Geminiのsplitrangefallbackを担う。
-     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
-     * 入力: $value, $currentMin, $currentMax。
-     * 出力: arrayで表される値。
-     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
-     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
-     * @return array{0: string, 1: string}
-     */
-    private function splitRangeFallback(string $value, string $currentMin, string $currentMax): array
-    {
-        if ($value === '') {
-            return [$currentMin, $currentMax];
-        }
-
-        $parts = preg_split('/\s*(?:〜|~|～|to)\s*/iu', $value, 2) ?: [];
-        if (count($parts) !== 2) {
-            return [$currentMin, $currentMax];
-        }
-
-        return [
-            $currentMin !== '' ? $currentMin : trim($parts[0]),
-            $currentMax !== '' ? $currentMax : trim($parts[1]),
-        ];
-    }
-
-    /**
-     * 目的: Geminiのsplittriplefallbackを担う。
-     * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。
-     * 入力: $value, $currentMin, $currentTyp, $currentMax。
-     * 出力: arrayで表される値。
-     * 動作条件: 呼び出し元が必要な依存オブジェクトと正規化前の入力値を渡すこと。
-     * 副作用: DB、外部API、ファイル、ログのいずれかを操作する場合がある。
-     * @return array{0: string, 1: string, 2: string}
-     */
-    private function splitTripleFallback(string $value, string $currentMin, string $currentTyp, string $currentMax): array
-    {
-        if ($value === '') {
-            return [$currentMin, $currentTyp, $currentMax];
-        }
-
-        $parts = preg_split('/\s*(?:\/|／|\|)\s*/u', $value, 3) ?: [];
-        if (count($parts) !== 3) {
-            return [$currentMin, $currentTyp, $currentMax];
-        }
-
-        return [
-            $currentMin !== '' ? $currentMin : trim($parts[0]),
-            $currentTyp !== '' ? $currentTyp : trim($parts[1]),
-            $currentMax !== '' ? $currentMax : trim($parts[2]),
-        ];
-    }
     /**
      * 目的: Geminiの生成geminierrormessageを担う。
      * 機能: ドメイン入力を正規化し、外部API、DB、計算処理のいずれかへ橋渡しする。

@@ -421,6 +421,10 @@ export default function setup() {
         canStartChatGptAutoFill, showChatGptRunHint, chatGptJob, clearChatGptTempDatasheets,
         resetChatGptJobState,
         initializeChatGptBridge, cleanupChatGptBridge,
+        startServerAnalysis, isServerAnalyzing, serverAnalysisProgressLabel, serverAnalysisState,
+        serverAnalysisFailureMessage, serverAnalysisRetryable, serverAnalysisNeedsSetup,
+        serverAnalysisSuggestPaste, cancelServerAnalysis, resumeServerAnalysis,
+        dismissServerAnalysisFailure,
     } = ai;
 
     /**
@@ -663,6 +667,8 @@ export default function setup() {
         });
 
         initializeChatGptBridge();
+        // 解析はサーバ側で続いているため、リロードや画面復帰でも進行中の解析へ戻す
+        await resumeServerAnalysis();
     });
 
     onBeforeUnmount(() => {
@@ -789,6 +795,9 @@ export default function setup() {
         copyChatGptFallbackText,
         hardResetChatGptJob,
         chatGptStatusChips, chatGptStepStates, canStartChatGptAutoFill, showChatGptRunHint, chatGptJob,
+        startServerAnalysis, isServerAnalyzing, serverAnalysisProgressLabel, serverAnalysisState,
+        serverAnalysisFailureMessage, serverAnalysisRetryable, serverAnalysisNeedsSetup,
+        serverAnalysisSuggestPaste, cancelServerAnalysis, dismissServerAnalysisFailure,
         submit, duplicateFromId,
         renderSymbol,
     };

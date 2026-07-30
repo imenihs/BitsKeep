@@ -188,9 +188,59 @@ export default function setup() {
         finally { geminiDeleting.value = false; }
     };
 
+    // ── データシート解析の実行方式 ──────────────────────────
+    // 解析方式は運用設定であり、利用者が部品登録画面で毎回選ぶものではない。
+    // ここで1つ決め、部品登録画面の入口は1本に保つ
+    const datasheetEngine = ref({ active: '', active_label: '', available: false, message: null, options: [] });
+    const datasheetEngineSaving = ref(false);
+    const datasheetEngineMessage = ref('');
+    const datasheetEngineError = ref('');
+
+    /**
+     * 目的: データシート解析の実行方式と利用可否を取得する。
+     * 機能: 設定APIから現在の方式、選択肢、利用できない場合の理由を読む。
+     * 入力: なし。
+     * 出力: なし。
+     * 動作条件: 認証済みで画面が初期化済みであること。
+     * 副作用: HTTP通信と画面状態を更新する。
+     */
+    const fetchDatasheetEngine = async () => {
+        try {
+            const r = await api.get('/settings/integrations/datasheet-engine');
+            datasheetEngine.value = r.data?.data ?? r.data ?? datasheetEngine.value;
+        } catch (e) {
+            // 取得できないと現在の方式が分からず判断できないため、ここは理由を出す
+            datasheetEngineError.value = e.message ?? '解析方式の状態を取得できませんでした。';
+        }
+    };
+
+    /**
+     * 目的: データシート解析の実行方式を変更する。
+     * 機能: 選択された方式を保存し、保存後の利用可否を反映する。
+     * 入力: $key は方式の識別子。
+     * 出力: なし。
+     * 動作条件: 編集者以上の権限を持つこと。
+     * 副作用: HTTP通信と画面状態を更新する。
+     */
+    const saveDatasheetEngine = async (key) => {
+        if (!canEdit) { datasheetEngineError.value = '編集者以上の権限が必要です。'; return; }
+        if (!key || key === datasheetEngine.value.active) return;
+
+        datasheetEngineSaving.value = true;
+        datasheetEngineMessage.value = '';
+        datasheetEngineError.value = '';
+        try {
+            const r = await api.put('/settings/integrations/datasheet-engine', { engine: key });
+            datasheetEngine.value = r.data?.data ?? r.data ?? datasheetEngine.value;
+            datasheetEngineMessage.value = r.message || '解析方式を保存しました';
+        } catch (e) { datasheetEngineError.value = e.message; }
+        finally { datasheetEngineSaving.value = false; }
+    };
+
     onMounted(() => {
         fetchStatus();
         fetchGeminiStatus();
+        fetchDatasheetEngine();
     });
 
     watch(form, (value) => {
@@ -224,5 +274,11 @@ export default function setup() {
         geminiError,
         saveGemini,
         clearGeminiKey,
+        datasheetEngine,
+        datasheetEngineSaving,
+        datasheetEngineMessage,
+        datasheetEngineError,
+        saveDatasheetEngine,
+        fetchDatasheetEngine,
     };
 }

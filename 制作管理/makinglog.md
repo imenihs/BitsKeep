@@ -8249,3 +8249,50 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 未確定として残した点: 本番サーバの Codex CLI・PDF変換ツール・ログイン可否・キュー常駐の4点は実機確認待ち。解析状態テーブルの追加は DB 変更に該当するため4点確認を前提とした。
 - DB変更: なし。ドキュメント追記のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
 - 大尉の心の声: 併存させること自体は妥当だが、それを画面にそのまま出すと入口が3つ並んで最悪の UI になる。併存は内部の話に閉じ込め、利用者が触る導線は1本に保った。
+
+### [ユーザ] 2026-07-30 13:00 JST
+- 指示: push 許可、DB 追加許可、ドラフト移行許可。
+- ユーザの心の声: 方式は決まったので実装まで進めてよい。DBのテーブル追加も認める。
+
+### [曹長(コード分隊)] 2026-07-30 13:13 JST
+- 着手前確認: 本セッションの実行環境は本番機ではないことを確認した。`/etc/apache2/sites-enabled/` なし、PostgreSQL 応答なし、`codex` `pdftotext` `pdftoppm` いずれも不在、`.env` 不在。よって本番DBへ触れる余地はない。
+- DB変更: ローカル検証用 SQLite（`database/database.sqlite`）に対してのみ `migrate` を実行した。
+  - 接続先確認: `.env` を `DB_CONNECTION=sqlite`、`DB_DATABASE=/home/user/BitsKeep/bits-keep/database/database.sqlite` に設定。本番 PostgreSQL へは未接続。
+  - 件数確認: 新規作成した空 SQLite であり、既存レコード 0 件。
+  - バックアップ確認: 対象は本セッションで生成した検証用 SQLite のみ。保全対象データなし。
+  - 復元手段確認: ファイル削除と `migrate` 再実行で再生成可能。
+  - 本番 PostgreSQL に対する `migrate --force` `db:wipe` `migrate:fresh` `truncate` `drop` は一切実行していない。
+- 追加テーブル: `datasheet_analyses`（新規追加のみ。既存テーブルへの破壊的変更なし）。本番適用は未実施であり、適用時は改めて4点確認を記録する。
+- 実装: 解析状態テーブルとモデル、解析エンジン差し替え口（`DatasheetAnalyzer`）、Codex 実行部、PDF 前処理、結果正規化と分類推薦の共通化、キュージョブ、解析登録／状態取得／破棄 API、連携設定の解析方式 API、部品登録画面の導線1本化、連携設定 UI を追加した。
+- 重複定義の解消: `GeminiService` の正規化処理を `DatasheetResultNormalizer` へ、`ComponentHelperController` の分類推薦処理を `DatasheetRecommendationDecorator` へ抽出し、同期解析とキュー解析が同一処理を通るようにした。
+- Codex 実行時の隔離: 作業根を解析専用ディレクトリへ固定、読み取り専用サンドボックス、利用者設定とルールの読み込み無効、解析履歴の非永続化、スキーマ強制。作業ディレクトリがアプリ配下に設定されている場合は解析せず環境不備として失敗させる。
+- 実装中に潰した危険箇所2件:
+  - `--image` は複数値を取るため、解析指示を位置引数へ置くと指示文が画像パスとして取り込まれる。解析指示は標準入力から渡す方式へ変更した。
+  - 実行前の前提確認で、実行ファイル不在と権限不足を「未ログイン」と誤分類していた。管理者対処と利用者対処を分けるため、環境不備と未ログインを別種別へ切り分けた。
+- DB変更: 上記のとおり検証用 SQLite のみ。本番 DB へは未接続、未変更。
+- 曹長(コード分隊)の心の声: 応答本文からJSONを掘り出す処理を丸ごと捨てられたのが一番大きい。あれが不具合の温床だった。ただしサーバ前提が未整備のままでは動かないので、そこは正直に未完了として残す。
+
+### [曹長(テスト分隊)] 2026-07-30 13:13 JST
+- 対応: サーバ側解析経路の Feature テストを追加し、既存テストへの影響を基準比較で確認した。
+- ✓ `php artisan test --filter=DatasheetAnalysisTest` 10 passed (43 assertions)
+  - ✓ 解析登録がジョブを積み、登録時点では結果を返さない
+  - ✓ 期限切れ・存在しない一時PDFではジョブを積まない
+  - ✓ 利用できないエンジンでは登録時点で 403 を返し、ジョブを積まない
+  - ✓ ジョブ実行で結果が保存され、スペック詳細照合と分類推薦を通して取得できる
+  - ✓ 未ログイン失敗が失敗種別付きで記録され、再実行を勧めない
+  - ✓ 他利用者の解析IDでは 404 を返す
+  - ✓ 未完了解析の破棄で状態が閉じる
+  - ✓ 解析方式設定の取得・変更・不正値拒否
+  - ✓ 部品登録画面に主導線1本が出て、解析エンジン名を冠した旧ボタン名が残っていない
+  - ✓ 連携設定に解析方式の選択が出る
+- ✓ `php artisan test` 全体 112 passed / 1 failed
+- ✗ `Tests\Feature\ComponentDetailRouteSmokeTest::specs route accepts tolerance value and returns master order`
+  - 基準比較: 本変更を stash した状態でも同一に失敗（1 failed / 3 passed）。本変更に起因しない既存の失敗である。
+  - 再現手順: `git stash push --include-untracked -- app config routes tests database/migrations resources` の後 `php artisan test --filter=ComponentDetailRouteSmokeTest` を実行しても同じ失敗が出る。
+- 補足: 初回の全体実行では 15 failed だったが、そのうち 14 件はフロントエンド未ビルドによる Vite manifest 不在が原因であり、`npm run build` 後に解消した。
+- ✓ `php -l` 新規・変更 PHP ファイル全件、`node --check` 新規・変更 JS 全件
+- ✓ `npm run build` 成功、`public/hot` なし
+- ✓ `vendor/bin/pint` 実行。ただしリポジトリ全体 179 ファイルへ一括整形が及んだため、本変更に無関係な 161 ファイルの整形は `git checkout` で戻し、差分を本変更の範囲へ限定した
+- 未実施: Codex CLI 実行の実機E2E、外部アクセス確認、ブラウザ実機確認。いずれも本セッション環境に Codex CLI・poppler-utils・Apache・本番DBが存在しないため実行不能。本番機での確認が必要。
+- DB変更: なし。テスト実行はインメモリ SQLite（phpunit.xml 設定）で行った。
+- 曹長(テスト分隊)の心の声: pint がリポジトリ全体を書き換えたのは危なかった。あのまま出せばレビュー不能な差分になっていた。既存失敗を自分の失敗と混ぜないよう基準比較を取ったのも同じ理由で、切り分けを省くと後で必ず揉める。
