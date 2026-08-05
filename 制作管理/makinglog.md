@@ -8403,3 +8403,69 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
   - 判定: ✓ ワーカーはキューからジョブを取得し、実ジョブクラスを解決・実行できる。
 - 補足（誤検知の記録）: 最初にクロージャを `Queue::pushOn` で投入した試験は `failed_jobs` に1件入ったが、原因は `SerializableClosure` の復元失敗（`bindTo() on null`）であり、ワーカーの不具合ではなくテスト手法の問題。実ジョブクラスでの再試験で正常動作を確認した。試験残骸は `queue:flush` で除去済み。
 - 曹長(コード分隊)の心の声: 常駐している状態と、ジョブを処理できる状態は別物。実ジョブクラスまで通して初めて動くと言える。最初の失敗を「ワーカーが壊れている」と早合点しなくてよかった。
+
+### [曹長(コード分隊)] 2026-08-06 01:15 JST
+- 実施: チェックリスト項目4「サーバ上でのログイン」。www-data として専用 CODEX_HOME でログインした。
+- 手順の変更（重要）: チェックリストと引き継ぎ書が指定していた `codex login --device-auth` は、導入済みの codex-cli 0.128.0 では**利用できない**。`codex login --help` に `--device-auth` の記載がなく、提供されるのは `--with-api-key` / `--with-agent-identity` / `--enable` / `--disable` / `-c` のみ。CLI 自身は「On a remote or headless machine? Use `codex login --device-auth` instead.」と案内するが、実装が伴っていない（案内文と実装の不一致）。
+- 代替方式: ローカル OAuth（`localhost:1455`）＋ SSH ポートフォワード方式を採用した。ユーザ判断により API キー方式（`--with-api-key`）は今後一切採用しない。
+- 実行コマンド: `sudo -u www-data env HOME=/var/lib/bitskeep-codex CODEX_HOME=/var/lib/bitskeep-codex /usr/local/bin/codex login`
+- ユーザ操作: 手元 PC から `ssh -p 10022 -L 1455:localhost:1455` でフォワードを張り、表示された認証 URL を手元ブラウザで承認。
+- 結果（実測）:
+  - `Successfully logged in`
+  - `/var/lib/bitskeep-codex/auth.json` 生成（4230 バイト、`www-data:www-data`、`600`）
+  - www-data 実行の `checkAvailability()` = `{"available":true,"binary_found":true,"home_writable":true,"authenticated":true}`
+- 判定: ✓ 認証完了。項目1〜6がすべて完了し、解析実行の前提が揃った。
+- 補足（測定誤りの記録）: 認証前、AkiraShimizu ユーザで `php artisan tinker` から `checkAvailability()` を呼んだ際に誤って `authenticated: true` が返った。実際には `auth.json` は存在せず `codex login status` も `Not logged in` であった。本番実行ユーザ www-data で測り直すと正しく `authenticated: false` を返したため、アプリ側の不具合ではなく測定方法の誤り。以後、可否判定は必ず www-data で測る。
+- 曹長(コード分隊)の心の声: 引き継ぎ書どおりのコマンドが通らないとき、通らないまま報告せず代替経路を確かめたのが正解だった。判定を自分のユーザで測って一度誤ったのは反省点で、実行ユーザを揃えることの重要さを実感した。
+
+### [曹長(テスト分隊)] 2026-08-06 01:27 JST
+- 対象: チェックリスト項目7「実データシートで実測する」。`codex exec` の実行実績0件の状態から、実 PDF での実測を行った。
+
+**環境不備の発見と修正（実測の前提）**
+- 初回実測（analysis id=1）は `state=succeeded` だが `specs=0` で、`description` に「datasheet.txt を読み取れなかった」とだけ入る空結果となった。
+- 原因調査: `codex exec --sandbox read-only` を www-data で手動実行し、`failed to open synthetic bubblewrap mount registry lock /tmp/codex-bwrap-synthetic-mount-targets/lock: Permission denied` を得た。
+- 根本原因: Codex は `/tmp/codex-bwrap-synthetic-mount-targets/` という**固定パス**に bubblewrap 用の共有ロックを作る。当該ディレクトリは 2026-05-02 に AkiraShimizu ユーザが作成した `755` であり、www-data から書き込めずサンドボックス初期化に失敗していた。アプリ実装・サーバ構成に不備はない。
+- 対処: `/tmp` の共有ディレクトリ慣例に従い `chmod 1777`（sticky bit 付き）、lock を `chmod 666`。中身は 0 バイトのロックのみでデータ喪失なし。保持プロセスなしを `fuser` で確認済み。
+- 修正後、www-data での `codex exec` がファイルを読めることを実測確認した。
+- **運用上の注意**: `/tmp` 配下のため OS 再起動で消える。再作成時は作成者所有の 755 に戻る可能性があり、その場合サーバ内解析が再び空結果になる。恒久対処は別途検討が必要（項目として残す）。
+
+**実測結果（権限修正後）**
+
+| id | 対象 | mode | pages | 所要 | specs | 型番 | メーカー |
+|---|---|---|---|---|---|---|---|
+| 2 | 2SC2120-GR_NPN.pdf (実体は2SC1213) | text | - | 58s | 20 | 2SC1213 | 株式会社ルネサス テクノロジ |
+| 3 | 1N4007_1N4007.pdf | image | 1 | 18s | 0 | - | - |
+| 4 | 2SC945_NPN_02.pdf | text | - | 62s | 23 | 2SC945 | NECエレクトロニクス株式会社 |
+| 5 | 2SC2120-GR_NPN_01.pdf | text | - | 66s | 22 | 2SC1815 | 東芝 |
+| 6 | scan_2SC945.pdf（2SC945を150dpi画像化した3ページ） | image | 3 | 61s | 26 | 2SC945 | NEC Electronics Corporation |
+
+- id=3 の specs=0 は解析失敗ではない。当該PDFの中身は LTspice のショートカット一覧であり（DB 上の original_name も `lt.pdf`）、データシートではなかった。Codex は「データシートではない」と正しく判定して返しており、誤情報を捏造しなかった点はむしろ妥当な挙動。テスト題材の選定ミスであった。
+- 画像モードの妥当性検証は id=6 で別途実施。同一データシート(2SC945)の text(id=4, 23件) と image(id=6, 26件) を比較し、型番・メーカーとも正しく読み取れ、所要時間もほぼ同等（62s vs 61s）であることを確認した。
+
+**設定値の妥当性判定**
+- `DATASHEET_ANALYSIS_TIMEOUT`（既定300秒）: 実測 18〜66秒。上限に対し十分な余裕があり、**変更不要**。
+- `DATASHEET_PDF_TEXT_THRESHOLD`（既定800文字）: テキスト層あり（6,493〜10,847文字）は text、なし（0文字）は image と、いずれも想定どおり分岐した。**変更不要**。
+- `DATASHEET_PDF_IMAGE_DPI`（既定150）: 150dpi の画像から型番・メーカー・26件のスペックを読み取れた。**変更不要**。
+- `DATASHEET_PDF_MAX_IMAGE_PAGES`（既定12）: 実測は最大3ページで上限に達していない。12ページ級での消費量は未測定であり、**判定保留**。
+- 利用枠の消費量: Codex CLI 側に実行ごとの消費量を返す仕組みがなく、手動実行時の `tokens used` 表示（13,219〜13,706）以外に定量把握の手段がない。**未測定項目として残す**。
+
+**発見した既存不具合（本件の範囲外・要判断）**
+- 事象: analysis id=2 で、電圧項目20件中8件が `spec_type_name="容量"` に誤マッチした（正しくは「電圧」）。id=4/5/6 では発生しない。
+- 原因: `SpecTypeMatchingService::matchOne()` の 69 行目が `str_contains` による部分一致を行っており、`spec_types` の「容量」の symbol が 1 文字の `C` であるため、型番「2SC1213」に含まれる `C` に部分一致して先に確定する（78行目 `break 2`）。
+- 再現確認（実測）: 同一の電圧項目で `name` の違いのみで結果が変わることを直接確認した。
+  - `name="コレクタ・ベース電圧 2SC1213"` → `容量`（誤）
+  - `name="コレクタ・ベース間電圧"` → `電圧`（正）
+- 影響範囲: `SpecTypeMatchingService` は全エンジン共通の後段処理であるため、Codex 方式に限らず ChatGPT 方式・Gemini 方式にも同じ影響が出る。1品種のみのデータシートでは型番が名前に入らないため顕在化しにくく、複数品種併記のデータシートで出やすい。
+- 判定: **本件（サーバ内解析の本番投入）の範囲外**。既存ロジックの欠陥であり、修正は影響範囲が広いためユーザー判断を仰ぐ。今回は事実の記録のみとし、コードは変更していない。
+- 曹長(テスト分隊)の心の声: 最初の空結果を「解析成功」と報告せずに中身を開いたのが分かれ目だった。state だけ見ていたら環境不備を見逃していた。id=3 の 0 件も、PDF の中身を確かめずに「画像モードが使えない」と結論づけていたら誤った報告になっていた。
+
+### [曹長(コード分隊)] 2026-08-06 01:30 JST
+- 実施: `/tmp/codex-bwrap-synthetic-mount-targets` の権限を恒久化した。
+- 背景: 当該ディレクトリは `/tmp` 配下にあり、`/usr/lib/tmpfiles.d/tmp.conf` の `D /tmp 1777 root root -` により**起動時に中身が消える**。手動の chmod だけでは再起動後に問題が再発し、しかも解析は `succeeded` のまま中身だけ空になるため気づきにくい。
+- 対処: `/etc/tmpfiles.d/bitskeep-codex.conf` を追加し、`d /tmp/codex-bwrap-synthetic-mount-targets 1777 root root -` を定義した。起動のたびに root 所有・sticky bit 付き 1777 で作成され、どの実行ユーザからも書き込める。
+- 検証（実測）:
+  - ディレクトリを `rm -rf` した後 `systemd-tmpfiles --create` を実行 → `owner=root:root mode=1777` で再作成された。
+  - www-data からの書き込み可否 → WRITABLE。
+  - 再作成後に解析を1件実行（id=7, 2SC945, text, 59秒, 22件, 型番 2SC945 抽出）→ ✓ 正常動作。
+- 判定: ✓ 再起動後も自動で正しい権限が復元される。
+- 曹長(コード分隊)の心の声: chmod で直った時点で終わりにしたら、次の再起動で静かに壊れていた。しかも症状が「成功したのに空」なので、原因に辿り着くのに今回と同じ手間がかかる。塞いでおくべき穴だった。
