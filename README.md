@@ -845,8 +845,8 @@ ADC、寿命、誤差、NTC/PTC温度変換、電流検出、IF、電源、比�
 ### 初期構築手順
 
 ```bash
-git clone <repo> /web/documents/BitsKeep
-cd /web/documents/BitsKeep/bits-keep
+git clone <repo> /web/BitsKeep
+cd /web/BitsKeep/bits-keep
 
 composer install --no-dev
 npm ci && npm run build
@@ -896,7 +896,7 @@ zcat /tmp/bitskeep_YYYYMMDD.sql.gz \
 
 # ファイル（画像・データシート）取得
 tar -czf /tmp/bitskeep_files_$(date +%Y%m%d).tar.gz \
-  /web/documents/BitsKeep/bits-keep/storage/app/public/
+  /web/BitsKeep/bits-keep/storage/app/public/
 
 # ファイル復元
 tar -xzf /tmp/bitskeep_files_YYYYMMDD.tar.gz -C /

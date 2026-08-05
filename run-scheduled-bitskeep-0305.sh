@@ -4,7 +4,7 @@ set -euo pipefail
 # 目的: 2026-04-29 03:05 の一回限りCodex自動実行をログ付きで起動する。
 # 入力: 固定プロンプトファイルとcron環境。出力: scheduled_logs 配下の実行ログと最終応答。
 # 動作条件: codex CLI と crontab が利用できること。副作用: 一回限りcronエントリを削除する。
-WORKDIR="/web/documents/BitsKeep"
+WORKDIR="/web/BitsKeep"
 PROMPT_FILE="$WORKDIR/scheduled-bitskeep-0305-prompt.md"
 LOG_DIR="$WORKDIR/制作管理/scheduled_logs"
 STAMP="$(date '+%Y%m%d_%H%M%S')"
