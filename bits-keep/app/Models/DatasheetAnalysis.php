@@ -27,6 +27,14 @@ class DatasheetAnalysis extends Model
     // 失敗: failure_kind と failure_message に理由を持つ
     public const STATE_FAILED = 'failed';
 
+    /*
+    | 中止: 利用者が自分の意思で止めた状態。
+    | 失敗とは分けて扱う。利用者の操作どおりに終わっただけであり、
+    | 「解析に失敗しました」と伝えるのは事実と異なるうえ、
+    | 自分の操作を不具合と誤解させる。
+    */
+    public const STATE_CANCELED = 'canceled';
+
     // 未ログインまたはトークン失効。連携設定へ誘導する
     public const FAILURE_NOT_AUTHENTICATED = 'not_authenticated';
 
@@ -85,7 +93,7 @@ class DatasheetAnalysis extends Model
 
     /**
      * 目的: 解析が終了済みかどうかを判定する。
-     * 機能: state を完了・失敗と比較する。
+     * 機能: state を完了・失敗・中止と比較する。
      * 入力: なし。
      * 出力: 終了済みなら true。
      * 動作条件: state が設定済みであること。
@@ -93,8 +101,8 @@ class DatasheetAnalysis extends Model
      */
     public function isFinished(): bool
     {
-        // 完了と失敗のどちらもワーカー側の処理は終わっており、画面はポーリングを止めてよい
-        return in_array($this->state, [self::STATE_SUCCEEDED, self::STATE_FAILED], true);
+        // 完了・失敗・中止のいずれもワーカー側の処理は終わっており、画面はポーリングを止めてよい
+        return in_array($this->state, [self::STATE_SUCCEEDED, self::STATE_FAILED, self::STATE_CANCELED], true);
     }
 
     /**
@@ -107,6 +115,11 @@ class DatasheetAnalysis extends Model
      */
     public function isRetryable(): bool
     {
+        // 中止は利用者の操作なので、同じPDFをそのまま解析し直せる
+        if ($this->state === self::STATE_CANCELED) {
+            return true;
+        }
+
         // 上限超過と一時的な失敗は時間を置けば通る。未ログインや解析不能PDFは再実行しても同じ結果になる
         return in_array($this->failure_kind, [
             self::FAILURE_TIMEOUT,

@@ -36,7 +36,7 @@ export function useServerDatasheetAnalysis(ctx) {
 
     // 進行中の解析ID。null なら解析していない
     const analysisId = ref('');
-    // 直近に取得した進行状態。queued / preparing / running / succeeded / failed
+    // 直近に取得した進行状態。queued / preparing / running / succeeded / failed / canceled
     const analysisState = ref('');
     // 失敗時の利用者向け文面
     const failureMessage = ref('');
@@ -176,6 +176,21 @@ export function useServerDatasheetAnalysis(ctx) {
         if (payload.state === 'succeeded') {
             stopPolling();
             acceptResult(payload.result ?? {});
+            return;
+        }
+
+        // 中止は利用者の操作どおりの結果なので、失敗の文言や理由は出さない。
+        // 同じPDFですぐやり直せるよう、再実行導線だけを残す
+        if (payload.state === 'canceled') {
+            stopPolling();
+            failureMessage.value = '';
+            failureKind.value = '';
+            retryable.value = Boolean(payload.retryable);
+            try {
+                window.localStorage.removeItem(STORAGE_KEY);
+            } catch {
+                // 保存の後始末に失敗しても、中止の扱いそのものには影響しない
+            }
             return;
         }
 

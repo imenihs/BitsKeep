@@ -219,14 +219,14 @@ class DatasheetAnalysisTest extends TestCase
     }
 
     /**
-     * 目的: 解析の中止で未完了状態が閉じられることを検証する。
-     * 機能: 破棄APIが状態を失敗へ倒し、画面のポーリングを終わらせられることを確認する。
+     * 目的: 解析の中止が失敗ではなく中止として記録されることを検証する。
+     * 機能: 破棄APIが状態を中止へ倒し、失敗理由を残さず、再実行を勧められることを確認する。
      * 入力: なし。
      * 出力: 検証結果をPHPUnitアサーションへ渡す。
      * 動作条件: RefreshDatabase で実行されること。
      * 副作用: テストDBを利用する。
      */
-    public function test_destroy_closes_pending_analysis(): void
+    public function test_destroy_records_cancellation_not_failure(): void
     {
         $user = $this->editor();
 
@@ -241,8 +241,42 @@ class DatasheetAnalysisTest extends TestCase
         $this->actingAs($user)
             ->deleteJson('/api/datasheet-analyses/'.$analysis->public_id)
             ->assertOk()
-            ->assertJsonPath('data.state', DatasheetAnalysis::STATE_FAILED)
-            ->assertJsonPath('data.finished', true);
+            // 利用者の操作どおりに終わった状態であり、失敗として扱わない
+            ->assertJsonPath('data.state', DatasheetAnalysis::STATE_CANCELED)
+            ->assertJsonPath('data.finished', true)
+            // 失敗理由を出すと、自分の操作を不具合と誤解させる
+            ->assertJsonPath('data.failure_kind', null)
+            ->assertJsonPath('data.failure_message', null)
+            // 同じPDFでそのままやり直せる
+            ->assertJsonPath('data.retryable', true);
+    }
+
+    /**
+     * 目的: 中止済みの解析をワーカーが上書きしないことを検証する。
+     * 機能: 中止後にジョブの失敗処理が走っても状態が変わらないことを確認する。
+     * 入力: なし。
+     * 出力: 検証結果をPHPUnitアサーションへ渡す。
+     * 動作条件: RefreshDatabase で実行されること。
+     * 副作用: テストDBを利用する。
+     */
+    public function test_canceled_analysis_is_not_overwritten_by_worker(): void
+    {
+        $user = $this->editor();
+
+        $analysis = DatasheetAnalysis::create([
+            'public_id' => (string) \Illuminate\Support\Str::uuid(),
+            'user_id' => $user->id,
+            'temp_token' => 'token-canceled',
+            'engine' => 'fake',
+            'state' => DatasheetAnalysis::STATE_CANCELED,
+            'finished_at' => now(),
+        ]);
+
+        // 中止の直後にワーカー側の時間超過処理が走っても、中止のまま残ること
+        (new \App\Jobs\AnalyzeDatasheetJob($analysis->id))->failed(null);
+
+        $this->assertSame(DatasheetAnalysis::STATE_CANCELED, $analysis->fresh()->state);
+        $this->assertNull($analysis->fresh()->failure_kind);
     }
 
     /**

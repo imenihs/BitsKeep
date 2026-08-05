@@ -113,10 +113,12 @@ class DatasheetAnalysisController extends Controller
 
         // 完了済みの結果は破棄操作で書き換えない。取り違えて結果を失わせないため
         if (! $analysis->isFinished()) {
+            // 中止は利用者の操作どおりの結果であり、失敗ではない。
+            // 失敗として記録すると画面が不具合のように見え、原因を探させてしまう
             $analysis->update([
-                'state' => DatasheetAnalysis::STATE_FAILED,
-                'failure_kind' => DatasheetAnalysis::FAILURE_UNKNOWN,
-                'failure_message' => '解析を中止しました。',
+                'state' => DatasheetAnalysis::STATE_CANCELED,
+                'failure_kind' => null,
+                'failure_message' => null,
                 'finished_at' => now(),
             ]);
         }
@@ -193,7 +195,11 @@ class DatasheetAnalysisController extends Controller
             'engine' => $analysis->engine,
             'failure_kind' => $analysis->failure_kind,
             'failure_message' => $analysis->failure_message,
-            'retryable' => $analysis->state === DatasheetAnalysis::STATE_FAILED && $analysis->isRetryable(),
+            // 中止した解析も同じPDFでやり直せるため、再実行導線を出す対象に含める
+            'retryable' => in_array($analysis->state, [
+                DatasheetAnalysis::STATE_FAILED,
+                DatasheetAnalysis::STATE_CANCELED,
+            ], true) && $analysis->isRetryable(),
             'input_mode' => $analysis->input_mode,
             'input_page_count' => $analysis->input_page_count,
             // 未完了時に結果キーを持たせると、画面が空の候補を確認モーダルへ渡してしまう
