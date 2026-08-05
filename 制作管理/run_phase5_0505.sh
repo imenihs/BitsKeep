@@ -4,7 +4,7 @@ set -euo pipefail
 # 目的: Phase 5-5 から 5-7 の作業再開をログと通知で促す一回限りリマインダ。
 # 入力: cron実行時刻と固定リポジトリパス。出力: makinglogへの追記、任意のデスクトップ通知/syslog。
 # 動作条件: crontab が利用できること。副作用: 対象cronマーカーの行を削除する。
-REPO_ROOT="/web/documents/BitsKeep"
+REPO_ROOT="/web/BitsKeep"
 LOG_FILE="$REPO_ROOT/制作管理/makinglog.md"
 PLAN_FILE="$REPO_ROOT/制作管理/実装進捗チェックリスト.md"
 MARKER="# bitskeep_phase5_0505_once"

@@ -167,7 +167,7 @@ vendor/bin/pint        # コード整形
 - コミット対象は全ファイル。
 
 ## ドキュメント管理
-- README はプロジェクト直下の `/web/documents/BitsKeep/README.md` とする。
+- README はプロジェクト直下の `/web/BitsKeep/README.md` とする。
 - 機能追加・修正時は `README.md` も更新する。
 - README を更新したら `bits-keep/resources/views/app/help.blade.php` も同内容に合わせて更新する（アプリ内ヘルプページ）。
 - 設計仕様・ユーザー指示、設計ドラフトは `仕様書.md` に追記・更新する。
