@@ -8337,3 +8337,69 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 事故防止として、手順の冒頭に「そこが本当に本番機か」の確認と、`.env` が sqlite だった場合は作業を進めてはならない旨を置いた。DB 適用手順には4点確認の記録を実行前提として明記した。
 - DB変更: なし。ドキュメント追加のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
 - 大将の心の声: 引き継ぎで一番失われるのは「なぜそうしたか」だ。手順だけ渡すと、後任が良かれと思って入口を増やしたり、解析指示を引数へ戻したりする。変えてはいけない設計前提と、自分が実際に踏んだ罠を並べて残した。pint でビュー変更を消した件も、格好は悪いが書いておかないと同じ手で消される。
+
+### [ユーザ] 2026-08-06 00:59 JST
+- 指示: データシート「サーバ内解析」の本番投入を引き継ぎ、残作業を実施する。作業ブランチは `claude/datasheet-codex-cli-v33dfp` を継続し、push はしない（コミットは可）。
+- 指示: Codex CLI の認証は案B（www-data として専用 CODEX_HOME でデバイスコード認証）を採用する。
+- ユーザの心の声: 個人ユーザのトークンを流用して後から失効するより、最初から独立した認証にしておきたい。
+
+### [大将] 2026-08-06 00:59 JST
+- 着手: サーバ内解析の本番投入。残作業はチェックリストの項目1〜8および別件1件。
+- 環境確認（実機実測）: `bits-keep-ssl.conf` 存在、`pg_isready` 応答あり、`.env` は `DB_CONNECTION=pgsql` / `DB_DATABASE=bitskeep`、`public/hot` なし。本番機であることを確認した。
+- 既完了の判明: 項目1（`pdftotext` `pdftoppm` = `/usr/bin/`）と項目2（`codex` = `/usr/local/bin/codex`, codex-cli 0.128.0）は導入済み。いずれも既定パスのため `.env` への `PDFTOTEXT_BINARY` / `PDFTOPPM_BINARY` / `CODEX_BINARY` 追記は不要。
+- 認証方式の判断: `~/.codex/auth.json` は個人ユーザ AkiraShimizu 所有（600）で www-data からは読めない。個人トークンの複製案（案A）はトークン自動更新の相互干渉と個人利用枠の消費という運用リスクがあるためユーザへ提示し、案B（www-data 専用 CODEX_HOME でのデバイスコード認証）の採用指示を得た。
+- DB変更: 項目6の migration は本作業に含まれるが、実行前に接続先確認・件数確認・バックアップ確認・復元手段確認の4点を本ログへ記録する。記録前に `migrate` は実行しない。`db:wipe` `migrate:fresh` `truncate` `drop` は一切実行しない。
+- 大将の心の声: 項目1と2が既に済んでいたのは幸運だが、勝手に「では4も済んでいるだろう」と推し量らずに実機で確かめたのは正しかった。認証主体がユーザ個人だった事実は、確認していなければ後日の突然死になっていた。
+
+### [大将] 2026-08-06 01:08 JST
+- 対象: チェックリスト項目6「本番 DB へ migration を適用する」。DB変更の絶対ルールに基づく事前4点確認の記録。実行はこの記録の後に行う。
+
+**(1) 接続先確認**
+- `.env` 実値: `DB_CONNECTION=pgsql` / `DB_HOST=127.0.0.1` / `DB_PORT=5432` / `DB_DATABASE=bitskeep` / `DB_USERNAME=postgres`
+- artisan が解決した実接続: `{"driver":"pgsql","database":"bitskeep","host":"127.0.0.1","port":"5432"}`
+- SQLite ではないことを確認済み。本番 PostgreSQL である。
+
+**(2) 件数確認（適用前）**
+- `components` = 12 / `component_specs` = 29 / `users` = 1 / `suppliers` = 3 / `migrations` = 52
+- `categories` `manufacturers` `spec_definitions` = 該当テーブルなし（N/A）
+- `datasheet_analyses` = NOT EXISTS（新規作成対象であることを確認）
+
+**(3) バックアップ確認**
+- 所在: `/var/backups/bitskeep_pre_datasheet_analyses_20260806_010754.sql.gz`（50,482 バイト、root:root）
+- 取得日時: 2026-08-06 01:07 JST
+- 取得方法: `pg_dump -h 127.0.0.1 -p 5432 -U postgres -d bitskeep | gzip`
+- 健全性: `gzip -t` 通過。末尾まで欠損なく出力されていることを確認済み。
+
+**(4) 復元手段確認**
+- 想定事象A（migration 失敗・テーブルのみ巻き戻す場合）: `php artisan migrate:rollback --step=1` を実行する。当該 migration の `down()` は `Schema::dropIfExists('datasheet_analyses')` のみで、既存テーブルには触れない。
+- 想定事象B（DB 全体を戻す場合）: 上記バックアップから復元する。
+  `zcat /var/backups/bitskeep_pre_datasheet_analyses_20260806_010754.sql.gz | PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d bitskeep`
+- 適用対象 migration: `2026_07_30_120000_create_datasheet_analyses_table`（Pending 1件のみ）
+- 内容検証: migration 本文を実読し、`Schema::create('datasheet_analyses', ...)` 単独であることを確認した。既存テーブルへの `alter` / `drop` / データ操作は含まれない。
+- 実行コマンド: `php artisan migrate --force` のみ。`db:wipe` `migrate:fresh` `truncate` `drop` は実行しない。
+- 大将の心の声: 破壊的変更がないことは引き継ぎ書に書かれていたが、書かれていることを根拠にせず migration 本文を自分で読んで確かめた。バックアップも取っただけでは意味がなく、`gzip -t` まで通して初めて戻せる状態と言える。
+
+### [曹長(コード分隊)] 2026-08-06 01:09 JST
+- 実施: `php artisan migrate --force` を本番 PostgreSQL (`bitskeep`) へ適用した。
+- 結果: `2026_07_30_120000_create_datasheet_analyses_table` ... 57.47ms DONE（1件のみ適用、他に適用されたものはない）
+- 適用後の検証（実測）:
+  - `components` = 12（適用前と一致） / `component_specs` = 29（一致） / `users` = 1（一致） / `suppliers` = 3（一致）
+  - `migrations` = 52 → 53（+1。想定どおり）
+  - `datasheet_analyses` = 作成済み・0行
+  - カラム構成: `id, public_id, user_id, temp_token, engine, state, failure_kind, failure_message, input_mode, input_page_count, result, started_at, finished_at, created_at, updated_at`（migration 定義と一致）
+- 判定: ✓ 既存テーブルのデータに変化なし。新規テーブルのみ追加された。
+- 曹長(コード分隊)の心の声: 適用して DONE が出ただけでは確認したことにならない。適用前の件数を控えておいたおかげで、既存データが無傷だと数字で言い切れる。
+
+### [曹長(コード分隊)] 2026-08-06 01:10 JST
+- 実施: チェックリスト項目5「キューワーカーの常駐」。systemd ユニット `/etc/systemd/system/bitskeep-queue.service` を作成し、`enable --now` した。
+- 構成の根拠:
+  - 実行ユーザ `www-data`: `CodexCliRunner::checkAvailability()` が `is_writable($home)` を実行ユーザ権限で判定するため。`/var/lib/bitskeep-codex` は `www-data:www-data` の 700。Apache/PHP-FPM と同一ユーザにすることで、連携設定画面の利用可否判定とワーカーの実行権限が一致する。
+  - `CODEX_HOME` は systemd では渡していない。`CodexCliRunner` が `config('datasheet.codex.home')` を読んで子プロセスの環境へ自分で設定するため不要（同ファイル 225-229 行で確認）。`HOME` のみ明示。
+  - `--tries=1`: 解析は利用枠を消費するため自動再試行しない。ジョブクラス側の `$tries = 1` とも一致。
+  - `Restart=always` / `WantedBy=multi-user.target`: 異常終了時の再起動とサーバ再起動後の自動復帰。
+- 検証（実測）:
+  - `systemctl is-enabled` = enabled、`is-active` = active（PID 185687）
+  - 実ジョブ投入試験: `App\Jobs\AnalyzeDatasheetJob` → journal に `RUNNING` → `46.26ms DONE`。`jobs`=0 / `failed_jobs`=0。アプリログに想定経路（該当記録なしでスキップ）を1件確認。
+  - 判定: ✓ ワーカーはキューからジョブを取得し、実ジョブクラスを解決・実行できる。
+- 補足（誤検知の記録）: 最初にクロージャを `Queue::pushOn` で投入した試験は `failed_jobs` に1件入ったが、原因は `SerializableClosure` の復元失敗（`bindTo() on null`）であり、ワーカーの不具合ではなくテスト手法の問題。実ジョブクラスでの再試験で正常動作を確認した。試験残骸は `queue:flush` で除去済み。
+- 曹長(コード分隊)の心の声: 常駐している状態と、ジョブを処理できる状態は別物。実ジョブクラスまで通して初めて動くと言える。最初の失敗を「ワーカーが壊れている」と早合点しなくてよかった。
