@@ -52,7 +52,9 @@ class CodexCliRunner
         } elseif (! $homeWritable) {
             $message = "Codex 設定ディレクトリ {$home} が書き込み可能ではありません。認証トークンの自動更新ができないため、キューワーカー実行ユーザの権限を確認してください。";
         } elseif (! $authenticated) {
-            $message = 'Codex にログインしていません。サーバ上で codex login --device-auth を実行してください。';
+            // 具体的なログイン手順は CLI の版で変わるため画面には出さない。
+            // 利用者が自力で対処できる作業ではないので、管理者への依頼を促す
+            $message = 'サーバ内解析の利用登録が切れています。復旧はサーバ管理者の作業が必要です。管理者へ連絡してください。';
         }
 
         return [

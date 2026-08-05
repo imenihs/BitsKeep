@@ -211,16 +211,34 @@ Tampermonkey連携が未接続でも、部品登録画面を開いただけで�
    sudo chmod 700 /var/lib/bitskeep-codex
    ```
 4. **サーバ上でログインする**
-   ブラウザのないサーバではデバイスコード方式を使います。表示されたコードを手元のブラウザで承認します。
+   ログインはブラウザでの承認が必要です。サーバにブラウザがない場合は、手元の PC から SSH ポートフォワードを張り、手元のブラウザで承認します。
+
+   まず手元の PC で、サーバの承認用ポートを転送します（接続したままにします）。
    ```bash
-   sudo -u www-data CODEX_HOME=/var/lib/bitskeep-codex HOME=/var/lib/bitskeep-codex codex login --device-auth
+   ssh -p <SSHポート> -L 1455:localhost:1455 <ユーザー>@<サーバー>
    ```
-5. **キューワーカーを常駐させる**
-   解析はキュー経由で実行するため、ワーカーが動いていないと解析が `順番待ち` のまま進みません。systemd などで常駐させます。
+   次にサーバ側でログインを開始します。表示された URL を手元のブラウザで開いて承認します。
+   ```bash
+   sudo -u www-data env CODEX_HOME=/var/lib/bitskeep-codex HOME=/var/lib/bitskeep-codex codex login
+   ```
+   `/var/lib/bitskeep-codex/auth.json` ができれば成功です。
+
+   > Codex CLI は「ヘッドレス環境では `--device-auth` を使う」と案内することがありますが、この指定は版によっては用意されていません。使えない場合は上記のポートフォワード方式で承認します。
+
+5. **サンドボックス用ディレクトリの権限を固定する**
+   Codex は解析時、`/tmp/codex-bwrap-synthetic-mount-targets/` という**実行ユーザ共通の固定パス**へロックを作ります。ここが別のユーザ所有で作られているとキューワーカーから書き込めず、**解析は成功扱いのまま結果だけ空になります**。`/tmp` は再起動で消えるため、次の定義を置いて権限を固定します。
+   ```bash
+   echo 'd /tmp/codex-bwrap-synthetic-mount-targets 1777 root root -' \
+     | sudo tee /etc/tmpfiles.d/bitskeep-codex.conf
+   sudo systemd-tmpfiles --create /etc/tmpfiles.d/bitskeep-codex.conf
+   ```
+
+6. **キューワーカーを常駐させる**
+   解析はキュー経由で実行するため、ワーカーが動いていないと解析が `順番待ち` のまま進みません。systemd などで常駐させます。実行ユーザは、手順 3 のディレクトリへ書き込める `www-data` に合わせます。
    ```bash
    php artisan queue:work --queue=default --tries=1
    ```
-6. **連携設定で確認する**
+7. **連携設定で確認する**
    `連携設定 > 解析の実行方式` を開き、`サーバ内解析` が `利用可能` になっていることを確認します。
 
 環境変数で上書きできる主な設定は次のとおりです。既定値のままでも動きます。
