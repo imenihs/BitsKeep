@@ -8651,3 +8651,44 @@ backup.js・design-tools.js の `.toFixed()` は電気計算値・ファイル�
 - 作業順序: **Claude 実装 → 実データで動作確認 → Codex 削除** の順で行う。先に Codex を消すと解析できない時間が生じるため。最終形は案B（Claude のみ）で変わらない。
 - DB変更: なし。アプリケーションコードと設定の変更のみで、マイグレーション、seed、migrate、db:wipe、truncate、drop は実行しない。
 - 大将の心の声: 置き換えを指示された以上、中途半端に Codex を残さない。ただし動作確認前に消すのは順序が違う。最終形が同じなら安全な順序を選ぶ。
+
+### [曹長(コード分隊)] 2026-08-06 10:35 JST
+- 実施: 解析エンジンを Codex CLI から Claude CLI へ置き換え（案B）。
+
+**認証**
+- ユーザが SSH セッションから `claude auth login --claudeai` を実行し承認。
+- 生成物: `/var/lib/bitskeep-claude/.credentials.json`（www-data:www-data、600）
+- **方式は OAuth サブスクリプション（subscriptionType=max / rateLimitTier=default_claude_max_5x）**。`ANTHROPIC_API_KEY` は未設定で API 従量課金を伴わない。ユーザ制約を満たすことを実測で確認した。
+- `--console` を選ぶと API 従量課金になるため、README の手順に禁止を明記した。
+
+**実装**
+- 追加: `ClaudeCliRunner`（非対話実行・スキーマ強制・失敗分類）、`ClaudeDatasheetAnalyzer`（作業ディレクトリ管理・PDF前処理連携）
+- 変更: `config/datasheet.php` の `codex.*` → `claude.*`、既定エンジンを `claude` へ、`AppServiceProvider` の登録差し替え
+- **差し替え口（DatasheetAnalyzerRegistry）と後段は無変更**。正規化→スペック詳細照合→分類推薦は全エンジン共通の1経路のまま。
+- 削除: `CodexCliRunner`、`CodexDatasheetAnalyzer`、`/etc/tmpfiles.d/bitskeep-codex.conf`
+
+**実測（本番、Web経由）**
+
+| 方式 | 対象 | 所要 | 分類率 | 誤マッチ |
+|---|---|---|---|---|
+| text | 2SC1213 | 約71秒 | 15/15（100%） | 0件 |
+| image | 2SC945（150dpi・3ページ） | 約250秒 | 16/16（100%） | 0件 |
+
+- Codex（text 58秒 / image 61秒）と品質は同等。**画像方式は約4倍遅い**。
+- 型番・メーカー・パッケージいずれも正しく抽出。2SC1213 のメーカーが Codex では「ルネサス テクノロジ」、Claude では「日立製作所」となったが、これは移管の経緯によるもので**どちらも誤りではない**。
+
+**設定変更**
+- `DATASHEET_ANALYSIS_TIMEOUT` の既定を 300 → **600秒**へ変更。画像方式の実測250秒に対し300秒では余裕が50秒しかなく、ページ数が増えれば超過する。品質は十分なのに時間だけで失敗させると利用者が原因を掴めない。ジョブ側上限は `analysis_timeout + 120` で自動追随（720秒）。
+
+**Codex 方式で起きていた問題が構造的に解消**
+- bubblewrap を使わないため、`/tmp` の実行ユーザ共通ロックに起因する「成功扱いのまま結果だけ空」が起きない。tmpfiles.d による権限固定も不要になった。
+- 未認証が `is_error` で明示的に返る。
+
+**残置したもの**
+- `/var/lib/bitskeep-codex`（129MB、Codex の認証情報）は削除していない。Claude 方式の長期安定性が未確認のため、当面は戻せる状態を保つ。不要と判断した時点で削除する。
+
+**検証**
+- 全体テスト 121 passed（2235 assertions）、失敗0件。
+- 連携設定APIの期待値が `codex` 固定だったため `claude` へ更新（実装の不具合ではなくテストの追随漏れ）。
+- ドキュメント更新: README の管理者手順、環境変数表、仕様書へ設計判断を追記。
+- 曹長(コード分隊)の心の声: 置き換えを指示されたが、先に Codex を消すと動かせない時間ができる。実装→実測→削除の順にしたので、途中で問題が出ても戻せた。画像方式が4倍遅いのは想定外で、タイムアウト既定のままなら本番で失敗が出ていた。

@@ -199,41 +199,28 @@ Tampermonkey連携が未接続でも、部品登録画面を開いただけで�
    ```bash
    sudo apt install poppler-utils
    ```
-2. **Codex CLI を入れる**
+2. **Claude CLI を入れる**
    ```bash
-   sudo npm install -g @openai/codex
+   sudo npm install -g @anthropic-ai/claude-code
    ```
 3. **解析専用の設定ディレクトリを作る**
    認証情報は自動更新されるため、キューワーカーの実行ユーザから書き込めるディレクトリが必要です。Web サーバ実行ユーザのホームは使いません。
    ```bash
-   sudo mkdir -p /var/lib/bitskeep-codex
-   sudo chown www-data:www-data /var/lib/bitskeep-codex
-   sudo chmod 700 /var/lib/bitskeep-codex
+   sudo mkdir -p /var/lib/bitskeep-claude
+   sudo chown www-data:www-data /var/lib/bitskeep-claude
+   sudo chmod 700 /var/lib/bitskeep-claude
    ```
 4. **サーバ上でログインする**
-   ログインはブラウザでの承認が必要です。サーバにブラウザがない場合は、手元の PC から SSH ポートフォワードを張り、手元のブラウザで承認します。
-
-   まず手元の PC で、サーバの承認用ポートを転送します（接続したままにします）。
+   SSH でサーバへ入り、解析用のユーザとしてログインします。表示された URL を手元のブラウザで開いて承認します。
    ```bash
-   ssh -p <SSHポート> -L 1455:localhost:1455 <ユーザー>@<サーバー>
+   sudo -u www-data env CLAUDE_CONFIG_DIR=/var/lib/bitskeep-claude HOME=/var/lib/bitskeep-claude \
+     claude auth login --claudeai
    ```
-   次にサーバ側でログインを開始します。表示された URL を手元のブラウザで開いて承認します。
-   ```bash
-   sudo -u www-data env CODEX_HOME=/var/lib/bitskeep-codex HOME=/var/lib/bitskeep-codex codex login
-   ```
-   `/var/lib/bitskeep-codex/auth.json` ができれば成功です。
+   `/var/lib/bitskeep-claude/.credentials.json` ができれば成功です。
 
-   > Codex CLI は「ヘッドレス環境では `--device-auth` を使う」と案内することがありますが、この指定は版によっては用意されていません。使えない場合は上記のポートフォワード方式で承認します。
+   > **`--claudeai` を必ず付けてください。** これは Claude のサブスクリプションで利用する指定です。代わりに `--console` を選ぶと API 従量課金での利用になり、想定外の費用が発生します。
 
-5. **サンドボックス用ディレクトリの権限を固定する**
-   Codex は解析時、`/tmp/codex-bwrap-synthetic-mount-targets/` という**実行ユーザ共通の固定パス**へロックを作ります。ここが別のユーザ所有で作られているとキューワーカーから書き込めず、**解析は成功扱いのまま結果だけ空になります**。`/tmp` は再起動で消えるため、次の定義を置いて権限を固定します。
-   ```bash
-   echo 'd /tmp/codex-bwrap-synthetic-mount-targets 1777 root root -' \
-     | sudo tee /etc/tmpfiles.d/bitskeep-codex.conf
-   sudo systemd-tmpfiles --create /etc/tmpfiles.d/bitskeep-codex.conf
-   ```
-
-6. **キューワーカーを常駐させる**
+5. **キューワーカーを常駐させる**
    解析はキュー経由で実行するため、ワーカーが動いていないと解析が `順番待ち` のまま進みません。systemd などで常駐させます。実行ユーザは、手順 3 のディレクトリへ書き込める `www-data` に合わせます。
    ```bash
    php artisan queue:work --queue=default --tries=1
@@ -244,19 +231,19 @@ Tampermonkey連携が未接続でも、部品登録画面を開いただけで�
    > sudo systemctl restart bitskeep-queue
    > ```
 
-7. **連携設定で確認する**
+6. **連携設定で確認する**
    `連携設定 > 解析の実行方式` を開き、`サーバ内解析` が `利用可能` になっていることを確認します。
 
 環境変数で上書きできる主な設定は次のとおりです。既定値のままでも動きます。
 
 | 変数 | 既定値 | 用途 |
 |---|---|---|
-| `DATASHEET_ENGINE` | `codex` | 連携設定が未保存のときの解析方式 |
-| `DATASHEET_ANALYSIS_TIMEOUT` | `300` | 解析1件に許す秒数 |
-| `CODEX_BINARY` | `/usr/local/bin/codex` | Codex CLI の実行ファイル |
-| `CODEX_HOME` | `/var/lib/bitskeep-codex` | Codex の設定と認証情報の置き場所 |
-| `CODEX_MODEL` | 未指定 | 解析に使うモデル。未指定なら Codex 側の既定 |
-| `CODEX_WORKSPACE_ROOT` | OS の一時ディレクトリ配下 | 解析ごとの作業ディレクトリの親。**アプリ配下は指定不可** |
+| `DATASHEET_ENGINE` | `claude` | 連携設定が未保存のときの解析方式 |
+| `DATASHEET_ANALYSIS_TIMEOUT` | `600` | 解析1件に許す秒数。ページ画像方式は実測で250秒前後かかる |
+| `CLAUDE_BINARY` | `/usr/local/bin/claude` | Claude CLI の実行ファイル |
+| `CLAUDE_CONFIG_DIR` | `/var/lib/bitskeep-claude` | Claude の設定と認証情報の置き場所 |
+| `CLAUDE_MODEL` | 未指定 | 解析に使うモデル。未指定なら Claude 側の既定 |
+| `CLAUDE_WORKSPACE_ROOT` | OS の一時ディレクトリ配下 | 解析ごとの作業ディレクトリの親。**アプリ配下は指定不可** |
 | `PDFTOTEXT_BINARY` | `/usr/bin/pdftotext` | PDF から文字を取り出すコマンド |
 | `PDFTOPPM_BINARY` | `/usr/bin/pdftoppm` | PDF をページ画像へ変換するコマンド |
 | `DATASHEET_PDF_TEXT_THRESHOLD` | `800` | この文字数を下回るPDFはスキャン原稿と判断してページ画像へ切り替える |

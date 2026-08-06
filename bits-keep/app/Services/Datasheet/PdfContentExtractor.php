@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * PDF から解析エンジンへ渡せる入力を取り出す。
- * Codex CLI は PDF を直接受け取れないため、テキスト層があるPDFは文字として、
+ * 解析エンジンは PDF を直接受け取れないため、テキスト層があるPDFは文字として、
  * テキスト層のないスキャンPDFはページ画像として渡せる形へ変換する。
  */
 class PdfContentExtractor

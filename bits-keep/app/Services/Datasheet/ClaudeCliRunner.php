@@ -184,9 +184,9 @@ class ClaudeCliRunner
         }
 
         // 画像方式はページ順が崩れると規格表の対応が壊れるため、ファイル名の順序であることを明示する
-        $fileNames = array_map( fn ($path) => basename((string) $path), $extraction->imagePaths);
+        $fileNames = array_map(fn ($path) => basename((string) $path), $extraction->imagePaths);
         $pageCount = count($fileNames);
-        $list = implode(', ', array_map( fn ($name) => "`{$name}`", $fileNames));
+        $list = implode(', ', array_map(fn ($name) => "`{$name}`", $fileNames));
 
         return "作業ディレクトリ直下の次の{$pageCount}枚の画像は、解析対象データシートPDFの先頭から{$pageCount}ページ分を、"
             ."ファイル名の順にページ順で画像化したものです: {$list}\n"

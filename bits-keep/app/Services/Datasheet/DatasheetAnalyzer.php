@@ -15,7 +15,7 @@ interface DatasheetAnalyzer
      * 目的: エンジン識別子を返す。
      * 機能: 設定値や解析記録に保存する内部キーを返す。
      * 入力: なし。
-     * 出力: codex や gemini といった識別子。
+     * 出力: claude や gemini といった識別子。
      * 動作条件: なし。
      * 副作用: なし。
      */
