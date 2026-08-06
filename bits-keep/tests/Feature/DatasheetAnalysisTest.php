@@ -295,7 +295,7 @@ class DatasheetAnalysisTest extends TestCase
             ->getJson('/api/settings/integrations/datasheet-engine')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.active', 'codex');
+            ->assertJsonPath('data.active', 'claude');
 
         $this->actingAs($user)
             ->putJson('/api/settings/integrations/datasheet-engine', ['engine' => 'gemini'])
