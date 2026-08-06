@@ -9,7 +9,7 @@ return [
     | 連携設定で未指定の場合に使うエンジン。利用者はエンジンを毎回選ばず、
     | 運用設定としてここまたは連携設定で決める。
     */
-    'default_engine' => env('DATASHEET_ENGINE', 'codex'),
+    'default_engine' => env('DATASHEET_ENGINE', 'claude'),
 
     /*
     |--------------------------------------------------------------------------
@@ -20,27 +20,27 @@ return [
     */
     'analysis_timeout' => (int) env('DATASHEET_ANALYSIS_TIMEOUT', 300),
 
-    'codex' => [
+    'claude' => [
 
-        // codex 実行ファイル。PATH に依存させず絶対パス指定を既定にする
-        'binary' => env('CODEX_BINARY', '/usr/local/bin/codex'),
+        // claude 実行ファイル。PATH に依存させず絶対パス指定を既定にする
+        'binary' => env('CLAUDE_BINARY', '/usr/local/bin/claude'),
 
         /*
-        | Codex の設定と認証情報を置くディレクトリ。
+        | Claude の設定と認証情報を置くディレクトリ。
         | 認証トークンは自動更新されるため、キューワーカーの実行ユーザから
         | 書き込み可能である必要がある。Webサーバ実行ユーザのホームは使わない。
         */
-        'home' => env('CODEX_HOME', '/var/lib/bitskeep-codex'),
+        'home' => env('CLAUDE_CONFIG_DIR', '/var/lib/bitskeep-claude'),
 
-        // 解析に使うモデル。未指定なら Codex 側の既定モデルに任せる
-        'model' => env('CODEX_MODEL') ?: null,
+        // 解析に使うモデル。未指定なら Claude 側の既定モデルに任せる
+        'model' => env('CLAUDE_MODEL') ?: null,
 
         /*
         | 解析ごとの作業ディレクトリを置く親ディレクトリ。
-        | リポジトリ配下へ置くと AGENTS.md や CLAUDE.md が読み込まれ
+        | リポジトリ配下へ置くと CLAUDE.md などの指示ファイルが読み込まれ
         | 解析プロンプトが汚染されるため、リポジトリ外を既定にする。
         */
-        'workspace_root' => env('CODEX_WORKSPACE_ROOT', sys_get_temp_dir().'/bitskeep-datasheet'),
+        'workspace_root' => env('CLAUDE_WORKSPACE_ROOT', sys_get_temp_dir().'/bitskeep-datasheet'),
     ],
 
     'pdf' => [

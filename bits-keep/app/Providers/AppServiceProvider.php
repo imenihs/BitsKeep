@@ -7,7 +7,7 @@ use App\Models\InventoryBlock;
 use App\Models\Transaction;
 use App\Observers\AuditObserver;
 use App\Services\AppSettingService;
-use App\Services\Datasheet\CodexDatasheetAnalyzer;
+use App\Services\Datasheet\ClaudeDatasheetAnalyzer;
 use App\Services\Datasheet\DatasheetAnalyzerRegistry;
 use App\Services\Datasheet\GeminiDatasheetAnalyzer;
 use Illuminate\Support\ServiceProvider;
@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DatasheetAnalyzerRegistry::class, function ($app) {
             return new DatasheetAnalyzerRegistry(
                 [
-                    $app->make(CodexDatasheetAnalyzer::class),
+                    $app->make(ClaudeDatasheetAnalyzer::class),
                     $app->make(GeminiDatasheetAnalyzer::class),
                 ],
                 $app->make(AppSettingService::class),
